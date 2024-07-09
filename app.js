@@ -1,31 +1,37 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
 const crypto = require('crypto');
-
+const { ulid } = require('ulid');
+const nacl = require('tweetnacl');
+nacl.util = require('tweetnacl-util');
 const app = express();
-const SECRET_KEY = crypto.randomBytes(64).toString('hex');
+
+// Generate key pair
+const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', {
+  namedCurve: 'P-256',
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
+  privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+});
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Mock user database
-const users = [
+const listofrodits = [
   { id: 1, roditid: 'user', roditsignature: 'password' }
 ];
 
 // Custom middleware for JWT authentication
 const authenticateJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
-
   if (authHeader) {
     const token = authHeader.split(' ')[1];
-
-    jwt.verify(token, SECRET_KEY, { algorithms: ['HS256'] }, (err, payload) => {
+    jwt.verify(token, publicKey, { algorithms: ['EdDSA'] }, (err, payload) => {
       if (err) {
         return res.status(403).json({ message: 'Invalid or expired token' });
       }
-
       req.user = payload;
       next();
     });
@@ -46,31 +52,28 @@ app.get('/', (req, res) => {
 
 app.post('/login', (req, res) => {
   const { roditid, roditsignature } = req.body;
-  const user = users.find(u => u.roditid === roditid && u.roditsignature === roditsignature);
-
-  if (user) {
+  const token_id = listofrodits.find(u => u.roditid === roditid && u.roditsignature === roditsignature);
+  if (token_id) {
     const now = Math.floor(Date.now() / 1000);
     const token = jwt.sign({
       iss: 'your-app-name',
-      sub: user.id.toString(),
+      sub: token_id.id.toString(),
       aud: 'your-app-client',
       exp: now + 3600,
       nbf: now,
       iat: now,
-      jti: urlSafeBase64(crypto.randomBytes(16).toString('base64')),
-      roditid: user.roditid
-    }, SECRET_KEY, { 
-      algorithm: 'HS256',
-      encoding: 'utf8',
-      header: { 
+      jti: ulid(),
+      roditid: token_id.roditid
+    }, privateKey, {
+      algorithm: 'ES256',
+      header: {
         typ: 'JWT',
-        alg: 'HS256'
+        alg: 'ES256'
       }
     });
 
     // Ensure the entire token is URL-safe
     const urlSafeToken = token.split('.').map(urlSafeBase64).join('.');
-
     res.json({ token: urlSafeToken });
   } else {
     res.status(401).json({ message: 'Invalid credentials' });
