@@ -11,7 +11,7 @@ app.use(express.urlencoded({ extended: false }));
 
 // Mock user database
 const users = [
-  { id: 1, username: 'user', password: 'password' }
+  { id: 1, roditid: 'user', roditsignature: 'password' }
 ];
 
 // Custom middleware for JWT authentication
@@ -45,8 +45,8 @@ app.get('/', (req, res) => {
 });
 
 app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  const user = users.find(u => u.username === username && u.password === password);
+  const { roditid, roditsignature } = req.body;
+  const user = users.find(u => u.roditid === roditid && u.roditsignature === roditsignature);
 
   if (user) {
     const now = Math.floor(Date.now() / 1000);
@@ -58,7 +58,7 @@ app.post('/login', (req, res) => {
       nbf: now,
       iat: now,
       jti: urlSafeBase64(crypto.randomBytes(16).toString('base64')),
-      username: user.username
+      roditid: user.roditid
     }, SECRET_KEY, { 
       algorithm: 'HS256',
       encoding: 'utf8',
