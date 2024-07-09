@@ -1,0 +1,29 @@
+{
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "jsonwebtoken": "^9.0.2",
+    "nodemon": "^3.1.4",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0"
+  },
+  "name": "cgapi",
+  "version": "1.0.0",
+  "description": "Description",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cableguard/cgapi.git"
+  },
+  "author": "Vicente Aceituno Canal",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cableguard/cgapi/issues"
+  },
+  "homepage": "https://github.com/cableguard/cgapi#readme"
+}
