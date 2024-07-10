@@ -3,8 +3,10 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const crypto = require('crypto');
 const { ulid } = require('ulid');
+const bs58 = require('bs58');
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
+const { verify_isthererodit_getit } = require('./middleware/rodit');
 const app = express();
 
 // Generate key pair
@@ -19,9 +21,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Mock user database
-const listofrodits = [
-  { id: 1, roditid: 'user', roditsignature: 'password' }
-];
+// const listofrodits = [
+// ];
+
+
+
+const rodit_id = '01J21A0SCF4PCV5B4N9RVFRSDK';
+/*
+const buffer_rodit_id = Buffer.from(rodit_id);
+const bytes_rodit_id = new Uint8Array(buffer_rodit_id);
+const pk = bs58.decode('65vYWBogcQ9cUTxzuv25SMKSqsSfAWM9uG2J1AQMXvzPgw2JbyWz4E15cBNaLNHYHudMaTycMFdLvFECRWPzhutG');
+const buffer_private_key = Buffer.from(pk);
+const bytes_private_key = new Uint8Array(buffer_private_key);
+const rodit_signature = nacl.sign.detached(bytes_rodit_id, bytes_private_key);
+*/
+
+const base64_rodit_signature = 'vWNT6Jeh5ZkvT/mpFVPIJ2CfO8aDX8a0M1qqCK4qlfH+wwCkzT7GNfPGBkyaE7ze/LKmNObuaJL8VaJw4nRrCw==';
+console.debug(`Info: rodit_signature ${base64_rodit_signature}`);
 
 // Custom middleware for JWT authentication
 const authenticateJWT = (req, res, next) => {
@@ -52,12 +68,12 @@ app.get('/', (req, res) => {
 
 app.post('/login', (req, res) => {
   const { roditid, roditsignature } = req.body;
-  const token_id = listofrodits.find(u => u.roditid === roditid && u.roditsignature === roditsignature);
+  const token_id = verify_isthererodit_getit(rodit_id, base64_rodit_signature);
   if (token_id) {
     const now = Math.floor(Date.now() / 1000);
     const token = jwt.sign({
       iss: 'your-app-name',
-      sub: token_id.id.toString(),
+      sub: token_id.toString(),
       aud: 'your-app-client',
       exp: now + 3600,
       nbf: now,
