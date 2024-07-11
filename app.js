@@ -6,7 +6,7 @@ const { ulid } = require('ulid');
 const bs58 = require('bs58');
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
-const { verify_isthererodit_getit, verify_rodit_isamatch,verify_rodit_islive,Rodit} = require('./middleware/rodit');
+const { verify_isthererodit_getit, verify_rodit_isamatch,verify_rodit_islive,verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,Rodit} = require('./middleware/rodit');
 const app = express();
 
 // Generate key pair for the token
@@ -22,6 +22,7 @@ app.use(express.urlencoded({ extended: false }));
 
 const rodit_id = '01J21A0SCBQVF7RSKMQ945ET57';
 const ownServiceProviderId = 'bc=near.org;sc=09313-cableguard-org.testnet;id=01J21A0S9NJCFXHZ3VA53K097M';
+const ownSubjectUniqueIdentifierUrl = 'vpn.cableguard.net';
 // const buffer_rodit_id = Buffer.from(rodit_id);
 // const bytes_rodit_id = new Uint8Array(buffer_rodit_id);
 // const pk = bs58.decode('2y5B1239V6KeB4sbgBJEmzn8r1zHd6XwDhDZCEkLJdAJWj5ttyezLRsqoGJ7RcTgJTBxJDQYTuUjinETTXoYMs85');
@@ -76,6 +77,14 @@ app.post('/login', async (req, res) => {
     const IsLive = await verify_rodit_islive(rodit.metadata.notafter, rodit.metadata.notbefore);
 
     console.debug('app.js Rodit is live result is:', IsLive );
+
+    const IsActive = await verify_rodit_isactive(roditid, ownSubjectUniqueIdentifierUrl)
+
+    console.debug('app.js Rodit is active result is:', IsActive );
+
+    const IsTrusted = await verify_rodit_istrusted_issuingsmartcontract(ownSubjectUniqueIdentifierUrl)
+
+    console.debug('app.js Rodit smartcontract is trusted result is:', IsTrusted );
 
     const now = Math.floor(Date.now() / 1000);
     const token = jwt.sign({

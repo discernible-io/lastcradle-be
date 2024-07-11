@@ -7,6 +7,9 @@ const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
 const { base64encode } = require('base64-js');
 const { base64url } = require('base64url');
+const dns = require('dns').promises;
+const { Resolver } = require('dns').promises;
+const { parse } = require('tldts');
 
 // Constants
 const CONSTANTS = {
@@ -19,6 +22,7 @@ const CONSTANTS = {
 
 const RODIT_ID_PK_SZ = 32;
 
+const resolver = new Resolver();
 // Rodit class
 class Rodit {
     constructor() {
@@ -141,6 +145,71 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
         return false;
     }
 }
+
+async function verify_rodit_isactive(tokenId, ownSubjectUniqueIdentifierUrl) {
+  const domainAndExtensionRegex = /(\w+\.\w+)$/;
+
+  // Find the rightmost part (domain and extension)
+  const match = ownSubjectUniqueIdentifierUrl.match(domainAndExtensionRegex);
+
+  if (match) {
+    const domainAndExtension = match[1];
+    const revokingDnsEntry = `${tokenId}.revoked.${domainAndExtension}`;
+
+    try {
+      await resolver.resolveTxt(revokingDnsEntry);
+      console.error(`Error: Peer RODiT ${tokenId} revoked by ${domainAndExtension} as per ${revokingDnsEntry}`);
+      return false;
+    } catch (error) {
+      // If an Error is found, instead of an entry, the Peer RODiT is not revoked
+      console.info("Info: Peer RODiT is not revoked");
+      return true;
+    }
+  } else {
+    // If no domain and extension match is found, the Peer RODiT is not revoked
+    console.info("Info: Peer RODiT is not revoked");
+    return true;
+  }
+}
+
+async function verify_rodit_istrusted_issuingsmartcontract(ownSubjectUniqueIdentifierUrl) {
+  const smartContract = CONSTANTS.SMART_CONTRACT;
+  const smartContractNonear = smartContract.replace(".testnet", "");
+  const smartContractUrl = smartContractNonear.replace("-", ".");
+
+  const domainAndExtension = /(\w+\.\w+)$/;
+
+  // Find the rightmost part (domain and extension)
+  const mainDomainMatch = domainAndExtension.exec(ownSubjectUniqueIdentifierUrl);
+  if (mainDomainMatch) {
+    const domainAndExtension = mainDomainMatch[1];
+    const enablingDnsEntry = `${smartContractNonear}.smartcontract.${domainAndExtension}`;
+    
+    try {
+      const cfgResponse = await resolver.resolveTxt(enablingDnsEntry);
+      if (cfgResponse.length > 0) {
+        console.log("Info: Smart Contract is trusted");
+        return true;
+      } else {
+        console.error(`Error: Smart Contract ${smartContractUrl} not trusted by ${domainAndExtension} in verify_smartcontract_istruste`);
+        return false;
+      }
+    } catch (err) {
+      console.error(`Error: Smart Contract ${smartContractUrl} not trusted by ${domainAndExtension} in verify_smartcontract_istruste`);
+      return false;
+    }
+  } else {
+    console.error(`Error: Domain can't be parsed in verify_rodit_istrusted_issuingsmartcontract`);
+    return false;
+  }
+}
+
+// Example usage:
+// (async () => {
+//   const result = await verifyRoditIsTrustedIssuingSmartContract("example.your_domain.com");
+//   console.log(result);
+// })();
+
 
 function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
     // Helper function to parse date strings
@@ -276,5 +345,5 @@ async function nearorg_rpc_token(xnet, id, method_name, args) {
 }
 
 module.exports = {
-    verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, nearorg_rpc_timestamp,Rodit
+    verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, nearorg_rpc_timestamp,verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,Rodit
 };
