@@ -1,14 +1,17 @@
 // Copyright (c) 2023 Cableguard, Inc. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 
+const axios = require('axios');
+const crypto = require('crypto');
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
-const { base64encode } = require('base64-js'); // Replace with your base64 encoding library
+const { base64encode } = require('base64-js');
+const { base64url } = require('base64url');
 
 // Constants
 const CONSTANTS = {
     SMART_CONTRACT: "09313-cableguard-org.testnet",
-    BLOCKCHAIN_NETWORK: ".testnet", // IMPORTANT: Values here must be either "testnet." for testnet or "." for mainnet
+    BLOCKCHAIN_NETWORK: ".testnet", // IMPORTANT: Values here must be either ".testnet" for testnet or "." for mainnet
     RODIT_ID_SZ: 128,
     RODIT_ID_SIGNATURE_SZ: 64,
     ED25519_KEY_SZ: 64
@@ -70,6 +73,75 @@ async function verify_isthererodit_getit(rodit_id, base64_rodit_id_signature) {
     }
 }
 
+/* Example usage
+(async () => {
+    const ownServiceProviderId = 'your_service_provider_id';
+    const peerServiceProviderSignature = 'your_peer_service_provider_signature';
+    const peerTokenId = new Uint8Array(RODIT_ID_SZ); // your peer token id
+
+    const result = await verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSignature, peerTokenId);
+    console.log(result);
+})();
+*/
+
+async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSignature, peerTokenId) {
+
+    // Obtain a Own Service Provider RODiT (Mother RODiT) from its ID
+    const args_ownServiceProviderId = JSON.stringify({ token_id: ownServiceProviderId });
+    let ownServiceProviderRodit;
+    try {
+        ownServiceProviderRodit = await nearorg_rpc_token(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
+    } catch (error) {
+        console.error('Error: Peer RODiT does not match Own RODiT - Fetching');
+        return false;
+    }
+
+    // Convert the owner_id string to a Buffer by decoding it from hex
+    let bytes_ownServiceProviderOwnerId;
+    try {
+        bytes_ownServiceProviderOwnerId = new Uint8Array(Buffer.from(ownServiceProviderRodit.owner_id, 'hex'));
+    } catch (error) {
+        console.error('Error: Failed to decode hex string');
+        return false;
+    }
+
+    // Convert the bytes to a Buffer of fixed size
+    if (bytes_ownServiceProviderOwnerId.length !== RODIT_ID_PK_SZ) {
+        console.error('Error: Invalid byte array length');
+        return false;
+    }
+
+    // Convert the owner_id string to a Buffer by decoding it from base64
+    const bytes_peerServiceProviderSignature = new Uint8Array(Buffer.from(peerServiceProviderSignature, 'base64'));
+
+    if (bytes_peerServiceProviderSignature.length !== CONSTANTS.RODIT_ID_SIGNATURE_SZ) {
+        console.error('Error: Invalid public key length');
+        return false;
+    }
+
+    // Convert the token_id string to a Buffer
+    const bytes_peerTokenId = new Uint8Array(Buffer.from(peerTokenId));
+
+    console.debug('Error: ownServiceProviderId', ownServiceProviderId);
+    console.debug('Error: peerServiceProviderSignature', peerServiceProviderSignature);
+    console.debug('Error: peerTokenId', peerTokenId);
+
+    try {
+        const isValid = nacl.sign.detached.verify(bytes_peerTokenId, bytes_peerServiceProviderSignature, bytes_ownServiceProviderOwnerId);
+
+        if (isValid) {
+            console.info('Info Peer RODiT matches Own RODiT');
+            return true;
+        } else {
+            console.error('Error: Peer RODiT does not match Own RODiT');
+            return false;
+        }
+    } catch (error) {
+        console.error('Error: Peer RODiT does not match Own RODiT - Parsing public key');
+        return false;
+    }
+}
+
 async function nearorg_rpc_token(xnet, id, method_name, args) {
     const url = `https://rpc${xnet}.near.org`;
 
@@ -124,5 +196,5 @@ async function nearorg_rpc_token(xnet, id, method_name, args) {
 }
 
 module.exports = {
-    verify_isthererodit_getit, Rodit
+    verify_isthererodit_getit, verify_rodit_isamatch, Rodit
 };

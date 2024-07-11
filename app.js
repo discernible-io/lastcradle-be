@@ -6,10 +6,10 @@ const { ulid } = require('ulid');
 const bs58 = require('bs58');
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
-const { verify_isthererodit_getit, Rodit, RoditMetadata } = require('./middleware/rodit');
+const { verify_isthererodit_getit, verify_rodit_isamatch,Rodit} = require('./middleware/rodit');
 const app = express();
 
-// Generate key pair
+// Generate key pair for the token
 const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', {
   namedCurve: 'P-256',
   publicKeyEncoding: { type: 'spki', format: 'pem' },
@@ -20,24 +20,19 @@ const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Mock user database
-// const listofrodits = [
-// ];
+const rodit_id = '01J21A0SCBQVF7RSKMQ945ET57';
+const ownServiceProviderId = 'bc=near.org;sc=09313-cableguard-org.testnet;id=01J21A0S9NJCFXHZ3VA53K097M';
+// const buffer_rodit_id = Buffer.from(rodit_id);
+// const bytes_rodit_id = new Uint8Array(buffer_rodit_id);
+// const pk = bs58.decode('2y5B1239V6KeB4sbgBJEmzn8r1zHd6XwDhDZCEkLJdAJWj5ttyezLRsqoGJ7RcTgJTBxJDQYTuUjinETTXoYMs85');
+// const buffer_private_key = Buffer.from(pk);
+// const bytes_private_key = new Uint8Array(buffer_private_key);
+// const rodit_signature = nacl.sign.detached(bytes_rodit_id, bytes_private_key);
+// const base64_rodit_signature = Buffer.from(rodit_signature).toString('base64');
 
-
-
-const rodit_id = '01J21A0SCF4PCV5B4N9RVFRSDK';
-/*
-const buffer_rodit_id = Buffer.from(rodit_id);
-const bytes_rodit_id = new Uint8Array(buffer_rodit_id);
-const pk = bs58.decode('65vYWBogcQ9cUTxzuv25SMKSqsSfAWM9uG2J1AQMXvzPgw2JbyWz4E15cBNaLNHYHudMaTycMFdLvFECRWPzhutG');
-const buffer_private_key = Buffer.from(pk);
-const bytes_private_key = new Uint8Array(buffer_private_key);
-const rodit_signature = nacl.sign.detached(bytes_rodit_id, bytes_private_key);
-*/
-
-const base64_rodit_signature = 'vWNT6Jeh5ZkvT/mpFVPIJ2CfO8aDX8a0M1qqCK4qlfH+wwCkzT7GNfPGBkyaE7ze/LKmNObuaJL8VaJw4nRrCw==';
-console.debug(`Info: rodit_signature ${base64_rodit_signature}`);
+const base64_rodit_signature = 'kWtnUDj6AmnhJqJQ2eHJTcopnsis8HH7rGOgPc6gy2Ipv2zFgMmxTR/gZp+fgwRIiyIKHLzAtDmpQnnHw9+BDg==';
+// console.debug(`Info: rodit_signature ${base64_rodit_signature}`);
+// {"roditid":"01J21A0SCBQVF7RSKMQ945ET57","roditsignature":"kWtnUDj6AmnhJqJQ2eHJTcopnsis8HH7rGOgPc6gy2Ipv2zFgMmxTR/gZp+fgwRIiyIKHLzAtDmpQnnHw9+BDg=="}
 
 // Custom middleware for JWT authentication
 const authenticateJWT = (req, res, next) => {
@@ -73,6 +68,10 @@ app.post('/login', async (req, res) => {
     const rodit = await verify_isthererodit_getit(roditid, roditsignature);
 
     console.debug('app.js Rodit object:', JSON.stringify(rodit));
+    
+    const IsVerified = await verify_rodit_isamatch(ownServiceProviderId, rodit.metadata.serviceprovidersignature, roditid);
+
+    console.debug('app.s Rodit Verified result is:', IsVerified );
 
     const now = Math.floor(Date.now() / 1000);
     const token = jwt.sign({
