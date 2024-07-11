@@ -21,67 +21,49 @@ class Rodit {
     constructor() {
         this.token_id = "";
         this.owner_id = "";
-        this.metadata = new RoditMetadata();
         this.approved_account_ids = null;
         this.royalty = null;
-    }
-}
-
-// RoditMetadata class
-class RoditMetadata {
-    constructor() {
-        this.issuername = "";
-        this.description = "";
-        this.notafter = "";
-        this.notbefore = "";
-        this.cidrblock = "";
-        this.listenport = "";
-        this.dns = "";
-        this.allowedips = "";
-        this.subjectuniqueidentifierurl = "";
-        this.serviceproviderid = "";
-        this.serviceprovidersignature = "";
+        this.metadata = {
+            issuername: "",
+            description: "",
+            notafter: "",
+            notbefore: "",
+            cidrblock: "",
+            listenport: "",
+            dns: "",
+            allowedips: "",
+            subjectuniqueidentifierurl: "",
+            serviceproviderid: "",
+            serviceprovidersignature: ""
+        };
     }
 }
 
 async function verify_isthererodit_getit(rodit_id, base64_rodit_id_signature) {
     const slice_roditid = rodit_id.slice();
     const string_roditid = Buffer.from(slice_roditid).toString('utf8').replace(/\0/g, '');
-
-    // Obtain a Peer RODiT from its ID
     const account_idargs = `{"token_id": "${string_roditid}"}`;
 
     try {
         // Ensure rodit_id and rodit_id_signature are Uint8Array
-        const buffer_rodit_id= Buffer.from(rodit_id);
-        const bytes_rodit_id = new Uint8Array(buffer_rodit_id);
-
-        const buffer_ed25519_signature = Buffer.from(base64_rodit_id_signature, 'base64');
-        const bytes_ed25519_signature = new Uint8Array(buffer_ed25519_signature);
-
-//        console.debug(`Info: rodit_id ${rodit_id}`);
-//        console.debug(`Info: rodit_id_signature ${base64_rodit_id_signature}`);
-//        console.debug(`Info: bytes_ed25519_signature ${bytes_ed25519_signature}`);
+        const bytes_rodit_id = new Uint8Array(Buffer.from(rodit_id));
+        const bytes_ed25519_signature = new Uint8Array(Buffer.from(base64_rodit_id_signature, 'base64'));
 
         const fetched_rodit = await nearorg_rpc_token(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
-
+        
         // Convert the owner_id string to a Uint8Array by decoding it from hex
-        const fetched_buffer_public_key = Buffer.from(fetched_rodit.owner_id, 'hex');
-        const fetched_bytes_ed25519_public_key = new Uint8Array(fetched_buffer_public_key);
-        
-//        console.debug(`Info: fetched_rodit.owner_id ${fetched_rodit.owner_id}`);
-//        console.debug(`Info: fetched_bytes_ed25519_public_key ${fetched_bytes_ed25519_public_key}`);
+        const fetched_bytes_ed25519_public_key = new Uint8Array(Buffer.from(fetched_rodit.owner_id, 'hex'));
 
-        // Parse the signature bytes from rodit_id_signature and assign it to the signature variable
         const isVerified = nacl.sign.detached.verify(bytes_rodit_id, bytes_ed25519_signature, fetched_bytes_ed25519_public_key);
-        
-        if ((isVerified) ) {
+
+        if (isVerified) {
+            console.debug('verify Rodit object:', fetched_rodit.metadata.issuername);
             console.trace('Info: Peer RODiT possession check confirmed');
+            return fetched_rodit;
         } else {
             console.trace('Error: Peer RODiT possession check failed');
             throw new Error('PeerEd25519SignatureVerificationFailure');
         }
-        return fetched_rodit;
     } catch (err) {
         console.trace(`Error: There is no Peer RODiT associated with the account: ${err}`);
         throw new Error('PeerEd25519RoditMissing');
@@ -137,10 +119,10 @@ async function nearorg_rpc_token(xnet, id, method_name, args) {
 
     const rodit = new Rodit(); // Assuming Rodit constructor or deserialization method
     Object.assign(rodit, JSON.parse(result_string)); // Deserialize JSON string to Rodit object
-
+    console.debug('nearorg Rodit object:', rodit.metadata.issuername);
     return rodit;
 }
 
 module.exports = {
-    verify_isthererodit_getit,
+    verify_isthererodit_getit, Rodit
 };

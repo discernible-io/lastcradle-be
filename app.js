@@ -6,7 +6,7 @@ const { ulid } = require('ulid');
 const bs58 = require('bs58');
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
-const { verify_isthererodit_getit } = require('./middleware/rodit');
+const { verify_isthererodit_getit, Rodit, RoditMetadata } = require('./middleware/rodit');
 const app = express();
 
 // Generate key pair
@@ -66,20 +66,24 @@ app.get('/', (req, res) => {
   res.send('Welcome! Use /login to get a token.');
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
   const { roditid, roditsignature } = req.body;
-  const token_id = verify_isthererodit_getit(rodit_id, base64_rodit_signature);
-  if (token_id) {
+
+  try {
+    const rodit = await verify_isthererodit_getit(roditid, roditsignature);
+
+    console.debug('app.js Rodit object:', JSON.stringify(rodit));
+
     const now = Math.floor(Date.now() / 1000);
     const token = jwt.sign({
       iss: 'your-app-name',
-      sub: token_id.toString(),
+      sub: JSON.stringify(rodit),
       aud: 'your-app-client',
       exp: now + 3600,
       nbf: now,
       iat: now,
       jti: ulid(),
-      roditid: token_id.roditid
+      roditid: rodit.token_id  // Assuming 'token_id' is the correct property
     }, privateKey, {
       algorithm: 'ES256',
       header: {
@@ -91,7 +95,9 @@ app.post('/login', (req, res) => {
     // Ensure the entire token is URL-safe
     const urlSafeToken = token.split('.').map(urlSafeBase64).join('.');
     res.json({ token: urlSafeToken });
-  } else {
+
+  } catch (error) {
+    console.error('Failed to verify or retrieve Rodit object:', error);
     res.status(401).json({ message: 'Invalid credentials' });
   }
 });
