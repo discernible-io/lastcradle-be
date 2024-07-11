@@ -122,9 +122,9 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
     // Convert the token_id string to a Buffer
     const bytes_peerTokenId = new Uint8Array(Buffer.from(peerTokenId));
 
-    console.debug('Error: ownServiceProviderId', ownServiceProviderId);
-    console.debug('Error: peerServiceProviderSignature', peerServiceProviderSignature);
-    console.debug('Error: peerTokenId', peerTokenId);
+    // console.debug('Info: ownServiceProviderId', ownServiceProviderId);
+    // console.debug('Info: peerServiceProviderSignature', peerServiceProviderSignature);
+    // console.debug('Info: peerTokenId', peerTokenId);
 
     try {
         const isValid = nacl.sign.detached.verify(bytes_peerTokenId, bytes_peerServiceProviderSignature, bytes_ownServiceProviderOwnerId);
@@ -141,6 +141,86 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
         return false;
     }
 }
+
+function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
+    // Helper function to parse date strings
+    function parseDate(dateString) {
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? new Date(0) : date;
+    }
+  
+    // 1970-01-01 chosen as null date considering Unix and X.509 standards for timekeeping
+    const datetimeNul = new Date(0);
+    
+    const datetimeNotafter = parseDate(peerRoditNotafter);
+    const datetimeNotbefore = parseDate(peerRoditNotbefore);
+  
+    // Assuming nearorgRpcTimestamp is an async function that returns a Promise
+    return nearorg_rpc_timestamp(CONSTANTS.BLOCKCHAIN_NETWORK)
+      .then(stringTimenow => {
+        const timestamp = parseInt(stringTimenow, 10);
+        if (isNaN(timestamp)) {
+          console.error("Error: Can't parse near block timestamp");
+          return false;
+        }
+  
+        const datetimeTimestamp = new Date(timestamp / 1000000); // Convert nanoseconds to milliseconds
+  
+        if (
+          ((datetimeTimestamp <= datetimeNotafter) || datetimeNotafter.getTime() === datetimeNul.getTime()) &&
+          ((datetimeTimestamp >= datetimeNotbefore) || datetimeNotbefore.getTime() === datetimeNul.getTime())
+        ) {
+          console.log("Info: Peer RODiT is live");
+          return true;
+        } else {
+          console.error(
+            "Error: Peer RODiT is not live - notbefore %s now %s notafter %s",
+            datetimeNotbefore.toISOString(),
+            datetimeTimestamp.toISOString(),
+            datetimeNotafter.toISOString()
+          );
+          return false;
+        }
+      })
+      .catch(error => {
+        console.error("Error:", error);
+        return false;
+      });
+  }
+
+  async function nearorg_rpc_timestamp(xnet) {
+    const url = `https://rpc${xnet}.near.org`;
+    const jsonData = {
+      jsonrpc: "2.0",
+      id: "dontcare",
+      method: "block",
+      params: {
+        finality: "final"
+      }
+    };
+  
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(jsonData)
+      });
+  
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+  
+      const parsedJson = await response.json();
+      const timestamp = parsedJson.result?.header?.timestamp;
+  
+      return timestamp ? timestamp.toString() : "0";
+    } catch (error) {
+      console.error("Error in nearorgRpcTimestamp:", error);
+      throw error;
+    }
+  }
 
 async function nearorg_rpc_token(xnet, id, method_name, args) {
     const url = `https://rpc${xnet}.near.org`;
@@ -196,5 +276,5 @@ async function nearorg_rpc_token(xnet, id, method_name, args) {
 }
 
 module.exports = {
-    verify_isthererodit_getit, verify_rodit_isamatch, Rodit
+    verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, nearorg_rpc_timestamp,Rodit
 };

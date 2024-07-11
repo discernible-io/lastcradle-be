@@ -6,7 +6,7 @@ const { ulid } = require('ulid');
 const bs58 = require('bs58');
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
-const { verify_isthererodit_getit, verify_rodit_isamatch,Rodit} = require('./middleware/rodit');
+const { verify_isthererodit_getit, verify_rodit_isamatch,verify_rodit_islive,Rodit} = require('./middleware/rodit');
 const app = express();
 
 // Generate key pair for the token
@@ -67,11 +67,15 @@ app.post('/login', async (req, res) => {
   try {
     const rodit = await verify_isthererodit_getit(roditid, roditsignature);
 
-    console.debug('app.js Rodit object:', JSON.stringify(rodit));
+    console.debug('app.js Rodit existence check is:', JSON.stringify(rodit));
     
     const IsVerified = await verify_rodit_isamatch(ownServiceProviderId, rodit.metadata.serviceprovidersignature, roditid);
 
-    console.debug('app.s Rodit Verified result is:', IsVerified );
+    console.debug('app.s Rodit matches result is:', IsVerified );
+
+    const IsLive = await verify_rodit_islive(rodit.metadata.notafter, rodit.metadata.notbefore);
+
+    console.debug('app.js Rodit is live result is:', IsLive );
 
     const now = Math.floor(Date.now() / 1000);
     const token = jwt.sign({
