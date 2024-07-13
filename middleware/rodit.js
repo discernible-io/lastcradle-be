@@ -5,7 +5,7 @@ const axios= require('axios');
 const crypto = require('crypto');
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
-const { base64encode } = require('base64-js');
+// const { base64encode } = require('base64-js');
 const { base64url } = require('base64url');
 const dns = require('dns').promises;
 const { Resolver } = require('dns').promises;
@@ -57,7 +57,7 @@ async function verify_isthererodit_getit(rodit_id, base64_rodit_id_signature) {
         const bytes_rodit_id = new Uint8Array(Buffer.from(rodit_id));
         const bytes_ed25519_signature = new Uint8Array(Buffer.from(base64_rodit_id_signature, 'base64'));
 
-        const fetched_rodit = await nearorg_rpc_token(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
+        const fetched_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
         
         // Convert the owner_id string to a Uint8Array by decoding it from hex
         const fetched_bytes_ed25519_public_key = new Uint8Array(Buffer.from(fetched_rodit.owner_id, 'hex'));
@@ -83,7 +83,7 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
     const args_ownServiceProviderId = JSON.stringify({ token_id: ownServiceProviderId });
     let ownServiceProviderRodit;
     try {
-        ownServiceProviderRodit = await nearorg_rpc_token(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
+        ownServiceProviderRodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
     } catch (error) {
         console.error('Error: Peer RODiT does not match Own RODiT - Fetching');
         return false;
@@ -285,7 +285,7 @@ function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
     }
   }
 
-async function nearorg_rpc_token(xnet, id, method_name, args) {
+async function nearorg_rpc_tokenfromroditid(xnet, id, method_name, args) {
     const url = `https://rpc${xnet}.near.org`;
 
     const json_data = {
@@ -297,7 +297,7 @@ async function nearorg_rpc_token(xnet, id, method_name, args) {
             finality: 'final',
             account_id: id,
             method_name: method_name,
-            args_base64: Buffer.from(args).toString('base64'),
+            args_base64: Buffer.from(args).toString('base64')
         },
     };
 
@@ -373,7 +373,70 @@ async function nearorg_rpc_state(xnet, id, accountId) {
     }
   }
 
+  async function nearorg_rpc_tokensfromaccountid(xnet, id, account_id) {
+      const url = `https://rpc${xnet}.near.org`;
+
+      const args= JSON.stringify({ account_id: account_id, from_index: 0, limit: 1});
+      const jsonData = {
+          jsonrpc: "2.0",
+          id: id,
+          method: "query",
+          params: {
+              request_type: "call_function",
+              finality: "optimistic",
+              account_id: id,
+              method_name: "nft_tokens_for_owner",
+              args_base64: Buffer.from(args).toString('base64')
+            },
+      };
+  
+      try {
+          const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(jsonData)
+          });
+  
+          const responseText = await response.text();
+          const parsedJson = JSON.parse(responseText);
+          const resultArray = parsedJson.result.result;
+          if (!Array.isArray(resultArray)) {
+              throw new Error("Result is not an array");
+          }
+  
+          const resultBytes = new Uint8Array(resultArray);
+          const resultString = new TextDecoder().decode(resultBytes);
+          const resultStruct = JSON.parse(resultString);
+  
+          if (!Array.isArray(resultStruct) || resultStruct.length === 0) {
+              throw new Error("Error: No Rodit instance found");
+          }
+  
+          for (const rodit of resultStruct) {
+              console.info("Info: token_id:", rodit.token_id);
+              console.info("Info: owner_id:", rodit.owner_id);
+              console.info("Info: issuername:", rodit.metadata.issuername);
+              console.info("Info: description:", rodit.metadata.description);
+              console.info("Info: notafter:", rodit.metadata.notafter);
+              console.info("Info: notbefore:", rodit.metadata.notbefore);
+              console.info("Info: listenport:", rodit.metadata.listenport);
+              console.info("Info: cidrblock:", rodit.metadata.cidrblock);
+              console.info("Info: dns:", rodit.metadata.dns);
+              console.info("Info: allowedips:", rodit.metadata.allowedips);
+              console.info("Info: subjectuniqueidentifierurl:", rodit.metadata.subjectuniqueidentifierurl);
+              console.info("Info: serviceproviderid:", rodit.metadata.serviceproviderid);
+              console.info("Info: serviceprovidersignature:", rodit.metadata.serviceprovidersignature);
+          }
+  
+          console.info("Info: Rodit instance found");
+          return resultStruct[0];
+      } catch (error) {
+          console.error("Error:", error.message);
+          throw error;
+      }
+  }
+
 module.exports = {
     verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, nearorg_rpc_timestamp,
-    verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,CONSTANTS,Rodit
+    verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,nearorg_rpc_tokensfromaccountid,CONSTANTS,Rodit
 };

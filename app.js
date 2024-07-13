@@ -7,7 +7,8 @@ const bs58 = require('bs58');
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
 const { verify_isthererodit_getit, verify_rodit_isamatch,verify_rodit_islive,verify_rodit_isactive,
-  verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,CONSTANTS,Rodit} = require('./middleware/rodit');
+  verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,nearorg_rpc_tokensfromaccountid,
+  CONSTANTS,Rodit} = require('./middleware/rodit');
 const app = express();
 
 // Generate key pair for the token
@@ -23,6 +24,7 @@ app.use(express.urlencoded({ extended: false }));
 
 const account_id = '231f6501834fd10e4829e0ba2124efd55e7a1f2507c56bfb6442a588c557cfbd';
 const rodit_id = '01J21A0SCBQVF7RSKMQ945ET57';
+const own_account_id = '7fa445b786f8358c5125801cc914364668fed057d9ef80f814c60deedbabc9f2';
 const ownServiceProviderId = 'bc=near.org;sc=09313-cableguard-org.testnet;id=01J21A0S9NJCFXHZ3VA53K097M';
 const ownSubjectUniqueIdentifierUrl = 'vpn.cableguard.net';
 
@@ -70,7 +72,7 @@ app.post('/login', async (req, res) => {
 
   try {
       try {
-        const result = await nearorg_rpc_state(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, account_id);
+        const result = await nearorg_rpc_state(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, own_account_id);
         if ( result === false ) { 
           console.error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
           process.exit(1);
@@ -80,6 +82,11 @@ app.post('/login', async (req, res) => {
         process.exit(1);
       }
 
+
+    const ownrodit = await nearorg_rpc_tokensfromaccountid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, account_id);
+
+    console.debug('app.js Ownrodit is:', JSON.stringify(ownrodit));
+    
     const rodit = await verify_isthererodit_getit(roditid, roditsignature);
 
     console.debug('app.js Rodit existence check is:', JSON.stringify(rodit));
