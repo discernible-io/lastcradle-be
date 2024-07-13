@@ -6,7 +6,8 @@ const { ulid } = require('ulid');
 const bs58 = require('bs58');
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
-const { verify_isthererodit_getit, verify_rodit_isamatch,verify_rodit_islive,verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,Rodit} = require('./middleware/rodit');
+const { verify_isthererodit_getit, verify_rodit_isamatch,verify_rodit_islive,verify_rodit_isactive,
+  verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,CONSTANTS,Rodit} = require('./middleware/rodit');
 const app = express();
 
 // Generate key pair for the token
@@ -20,9 +21,11 @@ const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+const account_id = '231f6501834fd10e4829e0ba2124efd55e7a1f2507c56bfb6442a588c557cfbd';
 const rodit_id = '01J21A0SCBQVF7RSKMQ945ET57';
 const ownServiceProviderId = 'bc=near.org;sc=09313-cableguard-org.testnet;id=01J21A0S9NJCFXHZ3VA53K097M';
 const ownSubjectUniqueIdentifierUrl = 'vpn.cableguard.net';
+
 // const buffer_rodit_id = Buffer.from(rodit_id);
 // const bytes_rodit_id = new Uint8Array(buffer_rodit_id);
 // const pk = bs58.decode('2y5B1239V6KeB4sbgBJEmzn8r1zHd6XwDhDZCEkLJdAJWj5ttyezLRsqoGJ7RcTgJTBxJDQYTuUjinETTXoYMs85');
@@ -66,6 +69,17 @@ app.post('/login', async (req, res) => {
   const { roditid, roditsignature } = req.body;
 
   try {
+      try {
+        const result = await nearorg_rpc_state(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, account_id);
+        if ( result === false ) { 
+          console.error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
+          process.exit(1);
+          }
+      } catch (err) {
+        console.error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}, ${err.message}`);
+        process.exit(1);
+      }
+
     const rodit = await verify_isthererodit_getit(roditid, roditsignature);
 
     console.debug('app.js Rodit existence check is:', JSON.stringify(rodit));

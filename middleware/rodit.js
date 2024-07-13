@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Cableguard, Inc. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 
-const axios = require('axios');
+const axios= require('axios');
 const crypto = require('crypto');
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
@@ -10,6 +10,7 @@ const { base64url } = require('base64url');
 const dns = require('dns').promises;
 const { Resolver } = require('dns').promises;
 const { parse } = require('tldts');
+const util = require('util');
 
 // Constants
 const CONSTANTS = {
@@ -64,11 +65,10 @@ async function verify_isthererodit_getit(rodit_id, base64_rodit_id_signature) {
         const isVerified = nacl.sign.detached.verify(bytes_rodit_id, bytes_ed25519_signature, fetched_bytes_ed25519_public_key);
 
         if (isVerified) {
-            console.debug('verify Rodit object:', fetched_rodit.metadata.issuername);
-            console.trace('Info: Peer RODiT possession check confirmed');
+            console.debug('Info: Peer RODiT possession check confirmed');
             return fetched_rodit;
         } else {
-            console.trace('Error: Peer RODiT possession check failed');
+            console.debug('Error: Peer RODiT possession check failed');
             throw new Error('PeerEd25519SignatureVerificationFailure');
         }
     } catch (err) {
@@ -76,17 +76,6 @@ async function verify_isthererodit_getit(rodit_id, base64_rodit_id_signature) {
         throw new Error('PeerEd25519RoditMissing');
     }
 }
-
-/* Example usage
-(async () => {
-    const ownServiceProviderId = 'your_service_provider_id';
-    const peerServiceProviderSignature = 'your_peer_service_provider_signature';
-    const peerTokenId = new Uint8Array(RODIT_ID_SZ); // your peer token id
-
-    const result = await verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSignature, peerTokenId);
-    console.log(result);
-})();
-*/
 
 async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSignature, peerTokenId) {
 
@@ -282,6 +271,11 @@ function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
       }
   
       const parsedJson = await response.json();
+
+      if (parsedJson.error) {
+        throw new Error(`Error: ${parsedJson.error.message}`);
+      }
+
       const timestamp = parsedJson.result?.header?.timestamp;
   
       return timestamp ? timestamp.toString() : "0";
@@ -293,12 +287,6 @@ function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
 
 async function nearorg_rpc_token(xnet, id, method_name, args) {
     const url = `https://rpc${xnet}.near.org`;
-
-    if (xnet === '.') {
-        console.debug('Info: Blockchain Directory Network is mainnet (nearorg_rpc_token)');
-    } else {
-        console.debug(`Info: Blockchain Directory Network is ${xnet} nearorg_rpc_token`);
-    }
 
     const json_data = {
         jsonrpc: '2.0',
@@ -340,10 +328,52 @@ async function nearorg_rpc_token(xnet, id, method_name, args) {
 
     const rodit = new Rodit(); // Assuming Rodit constructor or deserialization method
     Object.assign(rodit, JSON.parse(result_string)); // Deserialize JSON string to Rodit object
-    console.debug('nearorg Rodit object:', rodit.metadata.issuername);
     return rodit;
 }
 
+
+async function nearorg_rpc_state(xnet, id, accountId) {
+    const url = `https://rpc${xnet}.near.org`;
+  
+    if (xnet === '.') {
+      console.debug("Info: Blockchain Directory Network is mainnet (nearorg_rpc_state)");
+    } else {
+      console.debug(`Info: Blockchain Directory Network is ${xnet} (nearorg_rpc_state)`);
+    }
+  
+    const jsonData = {
+      jsonrpc: "2.0",
+      id: id,
+      method: "query",
+      params: {
+        request_type: "view_account",
+        finality: "final",
+        account_id: accountId
+      }
+    };
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(jsonData)
+      });
+  
+      const responseText = await response.json();
+      if (JSON.stringify(responseText).includes("does not exist while viewing")) {
+        console.trace("Error: The NEAR account does not exist in the blockchain, it needs to be funded with at least 0.01 NEAR in this network");
+        return false
+      }
+  
+      return true
+    } catch (error) {
+      throw error;
+      return false;
+    }
+  }
+
 module.exports = {
-    verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, nearorg_rpc_timestamp,verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,Rodit
+    verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, nearorg_rpc_timestamp,
+    verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,CONSTANTS,Rodit
 };
