@@ -6,7 +6,7 @@
     "bs58": "5.0.0",
     "express": "^4.19.2",
     "express-session": "^1.18.0",
-    "jsonwebtoken": "^9.0.2",
+    "jose": "^5.6.3",
     "node-fetch": "^3.3.2",
     "nodemon": "^3.1.4",
     "tldts": "^6.1.31",

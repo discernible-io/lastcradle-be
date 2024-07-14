@@ -1,5 +1,4 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
@@ -8,42 +7,48 @@ const bs58 = require('bs58');
 const fs = require('fs').promises;
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
-const { verify_isthererodit_getit, verify_rodit_isamatch,verify_rodit_islive,verify_rodit_isactive,
-  verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,nearorg_rpc_tokensfromaccountid,
-  CONSTANTS,Rodit} = require('./middleware/rodit');
+const { verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
+  verify_rodit_istrusted_issuingsmartcontract, nearorg_rpc_state, nearorg_rpc_tokensfromaccountid,
+  CONSTANTS, Rodit } = require('./middleware/rodit');
+const { SignJWT, jwtVerify, generateKeyPair } = require('jose');
 const app = express();
 
 // Generate key pair for the token
-const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', {
-  namedCurve: 'P-256',
-  publicKeyEncoding: { type: 'spki', format: 'pem' },
-  privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
-});
+let privateKey, publicKey;
+
+(async () => {
+  const keyPair = await generateKeyPair('EdDSA');
+  privateKey = keyPair.privateKey;
+  publicKey = keyPair.publicKey;
+})();
+
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 const peer_rodit_id = '01J21A0SCBQVF7RSKMQ945ET57';
+const base64_rodit_signature = 'kWtnUDj6AmnhJqJQ2eHJTcopnsis8HH7rGOgPc6gy2Ipv2zFgMmxTR/gZp+fgwRIiyIKHLzAtDmpQnnHw9+BDg==';
+
 // const peer_account_id = '7fa445b786f8358c5125801cc914364668fed057d9ef80f814c60deedbabc9f2';
 // const rodit_signature = nacl.sign.detached(bytes_rodit_id, bytes_private_key);
-
-const base64_rodit_signature = 'kWtnUDj6AmnhJqJQ2eHJTcopnsis8HH7rGOgPc6gy2Ipv2zFgMmxTR/gZp+fgwRIiyIKHLzAtDmpQnnHw9+BDg==';
 // console.debug(`Info: rodit_signature ${base64_rodit_signature}`);
 // {"roditid":"01J21A0SCBQVF7RSKMQ945ET57","roditsignature":"kWtnUDj6AmnhJqJQ2eHJTcopnsis8HH7rGOgPc6gy2Ipv2zFgMmxTR/gZp+fgwRIiyIKHLzAtDmpQnnHw9+BDg=="}
 
 // Custom middleware for JWT authentication
-const authenticateJWT = (req, res, next) => {
+const authenticateJWT = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (authHeader) {
     const token = authHeader.split(' ')[1];
-    jwt.verify(token, publicKey, { algorithms: ['EdDSA'] }, (err, payload) => {
-      if (err) {
-        return res.status(403).json({ message: 'Invalid or expired token' });
-      }
+    try {
+      const { payload } = await jwtVerify(token, publicKey, {
+        algorithms: ['EdDSA']
+      });
       req.user = payload;
       next();
-    });
+    } catch (err) {
+      return res.status(403).json({ message: 'Invalid or expired token' });
+    }
   } else {
     res.status(401).json({ message: 'No token provided' });
   }
@@ -60,7 +65,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-  const { peer_rodit_id, base64_peer_rodit_id_signature} = req.body;
+  const { peer_rodit_id, base64_peer_rodit_id_signature } = req.body;
   let own_account_id;
   let own_base58_private_key;
   try {
@@ -82,46 +87,45 @@ app.post('/login', async (req, res) => {
   }
 
   try {
-      try {
-        const result = await nearorg_rpc_state(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, own_account_id);
-        if ( result === false ) { 
-          console.error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
-          process.exit(1);
-          }
-      } catch (err) {
-        console.error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}, ${err.message}`);
+    try {
+      const result = await nearorg_rpc_state(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, own_account_id);
+      if ( result === false ) { 
+        console.error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
         process.exit(1);
-      }
+        }
+    } catch (err) {
+      console.error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}, ${err.message}`);
+      process.exit(1);
+    }
 
-      // CG: All following checks need to be passed before the JSON token is issued
-    const own_rodit = await nearorg_rpc_tokensfromaccountid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, own_account_id);
+    // CG: All following checks need to be passed before the JSON token is issued
+  const own_rodit = await nearorg_rpc_tokensfromaccountid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, own_account_id);
 
-    console.debug('app.js Own Rodit is:', JSON.stringify(own_rodit));
+  console.debug('app.js Own Rodit is:', JSON.stringify(own_rodit));
 
-    console.debug('app.js peer_rodit_id', peer_rodit_id);
-    const peer_rodit = await verify_isthererodit_getit(peer_rodit_id, base64_peer_rodit_id_signature);
+  console.debug('app.js peer_rodit_id', peer_rodit_id);
+  const peer_rodit = await verify_isthererodit_getit(peer_rodit_id, base64_peer_rodit_id_signature);
 
-    console.debug('app.js Peer Rodit:', JSON.stringify(peer_rodit));
-    
-    const IsVerified = await verify_rodit_isamatch(own_rodit.metadata.serviceproviderid, peer_rodit.metadata.serviceprovidersignature, peer_rodit_id);
+  console.debug('app.js Peer Rodit:', JSON.stringify(peer_rodit));
+  
+  const IsVerified = await verify_rodit_isamatch(own_rodit.metadata.serviceproviderid, peer_rodit.metadata.serviceprovidersignature, peer_rodit_id);
 
-    console.debug('app.s Rodit matches result is:', IsVerified );
+  console.debug('app.s Rodit matches result is:', IsVerified );
 
-    const IsLive = await verify_rodit_islive(peer_rodit.metadata.notafter, peer_rodit.metadata.notbefore);
+  const IsLive = await verify_rodit_islive(peer_rodit.metadata.notafter, peer_rodit.metadata.notbefore);
 
-    console.debug('app.js Rodit is live result is:', IsLive );
+  console.debug('app.js Rodit is live result is:', IsLive );
 
-    const IsActive = await verify_rodit_isactive(peer_rodit_id, own_rodit.metadata.subjectuniqueidentifierurl)
+  const IsActive = await verify_rodit_isactive(peer_rodit_id, own_rodit.metadata.subjectuniqueidentifierurl)
 
-    console.debug('app.js Rodit is active result is:', IsActive );
+  console.debug('app.js Rodit is active result is:', IsActive );
 
-    const IsTrusted = await verify_rodit_istrusted_issuingsmartcontract(own_rodit.metadata.subjectuniqueidentifierurl)
+  const IsTrusted = await verify_rodit_istrusted_issuingsmartcontract(own_rodit.metadata.subjectuniqueidentifierurl)
 
-    console.debug('app.js Rodit smartcontract is trusted result is:', IsTrusted );
+  console.debug('app.js Rodit smartcontract is trusted result is:', IsTrusted );
 
     const now = Math.floor(Date.now() / 1000);
 
-    // const account_id_private_key = bs58.decode('65vYWBogcQ9cUTxzuv25SMKSqsSfAWM9uG2J1AQMXvzPgw2JbyWz4E15cBNaLNHYHudMaTycMFdLvFECRWPzhutG');
     const account_id_private_key = bs58.decode(own_base58_private_key);
     const buffer_account_id_private_key = Buffer.from(account_id_private_key);
     const bytes_account_id_private_key = new Uint8Array(buffer_account_id_private_key);
@@ -131,7 +135,7 @@ app.post('/login', async (req, res) => {
     const ownrodit_signature = nacl.sign.detached(bytes_own_rodit_id, bytes_account_id_private_key);
     const base64_ownrodit_signature = Buffer.from(ownrodit_signature).toString('base64');
 
-    const token = jwt.sign({
+    const token = await new SignJWT({
       iss: 'your-app-name',
       sub: JSON.stringify(peer_rodit.token_id),
       aud: 'your-app-client',
@@ -139,19 +143,13 @@ app.post('/login', async (req, res) => {
       nbf: now,
       iat: now,
       jti: ulid(),
-      roditid: own_rodit.token_id, // Assuming 'token_id' is the correct property
-      roditidsignature: base64_ownrodit_signature// Add this line
-    }, privateKey, {
-      algorithm: 'ES256',
-      header: {
-        typ: 'JWT',
-        alg: 'ES256'
-      }
-    });
+      roditid: own_rodit.token_id,
+      roditidsignature: base64_ownrodit_signature
+    })
+      .setProtectedHeader({ alg: 'EdDSA', typ: 'JWT' })
+      .sign(privateKey);
 
-    // Ensure the entire token is URL-safe
-    const urlSafeToken = token.split('.').map(urlSafeBase64).join('.');
-    res.json({ token: urlSafeToken });
+    res.json({ token });
 
   } catch (error) {
     console.error('Failed to verify or retrieve Rodit object:', error);
