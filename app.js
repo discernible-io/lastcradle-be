@@ -104,12 +104,23 @@ app.post('/login', async (req, res) => {
     const ownrodit_signature = nacl.sign.detached(bytes_own_rodit_id, bytes_account_id_private_key);
     const base64_ownrodit_signature = Buffer.from(ownrodit_signature).toString('base64');
 
+    // Make sure that the token will not last beyond the expiration date of the Rodit
+    const notafter = await dateStringToUnixTime(peer_rodit.metadata.notafter); 
+    let expiresat=now;
+    if ((now + config.JWT_EXPIRATION) < notafter) {
+      expiresat = now + config.JWT_EXPIRATION;
+    } else {
+      throw new Error('Rodit duration check failed');
+    }
+
+    const notbefore = await dateStringToUnixTime(own_rodit.metadata.notbefore); 
+    
     const token = await new SignJWT({
-      iss: config.APP_NAME,
-      sub: JSON.stringify(peer_rodit.token_id),
-      aud: config.APP_CLIENT,
-      exp: now + config.JWT_EXPIRATION,
-      nbf: now,
+      iss: own_rodit.metadata.subjectuniqueidentifierurl, // App name 
+      sub: JSON.stringify(peer_rodit.metadata.serviceproviderid + peer_rodit.token_id), // Unique Id of the client
+      aud: JSON.stringify(peer_rodit.metadata.serviceproviderid), // App Client
+      exp: expiresat, // CG: Calculate exp as a function of the peer rodit expiration and the JWT session duration configured in the Rodit
+      nbf: notbefore,
       iat: now,
       jti: ulid(),
       roditid: own_rodit.token_id,
@@ -151,6 +162,19 @@ async function processAccountFile(accountFileName) {
     console.error(`Error processing account file: ${err.message}`);
     throw err;
   }
+}
+
+async function dateStringToUnixTime(dateString) {
+  // Create a new Date object from the string
+  const date = new Date(dateString);
+  
+  // Get the Unix timestamp (in milliseconds)
+  const unixTimeMs = date.getTime();
+  
+  // Convert milliseconds to seconds and round down
+  const unixTimeSec = Math.floor(unixTimeMs / 1000);
+  
+  return unixTimeSec;
 }
 
 // Start server
