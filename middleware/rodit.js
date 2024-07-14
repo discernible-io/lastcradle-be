@@ -47,26 +47,26 @@ class Rodit {
     }
 }
 
-async function verify_isthererodit_getit(rodit_id, base64_rodit_id_signature) {
-    const slice_roditid = rodit_id.slice();
-    const string_roditid = Buffer.from(slice_roditid).toString('utf8').replace(/\0/g, '');
-    const account_idargs = `{"token_id": "${string_roditid}"}`;
+async function verify_isthererodit_getit(peer_rodit_id, base64_peer_rodit_id_signature) {
+    // const slice_roditid = peer_rodit_id.slice();
+    // const string_roditid = Buffer.from(slice_roditid).toString('utf8').replace(/\0/g, '');
+    const account_idargs = `{"token_id": "${peer_rodit_id}"}`;
 
     try {
         // Ensure rodit_id and rodit_id_signature are Uint8Array
-        const bytes_rodit_id = new Uint8Array(Buffer.from(rodit_id));
-        const bytes_ed25519_signature = new Uint8Array(Buffer.from(base64_rodit_id_signature, 'base64'));
+        const bytes_rodit_id = new Uint8Array(Buffer.from(peer_rodit_id));
+        const bytes_ed25519_signature = new Uint8Array(Buffer.from(base64_peer_rodit_id_signature, 'base64'));
 
-        const fetched_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
+        const peer_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
         
         // Convert the owner_id string to a Uint8Array by decoding it from hex
-        const fetched_bytes_ed25519_public_key = new Uint8Array(Buffer.from(fetched_rodit.owner_id, 'hex'));
+        const peer_bytes_ed25519_public_key = new Uint8Array(Buffer.from(peer_rodit.owner_id, 'hex'));
 
-        const isVerified = nacl.sign.detached.verify(bytes_rodit_id, bytes_ed25519_signature, fetched_bytes_ed25519_public_key);
+        const isVerified = nacl.sign.detached.verify(bytes_rodit_id, bytes_ed25519_signature, peer_bytes_ed25519_public_key);
 
         if (isVerified) {
             console.debug('Info: Peer RODiT possession check confirmed');
-            return fetched_rodit;
+            return peer_rodit;
         } else {
             console.debug('Error: Peer RODiT possession check failed');
             throw new Error('PeerEd25519SignatureVerificationFailure');
@@ -91,6 +91,9 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
 
     // Convert the owner_id string to a Buffer by decoding it from hex
     let bytes_ownServiceProviderOwnerId;
+   
+    console.debug('Info: ownServiceProviderRodit', JSON.stringify(ownServiceProviderRodit));
+    console.debug('Info: ownServiceProviderRodit.owner_id',ownServiceProviderRodit.owner_id);
     try {
         bytes_ownServiceProviderOwnerId = new Uint8Array(Buffer.from(ownServiceProviderRodit.owner_id, 'hex'));
     } catch (error) {
@@ -411,24 +414,7 @@ async function nearorg_rpc_state(xnet, id, accountId) {
           if (!Array.isArray(resultStruct) || resultStruct.length === 0) {
               throw new Error("Error: No Rodit instance found");
           }
-  
-          for (const rodit of resultStruct) {
-              console.info("Info: token_id:", rodit.token_id);
-              console.info("Info: owner_id:", rodit.owner_id);
-              console.info("Info: issuername:", rodit.metadata.issuername);
-              console.info("Info: description:", rodit.metadata.description);
-              console.info("Info: notafter:", rodit.metadata.notafter);
-              console.info("Info: notbefore:", rodit.metadata.notbefore);
-              console.info("Info: listenport:", rodit.metadata.listenport);
-              console.info("Info: cidrblock:", rodit.metadata.cidrblock);
-              console.info("Info: dns:", rodit.metadata.dns);
-              console.info("Info: allowedips:", rodit.metadata.allowedips);
-              console.info("Info: subjectuniqueidentifierurl:", rodit.metadata.subjectuniqueidentifierurl);
-              console.info("Info: serviceproviderid:", rodit.metadata.serviceproviderid);
-              console.info("Info: serviceprovidersignature:", rodit.metadata.serviceprovidersignature);
-          }
-  
-          console.info("Info: Rodit instance found");
+          // Only the first RODiT in the account is returned
           return resultStruct[0];
       } catch (error) {
           console.error("Error:", error.message);
