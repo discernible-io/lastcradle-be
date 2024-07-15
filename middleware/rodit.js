@@ -1,16 +1,8 @@
 // Copyright (c) 2023 Cableguard, Inc. All rights reserved.
-// SPDX-License-Identifier: BSD-3-Clause
 
-const axios= require('axios');
-const crypto = require('crypto');
 const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
-// const { base64encode } = require('base64-js');
-const { base64url } = require('base64url');
-const dns = require('dns').promises;
 const { Resolver } = require('dns').promises;
-const { parse } = require('tldts');
-const util = require('util');
 
 // Constants
 const CONSTANTS = {
@@ -47,32 +39,32 @@ class Rodit {
     }
 }
 
-async function verify_isthererodit_getit(peer_rodit_id, base64_peer_rodit_id_signature) {
-    // const slice_roditid = peer_rodit_id.slice();
+async function verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_signature) {
+    // const slice_roditid = peer_roditid.slice();
     // const string_roditid = Buffer.from(slice_roditid).toString('utf8').replace(/\0/g, '');
-    const account_idargs = `{"token_id": "${peer_rodit_id}"}`;
+    const account_idargs = `{"token_id": "${peer_roditid}"}`;
 
     try {
         // Ensure rodit_id and rodit_id_signature are Uint8Array
-        const bytes_rodit_id = new Uint8Array(Buffer.from(peer_rodit_id));
-        const bytes_ed25519_signature = new Uint8Array(Buffer.from(base64_peer_rodit_id_signature, 'base64'));
+        const bytes_roditid = new Uint8Array(Buffer.from(peer_roditid));
+        const bytes_ed25519_signature = new Uint8Array(Buffer.from(peer_roditid_base64url_signature, 'base64url'));
 
         const peer_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
         
         // Convert the owner_id string to a Uint8Array by decoding it from hex
         const peer_bytes_ed25519_public_key = new Uint8Array(Buffer.from(peer_rodit.owner_id, 'hex'));
 
-        const isVerified = nacl.sign.detached.verify(bytes_rodit_id, bytes_ed25519_signature, peer_bytes_ed25519_public_key);
+        const isVerified = nacl.sign.detached.verify(bytes_roditid, bytes_ed25519_signature, peer_bytes_ed25519_public_key);
 
         if (isVerified) {
             console.debug('Info: Peer RODiT possession check confirmed');
             return peer_rodit;
         } else {
-            console.debug('Error: Peer RODiT possession check failed');
+            console.error('Error: Peer RODiT possession check failed');
             throw new Error('PeerEd25519SignatureVerificationFailure');
         }
     } catch (err) {
-        console.trace(`Error: There is no Peer RODiT associated with the account: ${err}`);
+        console.error(`Error: There is no Peer RODiT associated with the account: ${err}`);
         throw new Error('PeerEd25519RoditMissing');
     }
 }
@@ -334,14 +326,13 @@ async function nearorg_rpc_tokenfromroditid(xnet, id, method_name, args) {
     return rodit;
 }
 
-
 async function nearorg_rpc_state(xnet, id, accountId) {
     const url = `https://rpc${xnet}.near.org`;
   
     if (xnet === '.') {
-      console.debug("Info: Blockchain Directory Network is mainnet (nearorg_rpc_state)");
+      console.info("Info: Blockchain Directory Network is mainnet (nearorg_rpc_state)");
     } else {
-      console.debug(`Info: Blockchain Directory Network is ${xnet} (nearorg_rpc_state)`);
+      console.info(`Info: Blockchain Directory Network is ${xnet} (nearorg_rpc_state)`);
     }
   
     const jsonData = {
