@@ -24,12 +24,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cableguard/cgapi.git"
+    "url": "git+https://github.com/cableguard/cgsapi.git"
   },
   "author": "Vicente Aceituno Canal",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/cableguard/cgapi/issues"
+    "url": "https://github.com/cableguard/cgsapi/issues"
   },
-  "homepage": "https://github.com/cableguard/cgapi#readme"
+  "homepage": "https://github.com/cableguard/cgsapi#readme"
 }
