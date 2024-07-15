@@ -57,7 +57,7 @@ async function verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_si
         const isVerified = nacl.sign.detached.verify(bytes_roditid, bytes_ed25519_signature, peer_bytes_ed25519_public_key);
 
         if (isVerified) {
-            console.debug('Info: Peer RODiT possession check confirmed');
+            console.debug('Info: Peer RODiT possession check passed');
             return peer_rodit;
         } else {
             console.error('Error: Peer RODiT possession check failed');

@@ -12,9 +12,6 @@ const { CONSTANTS, Rodit, verify_isthererodit_getit, verify_rodit_isamatch, veri
   verify_rodit_istrusted_issuingsmartcontract, nearorg_rpc_state, nearorg_rpc_tokensfromaccountid,
    } = require('./middleware/rodit');
 
-// Import protected route
-const protectedRoutes = require('./protected/echo');
-
 // Configuration for Dev environment
 const config = {
   PORT: process.env.PORT || 3000,
@@ -155,6 +152,10 @@ app.get('/protected', authenticateJWT, (req, res) => {
   res.json({ message: 'This is a protected route', user: req.user });
 });
 
+// Import protected route
+const protectedRoutes = require('./protected/echo');
+
+// Mount protected route
 app.use('/api', protectedRoutes);
 
 async function processAccountFile(accountFileName) {
