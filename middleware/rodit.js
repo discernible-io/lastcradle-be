@@ -84,8 +84,8 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
     // Convert the owner_id string to a Buffer by decoding it from hex
     let bytes_ownServiceProviderOwnerId;
    
-    console.debug('Info: ownsp_rodit', JSON.stringify(ownsp_rodit));
-    console.debug('Info: ownsp_rodit.owner_id',ownsp_rodit.owner_id);
+    console.debug('Info: Service Provider Rodit:', JSON.stringify(ownsp_rodit));
+    console.debug('Info: Service Provider Rodit Account ID:',ownsp_rodit.owner_id);
     try {
         bytes_ownServiceProviderOwnerId = new Uint8Array(Buffer.from(ownsp_rodit.owner_id, 'hex'));
     } catch (error) {

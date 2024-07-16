@@ -81,8 +81,8 @@ app.post('/login', async (req, res) => {
       throw new Error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
     }
 
-    console.debug('peer_roditid:', peer_roditid);
-    console.debug('peer_roditid_base64url_signature:', peer_roditid_base64url_signature);
+    console.debug('Info: Client Rodit ID:', peer_roditid);
+    console.debug('Info: Client Rodit ID Signature:', peer_roditid_base64url_signature);
     const own_rodit = await nearorg_rpc_tokensfromaccountid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, ownrodit_hex_accountid);
     const peer_rodit = await verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_signature);
     
@@ -131,6 +131,7 @@ app.post('/login', async (req, res) => {
       throw new Error('Rodit duration check failed');
     }
 
+    console.debug('Info: This API endpoint Login of Client check passed');
     const notbefore = await dateStringToUnixTime(own_rodit.metadata.notbefore); 
     
     const token = await new SignJWT({
