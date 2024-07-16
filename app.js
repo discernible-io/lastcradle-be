@@ -1,13 +1,14 @@
 const express   = require('express');
+const { ulid }  = require('ulid');
 const path      = require('path');
 const os        = require('os');
-const crypto    = require('crypto');
-const { ulid }  = require('ulid');
 const bs58      = require('bs58');
 const fs        = require('fs').promises;
+const crypto    = require('crypto');
 const nacl      = require('tweetnacl');
 nacl.util       = require('tweetnacl-util');
 const { SignJWT, jwtVerify } = require('jose');
+
 const { CONSTANTS, Rodit, verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
   verify_rodit_istrusted_issuingsmartcontract, nearorg_rpc_state, nearorg_rpc_tokensfromaccountid,
    } = require('./middleware/rodit');
@@ -22,8 +23,8 @@ const config = {
     'testnet',
     '231f6501834fd10e4829e0ba2124efd55e7a1f2507c56bfb6442a588c557cfbd.json'
   ),
-  APP_NAME: 'your-app-name',
-  APP_CLIENT: 'your-app-client'
+  APP_NAME: 'your-app-name', // Not is use atm
+  APP_CLIENT: 'your-app-client' // Not in use atm
 };
 
 const app = express();
@@ -33,10 +34,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Rodit middleware for JWT authentication
+
+// Verify token if available
 const authenticateJWT = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
-    return res.status(401).json({ message: 'No token provided' });
+    return res.status(401).json({ message: 'Error: No token provided' });
   }
 
   const token = authHeader.split(' ')[1];
@@ -47,7 +50,7 @@ const authenticateJWT = async (req, res, next) => {
     req.user = payload;
     next();
   } catch (err) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
+    return res.status(403).json({ message: 'Error: Invalid or expired token' });
   }
 };
 
@@ -55,26 +58,31 @@ const authenticateJWT = async (req, res, next) => {
 // app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes
+// Static Page Route
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Login route
 app.post('/login', async (req, res) => {
   const { peer_roditid, peer_roditid_base64url_signature } = req.body;
 
   if (!peer_roditid || !peer_roditid_base64url_signature) {
-    return res.status(400).json({ message: 'Missing required fields' });
+    return res.status(400).json({ message: 'Error: Missing Rodit ID and Signature' });
   }
 
   try {
     // A NEAR Protocol account id is also an Ed215519 public key
+    // CG: We don´t need to do this for every login, only when starting the service
     const { accountId: ownrodit_hex_accountid, ownrodit_base58_private_key } = await processAccountFile(config.ACCOUNT_FILE_PATH);
 
     const result = await nearorg_rpc_state(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, ownrodit_hex_accountid);
     if (result === false) {
-      throw new Error(`The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
+      throw new Error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
     }
 
+    console.debug('peer_roditid:', peer_roditid);
+    console.debug('peer_roditid_base64url_signature:', peer_roditid_base64url_signature);
     const own_rodit = await nearorg_rpc_tokensfromaccountid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, ownrodit_hex_accountid);
     const peer_rodit = await verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_signature);
     
@@ -84,7 +92,7 @@ app.post('/login', async (req, res) => {
     const isTrusted = await verify_rodit_istrusted_issuingsmartcontract(own_rodit.metadata.subjectuniqueidentifierurl);
 
     if (!isVerified || !isLive || !isActive || !isTrusted) {
-      throw new Error('Rodit verification failed');
+      throw new Error('Error: Rodit verification failed');
     }
 
     const now = Math.floor(Date.now() / 1000);

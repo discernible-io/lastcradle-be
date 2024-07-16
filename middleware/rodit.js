@@ -73,9 +73,9 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
 
     // Obtain a Own Service Provider RODiT (Mother RODiT) from its ID
     const args_ownServiceProviderId = JSON.stringify({ token_id: ownServiceProviderId });
-    let ownServiceProviderRodit;
+    let ownsp_rodit;
     try {
-        ownServiceProviderRodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
+        ownsp_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
     } catch (error) {
         console.error('Error: Peer RODiT does not match Own RODiT - Fetching');
         return false;
@@ -84,10 +84,10 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
     // Convert the owner_id string to a Buffer by decoding it from hex
     let bytes_ownServiceProviderOwnerId;
    
-    console.debug('Info: ownServiceProviderRodit', JSON.stringify(ownServiceProviderRodit));
-    console.debug('Info: ownServiceProviderRodit.owner_id',ownServiceProviderRodit.owner_id);
+    console.debug('Info: ownsp_rodit', JSON.stringify(ownsp_rodit));
+    console.debug('Info: ownsp_rodit.owner_id',ownsp_rodit.owner_id);
     try {
-        bytes_ownServiceProviderOwnerId = new Uint8Array(Buffer.from(ownServiceProviderRodit.owner_id, 'hex'));
+        bytes_ownServiceProviderOwnerId = new Uint8Array(Buffer.from(ownsp_rodit.owner_id, 'hex'));
     } catch (error) {
         console.error('Error: Failed to decode hex string');
         return false;
@@ -118,7 +118,7 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
         const isValid = nacl.sign.detached.verify(bytes_peerTokenId, bytes_peerServiceProviderSignature, bytes_ownServiceProviderOwnerId);
 
         if (isValid) {
-            console.info('Info Peer RODiT matches Own RODiT');
+            console.info('Info Peer RODiT matches Own RODiT check passed');
             return true;
         } else {
             console.error('Error: Peer RODiT does not match Own RODiT');
@@ -145,13 +145,13 @@ async function verify_rodit_isactive(tokenId, ownSubjectUniqueIdentifierUrl) {
       console.error(`Error: Peer RODiT ${tokenId} revoked by ${domainAndExtension} as per ${revokingDnsEntry}`);
       return false;
     } catch (error) {
-      // If an Error is found, instead of an entry, the Peer RODiT is not revoked
-      console.info("Info: Peer RODiT is not revoked");
+      // If an Error is found, instead of an entry, the Peer RODiT is not revoked check passed
+      console.info("Info: Peer RODiT is not revoked check passed");
       return true;
     }
   } else {
-    // If no domain and extension match is found, the Peer RODiT is not revoked
-    console.info("Info: Peer RODiT is not revoked");
+    // If no domain and extension match is found, the Peer RODiT is not revoked check passed
+    console.info("Info: Peer RODiT is not revoked check passed");
     return true;
   }
 }
@@ -172,7 +172,7 @@ async function verify_rodit_istrusted_issuingsmartcontract(ownSubjectUniqueIdent
     try {
       const cfgResponse = await resolver.resolveTxt(enablingDnsEntry);
       if (cfgResponse.length > 0) {
-        console.log("Info: Smart Contract is trusted");
+        console.log("Info: Smart Contract trust check passed");
         return true;
       } else {
         console.error(`Error: Smart Contract ${smartContractUrl} not trusted by ${domainAndExtension} in verify_smartcontract_istruste`);
@@ -223,11 +223,11 @@ function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
           ((datetimeTimestamp <= datetimeNotafter) || datetimeNotafter.getTime() === datetimeNul.getTime()) &&
           ((datetimeTimestamp >= datetimeNotbefore) || datetimeNotbefore.getTime() === datetimeNul.getTime())
         ) {
-          console.log("Info: Peer RODiT is live");
+          console.log("Info: Peer RODiT is live check passed");
           return true;
         } else {
           console.error(
-            "Error: Peer RODiT is not live - notbefore %s now %s notafter %s",
+            "Error: Peer RODiT is live check failed - notbefore %s now %s notafter %s",
             datetimeNotbefore.toISOString(),
             datetimeTimestamp.toISOString(),
             datetimeNotafter.toISOString()
@@ -330,9 +330,9 @@ async function nearorg_rpc_state(xnet, id, accountId) {
     const url = `https://rpc${xnet}.near.org`;
   
     if (xnet === '.') {
-      console.info("Info: Blockchain Directory Network is mainnet (nearorg_rpc_state)");
+      console.info(`Info: Blockchain Directory Network is mainnet`);
     } else {
-      console.info(`Info: Blockchain Directory Network is ${xnet} (nearorg_rpc_state)`);
+      console.info(`Info: Blockchain Directory Network is ${xnet}`);
     }
   
     const jsonData = {
