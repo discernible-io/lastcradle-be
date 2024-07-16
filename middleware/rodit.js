@@ -195,7 +195,7 @@ async function verify_rodit_istrusted_issuingsmartcontract(ownSubjectUniqueIdent
 // })();
 
 
-function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
+async function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
     // Helper function to parse date strings
     function parseDate(dateString) {
       const date = new Date(dateString);
