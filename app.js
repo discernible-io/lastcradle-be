@@ -8,6 +8,8 @@ const crypto    = require('crypto');
 const nacl      = require('tweetnacl');
 nacl.util       = require('tweetnacl-util');
 const { SignJWT, jwtVerify } = require('jose');
+const swaggerUi = require('swagger-ui-express');
+const swaggerJsdoc = require('swagger-jsdoc');
 
 const { CONSTANTS, Rodit, verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
   verify_rodit_istrusted_issuingsmartcontract, nearorg_rpc_state, nearorg_rpc_tokensfromaccountid,
@@ -27,11 +29,41 @@ const config = {
   APP_CLIENT: 'your-app-client' // Not in use atm
 };
 
+const options = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'RODiT prototype API',
+      version: '1.0.0',
+      description:
+        'This is a REST API application made with Express. It just echoes whatever string you send to it.',
+      // license: {
+      //  name: 'Licensed Under MIT',
+      //  url: 'https://spdx.org/licenses/MIT.html',
+      //},
+      contact: {
+        name: 'JSONPlaceholder for the contact name',
+        url: 'http://localhost:3000/home.js',
+      },
+    },
+    servers: [
+      {
+        url: 'http://localhost:3000',
+        description: 'RODiT Development server',
+      },
+    ],
+  },
+  apis: ['./app.js', './routes/*.js'],
+};
+
+const swaggerSpec = swaggerJsdoc(options);
+
 const app = express();
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Rodit middleware for JWT authentication
 
@@ -63,7 +95,41 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Login route
+/**
+ * @swagger
+ * /login:
+ *   post:
+ *     summary: Authenticate user
+ *     description: Authenticate a user using their Rodit ID and signature
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               peer_roditid:
+ *                 type: string
+ *                 description: The Rodit ID of the user
+ *               peer_roditid_base64url_signature:
+ *                 type: string
+ *                 description: The base64url signature of the Rodit ID
+ *     responses:
+ *       200:
+ *         description: Successful authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for authenticated session
+ *       400:
+ *         description: Missing Rodit ID or Signature
+ *       401:
+ *         description: Authentication failed
+ */
 app.post('/login', async (req, res) => {
   const { peer_roditid, peer_roditid_base64url_signature } = req.body;
 
@@ -138,7 +204,7 @@ app.post('/login', async (req, res) => {
       iss: own_rodit.metadata.subjectuniqueidentifierurl, // App name, CG: change name to fit iss
       sub: peer_rodit.metadata.serviceproviderid + ";sub=" +peer_rodit.token_id, // Unique Id of the client
       aud: peer_rodit.metadata.serviceproviderid, // App Client
-      exp: expiresat, // CG: Calculate exp as a function of the peer rodit expiration and the JWT session duration configured in the Rodit
+      exp: expiresat, 
       nbf: notbefore,
       iat: now,
       jti: "jti"+ulid(), // jti added to distinguish this quickly visually from the rodit_id

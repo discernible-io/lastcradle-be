@@ -77,15 +77,15 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
     try {
         ownsp_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
     } catch (error) {
-        console.error('Error: Peer RODiT does not match Own RODiT - Fetching');
+        console.error('Error: Peer RODiT does not match Own RODiT');
         return false;
     }
 
     // Convert the owner_id string to a Buffer by decoding it from hex
     let bytes_ownServiceProviderOwnerId;
    
-    console.debug('Info: Service Provider Rodit:', JSON.stringify(ownsp_rodit));
-    console.debug('Info: Service Provider Rodit Account ID:',ownsp_rodit.owner_id);
+    console.debug('Info: Own Service Provider Rodit:', JSON.stringify(ownsp_rodit));
+    console.debug('Info: Own Service Provider Rodit Account ID:',ownsp_rodit.owner_id);
     try {
         bytes_ownServiceProviderOwnerId = new Uint8Array(Buffer.from(ownsp_rodit.owner_id, 'hex'));
     } catch (error) {
@@ -187,13 +187,6 @@ async function verify_rodit_istrusted_issuingsmartcontract(ownSubjectUniqueIdent
     return false;
   }
 }
-
-// Example usage:
-// (async () => {
-//   const result = await verifyRoditIsTrustedIssuingSmartContract("example.your_domain.com");
-//   console.log(result);
-// })();
-
 
 async function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
     // Helper function to parse date strings

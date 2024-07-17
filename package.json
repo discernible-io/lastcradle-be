@@ -9,6 +9,8 @@
     "jose": "^5.6.3",
     "node-fetch": "^3.3.2",
     "nodemon": "^3.1.4",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "tldts": "^6.1.31",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
