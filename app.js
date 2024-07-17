@@ -26,8 +26,6 @@ const config = {
     'testnet',
     '231f6501834fd10e4829e0ba2124efd55e7a1f2507c56bfb6442a588c557cfbd.json'
   ),
-  APP_NAME: 'your-app-name', // Not is use atm
-  APP_CLIENT: 'your-app-client' // Not in use atm
 };
 
 const options = {
@@ -58,8 +56,29 @@ const options = {
 };
 
 const swaggerSpec = swaggerJsdoc(options);
-
 const app = express();
+
+async function get_own_listenport() {  
+  own_rodit = await get_own_rodit()
+  let listenport = own_rodit.metadata.listenport;
+  return listenport
+}
+
+async function get_own_rodit() {
+    const { accountId: ownrodit_hex_accountid, ownrodit_base58_private_key } = await processAccountFile(config.ACCOUNT_FILE_PATH);
+    console.debug('Info: ownrodit_hex_accountid:', ownrodit_hex_accountid);
+    
+    // Await the async operations
+    const result = await nearorg_rpc_state(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, ownrodit_hex_accountid);
+    
+    if (result === false) {
+        throw new Error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
+    }
+    
+    const own_rodit = await nearorg_rpc_tokensfromaccountid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, ownrodit_hex_accountid);
+    
+    return own_rodit;
+}
 
 // Middleware
 app.use(express.json());
@@ -138,26 +157,14 @@ app.get('/', (req, res) => {
  */
 app.post('/login', async (req, res) => {
   const { peer_roditid, peer_roditid_base64url_signature } = req.body;
-
+  console.debug('Info: Client Rodit ID:', peer_roditid);
+  console.debug('Info: Client Rodit ID Signature:', peer_roditid_base64url_signature);
   if (!peer_roditid || !peer_roditid_base64url_signature) {
     return res.status(400).json({ message: 'Error: Missing Rodit ID and Signature' });
   }
 
   try {
-    // A NEAR Protocol account id is also an Ed215519 public key
-    // CG: We don´t need to do this for every login, only when starting the service
-    const { accountId: ownrodit_hex_accountid, ownrodit_base58_private_key } = await processAccountFile(config.ACCOUNT_FILE_PATH);
-
-    const result = await nearorg_rpc_state(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, ownrodit_hex_accountid);
-    if (result === false) {
-      throw new Error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
-    }
-
-    console.debug('Info: Client Rodit ID:', peer_roditid);
-    console.debug('Info: Client Rodit ID Signature:', peer_roditid_base64url_signature);
-    const own_rodit = await nearorg_rpc_tokensfromaccountid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, ownrodit_hex_accountid);
     const peer_rodit = await verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_signature);
-    
     const isVerified = await verify_rodit_isamatch(own_rodit.metadata.serviceproviderid, peer_rodit.metadata.serviceprovidersignature, peer_roditid);
     const isLive = await verify_rodit_islive(peer_rodit.metadata.notafter, peer_rodit.metadata.notbefore);
     const isActive = await verify_rodit_isactive(peer_roditid, own_rodit.metadata.subjectuniqueidentifierurl);
@@ -167,22 +174,22 @@ app.post('/login', async (req, res) => {
       throw new Error('Error: Rodit verification failed');
     }
 
-    const now = Math.floor(Date.now() / 1000);
+    const { accountId: ownrodit_hex_accountid, ownrodit_base58_private_key } = await processAccountFile(config.ACCOUNT_FILE_PATH);
     const ownrodit_private_key = bs58.decode(ownrodit_base58_private_key);
     const ownrodit_bytes_private_key = new Uint8Array(Buffer.from(ownrodit_private_key));
     const ownrodit_bytes_roditid = new Uint8Array(Buffer.from(own_rodit.token_id));
     const ownrodit_bytes_signature = nacl.sign.detached(ownrodit_bytes_roditid, ownrodit_bytes_private_key);
     const ownrodit_base64url_signature = Buffer.from(ownrodit_bytes_signature).toString('base64url');
-    const ownrodit_bytes_public_key = new Uint8Array(Buffer.from(own_rodit.owner_id, 'hex'));
+    // const ownrodit_bytes_public_key = new Uint8Array(Buffer.from(own_rodit.owner_id, 'hex'));
 
-    const ownrodit_keyobject_public_key = crypto.createPublicKey({
+    /* const ownrodit_keyobject_public_key = crypto.createPublicKey({
       key: Buffer.concat([
         Buffer.from('302a300506032b6570032100', 'hex'), // Ed25519 public key header
         ownrodit_bytes_public_key
       ]),
       format: 'der',
       type: 'spki'
-    });
+    }); */
     
     // For private key
     const ownrodit_keyobject_private_key = crypto.createPrivateKey({
@@ -194,6 +201,7 @@ app.post('/login', async (req, res) => {
       type: 'pkcs8'
     });
 
+    const now = Math.floor(Date.now() / 1000);
     // Make sure that the token will not last beyond the expiration date of the Rodit
     const notafter = await dateStringToUnixTime(peer_rodit.metadata.notafter); 
     let expiresat=now;
@@ -276,4 +284,8 @@ async function dateStringToUnixTime(dateString) {
 }
 
 // Start server
-app.listen(config.PORT, () => console.log(`Server started on port ${config.PORT}`));
+get_own_listenport().then((listenport) => {
+  app.listen(listenport, () => console.log(`Server started on port ${listenport}`));
+}).catch(err => {
+  console.error('Failed to get the listen port:', err);
+});
