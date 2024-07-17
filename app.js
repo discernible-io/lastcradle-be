@@ -4,6 +4,7 @@ const path      = require('path');
 const os        = require('os');
 const bs58      = require('bs58');
 const fs        = require('fs').promises;
+const cors      = require('cors');
 const crypto    = require('crypto');
 const nacl      = require('tweetnacl');
 nacl.util       = require('tweetnacl-util');
@@ -63,26 +64,31 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(cors());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Rodit middleware for JWT authentication
 
 // Verify token if available
 const authenticateJWT = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ message: 'Error: No token provided' });
-  }
-
-  const token = authHeader.split(' ')[1];
   try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ message: 'Error: No token provided' });
+    }
+
+    const token = authHeader.split(' ')[1];
     const { payload } = await jwtVerify(token, ownrodit_keyobject_public_key, {
       algorithms: ['EdDSA']
     });
+
     req.user = payload;
     next();
   } catch (err) {
-    return res.status(403).json({ message: 'Error: Invalid or expired token' });
+    if (err.code === 'ERR_JWT_EXPIRED') {
+      return res.status(401).json({ message: 'Error: Token has expired' });
+    }
+    return res.status(403).json({ message: 'Error: Invalid token' });
   }
 };
 
