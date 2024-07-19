@@ -206,10 +206,12 @@ app.post('/login', async (req, res) => {
     const notbefore = await dateStringToUnixTime(own_rodit.metadata.notbefore); 
     
     /*  
-    2 maxrequestspersecond
-    3 path:/users;permissions list
+    3 permissionslist: Route:Permissions:Number in scientific notation, where Permissions are C D W R with E or EP suffix, 0 means unlimited
+    /api/users:CreatePE,DeleteE,WriteP,ReadPS:1e3;/api/posts:CreateP,DeleteE,WriteP,ReadPT:2e4;/api/comments:CreateE,DeletePE,WriteE,ReadPES:5e2
+    3 and Read can be Strict or Pattern
     4 HTTPS it dinamically
-    5 CG: Additional field with name version and environment: apinfo: Name;Version;P S or D
+    5 maxrequestspersecond // CG: maxrequests:WindowSize;Requests
+    6 apinfo: Name;Version;P S or D // CG: Additional field with name version and environment
     6 SRV it?
     7 Geographic restrictions
     8 SLA
