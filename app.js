@@ -18,12 +18,11 @@ const { CONSTANTS, Rodit, verify_isthererodit_getit, verify_rodit_isamatch, veri
 
 // Configuration for Dev environment
 const config = {
-  JWT_EXPIRATION: 3600, // 1 hour
   ACCOUNT_FILE_PATH: path.join(
     os.homedir(),
     '.near-credentials',
     'testnet',
-    '231f6501834fd10e4829e0ba2124efd55e7a1f2507c56bfb6442a588c557cfbd.json'
+    '135e6021df552417e4451bd7110f939494d56b949ca29c83d0e2b2cf6b155111.json'
   ),
 };
 
@@ -193,9 +192,12 @@ app.post('/login', async (req, res) => {
     const now = Math.floor(Date.now() / 1000);
     // Make sure that the token will not last beyond the expiration date of the Rodit
     const notafter = await dateStringToUnixTime(peer_rodit.metadata.notafter); 
+    const duration = parseInt(peer_rodit.metadata.jwtduration, 10);
     let expiresat=now;
-    if ((now + config.JWT_EXPIRATION) < notafter) {
-      expiresat = now + config.JWT_EXPIRATION;
+    
+    if ((now + duration) < notafter) {
+      expiresat = parseInt(now + peer_rodit.metadata.jwtduration);
+      console.debug(`expiresat`,expiresat);
     } else {
       throw new Error('Rodit duration check failed');
     }
@@ -204,10 +206,8 @@ app.post('/login', async (req, res) => {
     const notbefore = await dateStringToUnixTime(own_rodit.metadata.notbefore); 
     
     /* api rodit format
-    "jwtduration": "3600",
     "maxrequestspersecond": "1000",
-    "openapijsonurl": "api.cableguard.net", // base url
-    "subjectuniqueidentifierurl": "api.cableguard.net"
+    "openapijsonurl": "api.cableguard.net", // base url could be used to the server self registers its IP via DNS
     info:
       title: My API
       version: 1.0.1
@@ -217,6 +217,10 @@ app.post('/login', async (req, res) => {
     Geographic restrictions
     SLA
     production, staging, development
+
+    Route=Permission list;
+    CO, DO, ROE, WO, ROP, WOP, RP, WP, 
+
     scopes:
               read:users: Read user information
               write:users: Modify user information
@@ -236,7 +240,7 @@ app.post('/login', async (req, res) => {
       iss: own_rodit.metadata.subjectuniqueidentifierurl, // App name, CG: change name to fit iss
       sub: peer_rodit.metadata.serviceproviderid + ";sub=" +peer_rodit.token_id, // Unique Id of the client
       aud: peer_rodit.metadata.serviceproviderid, // App Client
-      exp: expiresat, 
+      exp: expiresat,
       nbf: notbefore,
       iat: now,
       jti: "jti"+ulid(), // jti added to distinguish this quickly visually from the rodit_id

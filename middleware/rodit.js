@@ -6,7 +6,7 @@ const { Resolver } = require('dns').promises;
 
 // Constants
 const CONSTANTS = {
-    SMART_CONTRACT: "09313-cableguard-org.testnet",
+    SMART_CONTRACT: "09515-cableguard-org.testnet",
     BLOCKCHAIN_NETWORK: ".testnet", // IMPORTANT: Values here must be either ".testnet" for testnet or "." for mainnet
     RODIT_ID_SZ: 128,
     RODIT_ID_SIGNATURE_SZ: 64,
@@ -24,17 +24,15 @@ class Rodit {
         this.approved_account_ids = null;
         this.royalty = null;
         this.metadata = {
-            issuername: "",
-            description: "",
+            jwtduration: "",
+            listenport: "",
+            maxrequestspersecond: "",
             notafter: "",
             notbefore: "",
-            cidrblock: "",
-            listenport: "",
-            dns: "",
-            allowedips: "",
-            subjectuniqueidentifierurl: "",
+            openapijsonurl: "",
             serviceproviderid: "",
-            serviceprovidersignature: ""
+            serviceprovidersignature: "",
+            subjectuniqueidentifierurl: ""
         };
     }
 }
@@ -47,6 +45,7 @@ async function verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_si
     try {
         // Ensure rodit_id and rodit_id_signature are Uint8Array
         const bytes_roditid = new Uint8Array(Buffer.from(peer_roditid));
+
         const bytes_ed25519_signature = new Uint8Array(Buffer.from(peer_roditid_base64url_signature, 'base64url'));
 
         const peer_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
@@ -65,7 +64,7 @@ async function verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_si
         }
     } catch (err) {
         console.error(`Error: There is no Peer RODiT associated with the account: ${err}`);
-        throw new Error('PeerEd25519RoditMissing');
+        throw new Error('Error: PeerEd25519RoditMissing');
     }
 }
 
@@ -73,21 +72,21 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
 
     // Obtain a Own Service Provider RODiT (Mother RODiT) from its ID
     const args_ownServiceProviderId = JSON.stringify({ token_id: ownServiceProviderId });
-    let ownsp_rodit;
+    let ownServiceProviderRodit;
     try {
-        ownsp_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
+        ownServiceProviderRodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
     } catch (error) {
-        console.error('Error: Peer RODiT does not match Own RODiT');
+        console.error('Error: Peer RODiT does not match Own RODiT - Fetching');
         return false;
     }
 
     // Convert the owner_id string to a Buffer by decoding it from hex
     let bytes_ownServiceProviderOwnerId;
    
-    console.debug('Info: Own Service Provider Rodit:', JSON.stringify(ownsp_rodit));
-    console.debug('Info: Own Service Provider Rodit Account ID:',ownsp_rodit.owner_id);
+    console.debug('Info: Client Rodit:', JSON.stringify(ownServiceProviderRodit));
+    console.debug('Info: Client Account ID',ownServiceProviderRodit.owner_id);
     try {
-        bytes_ownServiceProviderOwnerId = new Uint8Array(Buffer.from(ownsp_rodit.owner_id, 'hex'));
+        bytes_ownServiceProviderOwnerId = new Uint8Array(Buffer.from(ownServiceProviderRodit.owner_id, 'hex'));
     } catch (error) {
         console.error('Error: Failed to decode hex string');
         return false;
@@ -118,7 +117,7 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
         const isValid = nacl.sign.detached.verify(bytes_peerTokenId, bytes_peerServiceProviderSignature, bytes_ownServiceProviderOwnerId);
 
         if (isValid) {
-            console.info('Info Peer RODiT matches Own RODiT check passed');
+            console.info('Info Peer RODiT matches Own RODiT');
             return true;
         } else {
             console.error('Error: Peer RODiT does not match Own RODiT');
@@ -145,13 +144,13 @@ async function verify_rodit_isactive(tokenId, ownSubjectUniqueIdentifierUrl) {
       console.error(`Error: Peer RODiT ${tokenId} revoked by ${domainAndExtension} as per ${revokingDnsEntry}`);
       return false;
     } catch (error) {
-      // If an Error is found, instead of an entry, the Peer RODiT is not revoked check passed
-      console.info("Info: Peer RODiT is not revoked check passed");
+      // If an Error is found, instead of an entry, the Peer RODiT is not revoked
+      console.info("Info: Peer RODiT is not revoked");
       return true;
     }
   } else {
-    // If no domain and extension match is found, the Peer RODiT is not revoked check passed
-    console.info("Info: Peer RODiT is not revoked check passed");
+    // If no domain and extension match is found, the Peer RODiT is not revoked
+    console.info("Info: Peer RODiT is not revoked");
     return true;
   }
 }
@@ -172,7 +171,7 @@ async function verify_rodit_istrusted_issuingsmartcontract(ownSubjectUniqueIdent
     try {
       const cfgResponse = await resolver.resolveTxt(enablingDnsEntry);
       if (cfgResponse.length > 0) {
-        console.log("Info: Smart Contract trust check passed");
+        console.log("Info: Smart Contract is trusted");
         return true;
       } else {
         console.error(`Error: Smart Contract ${smartContractUrl} not trusted by ${domainAndExtension} in verify_smartcontract_istruste`);
@@ -216,11 +215,11 @@ async function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
           ((datetimeTimestamp <= datetimeNotafter) || datetimeNotafter.getTime() === datetimeNul.getTime()) &&
           ((datetimeTimestamp >= datetimeNotbefore) || datetimeNotbefore.getTime() === datetimeNul.getTime())
         ) {
-          console.log("Info: Peer RODiT is live check passed");
+          console.log("Info: Peer RODiT is live");
           return true;
         } else {
           console.error(
-            "Error: Peer RODiT is live check failed - notbefore %s now %s notafter %s",
+            "Error: Peer RODiT is not live - notbefore %s now %s notafter %s",
             datetimeNotbefore.toISOString(),
             datetimeTimestamp.toISOString(),
             datetimeNotafter.toISOString()
@@ -234,6 +233,7 @@ async function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
       });
   }
 
+  // Obtain timestamp from blockchain
   async function nearorg_rpc_timestamp(xnet) {
     const url = `https://rpc${xnet}.near.org`;
     const jsonData = {
@@ -273,6 +273,7 @@ async function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
     }
   }
 
+// Obtain Rodit from Rodit ID
 async function nearorg_rpc_tokenfromroditid(xnet, id, method_name, args) {
     const url = `https://rpc${xnet}.near.org`;
 
@@ -319,11 +320,12 @@ async function nearorg_rpc_tokenfromroditid(xnet, id, method_name, args) {
     return rodit;
 }
 
+// Obtain state of the account id
 async function nearorg_rpc_state(xnet, id, accountId) {
     const url = `https://rpc${xnet}.near.org`;
   
     if (xnet === '.') {
-      console.info(`Info: Blockchain Directory Network is mainnet`);
+      console.info("Info: Blockchain Directory Network is mainnet");
     } else {
       console.info(`Info: Blockchain Directory Network is ${xnet}`);
     }
@@ -360,6 +362,7 @@ async function nearorg_rpc_state(xnet, id, accountId) {
     }
   }
 
+  // Obtain Rodit from account_id
   async function nearorg_rpc_tokensfromaccountid(xnet, id, account_id) {
       const url = `https://rpc${xnet}.near.org`;
 
@@ -408,5 +411,5 @@ async function nearorg_rpc_state(xnet, id, accountId) {
 
 module.exports = {
     verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, nearorg_rpc_timestamp,
-    verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,nearorg_rpc_tokensfromaccountid,CONSTANTS,Rodit
+    verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,nearorg_rpc_tokensfromaccountid,nearorg_rpc_tokenfromroditid,CONSTANTS,Rodit
 };
