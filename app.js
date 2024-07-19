@@ -8,6 +8,7 @@ const cors      = require('cors');
 const crypto    = require('crypto');
 const nacl      = require('tweetnacl');
 nacl.util       = require('tweetnacl-util');
+const rateLimitMiddleware = require("./middleware/ratelimit");
 const { SignJWT, jwtVerify } = require('jose');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -240,6 +241,8 @@ app.post('/login', async (req, res) => {
 app.get('/protected', authenticateJWT, (req, res) => {
   res.json({ message: 'This is a protected route', user: req.user });
 });
+
+app.use(rateLimitMiddleware);
 
 // Import protected route
 const protectedRoutes = require('./protected/echo');
