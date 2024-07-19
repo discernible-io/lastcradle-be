@@ -16,7 +16,7 @@ const { CONSTANTS, Rodit, verify_isthererodit_getit, verify_rodit_isamatch, veri
   verify_rodit_istrusted_issuingsmartcontract, nearorg_rpc_state, nearorg_rpc_tokensfromaccountid,
    } = require('./middleware/rodit');
 
-// Configuration for Dev environment
+// CG: Configuration to be added as a cli parameter
 const config = {
   ACCOUNT_FILE_PATH: path.join(
     os.homedir(),
@@ -204,39 +204,18 @@ app.post('/login', async (req, res) => {
     console.info('Info: This API endpoint Login of Client check passed');
     const notbefore = await dateStringToUnixTime(own_rodit.metadata.notbefore); 
     
-    /* api rodit format
-    "maxrequestspersecond": "1000",
-    "openapijsonurl": "api.cableguard.net", // base url could be used to the server self registers its IP via DNS
-    info:
-      title: My API
-      version: 1.0.1
-    path:/users;permissions: 
-    */
-    /*
-    Geographic restrictions
-    SLA
-    production, staging, development
-
-    Route=Permission list;
-    CO, DO, ROE, WO, ROP, WOP, RP, WP, 
-
-    scopes:
-              read:users: Read user information
-              write:users: Modify user information
-              read:admin: Access admin information
-    paths:
-      /users:
-        get:
-          summary: List users
-        post:
-          summary: Create a user
-      /admin:
-        get:
-          summary: Admin information
+    /*  
+    2 maxrequestspersecond
+    3 path:/users;permissions list
+    4 HTTPS it dinamically
+    5 CG: Additional field with name version and environment: apinfo: Name;Version;P S or D
+    6 SRV it?
+    7 Geographic restrictions
+    8 SLA
     */
 
     const token = await new SignJWT({
-      iss: own_rodit.metadata.subjectuniqueidentifierurl, // App name, CG: change name to fit iss
+      iss: own_rodit.metadata.subjectuniqueidentifierurl, // App Name
       sub: peer_rodit.metadata.serviceproviderid + ";sub=" +peer_rodit.token_id, // Unique Id of the client
       aud: peer_rodit.metadata.serviceproviderid, // App Client
       exp: expiresat,
