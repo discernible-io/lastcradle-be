@@ -197,12 +197,11 @@ app.post('/login', async (req, res) => {
     
     if ((now + duration) < notafter) {
       expiresat = parseInt(now + peer_rodit.metadata.jwtduration);
-      console.debug(`expiresat`,expiresat);
     } else {
       throw new Error('Rodit duration check failed');
     }
 
-    console.debug('Info: This API endpoint Login of Client check passed');
+    console.info('Info: This API endpoint Login of Client check passed');
     const notbefore = await dateStringToUnixTime(own_rodit.metadata.notbefore); 
     
     /* api rodit format
@@ -254,7 +253,7 @@ app.post('/login', async (req, res) => {
     res.json({ token });
 
   } catch (error) {
-    console.error('Login failed:', error);
+    console.error('Error: Login failed:', error);
     res.status(401).json({ message: 'Authentication failed', error: error.message });
   }
 });
@@ -309,5 +308,5 @@ async function dateStringToUnixTime(dateString) {
 get_own_listenport().then((listenport) => {
   app.listen(listenport, () => console.log(`Server started on port ${listenport}`));
 }).catch(err => {
-  console.error('Failed to get the listen port:', err);
+  console.error('Error: Failed to get the listen port:', err);
 });
