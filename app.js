@@ -13,7 +13,7 @@ const { SignJWT, jwtVerify } = require('jose');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
-const { CONSTANTS, Rodit, verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
+const { CONSTANTS, RODiT, verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
   verify_rodit_istrusted_issuingsmartcontract, nearorg_rpc_state, nearorg_rpc_tokensfromaccountid,
    } = require('./middleware/rodit');
 
@@ -85,7 +85,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cors());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Rodit middleware for JWT authentication
+// RODiT middleware for JWT authentication
 
 // Verify token if available
 const authenticateJWT = async (req, res, next) => {
@@ -124,7 +124,7 @@ app.get('/', (req, res) => {
  * /login:
  *   post:
  *     summary: Authenticate user
- *     description: Authenticate a user using their Rodit ID and signature
+ *     description: Authenticate a user using their RODiT ID and signature
  *     requestBody:
  *       required: true
  *       content:
@@ -134,10 +134,10 @@ app.get('/', (req, res) => {
  *             properties:
  *               peer_roditid:
  *                 type: string
- *                 description: The Rodit ID of the user
+ *                 description: The RODiT ID of the user
  *               peer_roditid_base64url_signature:
  *                 type: string
- *                 description: The base64url signature of the Rodit ID
+ *                 description: The base64url signature of the RODiT ID
  *     responses:
  *       200:
  *         description: Successful authentication
@@ -150,16 +150,16 @@ app.get('/', (req, res) => {
  *                   type: string
  *                   description: JWT token for authenticated session
  *       400:
- *         description: Missing Rodit ID or Signature
+ *         description: Missing RODiT ID or Signature
  *       401:
  *         description: Authentication failed
  */
 app.post('/login', async (req, res) => {
   const { peer_roditid, peer_roditid_base64url_signature } = req.body;
-  console.debug('Info: Client Rodit ID:', peer_roditid);
-  console.debug('Info: Client Rodit ID Signature:', peer_roditid_base64url_signature);
+  console.debug('Info: Client RODiT ID:', peer_roditid);
+  console.debug('Info: Client RODiT ID Signature:', peer_roditid_base64url_signature);
   if (!peer_roditid || !peer_roditid_base64url_signature) {
-    return res.status(400).json({ message: 'Error: Missing Rodit ID and Signature' });
+    return res.status(400).json({ message: 'Error: Missing RODiT ID and Signature' });
   }
 
   try {
@@ -170,7 +170,7 @@ app.post('/login', async (req, res) => {
     const isTrusted = await verify_rodit_istrusted_issuingsmartcontract(own_rodit.metadata.subjectuniqueidentifierurl);
 
     if (!isVerified || !isLive || !isActive || !isTrusted) {
-      throw new Error('Error: Rodit verification failed');
+      throw new Error('Error: RODiT verification failed');
     }
 
     const { accountId: ownrodit_hex_accountid, ownrodit_base58_private_key } = await processAccountFile(config.ACCOUNT_FILE_PATH);
@@ -191,7 +191,7 @@ app.post('/login', async (req, res) => {
     });
 
     const now = Math.floor(Date.now() / 1000);
-    // Make sure that the token will not last beyond the expiration date of the Rodit
+    // Make sure that the token will not last beyond the expiration date of the RODiT
     const notafter = await dateStringToUnixTime(peer_rodit.metadata.notafter); 
     const duration = parseInt(peer_rodit.metadata.jwtduration, 10);
     let expiresat=now;
@@ -199,7 +199,7 @@ app.post('/login', async (req, res) => {
     if ((now + duration) < notafter) {
       expiresat = parseInt(now + peer_rodit.metadata.jwtduration);
     } else {
-      throw new Error('Rodit duration check failed');
+      throw new Error('RODiT duration check failed');
     }
 
     console.info('Info: This API endpoint Login of Client check passed');
