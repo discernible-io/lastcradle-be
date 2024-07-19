@@ -18,7 +18,6 @@ const { CONSTANTS, Rodit, verify_isthererodit_getit, verify_rodit_isamatch, veri
 
 // Configuration for Dev environment
 const config = {
-  PORT: process.env.PORT || 3000,
   JWT_EXPIRATION: 3600, // 1 hour
   ACCOUNT_FILE_PATH: path.join(
     os.homedir(),
@@ -42,12 +41,12 @@ const options = {
       //},
       contact: {
         name: 'JSONPlaceholder for the contact name',
-        url: 'http://localhost:3000/home.js',
+        url: 'https://localhost:3000/home.js',
       },
     },
     servers: [
       {
-        url: 'http://localhost:3000',
+        url: 'https://localhost:3000',
         description: 'RODiT Development server',
       },
     ],
@@ -180,16 +179,6 @@ app.post('/login', async (req, res) => {
     const ownrodit_bytes_roditid = new Uint8Array(Buffer.from(own_rodit.token_id));
     const ownrodit_bytes_signature = nacl.sign.detached(ownrodit_bytes_roditid, ownrodit_bytes_private_key);
     const ownrodit_base64url_signature = Buffer.from(ownrodit_bytes_signature).toString('base64url');
-    // const ownrodit_bytes_public_key = new Uint8Array(Buffer.from(own_rodit.owner_id, 'hex'));
-
-    /* const ownrodit_keyobject_public_key = crypto.createPublicKey({
-      key: Buffer.concat([
-        Buffer.from('302a300506032b6570032100', 'hex'), // Ed25519 public key header
-        ownrodit_bytes_public_key
-      ]),
-      format: 'der',
-      type: 'spki'
-    }); */
     
     // For private key
     const ownrodit_keyobject_private_key = crypto.createPrivateKey({
@@ -214,6 +203,35 @@ app.post('/login', async (req, res) => {
     console.debug('Info: This API endpoint Login of Client check passed');
     const notbefore = await dateStringToUnixTime(own_rodit.metadata.notbefore); 
     
+    /* api rodit format
+    "jwtduration": "3600",
+    "maxrequestspersecond": "1000",
+    "openapijsonurl": "api.cableguard.net", // base url
+    "subjectuniqueidentifierurl": "api.cableguard.net"
+    info:
+      title: My API
+      version: 1.0.1
+    path:/users;permissions: 
+    */
+    /*
+    Geographic restrictions
+    SLA
+    production, staging, development
+    scopes:
+              read:users: Read user information
+              write:users: Modify user information
+              read:admin: Access admin information
+    paths:
+      /users:
+        get:
+          summary: List users
+        post:
+          summary: Create a user
+      /admin:
+        get:
+          summary: Admin information
+    */
+
     const token = await new SignJWT({
       iss: own_rodit.metadata.subjectuniqueidentifierurl, // App name, CG: change name to fit iss
       sub: peer_rodit.metadata.serviceproviderid + ";sub=" +peer_rodit.token_id, // Unique Id of the client
