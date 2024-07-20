@@ -57,11 +57,15 @@ const options = {
 const swaggerSpec = swaggerJsdoc(options);
 const app = express();
 
+// CG: Move to rodit.js
+
 async function get_own_listenport() {  
   own_rodit = await get_own_rodit()
   let listenport = own_rodit.metadata.listenport;
   return listenport
 }
+
+// CG: Move to rodit.js
 
 async function get_own_rodit() {
     const { accountId: ownrodit_hex_accountid, ownrodit_base58_private_key } = await processAccountFile(config.ACCOUNT_FILE_PATH);
@@ -87,7 +91,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // RODiT middleware for JWT authentication
 
-// Verify token if available
+// CG: Move to rodit.js
 const authenticateJWT = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -119,6 +123,7 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+//CG: Move to rodit.js
 /**
  * @swagger
  * /login:
@@ -247,6 +252,7 @@ const protectedRoutes = require('./protected/echo');
 // Mount protected route
 app.use('/api', protectedRoutes);
 
+// CG: Move to rodit.js
 async function processAccountFile(accountFileName) {
   try {
     const accountFileContents = await fs.readFile(accountFileName, 'utf8');
@@ -270,6 +276,7 @@ async function processAccountFile(accountFileName) {
   }
 }
 
+// CG: Move to rodit.js
 async function dateStringToUnixTime(dateString) {
   // Create a new Date object from the string
   const date = new Date(dateString);

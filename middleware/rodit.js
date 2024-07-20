@@ -83,7 +83,7 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
     // Convert the owner_id string to a Buffer by decoding it from hex
     let bytes_ownServiceProviderOwnerId;
    
-    console.info('Info: Service Provider RODiT:', JSON.stringify(ownServiceProviderRodit));
+    console.info('Info: Service Provider RODiT:', ownServiceProviderRodit); // JSON.stringify(JSON.parse(
     console.info('Info: Client Account ID',ownServiceProviderRodit.owner_id);
     try {
         bytes_ownServiceProviderOwnerId = new Uint8Array(Buffer.from(ownServiceProviderRodit.owner_id, 'hex'));
