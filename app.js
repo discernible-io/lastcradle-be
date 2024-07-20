@@ -205,15 +205,7 @@ app.post('/login', async (req, res) => {
     console.info('Info: This API endpoint Login of Client check passed');
     const notbefore = await dateStringToUnixTime(own_rodit.metadata.notbefore); 
     
-    /* 
-    6 apinfo: Name;Version;P S or D // CG: Additional field with name version and environment 
-    5 maxrequestsperwindow // CG: mr= ;ws=
-    3 permissionedroutes: Route:Permissions:Number in scientific notation, where Permissions are C D W R with E or EP suffix, 0 means unlimited
-    /api/users:CreatePE,DeleteE,WriteP,ReadPS:1e3;/api/posts:CreateP,DeleteE,WriteP,ReadPT:2e4;/api/comments:CreateE,DeletePE,WriteE,ReadPES:5e2
-      const permissionRegex = /^(\/[a-z]+(?:\/[a-z]+)*:(?:(?:Create|Delete|Write)(?:P|E|PE)|Read(?:P|E|PE)(?:S|T)):(?:\d+(?:\.\d+)?e[+-]?\d+)(?:;(?!$)|\s*$))+$/i;
-      function validatePermissionString(input) {
-        return permissionRegex.test(input);
-      } and Read can be Strict or Pattern
+    /*
     4 HTTPS it dinamically
     6 SRV it?
     7 Geographic restrictions
