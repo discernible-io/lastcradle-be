@@ -24,15 +24,16 @@ class RODiT {
         this.approved_account_ids = null;
         this.royalty = null;
         this.metadata = {
-            jwtduration: "",
-            listenport: "",
-            maxrequestspersecond: "",
-            notafter: "",
-            notbefore: "",
-            openapijsonurl: "",
-            serviceproviderid: "",
-            serviceprovidersignature: "",
-            subjectuniqueidentifierurl: ""
+          openapijsonurl: "",
+          notafter: "",
+          notbefore: "",
+          maxrequests: "",
+          maxrqwindow: "",
+          jwtduration: "",
+          permissionedroutes: "",
+          subjectuniqueidentifierurl: "",
+          serviceproviderid: "",
+          serviceprovidersignature: string
         };
     }
 }

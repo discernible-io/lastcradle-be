@@ -8,7 +8,7 @@ const cors      = require('cors');
 const crypto    = require('crypto');
 const nacl      = require('tweetnacl');
 nacl.util       = require('tweetnacl-util');
-const rateLimitMiddleware = require("./middleware/ratelimit");
+const ratelimitmw = require("./middleware/ratelimit");
 const { SignJWT, jwtVerify } = require('jose');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -17,15 +17,7 @@ const { CONSTANTS, RODiT, verify_isthererodit_getit, verify_rodit_isamatch, veri
   verify_rodit_istrusted_issuingsmartcontract, nearorg_rpc_state, nearorg_rpc_tokensfromaccountid,
    } = require('./middleware/rodit');
 
-// CG: Configuration to be added as a cli parameter
-const config = {
-  ACCOUNT_FILE_PATH: path.join(
-    os.homedir(),
-    '.near-credentials',
-    'testnet',
-    '135e6021df552417e4451bd7110f939494d56b949ca29c83d0e2b2cf6b155111.json'
-  ),
-};
+let own_rodit;
 
 const options = {
   definition: {
@@ -59,16 +51,14 @@ const app = express();
 
 // CG: Move to rodit.js
 
-async function get_own_listenport() {  
-  own_rodit = await get_own_rodit()
-  let listenport = own_rodit.metadata.listenport;
-  return listenport
+async function get_own_port() {  
+  return 3000; // CG: http until https gets implemented
 }
 
 // CG: Move to rodit.js
 
-async function get_own_rodit() {
-    const { accountId: ownrodit_hex_accountid, ownrodit_base58_private_key } = await processAccountFile(config.ACCOUNT_FILE_PATH);
+async function getownroditandprivatekey(accountfile) {
+    const { accountId: ownrodit_hex_accountid, ownrodit_base58_private_key } = await processAccountFile(accountfile);
     console.debug('Info: Own Account ID:', ownrodit_hex_accountid);
     
     // Await the async operations
@@ -80,7 +70,7 @@ async function get_own_rodit() {
     
     const own_rodit = await nearorg_rpc_tokensfromaccountid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, ownrodit_hex_accountid);
     
-    return own_rodit;
+    return {own_rodit, ownrodit_base58_private_key} 
 }
 
 // Middleware
@@ -168,17 +158,9 @@ app.post('/login', async (req, res) => {
   }
 
   try {
-    const peer_rodit = await verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_signature);
-    const isVerified = await verify_rodit_isamatch(own_rodit.metadata.serviceproviderid, peer_rodit.metadata.serviceprovidersignature, peer_roditid);
-    const isLive = await verify_rodit_islive(peer_rodit.metadata.notafter, peer_rodit.metadata.notbefore);
-    const isActive = await verify_rodit_isactive(peer_roditid, own_rodit.metadata.subjectuniqueidentifierurl);
-    const isTrusted = await verify_rodit_istrusted_issuingsmartcontract(own_rodit.metadata.subjectuniqueidentifierurl);
 
-    if (!isVerified || !isLive || !isActive || !isTrusted) {
-      throw new Error('Error: RODiT verification failed');
-    }
 
-    const { accountId: ownrodit_hex_accountid, ownrodit_base58_private_key } = await processAccountFile(config.ACCOUNT_FILE_PATH);
+    const {own_rodit, ownrodit_base58_private_key } = getownroditandprivatekey(config.ACCOUNT_FILE_PATH);
     const ownrodit_private_key = bs58.decode(ownrodit_base58_private_key);
     const ownrodit_bytes_private_key = new Uint8Array(Buffer.from(ownrodit_private_key));
     const ownrodit_bytes_roditid = new Uint8Array(Buffer.from(own_rodit.token_id));
@@ -194,6 +176,18 @@ app.post('/login', async (req, res) => {
       format: 'der',
       type: 'pkcs8'
     });
+
+    updateratelimit(own_rodit.token_id.maxrequests, own_rodit.token_id.maxrqwindow);
+
+    const peer_rodit = await verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_signature);
+    const isVerified = await verify_rodit_isamatch(own_rodit.metadata.serviceproviderid, peer_rodit.metadata.serviceprovidersignature, peer_roditid);
+    const isLive = await verify_rodit_islive(peer_rodit.metadata.notafter, peer_rodit.metadata.notbefore);
+    const isActive = await verify_rodit_isactive(peer_roditid, own_rodit.metadata.subjectuniqueidentifierurl);
+    const isTrusted = await verify_rodit_istrusted_issuingsmartcontract(own_rodit.metadata.subjectuniqueidentifierurl);
+
+    if (!isVerified || !isLive || !isActive || !isTrusted) {
+      throw new Error('Error: RODiT verification failed');
+    }
 
     const now = Math.floor(Date.now() / 1000);
     // Make sure that the token will not last beyond the expiration date of the RODiT
@@ -226,8 +220,11 @@ app.post('/login', async (req, res) => {
       iat: now,
       jti: "jti"+ulid(), // jti added to distinguish this quickly visually from the rodit_id
       // amr: "near.org/rodit" // field added to indicate which blockchain and authentication method version has been used
-      roditid: own_rodit.token_id,
-      roditidsignature: ownrodit_base64url_signature
+      rodit_id: own_rodit.token_id,
+      rodit_idsignature: ownrodit_base64url_signature,
+      rodit_maxrequests: own_rodit.metadata.maxrequests,
+      rodit_maxrqwindow: own_rodit.metadata.maxrqwindow,
+      rodit_permissionedroutes: own_rodit.metadata.permissionedroutes
     })
       .setProtectedHeader({ alg: 'EdDSA', typ: 'JWT' })
       .sign(ownrodit_keyobject_private_key);
@@ -244,13 +241,22 @@ app.get('/protected', authenticateJWT, (req, res) => {
   res.json({ message: 'This is a protected route', user: req.user });
 });
 
-app.use(rateLimitMiddleware);
+let ratelimitmwph = (req, res, next) => {
+  next();
+};
+
+app.use((req, res, next) => ratelimitmwph(req, res, next));
 
 // Import protected route
 const protectedRoutes = require('./protected/echo');
 
 // Mount protected route
 app.use('/api', protectedRoutes);
+
+
+function updateratelimit(maxrequests, maxrqwindow) {
+  ratelimitmwph = ratelimitmw(maxrequests, maxrqwindow);
+}
 
 // CG: Move to rodit.js
 async function processAccountFile(accountFileName) {
@@ -291,8 +297,8 @@ async function dateStringToUnixTime(dateString) {
 }
 
 // Start server
-get_own_listenport().then((listenport) => {
-  app.listen(listenport, () => console.log(`Server started on port ${listenport}`));
+get_own_port().then((port) => {
+  app.listen(port, () => console.log(`Server started on port ${port}`));
 }).catch(err => {
   console.error('Error: Failed to get the listen port:', err);
 });
