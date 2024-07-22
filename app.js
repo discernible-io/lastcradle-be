@@ -13,7 +13,7 @@ const { SignJWT, jwtVerify } = require('jose');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
-const { CONSTANTS, RODiT, verify_ishasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
+const { CONSTANTS, RODiT, verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
   verify_rodit_istrusted_issuingsmartcontract, nearorg_rpc_state, nearorg_rpc_tokensfromaccountid,
    } = require('./middleware/rodit');
 
@@ -226,7 +226,7 @@ app.post('/login', async (req, res) => {
 
     console.debug('Info: peer_roditid:', peer_roditid);
     console.debug('Info: peer_roditid_base64url_signature:', peer_roditid_base64url_signature);
-    const peer_rodit = await verify_ishasrodit_getit(peer_roditid, peer_roditid_base64url_signature);
+    const peer_rodit = await verify_hasrodit_getit(peer_roditid, peer_roditid_base64url_signature);
 
     const isVerified = await verify_rodit_isamatch(own_rodit.metadata.serviceproviderid, peer_rodit.metadata.serviceprovidersignature, peer_roditid);
   
