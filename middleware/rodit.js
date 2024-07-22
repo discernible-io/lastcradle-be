@@ -4,9 +4,9 @@ const nacl = require('tweetnacl');
 nacl.util = require('tweetnacl-util');
 const { Resolver } = require('dns').promises;
 
-// Constants
+// Move SMART CONTRACT to configuration file
 const CONSTANTS = {
-    SMART_CONTRACT: "09515-cableguard-org.testnet",
+    SMART_CONTRACT: "10201-cableguard-org.testnet",
     BLOCKCHAIN_NETWORK: ".testnet", // IMPORTANT: Values here must be either ".testnet" for testnet or "." for mainnet
     RODIT_ID_SZ: 128,
     RODIT_ID_SIGNATURE_SZ: 64,
@@ -33,25 +33,21 @@ class RODiT {
           permissionedroutes: "",
           subjectuniqueidentifierurl: "",
           serviceproviderid: "",
-          serviceprovidersignature: string
+          serviceprovidersignature: ""
         };
     }
 }
 
-async function verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_signature) {
-    // const slice_roditid = peer_roditid.slice();
-    // const string_roditid = Buffer.from(slice_roditid).toString('utf8').replace(/\0/g, '');
+async function verify_ishasrodit_getit(peer_roditid, peer_roditid_base64url_signature) {
+
     const account_idargs = `{"token_id": "${peer_roditid}"}`;
 
-    try {
-        // Ensure rodit_id and rodit_id_signature are Uint8Array
         const bytes_roditid = new Uint8Array(Buffer.from(peer_roditid));
 
         const bytes_ed25519_signature = new Uint8Array(Buffer.from(peer_roditid_base64url_signature, 'base64url'));
 
         const peer_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
         
-        // Convert the owner_id string to a Uint8Array by decoding it from hex
         const peer_bytes_ed25519_public_key = new Uint8Array(Buffer.from(peer_rodit.owner_id, 'hex'));
 
         const isVerified = nacl.sign.detached.verify(bytes_roditid, bytes_ed25519_signature, peer_bytes_ed25519_public_key);
@@ -63,10 +59,7 @@ async function verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_si
             console.error('Error: Peer RODiT possession check failed');
             throw new Error('PeerEd25519SignatureVerificationFailure');
         }
-    } catch (err) {
-        console.error(`Error: There is no Peer RODiT associated with the account: ${err}`);
-        throw new Error('Error: PeerEd25519RoditMissing');
-    }
+
 }
 
 async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSignature, peerTokenId) {
@@ -76,7 +69,7 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
     let ownServiceProviderRodit;
     try {
         ownServiceProviderRodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
-    } catch (error) {
+    } catch (err) {
         console.error('Error: Peer RODiT does not match Own RODiT - Fetching');
         return false;
     }
@@ -88,7 +81,7 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
     console.info('Info: Client Account ID',ownServiceProviderRodit.owner_id);
     try {
         bytes_ownServiceProviderOwnerId = new Uint8Array(Buffer.from(ownServiceProviderRodit.owner_id, 'hex'));
-    } catch (error) {
+    } catch (err) {
         console.error('Error: Failed to decode hex string');
         return false;
     }
@@ -120,7 +113,7 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
             console.error('Error: Peer RODiT does not match Own RODiT');
             return false;
         }
-    } catch (error) {
+    } catch (err) {
         console.error('Error: Peer RODiT does not match Own RODiT - Parsing public key');
         return false;
     }
@@ -140,7 +133,7 @@ async function verify_rodit_isactive(tokenId, ownSubjectUniqueIdentifierUrl) {
       await resolver.resolveTxt(revokingDnsEntry);
       console.error(`Error: Peer RODiT ${tokenId} revoked by ${domainAndExtension} as per ${revokingDnsEntry}`);
       return false;
-    } catch (error) {
+    } catch (err) {
       // If an Error is found, instead of an entry, the Peer RODiT is not revoked
       console.info("Info: Peer RODiT is not revoked");
       return true;
@@ -225,7 +218,7 @@ async function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
         }
       })
       .catch(error => {
-        console.error("Error:", error);
+        console.error("Error:", err);
         return false;
       });
   }
@@ -264,8 +257,8 @@ async function verify_rodit_islive(peerRoditNotafter, peerRoditNotbefore) {
       const timestamp = parsedJson.result?.header?.timestamp;
   
       return timestamp ? timestamp.toString() : "0";
-    } catch (error) {
-      console.error("Error in nearorgRpcTimestamp:", error);
+    } catch (err) {
+      console.error("Error in nearorgRpcTimestamp:", err);
       throw error;
     }
   }
@@ -353,7 +346,7 @@ async function nearorg_rpc_state(xnet, id, accountId) {
       }
   
       return true
-    } catch (error) {
+    } catch (err) {
       throw error;
       return false;
     }
@@ -400,13 +393,13 @@ async function nearorg_rpc_state(xnet, id, accountId) {
           }
           // Only the first RODiT in the account is returned
           return resultStruct[0];
-      } catch (error) {
+      } catch (err) {
           console.error("Error:", error.message);
           throw error;
       }
   }
 
 module.exports = {
-    verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, nearorg_rpc_timestamp,
+    verify_ishasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, nearorg_rpc_timestamp,
     verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,nearorg_rpc_tokensfromaccountid,nearorg_rpc_tokenfromroditid,CONSTANTS,RODiT
 };

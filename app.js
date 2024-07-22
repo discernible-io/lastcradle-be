@@ -13,11 +13,11 @@ const { SignJWT, jwtVerify } = require('jose');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
-const { CONSTANTS, RODiT, verify_isthererodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
+const { CONSTANTS, RODiT, verify_ishasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
   verify_rodit_istrusted_issuingsmartcontract, nearorg_rpc_state, nearorg_rpc_tokensfromaccountid,
    } = require('./middleware/rodit');
 
-let own_rodit;
+// let own_rodit;
 
 const options = {
   definition: {
@@ -46,32 +46,81 @@ const options = {
   apis: ['./app.js', './routes/*.js'],
 };
 
+const config = {
+  CONFIGURATION_FILE_PATH: path.join(
+    '/etc/rodit',
+    'roditconfig.server'
+  ),
+};
+
+async function dateStringToUnixTime(dateString) {
+  // Create a new Date object from the string
+  const date = new Date(dateString);
+  
+  // Get the Unix timestamp (in milliseconds)
+  const unixTimeMs = date.getTime();
+  
+  // Convert milliseconds to seconds and round down
+  const unixTimeSec = Math.floor(unixTimeMs / 1000);
+  
+  return unixTimeSec;
+}
+
 const swaggerSpec = swaggerJsdoc(options);
 const app = express();
 
-// CG: Move to rodit.js
-
 async function get_own_port() {  
-  return 3000; // CG: http until https gets implemented
+  return 3000;
 }
 
-// CG: Move to rodit.js
+async function sroditconfig(configuration_file_path) {
+  try {
+    // Read the configuration file to get the path of the JSON file
+    const configFileContents = await fs.readFile(configuration_file_path, 'utf8');
+    const jsonFilePath = configFileContents.trim(); // Assuming the file contains just the path
 
-async function getownroditandprivatekey(accountfile) {
-    const { accountId: ownrodit_hex_accountid, ownrodit_base58_private_key } = await processAccountFile(accountfile);
-    console.debug('Info: Own Account ID:', ownrodit_hex_accountid);
+    // Now read the JSON file using the path we got from the configuration file
+    const accountFileContents = await fs.readFile(jsonFilePath, 'utf8');
+    const json = JSON.parse(accountFileContents);
     
-    // Await the async operations
-    const result = await nearorg_rpc_state(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, ownrodit_hex_accountid);
-    
-    if (result === false) {
-        throw new Error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
+    const own_rodit_hex_accountid = json.implicit_account_id;
+    if (typeof own_rodit_hex_accountid !== 'string') {
+      throw new Error('Error: Invalid or missing account_id value');
     }
+
+    console.debug('Info: Own Account ID:', own_rodit_hex_accountid);
+
+    let own_string_private_key = json.private_key;
+    if (typeof own_string_private_key !== 'string') {
+      throw new Error('Error: Invalid private_key value');
+    }
+
+    const own_rodit_base58_private_key = own_string_private_key.split(':')[1];
+
+      // Check if the account is funded
+      const result = await nearorg_rpc_state(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, own_rodit_hex_accountid);
     
-    const own_rodit = await nearorg_rpc_tokensfromaccountid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, ownrodit_hex_accountid);
-    
-    return {own_rodit, ownrodit_base58_private_key} 
+      if (result === false) {
+          throw new Error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
+      }
+    own_rodit = await nearorg_rpc_tokensfromaccountid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, own_rodit_hex_accountid);
+
+    const own_rodit_bytes_roditid = new Uint8Array(Buffer.from(own_rodit.token_id));
+
+
+    const own_rodit_private_key = bs58.decode(own_rodit_base58_private_key);
+    const own_rodit_bytes_private_key = new Uint8Array(Buffer.from(own_rodit_private_key));
+
+    const own_rodit_bytes_signature = nacl.sign.detached(own_rodit_bytes_roditid, own_rodit_bytes_private_key);
+    const own_roditid_base64url_signature = Buffer.from(own_rodit_bytes_signature).toString('base64url');
+
+    return { own_rodit, own_roditid_base64url_signature, own_rodit_bytes_private_key };
+  } catch (err) {
+    console.error(`Error: Processing configuration file: ${err.message}`);
+    throw err;
+  }
 }
+
 
 // Middleware
 app.use(express.json());
@@ -80,8 +129,6 @@ app.use(cors());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // RODiT middleware for JWT authentication
-
-// CG: Move to rodit.js
 const authenticateJWT = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -90,7 +137,7 @@ const authenticateJWT = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const { payload } = await jwtVerify(token, ownrodit_keyobject_public_key, {
+    const { payload } = await jwtVerify(token, own_rodit_keyobject_public_key, {
       algorithms: ['EdDSA']
     });
 
@@ -113,7 +160,6 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-//CG: Move to rodit.js
 /**
  * @swagger
  * /login:
@@ -158,31 +204,36 @@ app.post('/login', async (req, res) => {
   }
 
   try {
+    let {own_rodit, own_roditid_base64url_signature, own_rodit_bytes_private_key} = await sroditconfig(config.CONFIGURATION_FILE_PATH);   
 
+    console.debug('Info: own_rodit:', own_rodit);
 
-    const {own_rodit, ownrodit_base58_private_key } = getownroditandprivatekey(config.ACCOUNT_FILE_PATH);
-    const ownrodit_private_key = bs58.decode(ownrodit_base58_private_key);
-    const ownrodit_bytes_private_key = new Uint8Array(Buffer.from(ownrodit_private_key));
-    const ownrodit_bytes_roditid = new Uint8Array(Buffer.from(own_rodit.token_id));
-    const ownrodit_bytes_signature = nacl.sign.detached(ownrodit_bytes_roditid, ownrodit_bytes_private_key);
-    const ownrodit_base64url_signature = Buffer.from(ownrodit_bytes_signature).toString('base64url');
-    
     // For private key
-    const ownrodit_keyobject_private_key = crypto.createPrivateKey({
+    const own_rodit_keyobject_private_key = crypto.createPrivateKey({
       key: Buffer.concat([
         Buffer.from('302e020100300506032b657004220420', 'hex'), // Ed25519 private key header
-        ownrodit_bytes_private_key
+        own_rodit_bytes_private_key
       ]),
       format: 'der',
       type: 'pkcs8'
     });
 
-    updateratelimit(own_rodit.token_id.maxrequests, own_rodit.token_id.maxrqwindow);
+    if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
+      updateratelimit(own_rodit.metadata.maxrequests, own_rodit.metadata.maxrqwindow);
+    } else {
+      console.warn('Warning: Unable to update rate limit due to missing data');
+    }
 
-    const peer_rodit = await verify_isthererodit_getit(peer_roditid, peer_roditid_base64url_signature);
+    console.debug('Info: peer_roditid:', peer_roditid);
+    console.debug('Info: peer_roditid_base64url_signature:', peer_roditid_base64url_signature);
+    const peer_rodit = await verify_ishasrodit_getit(peer_roditid, peer_roditid_base64url_signature);
+
     const isVerified = await verify_rodit_isamatch(own_rodit.metadata.serviceproviderid, peer_rodit.metadata.serviceprovidersignature, peer_roditid);
+  
     const isLive = await verify_rodit_islive(peer_rodit.metadata.notafter, peer_rodit.metadata.notbefore);
+    
     const isActive = await verify_rodit_isactive(peer_roditid, own_rodit.metadata.subjectuniqueidentifierurl);
+    
     const isTrusted = await verify_rodit_istrusted_issuingsmartcontract(own_rodit.metadata.subjectuniqueidentifierurl);
 
     if (!isVerified || !isLive || !isActive || !isTrusted) {
@@ -190,13 +241,14 @@ app.post('/login', async (req, res) => {
     }
 
     const now = Math.floor(Date.now() / 1000);
+
     // Make sure that the token will not last beyond the expiration date of the RODiT
     const notafter = await dateStringToUnixTime(peer_rodit.metadata.notafter); 
     const duration = parseInt(peer_rodit.metadata.jwtduration, 10);
     let expiresat=now;
     
     if ((now + duration) < notafter) {
-      expiresat = parseInt(now + peer_rodit.metadata.jwtduration);
+      expiresat = parseInt(now) + parseInt(peer_rodit.metadata.jwtduration);
     } else {
       throw new Error('RODiT duration check failed');
     }
@@ -221,13 +273,13 @@ app.post('/login', async (req, res) => {
       jti: "jti"+ulid(), // jti added to distinguish this quickly visually from the rodit_id
       // amr: "near.org/rodit" // field added to indicate which blockchain and authentication method version has been used
       rodit_id: own_rodit.token_id,
-      rodit_idsignature: ownrodit_base64url_signature,
+      rodit_idsignature: own_roditid_base64url_signature,
       rodit_maxrequests: own_rodit.metadata.maxrequests,
       rodit_maxrqwindow: own_rodit.metadata.maxrqwindow,
       rodit_permissionedroutes: own_rodit.metadata.permissionedroutes
     })
       .setProtectedHeader({ alg: 'EdDSA', typ: 'JWT' })
-      .sign(ownrodit_keyobject_private_key);
+      .sign(own_rodit_keyobject_private_key);
 
     res.json({ token });
 
@@ -256,44 +308,6 @@ app.use('/api', protectedRoutes);
 
 function updateratelimit(maxrequests, maxrqwindow) {
   ratelimitmwph = ratelimitmw(maxrequests, maxrqwindow);
-}
-
-// CG: Move to rodit.js
-async function processAccountFile(accountFileName) {
-  try {
-    const accountFileContents = await fs.readFile(accountFileName, 'utf8');
-    const json = JSON.parse(accountFileContents);
-
-    const accountId = json.implicit_account_id;
-    if (typeof accountId !== 'string') {
-      throw new Error('Invalid or missing account_id value');
-    }
-
-    let own_string_private_key = json.private_key;
-    if (typeof own_string_private_key !== 'string') {
-      throw new Error('Invalid private_key value');
-    }
-    const ownrodit_base58_private_key = own_string_private_key.split(':')[1];
-
-    return { accountId, ownrodit_base58_private_key };
-  } catch (err) {
-    console.error(`Error processing account file: ${err.message}`);
-    throw err;
-  }
-}
-
-// CG: Move to rodit.js
-async function dateStringToUnixTime(dateString) {
-  // Create a new Date object from the string
-  const date = new Date(dateString);
-  
-  // Get the Unix timestamp (in milliseconds)
-  const unixTimeMs = date.getTime();
-  
-  // Convert milliseconds to seconds and round down
-  const unixTimeSec = Math.floor(unixTimeMs / 1000);
-  
-  return unixTimeSec;
 }
 
 // Start server
