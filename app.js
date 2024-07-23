@@ -11,7 +11,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
 const { CONSTANTS, RODiT, verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
-  verify_rodit_istrusted_issuingsmartcontract, nearorg_rpc_state, nearorg_rpc_tokensfromaccountid,dateStringToUnixTime,sroditconfig
+  verify_rodit_istrusted_issuingsmartcontract,dateStringToUnixTime,roditconfig
    } = require('./middleware/rodit');
 
 // let own_rodit;
@@ -134,7 +134,7 @@ app.post('/login', async (req, res) => {
   }
 
   try {
-    let {own_rodit, own_roditid_base64url_signature, own_rodit_bytes_private_key} = await sroditconfig(config.CONFIGURATION_FILE_PATH);   
+    let {own_rodit, own_roditid_base64url_signature, own_rodit_bytes_private_key} = await roditconfig(config.CONFIGURATION_FILE_PATH);   
 
     console.debug('Info: own_rodit:', own_rodit);
 
