@@ -4,6 +4,7 @@
     "base64-url": "2.3.3",
     "base64url": "3.0.1",
     "bs58": "5.0.0",
+    "config": "^3.3.12",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "express-rate-limit": "^7.3.1",

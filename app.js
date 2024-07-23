@@ -5,6 +5,7 @@ const cors      = require('cors');
 const crypto    = require('crypto');
 const nacl      = require('tweetnacl');
 nacl.util       = require('tweetnacl-util');
+const config     = require('config');
 const ratelimitmw = require("./middleware/ratelimit");
 const { SignJWT, jwtVerify } = require('jose');
 const swaggerUi = require('swagger-ui-express');
@@ -41,13 +42,6 @@ const options = {
     ],
   },
   apis: ['./app.js', './routes/*.js'],
-};
-
-const config = {
-  CONFIGURATION_FILE_PATH: path.join(
-    '/etc/rodit',
-    'roditconfig.server'
-  ),
 };
 
 const swaggerSpec = swaggerJsdoc(options);
