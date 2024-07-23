@@ -11,7 +11,7 @@ const { SignJWT, jwtVerify } = require('jose');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
-const { CONSTANTS, RODiT, verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
+const { verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
   verify_rodit_istrusted_issuingsmartcontract,dateStringToUnixTime,roditconfig
    } = require('./middleware/rodit');
 
@@ -120,7 +120,11 @@ const authenticateJWT = async (req, res, next) => {
  *         description: Authentication failed
  */
 app.post('/login', async (req, res) => {
-  const { peer_roditid, peer_roditid_base64url_signature } = req.body;
+  // The variables roditid, roditid_base64url_signature must match in name 
+  // with the variables used in the client side
+  const { roditid, roditid_base64url_signature } = req.body;
+  let peer_roditid = roditid;
+  let peer_roditid_base64url_signature = roditid_base64url_signature;
   console.debug('Info: Client RODiT ID:', peer_roditid);
   console.debug('Info: Client RODiT ID Signature:', peer_roditid_base64url_signature);
   if (!peer_roditid || !peer_roditid_base64url_signature) {
