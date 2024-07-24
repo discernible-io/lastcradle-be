@@ -1,11 +1,10 @@
 const express   = require('express');
-const path      = require('path');
 const cors      = require('cors');
 const nacl      = require('tweetnacl');
 nacl.util       = require('tweetnacl-util');
 const config     = require('config');
 const ratelimitmw = require("./middleware/ratelimit");
-const { SignJWT, jwtVerify } = require('jose');
+const { jwtVerify } = require('jose');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
@@ -176,7 +175,7 @@ app.get('/protected', authenticateJWT, (req, res) => {
   res.json({ message: 'This is a protected route', user: req.user });
 });
 
-// Temporary protected route while config is obtained
+// Temporary protected route while rate limiting config is obtained
 let ratelimitmwph = (req, res, next) => {
   next();
 };
@@ -184,11 +183,15 @@ let ratelimitmwph = (req, res, next) => {
 // Mount rate limiter route
 app.use((req, res, next) => ratelimitmwph(req, res, next));
 
-// Import protected route
-const protectedRoutes = require('./protected/echo');
+// Import protected routes
+const echoprotectedRoute = require('./protected/echo');
+const crudarotectedRoute = require('./protected/cruda');
 
-// Mount protected route
-app.use('/api', protectedRoutes);
+// Mount CRUDA protected route
+app.use('/api', crudarotectedRoute);
+
+// Mount ECHO protected route
+app.use('/api', echoprotectedRoute);
 
 // Update rate limit once obtained config from RODiT
 function updateratelimit(maxrequests, maxrqwindow) {

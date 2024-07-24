@@ -1,0 +1,58 @@
+const express = require('express');
+const router = express.Router();
+
+// In-memory storage for items
+let items = [];
+
+// Middleware to check if the item exists
+const itemExists = (req, res, next) => {
+  const id = parseInt(req.body.id);
+  const item = items.find(item => item.id === id);
+  if (!item) {
+    return res.status(404).json({ error: 'Item not found' });
+  }
+  req.item = item;
+  next();
+};
+
+// CREATE - Add a new item
+router.post('/cruda/create', (req, res) => {
+  const { name, description } = req.body;
+  if (!name || !description) {
+    return res.status(400).json({ error: 'Name and description are required' });
+  }
+  const newItem = {
+    id: items.length + 1,
+    name,
+    description
+  };
+  items.push(newItem);
+  res.status(201).json(newItem);
+});
+
+// READ - Get all items
+router.post('/cruda/list', (req, res) => {
+  res.json(items);
+});
+
+// READ - Get a specific item
+router.post('/cruda/get', itemExists, (req, res) => {
+  res.json(req.item);
+});
+
+// UPDATE - Update an item
+router.post('/cruda/update', itemExists, (req, res) => {
+  const { name, description } = req.body;
+  if (name) req.item.name = name;
+  if (description) req.item.description = description;
+  res.json(req.item);
+});
+
+// DELETE - Delete an item
+router.post('/cruda/delete', itemExists, (req, res) => {
+  const index = items.findIndex(item => item.id === req.item.id);
+  items.splice(index, 1);
+  res.status(204).send();
+});
+
+module.exports = router;
