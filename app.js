@@ -163,10 +163,11 @@ app.post('/login', async (req, res) => {
     */
 
     const token = await generate_jwt_token(peer_rodit,own_rodit,own_rodit_bytes_private_key,own_roditid_base64url_signature);
-    
+    logger.warn(`Info: Login attempt succeeded:`,peer_rodit.token_id);
     res.json({ token });
 
   } catch (error) {
+    logger.warn(`Error: Login failed:: ${error}`);
     console.error('Error: Login failed:', error);
     res.status(401).json({ message: 'Authentication failed', error: error.message });
   }
@@ -187,6 +188,11 @@ const echoprotectedRoute = require('./protected/echo');
 const crudarotectedRoute = require('./protected/cruda');
 
 // Mount Logging middleware
+app.use((req, res, next) => {
+  req.logService = 'cruda-service'; // Or whatever service name is appropriate
+  next();
+});
+
 app.use(loggingmiddleware);
 
 // Mount rate limiter route

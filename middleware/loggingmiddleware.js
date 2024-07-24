@@ -10,8 +10,9 @@ const loggingmiddleware = (req, res, next) => {
       status: res.statusCode,
       duration,
       userIP: req.ip,
-      userId: req.user ? req.user.id : 'anonymous', // Assuming you have user info in req.user
-      action: req.body.action || 'unknown', // You can add an 'action' field to your requests
+      userId: req.user ? req.user.id : 'unauthenticated', // Assuming you have user info in req.user
+      action: req.body.action || 'unspecified', // You can add an 'action' field to your requests
+      service: req.logService || 'api-service'
     });
   });
   next();
