@@ -2,6 +2,7 @@
 
 const bs58      = require('bs58');
 const { ulid }  = require('ulid');
+const config    = require('config');
 const fs        = require('fs').promises;
 const crypto    = require('crypto');
 const nacl      = require('tweetnacl');
@@ -12,13 +13,13 @@ const { Resolver } = require('dns').promises;
 // CG: Move SMART CONTRACT and LOCKCHAIN_NETWORK to configuration file
 const CONSTANTS = {
     SMART_CONTRACT: "10201-cableguard-org.testnet",
-    BLOCKCHAIN_NETWORK: ".testnet", // IMPORTANT: Values here must be either ".testnet" for testnet or "." for mainnet
     RODIT_ID_SZ: 128,
     RODIT_ID_PK_SZ: 32,
     RODIT_ID_SIGNATURE_SZ: 64,
     ED25519_KEY_SZ: 64
 };
 
+const BLOCKCHAIN_NETWORK = config.get('BLOCKCHAIN_NETWORK');
 const resolver = new Resolver();
 
 class RODiT {
@@ -98,12 +99,12 @@ async function roditconfig(configuration_file_path) {
     const own_rodit_base58_private_key = own_string_private_key.split(':')[1];
 
       // Check if the account is funded
-      const result = await nearorg_rpc_state(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, own_rodit_hex_accountid);
+      const result = await nearorg_rpc_state(BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, own_rodit_hex_accountid);
     
       if (result === false) {
-          throw new Error(`Error: The NEAR account has no balance in ${CONSTANTS.BLOCKCHAIN_NETWORK}`);
+          throw new Error(`Error: The NEAR account has no balance in ${BLOCKCHAIN_NETWORK}`);
       }
-    own_rodit = await nearorg_rpc_tokensfromaccountid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, own_rodit_hex_accountid);
+    own_rodit = await nearorg_rpc_tokensfromaccountid(BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, own_rodit_hex_accountid);
 
     const own_rodit_bytes_roditid = new Uint8Array(Buffer.from(own_rodit.token_id));
 
@@ -131,7 +132,7 @@ async function verify_hasrodit_getit(peerroditid, peerroditid_base64url_signatur
 
         const bytes_ed25519_signature = new Uint8Array(Buffer.from(peerroditid_base64url_signature, 'base64url'));
 
-        const peer_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
+        const peer_rodit = await nearorg_rpc_tokenfromroditid(BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
         
         const peer_bytes_ed25519_public_key = new Uint8Array(Buffer.from(peer_rodit.owner_id, 'hex'));
 
@@ -156,7 +157,7 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
     const args_ownServiceProviderId = JSON.stringify({ token_id: ownServiceProviderId });
     let own_serviceprovider_rodit;
     try {
-        own_serviceprovider_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
+        own_serviceprovider_rodit = await nearorg_rpc_tokenfromroditid(BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
     } catch (error) {
         logger.error('Error: Peer RODiT does not match Own RODiT - Fetching');
         return false;
@@ -275,7 +276,7 @@ async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
     const datetimenotbefore = parseDate(peer_rodit_notbefore);
   
     // Assuming nearorgRpcTimestamp is an async function that returns a Promise
-    return nearorg_rpc_timestamp(CONSTANTS.BLOCKCHAIN_NETWORK)
+    return nearorg_rpc_timestamp(BLOCKCHAIN_NETWORK)
       .then(stringtimenow => {
         const timestamp = parseInt(stringtimenow, 10);
         if (isNaN(timestamp)) {
@@ -535,7 +536,7 @@ async function validate_jwt_token(token,ownrodit) {
     try {
         const unverifiedpayload = decodeJwt(token,ownrodit);
         const account_idargs = `{"token_id": "${unverifiedpayload.rodit_id}"}`
-        const sp_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
+        const sp_rodit = await nearorg_rpc_tokenfromroditid(BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
         let serviceprovider_base64_public_key = Buffer.from(sp_rodit.owner_id, 'hex').toString('base64url');
         session_jwk_public_key = await base64url2jwk_public_key(serviceprovider_base64_public_key);
         const { payload, protectedHeader } = await jwtVerify(token, session_jwk_public_key, {
