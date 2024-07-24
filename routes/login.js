@@ -5,7 +5,6 @@ const express=require("express")
 const router=express.Router() 
 
 const logger = require('../config/logger');
-const loggingmw = require('../middleware/loggingmw');
 
 // Handling login request 
 router.get("/login",(req,res,next)=>{ 

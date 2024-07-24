@@ -142,6 +142,27 @@ app.post('/login', async (req, res, next) => {
   }
 });
 
+// Using validateloginrequest_producetoken does not work yet
+/*
+app.post('/login', async (req, res) => {
+  const { roditid, roditid_base64url_signature } = req.body;
+
+  try {
+    const { own_rodit, token } = await validateloginrequest_producetoken(roditid, roditid_base64url_signature);
+
+    if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
+      updateratelimit(own_rodit.metadata.maxrequests, own_rodit.metadata.maxrqwindow);
+    } else {
+      console.debug('Warning: Unable to update rate limit due to missing data');
+    }
+
+    res.json(token);
+  } catch (error) {
+    res.status(401).json({ message: error.message });
+  }
+});
+*/
+
 app.use((req, res, next) => {
   if (req.logAction) {
     logger.info(`Action logged: ${req.logAction}`);
