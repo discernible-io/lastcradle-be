@@ -4,7 +4,6 @@ const nacl      = require('tweetnacl');
 nacl.util       = require('tweetnacl-util');
 const config    = require('config');
 const ratelimitmw = require("./middleware/ratelimit");
-const { jwtVerify } = require('jose');
 const logger = require('./config/logger');
 const loggingmw = require('./middleware/loggingmw');
 const swaggerUi  = require('swagger-ui-express');
@@ -13,8 +12,6 @@ const swaggerJsdoc = require('swagger-jsdoc');
 const { verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
   verify_rodit_istrusted_issuingsmartcontract,generate_jwt_token,roditconfig
    } = require('./middleware/rodit');
-
-// let own_rodit;
 
 const options = {
   definition: {
@@ -46,6 +43,12 @@ const options = {
 const swaggerSpec = swaggerJsdoc(options);
 const app = express();
 
+// Override console methods
+console.log = (...args) => logger.info(...args);
+console.error = (...args) => logger.error(...args);
+console.warn = (...args) => logger.warn(...args);
+console.debug = (...args) => logger.debug(...args);
+
 // Delayed starting of port needs to be obtained from elsewhere (file, etc)
 async function get_own_port() {  
   return 3000;
@@ -56,29 +59,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-// RODiT middleware for JWT authentication
-const authenticateJWT = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ message: 'Error: No token provided' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const { payload } = await jwtVerify(token, own_rodit_keyobject_public_key, {
-      algorithms: ['EdDSA']
-    });
-
-    req.user = payload;
-    next();
-  } catch (err) {
-    if (err.code === 'ERR_JWT_EXPIRED') {
-      return res.status(401).json({ message: 'Error: Token has expired' });
-    }
-    return res.status(403).json({ message: 'Error: Invalid token' });
-  }
-};
 
 // Routes
 
@@ -118,15 +98,18 @@ const authenticateJWT = async (req, res, next) => {
  *       401:
  *         description: Authentication failed
  */
-app.post('/login', async (req, res) => {
-  // The variables roditid, roditid_base64url_signature must match in name 
-  // with the variables used in the client side
+app.post('/login', async (req, res, next) => {
+  // Log the action
+  req.logAction = 'login-attempt';
+  next();
+}, async (req, res) => {
   const { roditid, roditid_base64url_signature } = req.body;
   
   let peer_roditid = roditid;
   let peer_roditid_base64url_signature = roditid_base64url_signature;
   console.debug('Info: Client RODiT ID:', peer_roditid);
   console.debug('Info: Client RODiT ID Signature:', peer_roditid_base64url_signature);
+
   if (!peer_roditid || !peer_roditid_base64url_signature) {
     return res.status(400).json({ message: 'Error: Missing RODiT ID and Signature' });
   }
@@ -155,50 +138,40 @@ app.post('/login', async (req, res) => {
       throw new Error('Error: RODiT verification failed');
     }
 
-    /*
-    4 HTTPS it dinamically
-    6 SRV it?
-    7 Geographic restrictions
-    8 SLA
-    */
-
-    const token = await generate_jwt_token(peer_rodit,own_rodit,own_rodit_bytes_private_key,own_roditid_base64url_signature);
-    logger.warn(`Info: Login attempt succeeded:`,peer_rodit.token_id);
+    const token = await generate_jwt_token(peer_rodit, own_rodit, own_rodit_bytes_private_key, own_roditid_base64url_signature);
+    logger.warn(`Info: Login attempt succeeded:`, peer_rodit.token_id);
     res.json({ token });
 
   } catch (error) {
-    logger.warn(`Error: Login failed:: ${error}`);
+    logger.warn(`Error: Login failed: ${error}`);
     console.error('Error: Login failed:', error);
     res.status(401).json({ message: 'Authentication failed', error: error.message });
   }
 });
 
-//
-app.get('/protected', authenticateJWT, (req, res) => {
-  res.json({ message: 'This is a protected route', user: req.user });
-});
-
-// Temporary protected route while rate limiting config is obtained
-let ratelimitmwph = (req, res, next) => {
+app.use((req, res, next) => {
+  if (req.logAction) {
+    logger.info(`Action logged: ${req.logAction}`);
+  }
   next();
-};
+});
 
 // Import protected routes
 const echoprotectedRoute = require('./protected/echo');
 const crudarotectedRoute = require('./protected/cruda');
 
 // Mount Logging middleware
-app.use((req, res, next) => {
+/*app.use((req, res, next) => {
   req.logService = 'cruda-service'; // Or whatever service name is appropriate
   next();
-});
+});*/
 
 app.use(loggingmw);
 
 // Mount rate limiter route
 app.use((req, res, next) => ratelimitmwph(req, res, next));
 
-// Logging error handling
+// CG: Logging error handling, to be improved
 app.use((err, req, res, next) => {
   logger.error({
     message: err.message,

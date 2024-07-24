@@ -3,8 +3,6 @@ const router = express.Router();
 const logger = require('../config/logger');
 const loggingmw = require('../middleware/loggingmw');
 
-// Use the logging middleware for all routes
-router.use(loggingmw);
 // In-memory storage for items
 let items = [];
 
@@ -36,7 +34,7 @@ router.post('/cruda/create', (req, res, next) => {
     description
   };
   items.push(newItem);
-  logger.info(`Item created: ${newItem.id}`);
+  logger.info(`Item created: ${newItem.description}, ${req.user}`);
   res.status(201).json(newItem);
 });
 
@@ -44,11 +42,9 @@ router.post('/cruda/create', (req, res, next) => {
 router.post('/cruda/list', (req, res, next) => {
   req.logAction = 'get_all_items';
   next();
-}, itemExists, (req, res) => {
-  req.logAction = 'list_items';
-  next();
 }, (req, res) => {
-  logger.info(`List of items read: ${items}`);
+  // Correctly format the log message to include the number of items
+  logger.info(`List of items read: ${items.length}`);
   res.json(items);
 });
 
@@ -56,8 +52,8 @@ router.post('/cruda/list', (req, res, next) => {
 router.post('/cruda/get', itemExists, (req, res, next) => {
   req.logAction = 'get_item';
   next();
-}, itemExists, (req, res) => {
-  logger.info(`Specific iteam read: ${req.item}`);
+}, (req, res) => {
+  logger.info(`Specific item read: ${req.item.description}`);
   res.json(req.item);
 });
 
@@ -65,11 +61,11 @@ router.post('/cruda/get', itemExists, (req, res, next) => {
 router.post('/cruda/update', itemExists, (req, res, next) => {
   req.logAction = 'update_item';
   next();
-}, itemExists, (req, res) => {
+}, (req, res) => {
   const { name, description } = req.body;
   if (name) req.item.name = name;
   if (description) req.item.description = description;
-  logger.info(`Item updated: ${req.item}`);
+  logger.info(`Item updated: ${req.item.description}`);
   res.json(req.item);
 });
 
@@ -77,10 +73,10 @@ router.post('/cruda/update', itemExists, (req, res, next) => {
 router.post('/cruda/delete', itemExists, (req, res, next) => {
   req.logAction = 'delete_item';
   next();
-}, itemExists, (req, res) => {
-  logger.info(`Item deleted: ${req.item.id}`);
+}, (req, res) => {
   const index = items.findIndex(item => item.id === req.item.id);
   items.splice(index, 1);
+  logger.info(`Item deleted: ${req.item.description}`);
   res.status(204).send();
 });
 

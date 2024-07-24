@@ -1,4 +1,5 @@
-const logger = require('../config/logger');
+const { ulid }  = require('ulid');
+const logger  = require('../config/logger');
 
 const loggingmw = (req, res, next) => {
     const start = Date.now();
@@ -15,14 +16,20 @@ const loggingmw = (req, res, next) => {
       const duration = Date.now() - start;
       logger.info({
         method: req.method,
+        clientIP: req.ip, // Address ID
+        roditID: req.user ? req.user.id : 'unauthenticated', // Credential ID / Credential Directory
         url: req.originalUrl,
-        status: res.statusCode,
+        service: req.logService || 'api-service', // Source ID / Source Directory
+        action: req.logAction || 'unspecified', // Type of event / Request type
+        // payload with information necessary to perform the request
+        resource: res.itemid, // Resource ID / Resource Directory
+        status: res.statusCode, // Request result (success, failure, error, source error) 
+        resulttext: res.statusReason, // ResultText with reason for the Result
+        eventID: ulid(),
+        timestamp: new Date().toISOString(), // DateTime
         duration,
-        timestamp: new Date().toISOString(),
-        clientendpointIP: req.ip,
-        roditID: req.user ? req.user.id : 'unauthenticated',
-        action: req.logAction || 'unspecified',
-        service: req.logService || 'api-service'
+        // Signature
+        // Hash or linked hash
       });
     };
   
@@ -30,4 +37,8 @@ const loggingmw = (req, res, next) => {
   };
 
 module.exports = loggingmw;
+
+
+
+
 
