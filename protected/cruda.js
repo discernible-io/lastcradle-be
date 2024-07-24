@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const logger = require('../config/logger');
-const loggingmiddleware = require('../middleware/loggingmiddleware');
+const loggingmw = require('../middleware/loggingmw');
 
 // Use the logging middleware for all routes
-router.use(loggingmiddleware);
+router.use(loggingmw);
 // In-memory storage for items
 let items = [];
 
@@ -21,7 +21,10 @@ const itemExists = (req, res, next) => {
 };
 
 // CREATE - Add a new item
-router.post('/cruda/create', (req, res) => {
+router.post('/cruda/create', (req, res, next) => {
+  req.logAction = 'create_item';
+  next();
+}, (req, res) => {
   const { name, description } = req.body;
   if (!name || !description) {
     logger.warn('Invalid create request: missing name or description');
@@ -38,19 +41,31 @@ router.post('/cruda/create', (req, res) => {
 });
 
 // READ - Get all items
-router.post('/cruda/list', (req, res) => {
+router.post('/cruda/list', (req, res, next) => {
+  req.logAction = 'get_all_items';
+  next();
+}, itemExists, (req, res) => {
+  req.logAction = 'list_items';
+  next();
+}, (req, res) => {
   logger.info(`List of items read: ${items}`);
   res.json(items);
 });
 
 // READ - Get a specific item
-router.post('/cruda/get', itemExists, (req, res) => {
+router.post('/cruda/get', itemExists, (req, res, next) => {
+  req.logAction = 'get_item';
+  next();
+}, itemExists, (req, res) => {
   logger.info(`Specific iteam read: ${req.item}`);
   res.json(req.item);
 });
 
 // UPDATE - Update an item
-router.post('/cruda/update', itemExists, (req, res) => {
+router.post('/cruda/update', itemExists, (req, res, next) => {
+  req.logAction = 'update_item';
+  next();
+}, itemExists, (req, res) => {
   const { name, description } = req.body;
   if (name) req.item.name = name;
   if (description) req.item.description = description;
@@ -59,7 +74,10 @@ router.post('/cruda/update', itemExists, (req, res) => {
 });
 
 // DELETE - Delete an item
-router.post('/cruda/delete', itemExists, (req, res) => {
+router.post('/cruda/delete', itemExists, (req, res, next) => {
+  req.logAction = 'delete_item';
+  next();
+}, itemExists, (req, res) => {
   logger.info(`Item deleted: ${req.item.id}`);
   const index = items.findIndex(item => item.id === req.item.id);
   items.splice(index, 1);

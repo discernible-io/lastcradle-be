@@ -6,7 +6,7 @@ const config    = require('config');
 const ratelimitmw = require("./middleware/ratelimit");
 const { jwtVerify } = require('jose');
 const logger = require('./config/logger');
-const loggingmiddleware = require('./middleware/loggingmiddleware');
+const loggingmw = require('./middleware/loggingmw');
 const swaggerUi  = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
@@ -193,7 +193,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(loggingmiddleware);
+app.use(loggingmw);
 
 // Mount rate limiter route
 app.use((req, res, next) => ratelimitmwph(req, res, next));
