@@ -65,10 +65,10 @@ async function login(apiendpoint,roditid_base64url_signature,ownrodit) {
       // CG: Add error handling so the process does not just stop upon failure
       await validate_jwt_token(token,ownrodit);
 
-      console.info('Info: Client of API endpoint is logged in');
+      console.debug('Info: Client of API endpoint is logged in');
       return true;
   } catch (error) {
-      console.error(`Error: ${error.message}`);
+      logger.error(`Error: ${error.message}`);
       return false;
   }
 }
@@ -116,7 +116,7 @@ async function roditconfig(configuration_file_path) {
 
     return { own_rodit, own_roditid_base64url_signature, own_rodit_bytes_private_key };
   } catch (err) {
-    console.error(`Error: Processing configuration file: ${err.message}`);
+    logger.error(`Error: Processing configuration file: ${err.message}`);
     throw err;
   }
 }
@@ -138,14 +138,14 @@ async function verify_hasrodit_getit(peerroditid, peerroditid_base64url_signatur
         const isVerified = nacl.sign.detached.verify(bytes_roditid, bytes_ed25519_signature, peer_bytes_ed25519_public_key);
 
         if (isVerified) {
-            console.info('Info: Peer RODiT possession check passed');
+            console.debug('Info: Peer RODiT possession check passed');
             return peer_rodit;
         } else {
-            console.error('Error: Peer RODiT possession check failed');
+            logger.error('Error: Peer RODiT possession check failed');
             throw new Error('PeerEd25519SignatureVerificationFailure');
         }
     } catch (err) {
-        console.error(`Error: There is no Peer RODiT associated with the account: ${err}`);
+        logger.error(`Error: There is no Peer RODiT associated with the account: ${err}`);
         throw new Error('Error: PeerEd25519RoditMissing');
     }
 }
@@ -158,30 +158,30 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
     try {
         own_serviceprovider_rodit = await nearorg_rpc_tokenfromroditid(CONSTANTS.BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, 'nft_token', args_ownServiceProviderId);
     } catch (error) {
-        console.error('Error: Peer RODiT does not match Own RODiT - Fetching');
+        logger.error('Error: Peer RODiT does not match Own RODiT - Fetching');
         return false;
     }
 
     let bytes_ownServiceProviderOwnerId;
    
-    console.info('Info: Service Provider RODiT:', own_serviceprovider_rodit);
-    console.info('Info: Peer Account ID:',own_serviceprovider_rodit.owner_id);
+    console.debug('Info: Service Provider RODiT:', own_serviceprovider_rodit);
+    console.debug('Info: Peer Account ID:',own_serviceprovider_rodit.owner_id);
     try {
         bytes_ownServiceProviderOwnerId = new Uint8Array(Buffer.from(own_serviceprovider_rodit.owner_id, 'hex'));
     } catch (error) {
-        console.error('Error: Failed to decode hex string');
+        logger.error('Error: Failed to decode hex string');
         return false;
     }
 
     if (bytes_ownServiceProviderOwnerId.length !== CONSTANTS.RODIT_ID_PK_SZ) {
-        console.error('Error: Invalid byte array length');
+        logger.error('Error: Invalid byte array length');
         return false;
     }
 
     const bytes_peerServiceProviderSignature = new Uint8Array(Buffer.from(peerServiceProviderSignature, 'base64'));
 
     if (bytes_peerServiceProviderSignature.length !== CONSTANTS.RODIT_ID_SIGNATURE_SZ) {
-        console.error('Error: Invalid public key length');
+        logger.error('Error: Invalid public key length');
         return false;
     }
 
@@ -191,14 +191,14 @@ async function verify_rodit_isamatch(ownServiceProviderId, peerServiceProviderSi
         const isValid = nacl.sign.detached.verify(bytes_peerTokenId, bytes_peerServiceProviderSignature, bytes_ownServiceProviderOwnerId);
 
         if (isValid) {
-            console.info('Info Peer RODiT matches Own RODiT');
+            console.debug('Info Peer RODiT matches Own RODiT');
             return true;
         } else {
-            console.error('Error: Peer RODiT does not match Own RODiT');
+            logger.error('Error: Peer RODiT does not match Own RODiT');
             return false;
         }
     } catch (error) {
-        console.error('Error: Peer RODiT does not match Own RODiT - Parsing public key');
+        logger.error('Error: Peer RODiT does not match Own RODiT - Parsing public key');
         return false;
     }
 }
@@ -215,16 +215,16 @@ async function verify_rodit_isactive(tokenId, ownsubjectuniqueidentifierurl) {
 
     try {
       await resolver.resolveTxt(revokingDnsEntry);
-      console.error(`Error: Peer RODiT ${tokenId} revoked by ${domainandextension} as per ${revokingDnsEntry}`);
+      logger.error(`Error: Peer RODiT ${tokenId} revoked by ${domainandextension} as per ${revokingDnsEntry}`);
       return false;
     } catch (error) {
       // If an Error is found, instead of an entry, the Peer RODiT is not revoked
-      console.info("Info: Peer RODiT is not revoked");
+      console.debug("Info: Peer RODiT is not revoked");
       return true;
     }
   } else {
     // If no domain and extension match is found, the Peer RODiT is not revoked
-    console.info("Info: Peer RODiT is not revoked");
+    console.debug("Info: Peer RODiT is not revoked");
     return true;
   }
 }
@@ -245,18 +245,18 @@ async function verify_rodit_istrusted_issuingsmartcontract(ownsubjectuniqueident
     try {
       const cfgresponse = await resolver.resolveTxt(enablingdnsentry);
       if (cfgresponse.length > 0) {
-        console.info("Info: Smart Contract is trusted");
+        console.debug("Info: Smart Contract is trusted");
         return true;
       } else {
-        console.error(`Error: Smart Contract ${smartcontracturl} not trusted by ${domainandextension} in verify_smartcontract_istruste`);
+        logger.error(`Error: Smart Contract ${smartcontracturl} not trusted by ${domainandextension} in verify_smartcontract_istruste`);
         return false;
       }
     } catch (err) {
-      console.error(`Error: Smart Contract ${smartcontracturl} not trusted by ${domainandextension} in verify_smartcontract_istruste`);
+      logger.error(`Error: Smart Contract ${smartcontracturl} not trusted by ${domainandextension} in verify_smartcontract_istruste`);
       return false;
     }
   } else {
-    console.error(`Error: Domain can't be parsed in verify_rodit_istrusted_issuingsmartcontract`);
+    logger.error(`Error: Domain can't be parsed in verify_rodit_istrusted_issuingsmartcontract`);
     return false;
   }
 }
@@ -279,7 +279,7 @@ async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
       .then(stringtimenow => {
         const timestamp = parseInt(stringtimenow, 10);
         if (isNaN(timestamp)) {
-          console.error("Error: Can't parse near block timestamp");
+          logger.error("Error: Can't parse near block timestamp");
           return false;
         }
   
@@ -292,7 +292,7 @@ async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
           console.log("Info: Peer RODiT is live");
           return true;
         } else {
-          console.error(
+          logger.error(
             "Error: Peer RODiT is not live - notbefore %s now %s notafter %s",
             datetimenotbefore.toISOString(),
             datetimetimestamp.toISOString(),
@@ -302,7 +302,7 @@ async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
         }
       })
       .catch(error => {
-        console.error("Error: While checking time from blockchain", error);
+        logger.error(`Error: While checking time from blockchain ${error}`);
         return false;
       });
   }
@@ -342,7 +342,7 @@ async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
   
       return timestamp ? timestamp.toString() : "0";
     } catch (error) {
-      console.error("Error in nearorgRpcTimestamp:", error);
+      logger.error(`Error in nearorgRpcTimestamp: ${error}`);
       throw error;
     }
   }
@@ -398,9 +398,9 @@ async function nearorg_rpc_state(xnet, id, accountId) {
     const url = `https://rpc${xnet}.near.org`;
   
     if (xnet === '.') {
-      console.info("Info: NEAR Blockchain Network is mainnet");
+      console.debug("Info: NEAR Blockchain Network is mainnet");
     } else {
-      console.info(`Info: NEAR Blockchain Network is ${xnet}`);
+      console.debug(`Info: NEAR Blockchain Network is ${xnet}`);
     }
   
     const jsonData = {
@@ -424,7 +424,7 @@ async function nearorg_rpc_state(xnet, id, accountId) {
   
       const responseText = await response.json();
       if (JSON.stringify(responseText).includes("does not exist while viewing")) {
-        console.error("Error: The NEAR account does not exist in the blockchain, it needs to be funded with at least 0.01 NEAR in this network");
+        logger.error("Error: The NEAR account does not exist in the blockchain, it needs to be funded with at least 0.01 NEAR in this network");
         return false
       }
   
@@ -477,7 +477,7 @@ async function nearorg_rpc_state(xnet, id, accountId) {
           // Only the first RODiT in the account is returned
           return resultStruct[0];
       } catch (error) {
-          console.error("Error:", error.message);
+          logger.error(`Error: ${error.message}`);
           throw error;
       }
   }
@@ -497,7 +497,7 @@ async function generate_jwt_token(peerrodit,ownrodit,own_rodit_bytes_private_key
     throw new Error('RODiT duration check failed');
   }
 
-  console.info('Info: This API endpoint Login of Client check passed');
+  console.debug('Info: This API endpoint Login of Client check passed');
   const notbefore = await dateStringToUnixTime(ownrodit.metadata.notbefore); 
 
     // For private key
@@ -574,7 +574,7 @@ async function validate_jwt_token(token,ownrodit) {
 
         return payload;
     } catch (error) {
-        console.error('Error: Token validation failed:', error);
+        logger.error('Error: Token validation failed: ${error}');
         throw error;
     }
 }

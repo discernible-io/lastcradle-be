@@ -43,12 +43,6 @@ const options = {
 const swaggerSpec = swaggerJsdoc(options);
 const app = express();
 
-// Override console methods
-console.log = (...args) => logger.info(...args);
-console.error = (...args) => logger.error(...args);
-console.warn = (...args) => logger.warn(...args);
-console.debug = (...args) => logger.debug(...args);
-
 // Delayed starting of port needs to be obtained from elsewhere (file, etc)
 async function get_own_port() {  
   return 3000;
@@ -122,7 +116,7 @@ app.post('/login', async (req, res, next) => {
     if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
       updateratelimit(own_rodit.metadata.maxrequests, own_rodit.metadata.maxrqwindow);
     } else {
-      console.info('Warning: Unable to update rate limit due to missing data');
+      console.debug('Warning: Unable to update rate limit due to missing data');
     }
 
     const peer_rodit = await verify_hasrodit_getit(peer_roditid, peer_roditid_base64url_signature);
@@ -143,8 +137,7 @@ app.post('/login', async (req, res, next) => {
     res.json({ token });
 
   } catch (error) {
-    logger.warn(`Error: Login failed: ${error}`);
-    console.error('Error: Login failed:', error);
+    logger.error(`Error: Login failed: ${error}`);
     res.status(401).json({ message: 'Authentication failed', error: error.message });
   }
 });
@@ -200,5 +193,5 @@ get_own_port().then((port) => {
   logger.info(`Server started on port ${port}`);
   app.listen(port, () => console.log(`Server started on port ${port}`));
 }).catch(err => {
-  console.error('Error: Failed to get the listen port:', err);
+  logger.error('Error: Failed to get the listen port: ${err}');
 });
