@@ -2,10 +2,12 @@ const express   = require('express');
 const cors      = require('cors');
 const nacl      = require('tweetnacl');
 nacl.util       = require('tweetnacl-util');
-const config     = require('config');
+const config    = require('config');
 const ratelimitmw = require("./middleware/ratelimit");
 const { jwtVerify } = require('jose');
-const swaggerUi = require('swagger-ui-express');
+const logger = require('./config/logger');
+const loggingmiddleware = require('./middleware/loggingmiddleware');
+const swaggerUi  = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
 const { verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
@@ -180,12 +182,28 @@ let ratelimitmwph = (req, res, next) => {
   next();
 };
 
-// Mount rate limiter route
-app.use((req, res, next) => ratelimitmwph(req, res, next));
-
 // Import protected routes
 const echoprotectedRoute = require('./protected/echo');
 const crudarotectedRoute = require('./protected/cruda');
+
+// Mount Logging middleware
+app.use(loggingmiddleware);
+
+// Mount rate limiter route
+app.use((req, res, next) => ratelimitmwph(req, res, next));
+
+// Logging error handling
+app.use((err, req, res, next) => {
+  logger.error({
+    message: err.message,
+    stack: err.stack,
+    method: req.method,
+    url: req.originalUrl,
+    userIP: req.ip,
+    userId: req.user ? req.user.id : 'anonymous',
+  });
+  res.status(500).json({ error: 'Internal Server Error' });
+});
 
 // Mount CRUDA protected route
 app.use('/api', crudarotectedRoute);
@@ -200,6 +218,7 @@ function updateratelimit(maxrequests, maxrqwindow) {
 
 // Start server
 get_own_port().then((port) => {
+  logger.info(`Server started on port ${port}`);
   app.listen(port, () => console.log(`Server started on port ${port}`));
 }).catch(err => {
   console.error('Error: Failed to get the listen port:', err);
