@@ -6,6 +6,7 @@ const config    = require('config');
 const ratelimitmw = require("./middleware/ratelimit");
 const logger = require('./config/logger');
 const loggingmw = require('./middleware/loggingmw');
+const { importJWK, jwtVerify , decodeJwt , SignJWT}  = require('jose');
 const swaggerUi  = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
@@ -46,6 +47,22 @@ const app = express();
 // Delayed starting of port needs to be obtained from elsewhere (file, etc)
 async function get_own_port() {  
   return 3000;
+}
+
+function checktokenpermissions(req, res, next) {
+  const token = req.header('Authorization');
+  if (!token) return res.status(401).json({ message: 'Access denied. No token provided.' });
+
+  // /api/comments=CreateE,DeletePE,WriteE,ReadPET:5e2
+  // /cruda/Create , /cruda/List, /cruda/Get, /cruda/Update, /cruda/Delete, /cruda/List
+
+  try {
+    console.debug("decoded token:",decodeJwt(token).rodit_permissionedroutes);
+    console.debug(`Endpoint reached: ${req.path}`);
+    next();
+  } catch (error) {
+    res.status(400).json({ message: 'Invalid token.' });
+  }
 }
 
 // Middleware
@@ -170,6 +187,38 @@ app.use((req, res, next) => {
   next();
 });
 
+/**
+ * @swagger
+ * /authorize:
+ *   get:
+ *     summary: Authorize user and check JWT token fields
+ *     description: Verify the JWT token and check specific fields before granting access
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Authorization successful
+ *       401:
+ *         description: Unauthorized - Invalid token or missing required fields
+ */
+app.get('/authorize', checktokenpermissions, (req, res) => {
+  const { token_id, notafter, notbefore } = req.user;
+
+  // Check if required fields are present
+  if (!token_id || !notafter || !notbefore) {
+    return res.status(401).json({ message: 'Missing required fields in token' });
+  }
+
+  // Check if token is still valid (not expired)
+  const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+  if (currentTime < notbefore || currentTime > notafter) {
+    return res.status(401).json({ message: 'Token is not valid at this time' });
+  }
+
+  // If all checks pass, send success response
+  res.json({ message: 'Authorization successful', user: req.user });
+});
+
 // Import protected routes
 const echoprotectedRoute = require('./protected/echo');
 const crudarotectedRoute = require('./protected/cruda');
@@ -194,10 +243,10 @@ app.use((err, req, res, next) => {
 });
 
 // Mount CRUDA protected route
-app.use('/api', crudarotectedRoute);
+app.use('/api', checktokenpermissions, crudarotectedRoute);
 
 // Mount ECHO protected route
-app.use('/api', echoprotectedRoute);
+app.use('/api', checktokenpermissions, echoprotectedRoute);
 
 // Update rate limit once obtained config from RODiT
 function updateratelimit(maxrequests, maxrqwindow) {

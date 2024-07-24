@@ -76,11 +76,9 @@ async function requestlogin(apiendpoint,roditid_base64url_signature,ownrodit) {
 async function validateloginrequest_producetoken(roditid, roditid_base64url_signature) {
   console.debug('Info: Client RODiT ID:', roditid);
   console.debug('Info: Client RODiT ID Signature:', roditid_base64url_signature);
-  let peer_roditid = roditid;
-  let peer_roditid_base64url_signature = roditid_base64url_signature;
 
-  if (!peer_roditid || !peer_roditid_base64url_signature) {
-    return res.status(400).json({ message: 'Error: Missing RODiT ID and Signature' });
+  if (!roditid || !roditid_base64url_signature) {
+    throw new Error('Error: Missing RODiT ID and Signature');
   }
 
   try {
@@ -88,7 +86,13 @@ async function validateloginrequest_producetoken(roditid, roditid_base64url_sign
 
     console.debug('Info: own_rodit:', own_rodit);
 
-    const peer_rodit = await verify_hasrodit_getit(peer_roditid, peer_roditid_base64url_signature);
+    if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
+      updateratelimit(own_rodit.metadata.maxrequests, own_rodit.metadata.maxrqwindow);
+    } else {
+      console.debug('Warning: Unable to update rate limit due to missing data');
+    }
+
+    const peer_rodit = await verify_hasrodit_getit(roditid, roditid_base64url_signature);
 
     const [isVerified, isLive, isActive, isTrusted] = await Promise.all([
       verify_rodit_isamatch(own_rodit.metadata.serviceproviderid, peer_rodit.metadata.serviceprovidersignature, peer_rodit.token_id),
@@ -103,7 +107,7 @@ async function validateloginrequest_producetoken(roditid, roditid_base64url_sign
 
     const token = await generate_jwt_token(peer_rodit, own_rodit, own_rodit_bytes_private_key, own_roditid_base64url_signature);
     logger.warn(`Info: Login attempt succeeded:`, peer_rodit.token_id);
-    return { own_rodit, token };
+    return { token };
   } catch (error) {
     logger.warn(`Error: Login failed: ${error.message}`);
     throw new Error(`Authentication failed: ${error.message}`);
@@ -570,7 +574,7 @@ return token;
 
 async function validate_jwt_token(token,ownrodit) {
     try {
-        const unverifiedpayload = decodeJwt(token,ownrodit);
+        const unverifiedpayload = decodeJwt(token);
         const account_idargs = `{"token_id": "${unverifiedpayload.rodit_id}"}`
         const sp_rodit = await nearorg_rpc_tokenfromroditid(BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
         let serviceprovider_base64_public_key = Buffer.from(sp_rodit.owner_id, 'hex').toString('base64url');

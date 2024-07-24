@@ -3,22 +3,22 @@ const router = express.Router();
 const logger = require('../config/logger');
 const loggingmw = require('../middleware/loggingmw');
 
-// In-memory storage for items
-let items = [];
+// In-memory storage for comments
+let comments = [];
 
-// Middleware to check if the item exists
+// Middleware to check if the comment exists
 const itemExists = (req, res, next) => {
   const id = parseInt(req.body.id);
-  const item = items.find(item => item.id === id);
-  if (!item) {
-    logger.warn(`Item not found: ${id}`);
-    return res.status(404).json({ error: 'Item not found' });
+  const comment = comments.find(comment => comment.id === id);
+  if (!comment) {
+    logger.warn(`Comment not found: ${id}`);
+    return res.status(404).json({ error: 'Comment not found' });
   }
-  req.item = item;
+  req.comment = comment;
   next();
 };
 
-// CREATE - Add a new item
+// CREATE - Add a new comment
 router.post('/cruda/create', (req, res, next) => {
   req.logAction = 'create_item';
   next();
@@ -29,54 +29,54 @@ router.post('/cruda/create', (req, res, next) => {
     return res.status(400).json({ error: 'Name and description are required' });
   }
   const newItem = {
-    id: items.length + 1,
+    id: comments.length + 1,
     name,
     description
   };
-  items.push(newItem);
-  logger.info(`Item created: ${newItem.description}, ${req.user}`);
+  comments.push(newItem);
+  logger.info(`Comment created: ${newItem.description}, ${req.user}`);
   res.status(201).json(newItem);
 });
 
-// READ - Get all items
+// READ - Get all comments
 router.post('/cruda/list', (req, res, next) => {
   req.logAction = 'get_all_items';
   next();
 }, (req, res) => {
-  // Correctly format the log message to include the number of items
-  logger.info(`List of items read: ${items.length}`);
-  res.json(items);
+  // Correctly format the log message to include the number of comments
+  logger.info(`List of comments read: ${comments.length}`);
+  res.json(comments);
 });
 
-// READ - Get a specific item
+// READ - Get a specific comment
 router.post('/cruda/get', itemExists, (req, res, next) => {
   req.logAction = 'get_item';
   next();
 }, (req, res) => {
-  logger.info(`Specific item read: ${req.item.description}`);
-  res.json(req.item);
+  logger.info(`Specific comment read: ${req.comment.description}`);
+  res.json(req.comment);
 });
 
-// UPDATE - Update an item
+// UPDATE - Update an comment
 router.post('/cruda/update', itemExists, (req, res, next) => {
   req.logAction = 'update_item';
   next();
 }, (req, res) => {
   const { name, description } = req.body;
-  if (name) req.item.name = name;
-  if (description) req.item.description = description;
-  logger.info(`Item updated: ${req.item.description}`);
-  res.json(req.item);
+  if (name) req.comment.name = name;
+  if (description) req.comment.description = description;
+  logger.info(`Comment updated: ${req.comment.description}`);
+  res.json(req.comment);
 });
 
-// DELETE - Delete an item
+// DELETE - Delete an comment
 router.post('/cruda/delete', itemExists, (req, res, next) => {
   req.logAction = 'delete_item';
   next();
 }, (req, res) => {
-  const index = items.findIndex(item => item.id === req.item.id);
-  items.splice(index, 1);
-  logger.info(`Item deleted: ${req.item.description}`);
+  const index = comments.findIndex(comment => comment.id === req.comment.id);
+  comments.splice(index, 1);
+  logger.info(`Comment deleted: ${req.comment.description}`);
   res.status(204).send();
 });
 

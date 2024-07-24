@@ -12,7 +12,7 @@ router.post('/echo', (req, res, next) => {
   if (!inputString) {
     return res.status(400).json({ error: 'Error: No message provided' })
   }    
-  logger.info('List of items ECHOED');
+  logger.info('List of comments ECHOED');
   res.json({ echo: inputString.toUpperCase() });
 });
 
