@@ -53,6 +53,7 @@ function checktokenpermissions(req, res, next) {
   const token = req.header('Authorization');
   if (!token) return res.status(401).json({ message: 'Access denied. No token provided.' });
 
+  // For the effects of the test, /api/comments equals /cruda
   // /api/comments=CreateE,DeletePE,WriteE,ReadPET:5e2
   // /cruda/Create , /cruda/List, /cruda/Get, /cruda/Update, /cruda/Delete, /cruda/List
 

@@ -370,7 +370,7 @@ async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
       });
   
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`http error! status: ${response.status}`);
       }
   
       const parsedJson = await response.json();
