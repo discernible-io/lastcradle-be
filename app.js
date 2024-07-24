@@ -175,11 +175,6 @@ const echoprotectedRoute = require('./protected/echo');
 const crudarotectedRoute = require('./protected/cruda');
 
 // Mount Logging middleware
-/*app.use((req, res, next) => {
-  req.logService = 'cruda-service'; // Or whatever service name is appropriate
-  next();
-});*/
-
 app.use(loggingmw);
 
 // Mount rate limiter route

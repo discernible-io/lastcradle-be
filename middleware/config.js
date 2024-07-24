@@ -6,7 +6,3 @@ module.exports = {
     RODIT_ID_SIGNATURE_SZ: 64,
     ED25519_KEY_SZ: 64
 };
-
-// In other files
-const config = require('./config');
-// Use config.SMART_CONTRACT instead of CONSTANTS.SMART_CONTRACT
