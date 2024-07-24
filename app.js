@@ -1,8 +1,6 @@
 const express   = require('express');
-const { ulid }  = require('ulid');
 const path      = require('path');
 const cors      = require('cors');
-const crypto    = require('crypto');
 const nacl      = require('tweetnacl');
 nacl.util       = require('tweetnacl-util');
 const config     = require('config');
@@ -12,7 +10,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
 const { verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
-  verify_rodit_istrusted_issuingsmartcontract,dateStringToUnixTime,roditconfig
+  verify_rodit_istrusted_issuingsmartcontract,generate_jwt_token,roditconfig
    } = require('./middleware/rodit');
 
 // let own_rodit;
@@ -123,6 +121,7 @@ app.post('/login', async (req, res) => {
   // The variables roditid, roditid_base64url_signature must match in name 
   // with the variables used in the client side
   const { roditid, roditid_base64url_signature } = req.body;
+  
   let peer_roditid = roditid;
   let peer_roditid_base64url_signature = roditid_base64url_signature;
   console.debug('Info: Client RODiT ID:', peer_roditid);
@@ -136,54 +135,21 @@ app.post('/login', async (req, res) => {
 
     console.debug('Info: own_rodit:', own_rodit);
 
-    // For private key
-    const own_rodit_keyobject_private_key = crypto.createPrivateKey({
-      key: Buffer.concat([
-        Buffer.from('302e020100300506032b657004220420', 'hex'), // Ed25519 private key header
-        own_rodit_bytes_private_key
-      ]),
-      format: 'der',
-      type: 'pkcs8'
-    });
-
     if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
       updateratelimit(own_rodit.metadata.maxrequests, own_rodit.metadata.maxrqwindow);
     } else {
-      console.warn('Warning: Unable to update rate limit due to missing data');
+      console.info('Warning: Unable to update rate limit due to missing data');
     }
 
-    console.debug('Info: peer_roditid:', peer_roditid);
-    console.debug('Info: peer_roditid_base64url_signature:', peer_roditid_base64url_signature);
     const peer_rodit = await verify_hasrodit_getit(peer_roditid, peer_roditid_base64url_signature);
-
     const isVerified = await verify_rodit_isamatch(own_rodit.metadata.serviceproviderid, peer_rodit.metadata.serviceprovidersignature, peer_roditid);
-  
-    const isLive = await verify_rodit_islive(peer_rodit.metadata.notafter, peer_rodit.metadata.notbefore);
-    
+    const isLive = await verify_rodit_islive(peer_rodit.metadata.notafter, peer_rodit.metadata.notbefore);    
     const isActive = await verify_rodit_isactive(peer_roditid, own_rodit.metadata.subjectuniqueidentifierurl);
-    
     const isTrusted = await verify_rodit_istrusted_issuingsmartcontract(own_rodit.metadata.subjectuniqueidentifierurl);
-
     if (!isVerified || !isLive || !isActive || !isTrusted) {
       throw new Error('Error: RODiT verification failed');
     }
 
-    const now = Math.floor(Date.now() / 1000);
-
-    // Make sure that the token will not last beyond the expiration date of the RODiT
-    const notafter = await dateStringToUnixTime(peer_rodit.metadata.notafter); 
-    const duration = parseInt(peer_rodit.metadata.jwtduration, 10);
-    let expiresat=now;
-    
-    if ((now + duration) < notafter) {
-      expiresat = parseInt(now) + parseInt(peer_rodit.metadata.jwtduration);
-    } else {
-      throw new Error('RODiT duration check failed');
-    }
-
-    console.info('Info: This API endpoint Login of Client check passed');
-    const notbefore = await dateStringToUnixTime(own_rodit.metadata.notbefore); 
-    
     /*
     4 HTTPS it dinamically
     6 SRV it?
@@ -191,24 +157,8 @@ app.post('/login', async (req, res) => {
     8 SLA
     */
 
-    const token = await new SignJWT({
-      iss: own_rodit.metadata.subjectuniqueidentifierurl, // App Name
-      sub: peer_rodit.metadata.serviceproviderid + ";sub=" +peer_rodit.token_id, // Unique Id of the client
-      aud: peer_rodit.metadata.serviceproviderid, // App Client
-      exp: expiresat,
-      nbf: notbefore,
-      iat: now,
-      jti: "jti"+ulid(), // jti added to distinguish this quickly visually from the rodit_id
-      // amr: "near.org/rodit" // field added to indicate which blockchain and authentication method version has been used
-      rodit_id: own_rodit.token_id,
-      rodit_idsignature: own_roditid_base64url_signature,
-      rodit_maxrequests: own_rodit.metadata.maxrequests,
-      rodit_maxrqwindow: own_rodit.metadata.maxrqwindow,
-      rodit_permissionedroutes: own_rodit.metadata.permissionedroutes
-    })
-      .setProtectedHeader({ alg: 'EdDSA', typ: 'JWT' })
-      .sign(own_rodit_keyobject_private_key);
-
+    const token = await generate_jwt_token(peer_rodit,own_rodit,own_rodit_bytes_private_key,own_roditid_base64url_signature);
+    
     res.json({ token });
 
   } catch (error) {
