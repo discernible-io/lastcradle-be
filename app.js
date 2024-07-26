@@ -49,23 +49,6 @@ async function get_own_port() {
   return 3000;
 }
 
-function checktokenpermissions(req, res, next) {
-  const token = req.header('Authorization');
-  if (!token) return res.status(401).json({ message: 'Access denied. No token provided.' });
-
-  // For the effects of the test, /api/comments equals /cruda
-  // /api/comments=CreateE,DeletePE,WriteE,ReadPET:5e2
-  // /cruda/Create , /cruda/List, /cruda/Get, /cruda/Update, /cruda/Delete, /cruda/List
-
-  try {
-    console.debug("decoded token:",decodeJwt(token).rodit_permissionedroutes);
-    console.debug(`Endpoint reached: ${req.path}`);
-    next();
-  } catch (error) {
-    res.status(400).json({ message: 'Invalid token.' });
-  }
-}
-
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -202,7 +185,62 @@ app.use((req, res, next) => {
  *       401:
  *         description: Unauthorized - Invalid token or missing required fields
  */
-app.get('/authorize', checktokenpermissions, (req, res) => {
+function checkpermissions(req, res, next) {
+  const token = req.header('Authorization');
+  if (!token) {
+    return res.status(401).json({ message: 'Access denied. No token provided.' });
+  }
+
+  try {
+    const decodedToken = decodeJwt(token);
+    console.debug("decoded token:", decodedToken.rodit_permissionedroutes);
+    console.debug(`Endpoint reached: ${req.path}`);
+
+    const permissionedRoutes = JSON.parse(decodedToken.rodit_permissionedroutes);
+    const { endpoints } = permissionedRoutes;
+    const currentPath = req.path;
+    let isPermitted = false;
+
+    for (const endpoint of endpoints) {
+      const { url, _, entities } = endpoint;
+      if (url === currentPath) {
+        const operation = url.split("/").pop();
+        console.debug(`operation: ${operation}`);
+        switch (operation) {
+          case 'create':
+            isPermitted = entities.some(entity => entity.R && entity.R.startsWith('+'));
+            break;
+          case 'read':
+            isPermitted = entities.some(entity => entity.R && (entity.R.startsWith('+') || !entity.R.startsWith('-')));
+            break;
+          case 'update':
+            isPermitted = entities.some(entity => entity.R && (entity.R.startsWith('+') || !entity.R.startsWith('-')));
+            break;
+          case 'destroy':
+            isPermitted = entities.some(entity => entity.R && entity.R.startsWith('+'));
+            break;
+          default:
+            console.warn(`Unknown operation type: ${operation}`);
+        }
+
+        if (isPermitted) break;  // Exit the loop if permission is granted
+      }
+    }
+
+    if (!isPermitted) {
+      return res.status(403).json({ message: 'Permission denied' });
+    }
+
+    // If we've made it this far, permissions are valid
+    next();
+  } catch (error) {
+    console.error('Error checking permissions:', error);
+    return res.status(400).json({ message: 'Invalid token or permissions.' });
+  }
+}
+
+/*
+app.get('/authorize', checkpermissions, (req, res) => {
   const { token_id, notafter, notbefore } = req.user;
 
   // Check if required fields are present
@@ -219,6 +257,23 @@ app.get('/authorize', checktokenpermissions, (req, res) => {
   // If all checks pass, send success response
   res.json({ message: 'Authorization successful', user: req.user });
 });
+*/
+
+/*
+function checkpermissions(req, res, next) {
+  const token = req.header('Authorization');
+  if (!token) return res.status(401).json({ message: 'Access denied. No token provided.' });
+
+  try {
+    console.debug("decoded token:",decodeJwt(token).rodit_permissionedroutes);
+    console.debug(`Endpoint reached: ${req.path}`);
+    next();
+  } catch (error) {
+    res.status(400).json({ message: 'Invalid token.' });
+  }
+}
+*/
+
 
 // Import protected routes
 const echoprotectedRoute = require('./protected/echo');
@@ -244,10 +299,10 @@ app.use((err, req, res, next) => {
 });
 
 // Mount CRUDA protected route
-app.use('/api', checktokenpermissions, crudarotectedRoute);
+app.use('/api', checkpermissions, crudarotectedRoute);
 
 // Mount ECHO protected route
-app.use('/api', checktokenpermissions, echoprotectedRoute);
+app.use('/api', checkpermissions, echoprotectedRoute);
 
 // Update rate limit once obtained config from RODiT
 function updateratelimit(maxrequests, maxrqwindow) {

@@ -38,9 +38,9 @@ router.post('/cruda/create', (req, res, next) => {
   res.status(201).json(newItem);
 });
 
-// READ - Get all comments
+// READ - Read all comments
 router.post('/cruda/list', (req, res, next) => {
-  req.logAction = 'get_all_items';
+  req.logAction = 'read_all_items';
   next();
 }, (req, res) => {
   // Correctly format the log message to include the number of comments
@@ -48,9 +48,9 @@ router.post('/cruda/list', (req, res, next) => {
   res.json(comments);
 });
 
-// READ - Get a specific comment
-router.post('/cruda/get', itemExists, (req, res, next) => {
-  req.logAction = 'get_item';
+// READ - Read a specific comment
+router.post('/cruda/read', itemExists, (req, res, next) => {
+  req.logAction = 'read_item';
   next();
 }, (req, res) => {
   logger.info(`Specific comment read: ${req.comment.description}`);
@@ -69,14 +69,14 @@ router.post('/cruda/update', itemExists, (req, res, next) => {
   res.json(req.comment);
 });
 
-// DELETE - Delete an comment
-router.post('/cruda/delete', itemExists, (req, res, next) => {
-  req.logAction = 'delete_item';
+// DESTROY - Destroy an comment
+router.post('/cruda/destroy', itemExists, (req, res, next) => {
+  req.logAction = 'destroy_item';
   next();
 }, (req, res) => {
   const index = comments.findIndex(comment => comment.id === req.comment.id);
   comments.splice(index, 1);
-  logger.info(`Comment deleted: ${req.comment.description}`);
+  logger.info(`Comment destroyed: ${req.comment.description}`);
   res.status(204).send();
 });
 
