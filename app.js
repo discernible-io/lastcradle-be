@@ -104,7 +104,6 @@ app.post('/login', async (req, res, next) => {
   let peer_roditid = roditid;
   let peer_roditid_base64url_signature = roditid_base64url_signature;
   console.debug('Info: Client RODiT ID:', peer_roditid);
-  console.debug('Info: Client RODiT ID Signature:', peer_roditid_base64url_signature);
 
   if (!peer_roditid || !peer_roditid_base64url_signature) {
     return res.status(400).json({ message: 'Error: Missing RODiT ID and Signature' });
@@ -134,8 +133,7 @@ app.post('/login', async (req, res, next) => {
 
     const session_base64url_jwk_public_key = hex2base64url(own_rodit_hex_accountid);
     set_session_jwk_public_key(session_base64url_jwk_public_key);
-    console.debug('get_session_jwk_public_key():', get_session_jwk_public_key());
-  
+     
     const token = await generate_jwt_token(peer_rodit, own_rodit, own_rodit_bytes_private_key, own_roditid_base64url_signature);
    
     logger.warn(`Info: Login attempt succeeded:`, peer_rodit.token_id);
@@ -176,7 +174,6 @@ async function checkpermissions(req, res, next) {
 
   try {
     const decodedToken = decodeJwt(token);
-    console.debug("decoded token:", decodedToken.rodit_permissionedroutes);
     console.debug(`Endpoint reached: ${req.path}`);
 
     const permissionedRoutes = JSON.parse(decodedToken.rodit_permissionedroutes);
@@ -227,10 +224,20 @@ async function checkpermissions(req, res, next) {
               return false;
             });
             break;
+          // CG TEST LIST OK
+          case 'list':
+              isPermitted = entities.some(entity => {
+                if (true) {
+                  commentsRate = 3;
+                  return true;
+                }
+              });
+              break;
           default:
             console.warn(`Unknown operation type: ${operation}`);
         }
-        // if (operation === `list`) { commentsRate = 2; isPermitted=true;}  // In this example lists is always allowed
+        //CG: Listing is always allowed during testing
+        if (operation === `list`) { commentsRate = 2; isPermitted=true;}  // In this example lists is always allowed
         if (isPermitted) break;  // Exit the loop if permission is granted
       }
     }
@@ -253,12 +260,10 @@ async function checkpermissions(req, res, next) {
 // CG: This needs to be synched
 async function authenticatetoken(req, res, next) {
 const authHeader = req.headers['authorization'];
-console.debug('authHeader:', authHeader);
 
 let token;
 if (authHeader) {
     const parts = authHeader.split(' ');
-    console.debug('authHeader parts:', parts);
     token = parts.length > 1 ? parts[1] : null;
   }
 
@@ -266,7 +271,6 @@ if (authHeader) {
 
   try {
     const jwk_public_key = await base64url2jwk_public_key(get_session_jwk_public_key());
-    console.debug('get_session_jwk_public_key():', get_session_jwk_public_key());
     const { payload, protectedHeader } = await jwtVerify(token, jwk_public_key, {
         algorithms: ['EdDSA']
     });
@@ -302,10 +306,10 @@ app.use((err, req, res, next) => {
 });
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use('/api', authenticatetoken, crudarotectedRoute);
+app.use('/api', authenticatetoken, checkpermissions, crudarotectedRoute);
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use('/api', echoprotectedRoute);
+app.use('/api', authenticatetoken, checkpermissions, echoprotectedRoute);
 
 // Update rate limit once obtained config from RODiT
 function updateratelimit(maxrequests, maxrqwindow) {
@@ -313,9 +317,8 @@ function updateratelimit(maxrequests, maxrqwindow) {
 }
 
 // Start server
-get_own_port().then((port) => {
-  logger.info(`Server started on port ${port}`);
-  app.listen(port, () => console.log(`Server started on port ${port}`));
+get_own_port().then((port) => {;
+  app.listen(port, () => logger.info(`Server started on port ${port}`));
 }).catch(err => {
   logger.error('Error: Failed to get the listen port: ${err}');
 });
