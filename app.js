@@ -11,7 +11,7 @@ const swaggerUi  = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
 const { verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
-  verify_rodit_istrusted_issuingsmartcontract,generate_jwt_token,roditconfig
+  verify_rodit_istrusted_issuingsmartcontract,generate_jwt_token,roditconfig,get_session_jwk_public_key
    } = require('./middleware/rodit');
 
 const options = {
@@ -134,6 +134,7 @@ app.post('/login', async (req, res, next) => {
     }
 
     const token = await generate_jwt_token(peer_rodit, own_rodit, own_rodit_bytes_private_key, own_roditid_base64url_signature);
+   
     logger.warn(`Info: Login attempt succeeded:`, peer_rodit.token_id);
     res.json({ token });
 
@@ -142,27 +143,6 @@ app.post('/login', async (req, res, next) => {
     res.status(401).json({ message: 'Authentication failed', error: error.message });
   }
 });
-
-// Using validateloginrequest_producetoken does not work yet
-/*
-app.post('/login', async (req, res) => {
-  const { roditid, roditid_base64url_signature } = req.body;
-
-  try {
-    const { own_rodit, token } = await validateloginrequest_producetoken(roditid, roditid_base64url_signature);
-
-    if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
-      updateratelimit(own_rodit.metadata.maxrequests, own_rodit.metadata.maxrqwindow);
-    } else {
-      console.debug('Warning: Unable to update rate limit due to missing data');
-    }
-
-    res.json(token);
-  } catch (error) {
-    res.status(401).json({ message: error.message });
-  }
-});
-*/
 
 app.use((req, res, next) => {
   if (req.logAction) {
@@ -185,7 +165,7 @@ app.use((req, res, next) => {
  *       401:
  *         description: Unauthorized - Invalid token or missing required fields
  */
-function checkpermissions(req, res, next) {
+async function checkpermissions(req, res, next) {
   const token = req.header('Authorization');
   if (!token) {
     return res.status(401).json({ message: 'Access denied. No token provided.' });
@@ -200,6 +180,7 @@ function checkpermissions(req, res, next) {
     const { endpoints } = permissionedRoutes;
     const currentPath = req.path;
     let isPermitted = false;
+    let commentsRate = null;
 
     for (const endpoint of endpoints) {
       const { url, _, entities } = endpoint;
@@ -208,21 +189,45 @@ function checkpermissions(req, res, next) {
         console.debug(`operation: ${operation}`);
         switch (operation) {
           case 'create':
-            isPermitted = entities.some(entity => entity.R && entity.R.startsWith('+'));
+            isPermitted = entities.some(entity => {
+              if (entity.R && entity.R.startsWith('+')) {
+                commentsRate = entity.R;
+                return true;
+              }
+              return false;
+            });
             break;
           case 'read':
-            isPermitted = entities.some(entity => entity.R && (entity.R.startsWith('+') || !entity.R.startsWith('-')));
+            isPermitted = entities.some(entity => {
+              if (entity.R && (entity.R.startsWith('+') || !entity.R.startsWith('-'))) {
+                commentsRate = entity.R;
+                return true;
+              }
+              return false;
+            });
             break;
           case 'update':
-            isPermitted = entities.some(entity => entity.R && (entity.R.startsWith('+') || !entity.R.startsWith('-')));
+            isPermitted = entities.some(entity => {
+              if (entity.R && (entity.R.startsWith('+') || !entity.R.startsWith('-'))) {
+                commentsRate = entity.R;
+                return true;
+              }
+              return false;
+            });
             break;
           case 'destroy':
-            isPermitted = entities.some(entity => entity.R && entity.R.startsWith('+'));
+            isPermitted = entities.some(entity => {
+              if (entity.R && entity.R.startsWith('+')) {
+                commentsRate = entity.R;
+                return true;
+              }
+              return false;
+            });
             break;
           default:
             console.warn(`Unknown operation type: ${operation}`);
         }
-
+        // if (operation === `list`) { commentsRate = 2; isPermitted=true;}  // In this example lists is always allowed
         if (isPermitted) break;  // Exit the loop if permission is granted
       }
     }
@@ -232,6 +237,9 @@ function checkpermissions(req, res, next) {
     }
 
     // If we've made it this far, permissions are valid
+    if (commentsRate) {
+      req.commentsRate = commentsRate; // Pass the value to the next middleware
+    }
     next();
   } catch (error) {
     console.error('Error checking permissions:', error);
@@ -239,41 +247,23 @@ function checkpermissions(req, res, next) {
   }
 }
 
-/*
-app.get('/authorize', checkpermissions, (req, res) => {
-  const { token_id, notafter, notbefore } = req.user;
+// CG: This needs to be synched
+async function authenticatetoken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
-  // Check if required fields are present
-  if (!token_id || !notafter || !notbefore) {
-    return res.status(401).json({ message: 'Missing required fields in token' });
-  }
-
-  // Check if token is still valid (not expired)
-  const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
-  if (currentTime < notbefore || currentTime > notafter) {
-    return res.status(401).json({ message: 'Token is not valid at this time' });
-  }
-
-  // If all checks pass, send success response
-  res.json({ message: 'Authorization successful', user: req.user });
-});
-*/
-
-/*
-function checkpermissions(req, res, next) {
-  const token = req.header('Authorization');
-  if (!token) return res.status(401).json({ message: 'Access denied. No token provided.' });
+  if (token == null) return res.sendStatus(401);
 
   try {
-    console.debug("decoded token:",decodeJwt(token).rodit_permissionedroutes);
-    console.debug(`Endpoint reached: ${req.path}`);
+    const { payload, protectedHeader } = await jwtVerify(token,get_session_jwk_public_key(), {
+        algorithms: ['EdDSA']
+    });
+    req.user = payload;
     next();
-  } catch (error) {
-    res.status(400).json({ message: 'Invalid token.' });
+  } catch (err) {
+    return res.sendStatus(403);
   }
 }
-*/
-
 
 // Import protected routes
 const echoprotectedRoute = require('./protected/echo');
@@ -298,11 +288,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// Mount CRUDA protected route
-app.use('/api', checkpermissions, crudarotectedRoute);
+// Mount CRUDA protected route, where token is authenticated and permissions vetted
+app.use('/api', authenticatetoken, checkpermissions, crudarotectedRoute);
 
-// Mount ECHO protected route
-app.use('/api', checkpermissions, echoprotectedRoute);
+// Mount CRUDA protected route, where token is authenticated and permissions vetted
+app.use('/api', authenticatetoken, checkpermissions, echoprotectedRoute);
 
 // Update rate limit once obtained config from RODiT
 function updateratelimit(maxrequests, maxrqwindow) {

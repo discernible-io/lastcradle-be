@@ -20,6 +20,8 @@ const CONSTANTS = {
     ED25519_KEY_SZ: 64
 };
 
+let jwk_public_key;
+
 const BLOCKCHAIN_NETWORK = config.get('BLOCKCHAIN_NETWORK');
 const resolver = new Resolver();
 
@@ -60,10 +62,10 @@ async function requestlogin(apiendpoint,roditid_base64url_signature,ownrodit) {
       }
 
       const data = await response.json();
-      token = data.token;
+      let jwt_token = data.token;
 
       // CG: Add error handling so the process does not just stop upon failure
-      await validate_jwt_token(token,ownrodit);
+      await validate_jwt_token(jwt_token,ownrodit);
 
       console.debug('Info: Client of API endpoint is logged in');
       return true;
@@ -73,6 +75,7 @@ async function requestlogin(apiendpoint,roditid_base64url_signature,ownrodit) {
   }
 }
 
+/*
 async function validateloginrequest_producetoken(roditid, roditid_base64url_signature) {
   console.debug('Info: Client RODiT ID:', roditid);
   console.debug('Info: Client RODiT ID Signature:', roditid_base64url_signature);
@@ -113,6 +116,7 @@ async function validateloginrequest_producetoken(roditid, roditid_base64url_sign
     throw new Error(`Authentication failed: ${error.message}`);
   }
 }
+*/
 
 async function roditconfig(configuration_file_path) {
   try {
@@ -578,10 +582,12 @@ async function validate_jwt_token(token,ownrodit) {
         const account_idargs = `{"token_id": "${unverifiedpayload.rodit_id}"}`
         const sp_rodit = await nearorg_rpc_tokenfromroditid(BLOCKCHAIN_NETWORK, CONSTANTS.SMART_CONTRACT, "nft_token", account_idargs);
         let serviceprovider_base64_public_key = Buffer.from(sp_rodit.owner_id, 'hex').toString('base64url');
-        session_jwk_public_key = await base64url2jwk_public_key(serviceprovider_base64_public_key);
+        const session_jwk_public_key = await base64url2jwk_public_key(serviceprovider_base64_public_key);
         const { payload, protectedHeader } = await jwtVerify(token, session_jwk_public_key, {
             algorithms: ['EdDSA']
         });
+
+        set_session_jwk_public_key(session_jwk_public_key);
 
         const peer_rodit = await verify_hasrodit_getit(payload.rodit_id, payload.rodit_idsignature);
 
@@ -646,8 +652,9 @@ async function base64url2jwk_public_key(base64url_public_key) {
 }
 
 module.exports = {
+    set_session_jwk_public_key: (jwk_public_key) => { session_jwk_public_key = jwk_public_key; },get_session_jwk_public_key: () => session_jwk_public_key,
     verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, nearorg_rpc_timestamp,
     verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,
     nearorg_rpc_tokensfromaccountid,nearorg_rpc_tokenfromroditid,roditconfig,validate_jwt_token,
-    generate_jwt_token,requestlogin,validateloginrequest_producetoken,CONSTANTS,RODiT
+    generate_jwt_token,requestlogin,CONSTANTS,RODiT
 };
