@@ -11,7 +11,8 @@ const swaggerUi  = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
 const { verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
-  verify_rodit_istrusted_issuingsmartcontract,generate_jwt_token,roditconfig,get_session_jwk_public_key
+  verify_rodit_istrusted_issuingsmartcontract,generate_jwt_token,roditconfig,get_session_jwk_public_key,
+  base64url2jwk_public_key,hex2base64url,set_session_jwk_public_key
    } = require('./middleware/rodit');
 
 const options = {
@@ -110,9 +111,7 @@ app.post('/login', async (req, res, next) => {
   }
 
   try {
-    let {own_rodit, own_roditid_base64url_signature, own_rodit_bytes_private_key} = await roditconfig(config.CONFIGURATION_FILE_PATH);   
-
-    console.debug('Info: own_rodit:', own_rodit);
+    let {own_rodit, own_roditid_base64url_signature, own_rodit_bytes_private_key, own_rodit_hex_accountid} = await roditconfig(config.CONFIGURATION_FILE_PATH);   
 
     if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
       updateratelimit(own_rodit.metadata.maxrequests, own_rodit.metadata.maxrqwindow);
@@ -133,6 +132,10 @@ app.post('/login', async (req, res, next) => {
       throw new Error('Error: RODiT verification failed');
     }
 
+    const session_base64url_jwk_public_key = hex2base64url(own_rodit_hex_accountid);
+    set_session_jwk_public_key(session_base64url_jwk_public_key);
+    console.debug('get_session_jwk_public_key():', get_session_jwk_public_key());
+  
     const token = await generate_jwt_token(peer_rodit, own_rodit, own_rodit_bytes_private_key, own_roditid_base64url_signature);
    
     logger.warn(`Info: Login attempt succeeded:`, peer_rodit.token_id);
@@ -249,18 +252,28 @@ async function checkpermissions(req, res, next) {
 
 // CG: This needs to be synched
 async function authenticatetoken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+const authHeader = req.headers['authorization'];
+console.debug('authHeader:', authHeader);
+
+let token;
+if (authHeader) {
+    const parts = authHeader.split(' ');
+    console.debug('authHeader parts:', parts);
+    token = parts.length > 1 ? parts[1] : null;
+  }
 
   if (token == null) return res.sendStatus(401);
 
   try {
-    const { payload, protectedHeader } = await jwtVerify(token,get_session_jwk_public_key(), {
+    const jwk_public_key = await base64url2jwk_public_key(get_session_jwk_public_key());
+    console.debug('get_session_jwk_public_key():', get_session_jwk_public_key());
+    const { payload, protectedHeader } = await jwtVerify(token, jwk_public_key, {
         algorithms: ['EdDSA']
     });
     req.user = payload;
     next();
-  } catch (err) {
+  } catch (error) {
+    console.error('Token verification failed:', error);
     return res.sendStatus(403);
   }
 }
@@ -289,10 +302,10 @@ app.use((err, req, res, next) => {
 });
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use('/api', authenticatetoken, checkpermissions, crudarotectedRoute);
+app.use('/api', authenticatetoken, crudarotectedRoute);
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use('/api', authenticatetoken, checkpermissions, echoprotectedRoute);
+app.use('/api', echoprotectedRoute);
 
 // Update rate limit once obtained config from RODiT
 function updateratelimit(maxrequests, maxrqwindow) {
