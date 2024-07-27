@@ -582,6 +582,30 @@ async function validate_jwt_token(token,ownrodit) {
     }
 }
 
+async function authenticatetoken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  
+  let token;
+  if (authHeader) {
+      const parts = authHeader.split(' ');
+      token = parts.length > 1 ? parts[1] : null;
+    }
+  
+    if (token == null) return res.sendStatus(401);
+  
+    try {
+      const jwk_public_key = await base64url2jwk_public_key(get_session_jwk_public_key());
+      const { payload, protectedHeader } = await jwtVerify(token, jwk_public_key, {
+          algorithms: ['EdDSA']
+      });
+      req.user = payload;
+      next();
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      return res.sendStatus(403);
+    }
+  }
+
 async function dateStringToUnixTime(datestring) {
   // Create a new Date object from the string
   const date = new Date(datestring);
@@ -631,5 +655,5 @@ module.exports = {
     verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, nearorg_rpc_timestamp,
     verify_rodit_isactive,verify_rodit_istrusted_issuingsmartcontract,nearorg_rpc_state,
     nearorg_rpc_tokensfromaccountid,nearorg_rpc_tokenfromroditid,roditconfig,validate_jwt_token,
-    generate_jwt_token,requestlogin,base64url2jwk_public_key,hex2base64url,CONSTANTS,RODiT
+    generate_jwt_token,requestlogin,base64url2jwk_public_key,hex2base64url,authenticatetoken,CONSTANTS,RODiT
 };

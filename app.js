@@ -13,7 +13,7 @@ const swaggerJsdoc = require('swagger-jsdoc');
 
 const { verify_hasrodit_getit, verify_rodit_isamatch, verify_rodit_islive, verify_rodit_isactive,
   verify_rodit_istrusted_issuingsmartcontract,generate_jwt_token,roditconfig,get_session_jwk_public_key,
-  base64url2jwk_public_key,hex2base64url,set_session_jwk_public_key
+  base64url2jwk_public_key,hex2base64url,set_session_jwk_public_key,authenticatetoken,
    } = require('./middleware/rodit');
 
 const options = {
@@ -262,29 +262,7 @@ async function validatepermissions(req, res, next) {
 */
 
 // CG: This needs to be synched
-async function authenticatetoken(req, res, next) {
-const authHeader = req.headers['authorization'];
 
-let token;
-if (authHeader) {
-    const parts = authHeader.split(' ');
-    token = parts.length > 1 ? parts[1] : null;
-  }
-
-  if (token == null) return res.sendStatus(401);
-
-  try {
-    const jwk_public_key = await base64url2jwk_public_key(get_session_jwk_public_key());
-    const { payload, protectedHeader } = await jwtVerify(token, jwk_public_key, {
-        algorithms: ['EdDSA']
-    });
-    req.user = payload;
-    next();
-  } catch (error) {
-    console.error('Token verification failed:', error);
-    return res.sendStatus(403);
-  }
-}
 
 // Import protected routes
 const echoprotectedRoute = require('./protected/echo');
