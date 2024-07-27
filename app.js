@@ -138,7 +138,6 @@ app.post(
         own_rodit,
         own_roditid_base64url_signature,
         own_rodit_bytes_private_key,
-        own_rodit_hex_accountid,
       } = await roditconfig(CONFIGURATION_FILE_PATH);
 
       if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
@@ -152,11 +151,6 @@ app.post(
         );
       }
       
-      const session_base64url_jwk_public_key = hex2base64url(
-        own_rodit_hex_accountid
-      );
-      set_session_jwk_public_key(session_base64url_jwk_public_key);
-
       const peer_rodit = await verify_hasrodit_getit(
         peer_roditid,
         peer_roditid_base64url_signature
