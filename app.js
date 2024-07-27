@@ -19,8 +19,6 @@ const {
   verify_rodit_istrusted_issuingsmartcontract,
   generate_jwt_token,
   roditconfig,
-  hex2base64url,
-  set_session_jwk_public_key,
   authenticatetoken,
 } = require("./middleware/rodit");
 
