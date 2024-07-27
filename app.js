@@ -4,6 +4,7 @@ const nacl      = require('tweetnacl');
 nacl.util       = require('tweetnacl-util');
 const config    = require('config');
 const ratelimitmw = require("./middleware/ratelimit");
+const validatepermissions = require("./middleware/validatepermissions");
 const logger = require('./config/logger');
 const loggingmw = require('./middleware/loggingmw');
 const { importJWK, jwtVerify , decodeJwt , SignJWT}  = require('jose');
@@ -152,6 +153,7 @@ app.use((req, res, next) => {
   next();
 });
 
+
 /**
  * @swagger
  * /authorize:
@@ -166,7 +168,8 @@ app.use((req, res, next) => {
  *       401:
  *         description: Unauthorized - Invalid token or missing required fields
  */
-async function checkpermissions(req, res, next) {
+/*
+async function validatepermissions(req, res, next) {
   const token = req.header('Authorization');
   if (!token) {
     return res.status(401).json({ message: 'Access denied. No token provided.' });
@@ -256,6 +259,7 @@ async function checkpermissions(req, res, next) {
     return res.status(400).json({ message: 'Invalid token or permissions.' });
   }
 }
+*/
 
 // CG: This needs to be synched
 async function authenticatetoken(req, res, next) {
@@ -306,10 +310,10 @@ app.use((err, req, res, next) => {
 });
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use('/api', authenticatetoken, checkpermissions, crudarotectedRoute);
+app.use('/api', authenticatetoken, validatepermissions, crudarotectedRoute);
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use('/api', authenticatetoken, checkpermissions, echoprotectedRoute);
+app.use('/api', authenticatetoken, validatepermissions, echoprotectedRoute);
 
 // Update rate limit once obtained config from RODiT
 function updateratelimit(maxrequests, maxrqwindow) {
