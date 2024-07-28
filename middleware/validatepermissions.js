@@ -15,108 +15,108 @@ const { decodeJwt } = require("jose");
  *         description: Unauthorized - Invalid token or missing required fields
  */
 async function validatapermissions(req, res, next) {
-    const token = req.header("Authorization");
-    if (!token) {
-      return res
-        .status(401)
-        .json({ message: "Access denied. No token provided." });
-    }
-  
-    try {
-      const decodedToken = decodeJwt(token);
-      console.debug(`Info: Endpoint reached: ${req.path}`);
-  
-      const permissionedRoutes = JSON.parse(
-        decodedToken.rodit_permissionedroutes
-      );
-      const { endpoints } = permissionedRoutes;
-      const currentPath = req.path;
-      let isPermitted = false;
-      let commentsRate = null;
-  
-      // Verify Rate and sign (+ for entity and property, - for property only, nada for entity only) to each route for internal processing
-      for (const endpoint of endpoints) {
-        const { url, _, entities } = endpoint;
-        if (url === currentPath) {
-          const operation = url.split("/").pop();
-          console.debug(`operation: ${operation}`);
-          switch (operation) {
-            case "create":
-              isPermitted = entities.some((entity) => {
-                if (entity.R && entity.R.startsWith("+")) {
-                  commentsRate = entity.R;
-                  return true;
-                }
-                return false;
-              });
-              break;
-            case "read":
-              isPermitted = entities.some((entity) => {
-                if (
-                  entity.R &&
-                  (entity.R.startsWith("+") || !entity.R.startsWith("-"))
-                ) {
-                  commentsRate = entity.R;
-                  return true;
-                }
-                return false;
-              });
-              break;
-            case "update":
-              isPermitted = entities.some((entity) => {
-                if (
-                  entity.R &&
-                  (entity.R.startsWith("+") || !entity.R.startsWith("-"))
-                ) {
-                  commentsRate = entity.R;
-                  return true;
-                }
-                return false;
-              });
-              break;
-            case "destroy":
-              isPermitted = entities.some((entity) => {
-                if (entity.R && entity.R.startsWith("+")) {
-                  commentsRate = entity.R;
-                  return true;
-                }
-                return false;
-              });
-              break;
-            // CG TEST LIST OK
-            case "list":
-              isPermitted = entities.some((entity) => {
-                if (true) {
-                  commentsRate = 3;
-                  return true;
-                }
-              });
-              break;
-            default:
-              console.warn(`Unknown operation type: ${operation}`);
-          }
-          //CG: Listing is always allowed during testing
-          if (operation === `list`) {
-            commentsRate = 2;
-            isPermitted = true;
-          } // In this example lists is always allowed
-          if (isPermitted) break; // Exit the loop if permission is granted
-        }
-      }
-  
-      if (!isPermitted) {
-        return res.status(403).json({ message: "Permission denied" });
-      }
-  
-      // If we've made it this far, permissions are valid
-      if (commentsRate) {
-        req.commentsRate = commentsRate; // Pass the value to the next middleware
-      }
-      next();
-    } catch (error) {
-      console.error("Error checking permissions:", error);
-      return res.status(400).json({ message: "Invalid token or permissions." });
-    }
+  const token = req.header("Authorization");
+  if (!token) {
+    return res
+      .status(401)
+      .json({ message: "Access denied. No token provided." });
   }
 
-  module.exports = validatapermissions;
+  try {
+    const decodedToken = decodeJwt(token);
+    console.debug(`Info: Endpoint reached: ${req.path}`);
+
+    const permissionedRoutes = JSON.parse(
+      decodedToken.rodit_permissionedroutes
+    );
+    const { endpoints } = permissionedRoutes;
+    const currentPath = req.path;
+    let isPermitted = false;
+    let commentsRate = null;
+
+    // Verify Rate and sign (+ for entity and property, - for property only, nada for entity only) to each route for internal processing
+    for (const endpoint of endpoints) {
+      const { url, _, entities } = endpoint;
+      if (url === currentPath) {
+        const operation = url.split("/").pop();
+        console.debug(`operation: ${operation}`);
+        switch (operation) {
+          case "create":
+            isPermitted = entities.some((entity) => {
+              if (entity.R && entity.R.startsWith("+")) {
+                commentsRate = entity.R;
+                return true;
+              }
+              return false;
+            });
+            break;
+          case "read":
+            isPermitted = entities.some((entity) => {
+              if (
+                entity.R &&
+                (entity.R.startsWith("+") || !entity.R.startsWith("-"))
+              ) {
+                commentsRate = entity.R;
+                return true;
+              }
+              return false;
+            });
+            break;
+          case "update":
+            isPermitted = entities.some((entity) => {
+              if (
+                entity.R &&
+                (entity.R.startsWith("+") || !entity.R.startsWith("-"))
+              ) {
+                commentsRate = entity.R;
+                return true;
+              }
+              return false;
+            });
+            break;
+          case "destroy":
+            isPermitted = entities.some((entity) => {
+              if (entity.R && entity.R.startsWith("+")) {
+                commentsRate = entity.R;
+                return true;
+              }
+              return false;
+            });
+            break;
+          // CG TEST LIST OK
+          case "list":
+            isPermitted = entities.some((entity) => {
+              if (true) {
+                commentsRate = 3;
+                return true;
+              }
+            });
+            break;
+          default:
+            console.warn(`Unknown operation type: ${operation}`);
+        }
+        //CG: Listing is always allowed during testing
+        if (operation === `list`) {
+          commentsRate = 2;
+          isPermitted = true;
+        } // In this example lists is always allowed
+        if (isPermitted) break; // Exit the loop if permission is granted
+      }
+    }
+
+    if (!isPermitted) {
+      return res.status(403).json({ message: "Permission denied" });
+    }
+
+    // If we've made it this far, permissions are valid
+    if (commentsRate) {
+      req.commentsRate = commentsRate; // Pass the value to the next middleware
+    }
+    next();
+  } catch (error) {
+    console.error("Error checking permissions:", error);
+    return res.status(400).json({ message: "Invalid token or permissions." });
+  }
+}
+
+module.exports = validatapermissions;

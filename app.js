@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const nacl = require("tweetnacl");
 nacl.util = require("tweetnacl-util");
-const https = require('https');
+const https = require("https");
 const config = require("config");
 const ratelimitmw = require("./middleware/ratelimit");
 const validatepermissions = require("./middleware/validatepermissions");
@@ -12,14 +12,10 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 
 const {
-  verify_hasrodit_getit,
-  verify_rodit_isamatch,
-  verify_rodit_islive,
-  verify_rodit_isactive,
-  verify_rodit_istrusted_issuingsmartcontract,
   generate_jwt_token,
   roditconfig,
   authenticatetoken,
+  verify_peerrodit_getit,
 } = require("./middleware/rodit");
 
 const options = {
@@ -53,6 +49,7 @@ const options = {
 const CONFIGURATION_FILE_PATH = config.get("CONFIGURATION_FILE_PATH");
 const PORT = config.get("PORT");
 
+// CG: Remove throws of errors, formalize errors
 /*
 const API_PROTOCOL = config.get("API_PROTOCOL");
 
@@ -131,7 +128,6 @@ app.post(
     }
 
     try {
-
       let {
         own_rodit,
         own_roditid_base64url_signature,
@@ -144,53 +140,36 @@ app.post(
           own_rodit.metadata.maxrqwindow
         );
       } else {
-        console.debug(
-          "Info: Unable to update rate limit due to missing data"
-        );
+        console.debug("Info: Unable to update rate limit due to missing data");
       }
-      
-      const peer_rodit = await verify_hasrodit_getit(
+
+      let { peer_rodit, goodrodit } = await verify_peerrodit_getit(
         peer_roditid,
         peer_roditid_base64url_signature
       );
+      if (goodrodit) {
+        const token = await generate_jwt_token(
+          peer_rodit,
+          own_rodit,
+          own_rodit_bytes_private_key,
+          own_roditid_base64url_signature
+        );
 
-      const [isVerified, isLive, isActive, isTrusted] = await Promise.all([
-        verify_rodit_isamatch(
-          own_rodit.metadata.serviceproviderid,
-          peer_rodit.metadata.serviceprovidersignature,
-          peer_rodit.token_id
-        ),
-        verify_rodit_islive(
-          peer_rodit.metadata.notafter,
-          peer_rodit.metadata.notbefore
-        ),
-        verify_rodit_isactive(
-          peer_rodit.token_id,
-          own_rodit.metadata.subjectuniqueidentifierurl
-        ),
-        verify_rodit_istrusted_issuingsmartcontract(
-          own_rodit.metadata.subjectuniqueidentifierurl
-        ),
-      ]);
-
-      if (!isVerified || !isLive || !isActive || !isTrusted) {
-        throw new Error("Error: RODiT verification failed");
+        logger.warn(`Info: Login attempt succeeded:`, peer_rodit.token_id);
+        res.json({ token });
+      } else {
+        logger.error(`Error 001: Login attempt failed: ${error}`);
+        res.status(401).json({
+          message: "Error 001: Login attempt failed:",
+          error: error.message,
+        });
       }
-
-      const token = await generate_jwt_token(
-        peer_rodit,
-        own_rodit,
-        own_rodit_bytes_private_key,
-        own_roditid_base64url_signature
-      );
-
-      logger.warn(`Info: Login attempt succeeded:`, peer_rodit.token_id);
-      res.json({ token });
     } catch (error) {
       logger.error(`Error 001: Login attempt failed: ${error}`);
-      res
-        .status(401)
-        .json({ message: "Error 001: Login attempt failed:", error: error.message });
+      res.status(401).json({
+        message: "Error 001: Login attempt failed:",
+        error: error.message,
+      });
     }
   }
 );
@@ -230,7 +209,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Error: Internal Server Error" });
 });
 
-// Update rate limit once obtained config from RODiT
+// Update rate limit once obtained config
 function updateratelimit(maxrequests, maxrqwindow) {
   ratelimitmwph = ratelimitmw(maxrequests, maxrqwindow);
 }
