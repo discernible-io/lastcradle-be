@@ -15,7 +15,7 @@ const {
   generate_jwt_token,
   roditconfig,
   authenticatetoken,
-  verify_peerrodit_getit,
+  verify_peerrodit_getit
 } = require("./middleware/rodit");
 
 const options = {
@@ -48,6 +48,36 @@ const options = {
 // Configuration is now loaded from config files
 const CONFIGURATION_FILE_PATH = config.get("CONFIGURATION_FILE_PATH");
 const PORT = config.get("PORT");
+
+let globalConfig;
+
+async function initializeConfig() {
+  try {
+    let {
+      own_rodit,
+      own_roditid_base64url_signature,
+      own_rodit_bytes_private_key,
+    } = await roditconfig(CONFIGURATION_FILE_PATH);
+
+    if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
+      updateratelimit(
+        own_rodit.metadata.maxrequests,
+        own_rodit.metadata.maxrqwindow
+      );
+    } else {
+      console.debug("Info: Unable to update rate limit due to missing data");
+    }
+
+    globalConfig = {
+      own_rodit,
+      own_roditid_base64url_signature,
+      own_rodit_bytes_private_key,
+    };
+  } catch (error) {
+    logger.error(`Error initializing config: ${error}`);
+    throw error;
+  }
+}
 
 // CG: Remove throws of errors, formalize errors
 /*
@@ -110,7 +140,6 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.post(
   "/login",
   async (req, res, next) => {
-    // Log the action
     req.logAction = "login-attempt";
     next();
   },
@@ -128,19 +157,8 @@ app.post(
     }
 
     try {
-      let {
-        own_rodit,
-        own_roditid_base64url_signature,
-        own_rodit_bytes_private_key,
-      } = await roditconfig(CONFIGURATION_FILE_PATH);
-
-      if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
-        updateratelimit(
-          own_rodit.metadata.maxrequests,
-          own_rodit.metadata.maxrqwindow
-        );
-      } else {
-        console.debug("Info: Unable to update rate limit due to missing data");
+      if (!globalConfig) {
+        throw new Error("Server configuration not initialized");
       }
 
       let { peer_rodit, goodrodit } = await verify_peerrodit_getit(
@@ -150,9 +168,9 @@ app.post(
       if (goodrodit) {
         const token = await generate_jwt_token(
           peer_rodit,
-          own_rodit,
-          own_rodit_bytes_private_key,
-          own_roditid_base64url_signature
+          globalConfig.own_rodit,
+          globalConfig.own_rodit_bytes_private_key,
+          globalConfig.own_roditid_base64url_signature
         );
 
         logger.warn(`Info: Login attempt succeeded:`, peer_rodit.token_id);
@@ -215,6 +233,16 @@ function updateratelimit(maxrequests, maxrqwindow) {
 }
 
 // Start server
-app.listen(PORT, () => {
-  logger.info(`Info: Server started on port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await initializeConfig();
+    app.listen(PORT, () => {
+      logger.info(`Info: Server started on port ${PORT}`);
+    });
+  } catch (error) {
+    logger.error(`Failed to start server: ${error}`);
+    process.exit(1);
+  }
+}
+
+startServer();
