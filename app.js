@@ -13,9 +13,9 @@ const swaggerJsdoc = require("swagger-jsdoc");
 
 const {
   set_rodit_config,
-  get_roditconfig,
+  get_rodit_config,
   generate_jwt_token,
-  authenticate_jwt_token,
+  verify_jwt_token,
   verify_peerrodit_getit
 } = require("./middleware/rodit");
 
@@ -134,7 +134,7 @@ app.post(
       );
 
       if (goodrodit) {
-        const config_own_rodit = await get_roditconfig();
+        const config_own_rodit = await get_rodit_config();
         if (!config_own_rodit) {
           throw new Error("Server configuration not initialized");
         }
@@ -182,10 +182,10 @@ app.use(loggingmw);
 app.use((req, res, next) => ratelimitmwph(req, res, next));
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", authenticate_jwt_token, validatepermissions, crudarotectedRoute);
+app.use("/api", verify_jwt_token, validatepermissions, crudarotectedRoute);
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", authenticate_jwt_token, validatepermissions, echoprotectedRoute);
+app.use("/api", verify_jwt_token, validatepermissions, echoprotectedRoute);
 
 app.use((err, req, res, next) => {
   logger.error({
@@ -208,7 +208,7 @@ function updateratelimit(maxrequests, maxrqwindow) {
 async function startServer() {
   try {
     await set_rodit_config(RODIT_CONFIGURATION_FILE_PATH);
-    const config_own_rodit = await get_roditconfig();
+    const config_own_rodit = await get_rodit_config();
     if (
       config_own_rodit.own_rodit.metadata.maxrequests &&
       config_own_rodit.own_rodit.metadata.maxrqwindow
@@ -221,8 +221,10 @@ async function startServer() {
       console.debug("Info: Unable to update rate limit due to missing data");
     }
 
-    app.listen(PORT, () => {
       logger.info(`Info: Server started on port ${PORT}`);
+
+    app.listen(config_own_rodit.port, () => {
+      logger.info(`Info: Server started on port ${config_own_rodit.port}`);
     });
   } catch (error) {
     logger.error(`Failed to start server: ${error}`);

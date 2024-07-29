@@ -12,7 +12,7 @@ const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
 const { Resolver } = require("dns").promises;
 
 const CONSTANTS = {
-  SMART_CONTRACT: "10201-cableguard-org.testnet",
+  SMART_CONTRACT: "10201-cableguard-org.testnet", // // ".testnet" for TESTNET ".near" for MAINNET
   BLOCKCHAIN_NETWORK:".testnet", // ".testnet" for TESTNET "." for MAINNET
   RODIT_ID_SZ: 128,
   RODIT_ID_PK_SZ: 32,
@@ -46,7 +46,7 @@ class RODiT {
   }
 }
 
-async function get_roditconfig() {
+async function get_rodit_config() {
   return config_own_rodit;
 }
 
@@ -66,7 +66,7 @@ async function set_rodit_config(configuration_file_path) {
     // Check if there's a mismatch
     if ((CONSTANTS.BLOCKCHAIN_NETWORK === ".testnet" && urlExtension !== "testnet") || 
         (CONSTANTS.BLOCKCHAIN_NETWORK === "." && urlExtension !== "near")) {
-        throw new Error(`Error: Mismatch: URL extension "${urlExtension}" does not match the blockchain network "${blockchainNetwork}".`);
+        throw new Error(`Error 045: Mismatch: URL extension "${urlExtension}" does not match the blockchain network "${blockchainNetwork}".`);
     }
 
     // Read the configuration file to get the path of the JSON file
@@ -137,11 +137,13 @@ async function set_rodit_config(configuration_file_path) {
       own_rodit.metadata.subjectuniqueidentifierurl +
       ":" +
       PORT;
+    let port = PORT;
     config_own_rodit = {
       own_rodit,
       own_roditid_base64url_signature,
       own_rodit_bytes_private_key,
       apiendpoint,
+      port
     };
 
     return {
@@ -149,6 +151,7 @@ async function set_rodit_config(configuration_file_path) {
       own_roditid_base64url_signature,
       own_rodit_bytes_private_key,
       apiendpoint,
+      port
     };
   } catch (error) {
     logger.error(`Error 041: Processing configuration file: ${error.message}`);
@@ -227,7 +230,7 @@ async function verify_peerrodit_getit(
     let goodrodit;
     if (!isVerified || !isLive || !isActive || !isTrusted) {
       goodrodit = false;
-      throw new Error("Error 037: RODiT verification failed");
+      throw new Error("Error 037: Peer RODiT verification failed");
     }
     goodrodit = true;
     return {
@@ -757,8 +760,7 @@ async function validate_jwt_token(token, ownrodit) {
 
     set_session_jwk_public_key(serviceprovider_base64_public_key);
 
-    // CG: Follow here
-    let { peer_rodit, goodrodit } = await verify_peerrodit_getit(
+    let { _ , goodrodit } = await verify_peerrodit_getit(
       payload.rodit_id,
       payload.rodit_idsignature
     );
@@ -787,7 +789,7 @@ async function validate_jwt_token(token, ownrodit) {
     throw error;
   }
 }
-async function authenticate_jwt_token(req, res, next) {
+async function verify_jwt_token(req, res, next) {
   try {
     const authHeader = req.headers["authorization"];
 
@@ -814,7 +816,7 @@ async function authenticate_jwt_token(req, res, next) {
     req.user = payload;
     next();
   } catch (error) {
-    logger.error(`Error 001: in authenticate_jwt_token: ${error.message}`);
+    logger.error(`Error 001: in verify_jwt_token: ${error.message}`);
     return res.status(403).json({ error: "Token verification failed" });
   }
 }
@@ -866,9 +868,9 @@ function get_session_jwk_public_key() {
 
 module.exports = {
   set_rodit_config,
-  get_roditconfig,
+  get_rodit_config,
   login_and_verify_server,
   generate_jwt_token,
-  authenticate_jwt_token,
+  verify_jwt_token,
   verify_peerrodit_getit,
 };
