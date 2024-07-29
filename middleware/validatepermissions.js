@@ -119,4 +119,4 @@ async function validatepermissions(req, res, next) {
   }
 }
 
-module.exports = validatapermissions;
+module.exports = validatepermissions;
