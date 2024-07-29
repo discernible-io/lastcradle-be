@@ -1,7 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const nacl = require("tweetnacl");
-nacl.util = require("tweetnacl-util");
 const https = require("https");
 const config = require("config");
 const ratelimitmw = require("./middleware/ratelimit");
@@ -12,10 +10,10 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 
 const {
-  generate_jwt_token,
-  set_roditconfig,
+  set_rodit_config,
   get_roditconfig,
-  authenticatetoken,
+  generate_jwt_token,
+  authenticate_jwt_token,
   verify_peerrodit_getit,
 } = require("./middleware/rodit");
 
@@ -182,10 +180,10 @@ app.use(loggingmw);
 app.use((req, res, next) => ratelimitmwph(req, res, next));
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", authenticatetoken, validatepermissions, crudarotectedRoute);
+app.use("/api", authenticate_jwt_token, validatepermissions, crudarotectedRoute);
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", authenticatetoken, validatepermissions, echoprotectedRoute);
+app.use("/api", authenticate_jwt_token, validatepermissions, echoprotectedRoute);
 
 app.use((err, req, res, next) => {
   logger.error({
@@ -207,7 +205,7 @@ function updateratelimit(maxrequests, maxrqwindow) {
 // Start server
 async function startServer() {
   try {
-    await set_roditconfig(CONFIGURATION_FILE_PATH);
+    await set_rodit_config(CONFIGURATION_FILE_PATH);
     const globalConfig = await get_roditconfig();
     if (
       globalConfig.own_rodit.metadata.maxrequests &&
