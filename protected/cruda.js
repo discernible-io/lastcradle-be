@@ -103,6 +103,7 @@ router.post(
     );
     comments.splice(index, 1);
     logger.info(`Comment destroyed: ${req.comment.description}`);
+    // res.json({ echo: inputString.toUpperCase() });
     res.status(204).send();
   }
 );
