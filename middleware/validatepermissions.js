@@ -38,9 +38,9 @@ async function validatapermissions(req, res, next) {
     for (const endpoint of endpoints) {
       const { url, _, entities } = endpoint;
       if (url === currentPath) {
-        const operation = url.split("/").pop();
-        console.debug(`operation: ${operation}`);
-        switch (operation) {
+        const method = url.split("/").pop();
+        console.debug(`method: ${method}`);
+        switch (method) {
           case "create":
             isPermitted = entities.some((entity) => {
               if (entity.R && entity.R.startsWith("+")) {
@@ -93,10 +93,10 @@ async function validatapermissions(req, res, next) {
             });
             break;
           default:
-            console.warn(`Unknown operation type: ${operation}`);
+            console.warn(`Unknown method type: ${method}`);
         }
         //CG: Listing is always allowed during testing
-        if (operation === `list`) {
+        if (method === `list`) {
           commentsRate = 2;
           isPermitted = true;
         } // In this example lists is always allowed

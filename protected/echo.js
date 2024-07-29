@@ -6,7 +6,6 @@ const logger = require("../config/logger");
 router.post(
   "/echo",
   (req, res, next) => {
-    // Your echo logic here
     req.logAction = "echo-some-text";
     next();
   },

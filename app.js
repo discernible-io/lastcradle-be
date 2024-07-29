@@ -174,8 +174,8 @@ app.use((req, res, next) => {
 });
 
 // Import protected routes
-const echoprotectedRoute = require("./protected/echo");
 const crudarotectedRoute = require("./protected/cruda");
+const echoprotectedRoute = require("./protected/echo");
 
 // Mount Logging middleware
 app.use(loggingmw);
@@ -184,10 +184,10 @@ app.use(loggingmw);
 app.use((req, res, next) => ratelimitmwph(req, res, next));
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", verify_jwt_token, validatepermissions, crudarotectedRoute);
+app.use("/api", verify_jwt_token, echoprotectedRoute);
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", verify_jwt_token, validatepermissions, echoprotectedRoute);
+app.use("/api", verify_jwt_token, validatepermissions, crudarotectedRoute);
 
 app.use((err, req, res, next) => {
   logger.error({
