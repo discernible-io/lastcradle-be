@@ -46,6 +46,9 @@ const options = {
   apis: ["./app.js", "./routes/*.js"],
 };
 
+// Default rate limits
+let ratelimitmwph = ratelimitmw(100, 15 * 60 * 1000); 
+
 // Configuration is now loaded from config files
 const RODIT_CONFIGURATION_FILE_PATH = config.get(
   "RODIT_CONFIGURATION_FILE_PATH"
@@ -176,6 +179,9 @@ app.use((req, res, next) => {
 // Import protected routes
 const crudarotectedRoute = require("./protected/cruda");
 const echoprotectedRoute = require("./protected/echo");
+
+// Apply rate limiting middleware to all routes
+app.use(ratelimitmwph);
 
 // Mount Logging middleware
 app.use(loggingmw);
