@@ -14,7 +14,7 @@ const { decodeJwt } = require("jose");
  *       401:
  *         description: Unauthorized - Invalid token or missing required fields
  */
-async function validatapermissions(req, res, next) {
+async function validatepermissions(req, res, next) {
   const token = req.header("Authorization");
   if (!token) {
     return res
