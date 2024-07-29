@@ -16,7 +16,7 @@ const {
   get_rodit_config,
   generate_jwt_token,
   verify_jwt_token,
-  verify_peerrodit_getit
+  verify_peerrodit_getit,
 } = require("./middleware/rodit");
 
 const options = {
@@ -47,7 +47,9 @@ const options = {
 };
 
 // Configuration is now loaded from config files
-const RODIT_CONFIGURATION_FILE_PATH = config.get("RODIT_CONFIGURATION_FILE_PATH");
+const RODIT_CONFIGURATION_FILE_PATH = config.get(
+  "RODIT_CONFIGURATION_FILE_PATH"
+);
 const PORT = config.get("PORT");
 
 // CG: Remove throws of errors, formalize errors
@@ -221,7 +223,7 @@ async function startServer() {
       console.debug("Info: Unable to update rate limit due to missing data");
     }
 
-      logger.info(`Info: Server started on port ${PORT}`);
+    logger.info(`Info: Server started on port ${PORT}`);
 
     app.listen(config_own_rodit.port, () => {
       logger.info(`Info: Server started on port ${config_own_rodit.port}`);
