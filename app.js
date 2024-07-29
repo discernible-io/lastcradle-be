@@ -14,8 +14,7 @@ const {
   get_roditconfig,
   generate_jwt_token,
   authenticate_jwt_token,
-  verify_peerrodit_getit,
-} = require("./middleware/rodit");
+  verify_peerrodit_getit} = require("./middleware/rodit");
 
 const options = {
   definition: {
@@ -45,7 +44,7 @@ const options = {
 };
 
 // Configuration is now loaded from config files
-const CONFIGURATION_FILE_PATH = config.get("CONFIGURATION_FILE_PATH");
+const RODIT_CONFIGURATION_FILE_PATH = config.get("RODIT_CONFIGURATION_FILE_PATH");
 const PORT = config.get("PORT");
 
 // CG: Remove throws of errors, formalize errors
@@ -86,7 +85,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *             properties:
  *               peer_roditid:
  *                 type: string
- *                 description: The RODiT ID of the user
+ *                 description: The RODiT ID verify_peerrodit_getitof the user
  *               peer_roditid_base64url_signature:
  *                 type: string
  *                 description: The base64url signature of the RODiT ID
@@ -132,15 +131,15 @@ app.post(
       );
 
       if (goodrodit) {
-        const globalConfig = await get_roditconfig();
-        if (!globalConfig) {
+        const config_own_rodit = await get_roditconfig();
+        if (!config_own_rodit) {
           throw new Error("Server configuration not initialized");
         }
         const token = await generate_jwt_token(
           peer_rodit,
-          globalConfig.own_rodit,
-          globalConfig.own_rodit_bytes_private_key,
-          globalConfig.own_roditid_base64url_signature
+          config_own_rodit.own_rodit,
+          config_own_rodit.own_rodit_bytes_private_key,
+          config_own_rodit.own_roditid_base64url_signature
         );
 
         logger.warn(`Info: Login attempt succeeded:`, peer_rodit.token_id);
@@ -205,15 +204,15 @@ function updateratelimit(maxrequests, maxrqwindow) {
 // Start server
 async function startServer() {
   try {
-    await set_rodit_config(CONFIGURATION_FILE_PATH);
-    const globalConfig = await get_roditconfig();
+    await set_rodit_config(RODIT_CONFIGURATION_FILE_PATH);
+    const config_own_rodit = await get_roditconfig();
     if (
-      globalConfig.own_rodit.metadata.maxrequests &&
-      globalConfig.own_rodit.metadata.maxrqwindow
+      config_own_rodit.own_rodit.metadata.maxrequests &&
+      config_own_rodit.own_rodit.metadata.maxrqwindow
     ) {
       updateratelimit(
-        globalConfig.own_rodit.metadata.maxrequests,
-        globalConfig.own_rodit.metadata.maxrqwindow
+        config_own_rodit.own_rodit.metadata.maxrequests,
+        config_own_rodit.own_rodit.metadata.maxrqwindow
       );
     } else {
       console.debug("Info: Unable to update rate limit due to missing data");

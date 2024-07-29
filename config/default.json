@@ -1,4 +1,4 @@
 {
-  "CONFIGURATION_FILE_PATH": "/etc/rodit/roditconfig.server",
+  "RODIT_CONFIGURATION_FILE_PATH": "/etc/rodit/roditconfig.server",
   "API_PROTOCOL": "http"
 }
