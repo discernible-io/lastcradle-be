@@ -1,7 +1,7 @@
+const config = require("config");
 const express = require("express");
 const cors = require("cors");
 const https = require("https");
-const config = require("config");
 const ratelimitmw = require("./middleware/ratelimit");
 const validatepermissions = require("./middleware/validatepermissions");
 const logger = require("./config/logger");
@@ -14,7 +14,8 @@ const {
   get_roditconfig,
   generate_jwt_token,
   authenticate_jwt_token,
-  verify_peerrodit_getit} = require("./middleware/rodit");
+  verify_peerrodit_getit
+} = require("./middleware/rodit");
 
 const options = {
   definition: {
