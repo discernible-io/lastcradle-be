@@ -240,6 +240,7 @@ async function verify_peerrodit_getit(
       throw new Error("Error 037: Peer RODiT verification failed");
     }
     goodrodit = true;
+    console.debug("Info: Peer Account ID:", peer_rodit.owner_id);
     return {
       peer_rodit,
       goodrodit,
@@ -323,7 +324,7 @@ async function verify_rodit_isamatch(
 
   let bytes_ownServiceProviderOwnerId;
 
-  console.debug("Info: Peer Account ID:", own_serviceprovider_rodit.owner_id);
+  console.debug("Info: Service Provider Account ID:", own_serviceprovider_rodit.owner_id);
   try {
     bytes_ownServiceProviderOwnerId = new Uint8Array(
       Buffer.from(own_serviceprovider_rodit.owner_id, "hex")

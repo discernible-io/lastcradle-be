@@ -217,6 +217,8 @@ async function startServer() {
   try {
     await set_rodit_config(RODIT_CONFIGURATION_FILE_PATH);
     const config_own_rodit = await get_rodit_config();
+    console.debug("config_own_rodit.own_rodit.metadata.maxrequests",config_own_rodit.own_rodit.metadata.maxrequests);
+    console.debug("config_own_rodit.own_rodit.metadata.maxrqwindow",config_own_rodit.own_rodit.metadata.maxrqwindow);
     if (
       config_own_rodit.own_rodit.metadata.maxrequests &&
       config_own_rodit.own_rodit.metadata.maxrqwindow
@@ -228,8 +230,6 @@ async function startServer() {
     } else {
       console.debug("Info: Unable to update rate limit due to missing data");
     }
-
-    logger.info(`Info: Server started on port ${PORT}`);
 
     app.listen(config_own_rodit.port, () => {
       logger.info(`Info: Server started on port ${config_own_rodit.port}`);
