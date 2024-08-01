@@ -25,6 +25,7 @@ let config_own_rodit;
 
 const PORT = config.get("PORT");
 const API_PROTOCOL = config.get("API_PROTOCOL");
+const NEAR_RPC_URL = config.get("NEAR_RPC_URL");
 const resolver = new Resolver();
 
 class RODiT {
@@ -505,7 +506,7 @@ async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
 
 // Obtain timestamp from blockchain
 async function nearorg_rpc_timestamp(xnet) {
-  const url = `https://rpc${xnet}.near.org`;
+  const url = NEAR_RPC_URL;
   const jsonData = {
     jsonrpc: "2.0",
     id: "dontcare",
@@ -545,7 +546,7 @@ async function nearorg_rpc_timestamp(xnet) {
 
 // Obtain RODiT from RODiT ID
 async function nearorg_rpc_tokenfromroditid(xnet, id, method_name, args) {
-  const url = `https://rpc${xnet}.near.org`;
+  const url = NEAR_RPC_URL;
 
   const json_data = {
     jsonrpc: "2.0",
@@ -591,7 +592,7 @@ async function nearorg_rpc_tokenfromroditid(xnet, id, method_name, args) {
 
 // Obtain state of the account id
 async function nearorg_rpc_state(xnet, id, accountId) {
-  const url = `https://rpc${xnet}.near.org`;
+  const url = NEAR_RPC_URL;
 
   if (xnet === ".") {
     console.debug("Info: NEAR Blockchain Network is mainnet");
@@ -635,7 +636,7 @@ async function nearorg_rpc_state(xnet, id, accountId) {
 
 // Obtain RODiT from account_id
 async function nearorg_rpc_tokensfromaccountid(xnet, id, account_id) {
-  const url = `https://rpc${xnet}.near.org`;
+  const url = NEAR_RPC_URL;
 
   const args = JSON.stringify({
     account_id: account_id,

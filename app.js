@@ -10,6 +10,9 @@ const logger = require("./config/logger");
 const loggingmw = require("./middleware/loggingmw");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
+const forge = require("node-forge");
+const crypto = require("crypto");
+const fs = require("fs");
 
 const {
   set_rodit_config,
@@ -47,7 +50,7 @@ const options = {
 };
 
 // Default rate limits
-let ratelimitmwph = ratelimitmw(100, 15 * 60 * 1000); 
+let ratelimitmwph = ratelimitmw(100, 15 * 60 * 1000);
 
 // Configuration is now loaded from config files
 const RODIT_CONFIGURATION_FILE_PATH = config.get(
@@ -217,8 +220,15 @@ async function startServer() {
   try {
     await set_rodit_config(RODIT_CONFIGURATION_FILE_PATH);
     const config_own_rodit = await get_rodit_config();
-    console.debug("config_own_rodit.own_rodit.metadata.maxrequests",config_own_rodit.own_rodit.metadata.maxrequests);
-    console.debug("config_own_rodit.own_rodit.metadata.maxrqwindow",config_own_rodit.own_rodit.metadata.maxrqwindow);
+    
+    console.debug(
+      "config_own_rodit.own_rodit.metadata.maxrequests",
+      config_own_rodit.own_rodit.metadata.maxrequests
+    );
+    console.debug(
+      "config_own_rodit.own_rodit.metadata.maxrqwindow",
+      config_own_rodit.own_rodit.metadata.maxrqwindow
+    );
     if (
       config_own_rodit.own_rodit.metadata.maxrequests &&
       config_own_rodit.own_rodit.metadata.maxrqwindow
@@ -230,7 +240,7 @@ async function startServer() {
     } else {
       console.debug("Info: Unable to update rate limit due to missing data");
     }
-
+    
     app.listen(config_own_rodit.port, () => {
       logger.info(`Info: Server started on port ${config_own_rodit.port}`);
     });
