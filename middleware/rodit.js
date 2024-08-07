@@ -12,7 +12,7 @@ const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
 const { Resolver } = require("dns").promises;
 
 const CONSTANTS = {
-  SMART_CONTRACT: "10201-cableguard-org.testnet", // // ".testnet" for TESTNET ".near" for MAINNET
+  SMART_CONTRACT: "10801-cableguard-org.testnet", // // ".testnet" for TESTNET ".near" for MAINNET
   BLOCKCHAIN_NETWORK: ".testnet", // ".testnet" for TESTNET "." for MAINNET
   RODIT_ID_SZ: 128,
   RODIT_ID_PK_SZ: 32,
@@ -110,7 +110,6 @@ async function set_rodit_config(configuration_file_path) {
       );
     }
     own_rodit = await nearorg_rpc_tokensfromaccountid(
-      CONSTANTS.BLOCKCHAIN_NETWORK,
       CONSTANTS.SMART_CONTRACT,
       own_rodit_hex_accountid
     );
@@ -272,7 +271,7 @@ async function verify_hasrodit_getit(
     const peer_rodit = await nearorg_rpc_tokenfromroditid(
       CONSTANTS.BLOCKCHAIN_NETWORK,
       CONSTANTS.SMART_CONTRACT,
-      "nft_token",
+      "rodit_token",
       account_idargs
     );
 
@@ -315,7 +314,7 @@ async function verify_rodit_isamatch(
     own_serviceprovider_rodit = await nearorg_rpc_tokenfromroditid(
       CONSTANTS.BLOCKCHAIN_NETWORK,
       CONSTANTS.SMART_CONTRACT,
-      "nft_token",
+      "rodit_token",
       args_ownServiceProviderId
     );
   } catch (error) {
@@ -635,7 +634,7 @@ async function nearorg_rpc_state(xnet, id, accountId) {
 }
 
 // Obtain RODiT from account_id
-async function nearorg_rpc_tokensfromaccountid(xnet, id, account_id) {
+async function nearorg_rpc_tokensfromaccountid(id, account_id) {
   const url = NEAR_RPC_URL;
 
   const args = JSON.stringify({
@@ -651,7 +650,7 @@ async function nearorg_rpc_tokensfromaccountid(xnet, id, account_id) {
       request_type: "call_function",
       finality: "optimistic",
       account_id: id,
-      method_name: "nft_tokens_for_owner",
+      method_name: "rodit_tokens_for_owner",
       args_base64: Buffer.from(args).toString("base64"),
     },
   };
@@ -749,7 +748,7 @@ async function validate_jwt_token(token, ownrodit) {
     const sp_rodit = await nearorg_rpc_tokenfromroditid(
       CONSTANTS.BLOCKCHAIN_NETWORK,
       CONSTANTS.SMART_CONTRACT,
-      "nft_token",
+      "rodit_token",
       account_idargs
     );
     let serviceprovider_base64_public_key = Buffer.from(
