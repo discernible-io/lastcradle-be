@@ -251,3 +251,62 @@ async function startServer() {
 }
 
 startServer();
+
+/* Rodit Forge route
+import express from 'express';
+import bodyParser from 'body-parser';
+import { Wallet, Contract } from './routes/roditforge'; // Adjust the import path
+
+app.use(bodyParser.json());
+
+// Initialize the Wallet
+const wallet = new Wallet({ network: 'testnet' });
+
+app.post('/buildsetofrodit', async (req, res) => {
+  try {
+    const {
+      contractId,
+      numberofclients,
+      openapijsonurl,
+      notafter,
+      notbefore,
+      maxrequests,
+      maxrqwindow,
+      jwtduration,
+      permissionedroutes,
+      subjectuniqueidentifierurl,
+      base58_sp_private_key,
+      owneraccountid
+    } = req.body;
+
+    // Start the wallet and check if user is signed in
+    await wallet.startUp();
+
+    // Create a Contract instance
+    const contract = new Contract({ contractId, walletToUse: wallet });
+
+    // Build the set of RODiTs
+    const result = await contract.buildsetofrodit(
+      numberofclients,
+      openapijsonurl,
+      notafter,
+      notbefore,
+      maxrequests,
+      maxrqwindow,
+      jwtduration,
+      permissionedroutes,
+      subjectuniqueidentifierurl,
+      base58_sp_private_key,
+      owneraccountid
+    );
+
+    // Return the result from calling `callMethod`
+    res.json(result);
+
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An error occurred' });
+  }
+});
+
+*/
