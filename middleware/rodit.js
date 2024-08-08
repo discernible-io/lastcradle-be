@@ -110,7 +110,6 @@ async function set_rodit_config(configuration_file_path) {
       );
     }
     own_rodit = await nearorg_rpc_tokensfromaccountid(
-      CONSTANTS.BLOCKCHAIN_NETWORK,
       CONSTANTS.SMART_CONTRACT,
       own_rodit_hex_accountid
     );
@@ -635,7 +634,7 @@ async function nearorg_rpc_state(xnet, id, accountId) {
 }
 
 // Obtain RODiT from account_id
-async function nearorg_rpc_tokensfromaccountid(xnet, id, account_id) {
+async function nearorg_rpc_tokensfromaccountid(id, account_id) {
   const url = NEAR_RPC_URL;
 
   const args = JSON.stringify({
