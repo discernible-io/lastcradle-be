@@ -52,8 +52,9 @@ router.post(
     next();
   },
   (req, res) => {
-    // Correctly format the log message to include the number of comments
+    // Log the number of comments available
     logger.info(`List of comments read: ${comments.length}`);
+    // Respond with all comments in JSON format
     res.json(comments);
   }
 );
