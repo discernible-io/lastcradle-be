@@ -25,18 +25,20 @@ async function validatepermissions(req, res, next) {
   try {
     const decodedToken = decodeJwt(token);
     console.debug(`Info: Endpoint reached: ${req.path}`);
-
     const permissionedRoutes = JSON.parse(
       decodedToken.rodit_permissionedroutes
     );
     const { endpoints } = permissionedRoutes;
+    console.debug(`endpoints: ${endpoints}`);
     const currentPath = req.path;
+    console.debug(`currentPath: ${currentPath}`);
     let isPermitted = false;
     let commentsRate = null;
 
     // Verify Rate and sign (+ for entity and property, - for property only, nada for entity only) to each route for internal processing
     for (const endpoint of endpoints) {
       const { url, _, entities } = endpoint;
+      console.debug(`url: ${url}`);
       if (url === currentPath) {
         const method = url.split("/").pop();
         console.debug(`method: ${method}`);
@@ -86,20 +88,16 @@ async function validatepermissions(req, res, next) {
           // CG TEST LIST OK
           case "list":
             isPermitted = entities.some((entity) => {
-              if (true) {
-                commentsRate = 3;
+              if (entity.R && entity.R.startsWith("+")) {
+                commentsRate = entity.R;
                 return true;
               }
+              return true;
             });
             break;
           default:
-            console.warn(`Unknown method type: ${method}`);
+            console.debug(`Unknown method type: ${method}`);
         }
-        //CG: Listing is always allowed during testing
-        if (method === `list`) {
-          commentsRate = 2;
-          isPermitted = true;
-        } // In this example lists is always allowed
         if (isPermitted) break; // Exit the loop if permission is granted
       }
     }

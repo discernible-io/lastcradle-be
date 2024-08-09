@@ -102,10 +102,17 @@ router.post(
     const index = comments.findIndex(
       (comment) => comment.id === req.comment.id
     );
-    comments.splice(index, 1);
-    logger.info(`Comment destroyed: ${req.comment.description}`);
-    // res.json({ echo: inputString.toUpperCase() });
-    res.status(204).send();
+    const deletedComment = comments.splice(index, 1)[0];
+    logger.info(`Comment destroyed: ${deletedComment.description}`);
+    
+    res.status(200).json({
+      message: "Comment successfully deleted",
+      deletedComment: {
+        id: deletedComment.id,
+        name: deletedComment.name,
+        description: deletedComment.description
+      }
+    });
   }
 );
 

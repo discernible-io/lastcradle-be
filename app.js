@@ -53,21 +53,10 @@ const options = {
 let ratelimitmwph = ratelimitmw(100, 15 * 60 * 1000);
 
 // Configuration is now loaded from config files
+const PORT = config.get("PORT");
 const RODIT_CONFIGURATION_FILE_PATH = config.get(
   "RODIT_CONFIGURATION_FILE_PATH"
 );
-const PORT = config.get("PORT");
-
-// CG: Remove throws of errors, formalize errors
-/*
-const API_PROTOCOL = config.get("API_PROTOCOL");
-
-const options = {
-  key: fs.readFileSync('path/to/private-key.pem'),
-  cert: fs.readFileSync('path/to/certificate.pem')
-};
-const server = https.createServer(options, app);
-*/
 
 const swaggerSpec = swaggerJsdoc(options);
 const app = express();
@@ -220,12 +209,12 @@ async function startServer() {
   try {
     await set_rodit_config(RODIT_CONFIGURATION_FILE_PATH);
     const config_own_rodit = await get_rodit_config();
-    
-    console.debug(
+
+    logger.info(
       "config_own_rodit.own_rodit.metadata.maxrequests",
       config_own_rodit.own_rodit.metadata.maxrequests
     );
-    console.debug(
+    logger.info(
       "config_own_rodit.own_rodit.metadata.maxrqwindow",
       config_own_rodit.own_rodit.metadata.maxrqwindow
     );
@@ -238,9 +227,9 @@ async function startServer() {
         config_own_rodit.own_rodit.metadata.maxrqwindow
       );
     } else {
-      console.debug("Info: Unable to update rate limit due to missing data");
+      logger.info("Info: Unable to update rate limit due to missing data");
     }
-    
+
     app.listen(config_own_rodit.port, () => {
       logger.info(`Info: Server started on port ${config_own_rodit.port}`);
     });
