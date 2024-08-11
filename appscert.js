@@ -58,17 +58,6 @@ const RODIT_CONFIGURATION_FILE_PATH = config.get(
 );
 const PORT = config.get("PORT");
 
-// CG: Remove throws of errors, formalize errors
-/*
-const API_PROTOCOL = config.get("API_PROTOCOL");
-
-const options = {
-  key: fs.readFileSync('path/to/private-key.pem'),
-  cert: fs.readFileSync('path/to/certificate.pem')
-};
-const server = https.createServer(options, app);
-*/
-
 const swaggerSpec = swaggerJsdoc(options);
 const app = express();
 
