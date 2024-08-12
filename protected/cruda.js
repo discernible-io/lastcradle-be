@@ -2,14 +2,46 @@ const express = require("express");
 const router = express.Router();
 const logger = require("../config/logger");
 const loggingmw = require("../middleware/loggingmw");
-const WEBHOOK_URL = "http://localhost:3001/webhook";
+const config = require("config");
 
+const { set_rodit_config, get_rodit_config } = require("../middleware/rodit");
+
+const RODIT_CONFIGURATION_FILE_PATH = config.get(
+  "RODIT_CONFIGURATION_FILE_PATH"
+);
+
+let roditConfig;
+
+// Initialization function
+const initializeRouter = async () => {
+  try {
+    await set_rodit_config(RODIT_CONFIGURATION_FILE_PATH);
+    const config = await get_rodit_config();
+    console.debug("whurl",config);
+    logger.info("Rodit configuration initialized successfully");
+    return config;
+  } catch (error) {
+    logger.error(`Error initializing Rodit configuration: ${error.message}`);
+    throw error;
+  }
+};
+
+// Define logAndSendWebhook function
 const logAndSendWebhook = (event, data, isError = false) => {
   const logMethod = isError ? logger.error : logger.info;
   const logMessage = `${event}: ${JSON.stringify(data)}`;
   logMethod(logMessage);
 
-  fetch(WEBHOOK_URL, {
+  if (
+    !roditConfig ||
+    !roditConfig.metadata ||
+    !roditConfig.metadata.webhookurl
+  ) {
+    logger.error("Webhook URL not available in Rodit configuration");
+    return;
+  }
+
+  fetch(roditConfig.metadata.webhookurl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -27,6 +59,17 @@ const logAndSendWebhook = (event, data, isError = false) => {
       logger.error(`Webhook error for event ${event}: ${error.message}`)
     );
 };
+
+// Initialize the router
+initializeRouter()
+  .then((config) => {
+    roditConfig = config;
+    logger.info("Router initialized successfully");
+  })
+  .catch((error) => {
+    logger.error(`Failed to initialize router: ${error.message}`);
+    process.exit(1); // Exit the process if initialization fails
+  });
 
 // In-memory storage for comments
 let comments = [];
@@ -54,7 +97,8 @@ router.post(
   (req, res) => {
     const { name, description } = req.body;
     if (!name || !description) {
-      const errorMessage = "Invalid create request: missing name or description";
+      const errorMessage =
+        "Invalid create request: missing name or description";
       logAndSendWebhook("create_item_error", { error: errorMessage }, true);
       return res.status(400).json({ error: errorMessage });
     }
@@ -64,7 +108,11 @@ router.post(
       description,
     };
     comments.push(newItem);
-    logAndSendWebhook("item_created", { id: newItem.id, name: newItem.name, description: newItem.description });
+    logAndSendWebhook("item_created", {
+      id: newItem.id,
+      name: newItem.name,
+      description: newItem.description,
+    });
     res.status(201).json(newItem);
   }
 );

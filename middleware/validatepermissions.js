@@ -29,9 +29,7 @@ async function validatepermissions(req, res, next) {
       decodedToken.rodit_permissionedroutes
     );
     const { endpoints } = permissionedRoutes;
-    console.debug(`endpoints: ${endpoints}`);
     const currentPath = req.path;
-    console.debug(`currentPath: ${currentPath}`);
     let isPermitted = false;
     let commentsRate = null;
 

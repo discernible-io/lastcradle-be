@@ -169,7 +169,7 @@ app.use((req, res, next) => {
 });
 
 // Import protected routes
-const crudarotectedRoute = require("./protected/cruda");
+const crudaprotectedRoute = require("./protected/cruda");
 const echoprotectedRoute = require("./protected/echo");
 
 // Apply rate limiting middleware to all routes
@@ -185,7 +185,7 @@ app.use((req, res, next) => ratelimitmwph(req, res, next));
 app.use("/api", verify_jwt_token, echoprotectedRoute);
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", verify_jwt_token, validatepermissions, crudarotectedRoute);
+app.use("/api", verify_jwt_token, validatepermissions, crudaprotectedRoute);
 
 app.use((err, req, res, next) => {
   logger.error({
