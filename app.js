@@ -210,14 +210,6 @@ async function startServer() {
     await set_rodit_config(RODIT_CONFIGURATION_FILE_PATH);
     const config_own_rodit = await get_rodit_config();
 
-    logger.info(
-      "config_own_rodit.own_rodit.metadata.maxrequests",
-      config_own_rodit.own_rodit.metadata.maxrequests
-    );
-    logger.info(
-      "config_own_rodit.own_rodit.metadata.maxrqwindow",
-      config_own_rodit.own_rodit.metadata.maxrqwindow
-    );
     if (
       config_own_rodit.own_rodit.metadata.maxrequests &&
       config_own_rodit.own_rodit.metadata.maxrqwindow

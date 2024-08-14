@@ -17,7 +17,6 @@ const initializeRouter = async () => {
   try {
     await set_rodit_config(RODIT_CONFIGURATION_FILE_PATH);
     const config = await get_rodit_config();
-    console.debug("whurl",config);
     logger.info("Rodit configuration initialized successfully");
     return config;
   } catch (error) {
@@ -31,17 +30,16 @@ const logAndSendWebhook = (event, data, isError = false) => {
   const logMethod = isError ? logger.error : logger.info;
   const logMessage = `${event}: ${JSON.stringify(data)}`;
   logMethod(logMessage);
-
   if (
     !roditConfig ||
-    !roditConfig.metadata ||
-    !roditConfig.metadata.webhookurl
+    !roditConfig.own_rodit.metadata.webhookurl
   ) {
     logger.error("Webhook URL not available in Rodit configuration");
     return;
   }
 
-  fetch(roditConfig.metadata.webhookurl, {
+  // fetch(roditConfig.own_rodit.metadata.webhookurl, {
+  fetch("http://localhost:3001/webhook", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -64,7 +62,7 @@ const logAndSendWebhook = (event, data, isError = false) => {
 initializeRouter()
   .then((config) => {
     roditConfig = config;
-    logger.info("Router initialized successfully");
+    logger.info("CRUDA Router initialized successfully");
   })
   .catch((error) => {
     logger.error(`Failed to initialize router: ${error.message}`);
