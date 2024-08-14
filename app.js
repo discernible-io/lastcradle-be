@@ -53,7 +53,7 @@ const options = {
 let ratelimitmwph = ratelimitmw(100, 15 * 60 * 1000);
 
 // Configuration is now loaded from config files
-const PORT = config.get("PORT");
+const SERVERPORT = config.get("SERVERPORT");
 const RODIT_CONFIGURATION_FILE_PATH = config.get(
   "RODIT_CONFIGURATION_FILE_PATH"
 );

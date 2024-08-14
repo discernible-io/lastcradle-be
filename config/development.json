@@ -1,5 +1,5 @@
 {
-  "PORT": 3000,
+  "SERVERPORT": 3000,
   "API_PROTOCOL": "http",
   "NEAR_RPC_URL": "https://rpc.testnet.near.org"
 }
