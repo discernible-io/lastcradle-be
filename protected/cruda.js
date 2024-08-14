@@ -5,7 +5,7 @@ const config = require("config");
 const nacl = require('tweetnacl');
 const crypto = require('crypto');
 
-const { set_rodit_config, get_rodit_config } = require("../middleware/rodit");
+const { set_rodit_config, get_rodit_config, send_webhook } = require("../middleware/rodit");
 
 const RODIT_CONFIGURATION_FILE_PATH = config.get(
   "RODIT_CONFIGURATION_FILE_PATH"
@@ -26,50 +26,16 @@ const initializeRouter = async () => {
   }
 };
 
-const logAndSendWebhook = async (event, data, isError = false) => {
+const logEvent = (event, data, isError = false) => {
   const logMethod = isError ? logger.error : logger.info;
   const logMessage = `${event}: ${JSON.stringify(data)}`;
   logMethod(logMessage);
+};
 
-  if (!roditConfig || !roditConfig.own_rodit.metadata.webhookurl) {
-    logger.error("Error 111: Webhook URL not available in Rodit configuration");
-    return;
-  }
-
-  const timestamp = Date.now();
-  const payload = JSON.stringify({ event, data, isError, timestamp });
-  const sha256_ofpayload = crypto.createHash('sha256').update(payload).digest();
-
-  try {
-    // Convert the hex private key to Uint8Array for TweetNaCl
-    const own_rodit_private_key = new Uint8Array(Buffer.from(roditConfig.own_rodit_bytes_private_key, 'hex'));
-
-    // Sign the payload hash with the Ed25519 private key using TweetNaCl
-    const signature_ofpayload = nacl.sign.detached(sha256_ofpayload, own_rodit_private_key);
-
-    // Convert the signature_ofpayload to a hex string
-    const signature_hex_ofpayload = Buffer.from(signature_ofpayload).toString('hex');
-
-    // Send the webhook
-    const response = await fetch(`http://${roditConfig.own_rodit.metadata.webhookurl}/webhook`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Signature": signature_hex_ofpayload,
-        "X-Timestamp": timestamp.toString()
-      },
-      body: payload
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    await response.text(); // consume the response body
-    logger.info(`Webhook sent successfully: ${event}`);
-  } catch (error) {
-    logger.error(`Webhook error for event ${event}: ${error.message}`);
-  }
+// Combined function that logs and sends webhook
+const logAndSendWebhook = async (event, data, isError = false) => {
+  logEvent(event, data, isError);
+  await send_webhook(event, data, isError);
 };
 
 // Initialize the router
