@@ -112,54 +112,44 @@ app.post(
     next();
   },
   async (req, res) => {
-    const { roditid, roditid_base64url_signature } = req.body;
+    const { roditid: peer_roditid, roditid_base64url_signature: peer_roditid_base64url_signature } = req.body;
 
-    let peer_roditid = roditid;
-    let peer_roditid_base64url_signature = roditid_base64url_signature;
     console.debug("Info: Client RODiT ID:", peer_roditid);
 
     if (!peer_roditid || !peer_roditid_base64url_signature) {
-      return res
-        .status(400)
-        .json({ message: "Error: Missing RODiT ID and Signature" });
+      return res.status(400).json({ message: "Error 100: Missing RODiT ID and Signature" });
     }
 
     try {
-      let { peer_rodit, goodrodit } = await verify_peerrodit_getit(
-        peer_roditid,
-        peer_roditid_base64url_signature
+      const { peer_rodit: peer_rodit, goodrodit: isRoditValid } = await verify_peerrodit_getit(peer_roditid, peer_roditid_base64url_signature);
+
+      if (!isRoditValid) {
+        logger.error("Error 101: Login attempt failed: Invalid RODiT ID or Signature");
+        return res.status(401).json({ message: "Error 102: Login attempt failed: Invalid RODiT ID or Signature" });
+      }
+
+      const config_own_rodit = await get_rodit_config();
+      if (!config_own_rodit) {
+        throw new Error("Error 103: Server configuration not initialized");
+      }
+
+      const token = await generate_jwt_token(
+        peer_rodit,
+        config_own_rodit.own_rodit,
+        config_own_rodit.own_rodit_bytes_private_key,
+        config_own_rodit.own_roditid_base64url_signature
       );
 
-      if (goodrodit) {
-        const config_own_rodit = await get_rodit_config();
-        if (!config_own_rodit) {
-          throw new Error("Server configuration not initialized");
-        }
-        const token = await generate_jwt_token(
-          peer_rodit,
-          config_own_rodit.own_rodit,
-          config_own_rodit.own_rodit_bytes_private_key,
-          config_own_rodit.own_roditid_base64url_signature
-        );
+      logger.info(`Login attempt succeeded for token ID: ${peer_rodit.token_id}`);
+      return res.json({ token });
 
-        logger.warn(`Info: Login attempt succeeded:`, peer_rodit.token_id);
-        res.json({ token });
-      } else {
-        logger.error(`Error 001: Login attempt failed: ${error}`);
-        res.status(401).json({
-          message: "Error 001: Login attempt failed:",
-          error: error.message,
-        });
-      }
     } catch (error) {
-      logger.error(`Error 001: Login attempt failed: ${error}`);
-      res.status(401).json({
-        message: "Error 001: Login attempt failed:",
-        error: error.message,
-      });
+      logger.error(`Error 104: Login attempt failed: ${error.message}`);
+      return res.status(401).json({ message: `Error 105: Login attempt failed: ${error.message}` });
     }
   }
 );
+
 
 app.use((req, res, next) => {
   if (req.logAction) {
@@ -196,7 +186,7 @@ app.use((err, req, res, next) => {
     userIP: req.ip,
     userId: req.user ? req.user.id : "anonymous",
   });
-  res.status(500).json({ error: "Error: Internal Server Error" });
+  res.status(500).json({ error: "Error 106: Internal Server Error" });
 });
 
 // Update rate limit once obtained config
@@ -226,7 +216,7 @@ async function startServer() {
       logger.info(`Info: Server started on port ${config_own_rodit.port}`);
     });
   } catch (error) {
-    logger.error(`Failed to start server: ${error}`);
+    logger.error(`Error 107:Failed to start server: ${error}`);
     process.exit(1);
   }
 }

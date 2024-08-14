@@ -110,8 +110,8 @@ async function validatepermissions(req, res, next) {
     }
     next();
   } catch (error) {
-    console.error("Error checking permissions:", error);
-    return res.status(400).json({ message: "Invalid token or permissions." });
+    console.error("Error 108: checking permissions:", error);
+    return res.status(400).json({ message: "Error 109: Invalid token or permissions." });
   }
 }
 
