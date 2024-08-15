@@ -58,7 +58,7 @@ const itemExists = (req, res, next) => {
   const comment = comments.find((comment) => comment.id === id);
   if (!comment) {
     const errorMessage = `Comment not found: ${id}`;
-    logAndSendWebhook("item_not_found", { id, error: errorMessage }, true);
+    logAndSendWebhook("comment_not_found", { id, error: errorMessage }, true);
     return res.status(404).json({ error: errorMessage });
   }
   req.comment = comment;
@@ -73,23 +73,23 @@ router.post(
     next();
   },
   (req, res) => {
-    const { name, description } = req.body;
-    if (!name || !description) {
+    const { title, content } = req.body;
+    if (!title || !content) {
       const errorMessage =
-        "Invalid create request: missing name or description";
-      logAndSendWebhook("create_item_error", { error: errorMessage }, true);
+        "Invalid create request: missing title or content";
+      logAndSendWebhook("create_comment_error", { error: errorMessage }, true);
       return res.status(400).json({ error: errorMessage });
     }
     const newItem = {
       id: comments.length + 1,
-      name,
-      description,
+      title,
+      content,
     };
     comments.push(newItem);
-    logAndSendWebhook("item_created", {
+    logAndSendWebhook("comment_created", {
       id: newItem.id,
-      name: newItem.name,
-      description: newItem.description,
+      title: newItem.title,
+      content: newItem.content,
     });
     res.status(201).json(newItem);
   }
@@ -104,7 +104,7 @@ router.post(
   },
   (req, res) => {
     const itemCount = comments.length;
-    logAndSendWebhook("items_listed", { count: itemCount });
+    logAndSendWebhook("comments_listed", { count: itemCount });
     res.json(comments);
   }
 );
@@ -118,7 +118,7 @@ router.post(
     next();
   },
   (req, res) => {
-    logAndSendWebhook("item_read", { id: req.comment.id, name: req.comment.name, description: req.comment.description });
+    logAndSendWebhook("comment_read", { id: req.comment.id, title: req.comment.title, content: req.comment.content });
     res.json(req.comment);
   }
 );
@@ -132,16 +132,16 @@ router.post(
     next();
   },
   (req, res) => {
-    const { name, description } = req.body;
+    const { title, content } = req.body;
     const oldComment = { ...req.comment };
-    if (name) req.comment.name = name;
-    if (description) req.comment.description = description;
-    logAndSendWebhook("item_updated", {
+    if (title) req.comment.title = title;
+    if (content) req.comment.content = content;
+    logAndSendWebhook("comment_updated", {
       id: req.comment.id,
-      oldName: oldComment.name,
-      newName: req.comment.name,
-      oldDescription: oldComment.description,
-      newDescription: req.comment.description
+      oldTitle: oldComment.title,
+      newTitle: req.comment.title,
+      oldContent: oldComment.content,
+      newContent: req.comment.content
     });
     res.json(req.comment);
   }
@@ -160,17 +160,17 @@ router.post(
       (comment) => comment.id === req.comment.id
     );
     const deletedComment = comments.splice(index, 1)[0];
-    logAndSendWebhook("item_destroyed", {
+    logAndSendWebhook("comment_destroyed", {
       id: deletedComment.id,
-      name: deletedComment.name,
-      description: deletedComment.description
+      title: deletedComment.title,
+      content: deletedComment.content
     });
     res.status(200).json({
       message: "Comment successfully deleted",
       deletedComment: {
         id: deletedComment.id,
-        name: deletedComment.name,
-        description: deletedComment.description,
+        title: deletedComment.title,
+        content: deletedComment.content,
       },
     });
   }

@@ -50,7 +50,7 @@ const options = {
 };
 
 // Default rate limits
-let ratelimitmwph = ratelimitmw(100, 15 * 60 * 1000);
+let ratelimiter = ratelimitmw(100, 15);
 
 // Configuration is now loaded from config files
 const SERVERPORT = config.get("SERVERPORT");
@@ -162,14 +162,11 @@ app.use((req, res, next) => {
 const crudaprotectedRoute = require("./protected/cruda");
 const echoprotectedRoute = require("./protected/echo");
 
-// Apply rate limiting middleware to all routes
-app.use(ratelimitmwph);
-
 // Mount Logging middleware
 app.use(loggingmw);
 
-// Mount rate limiter route
-app.use((req, res, next) => ratelimitmwph(req, res, next));
+// Apply rate limiting middleware to all routes
+app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
 app.use("/api", verify_jwt_token, echoprotectedRoute);
@@ -191,7 +188,7 @@ app.use((err, req, res, next) => {
 
 // Update rate limit once obtained config
 function updateratelimit(maxrequests, maxrqwindow) {
-  ratelimitmwph = ratelimitmw(maxrequests, maxrqwindow);
+  ratelimiter = ratelimitmw(maxrequests, maxrqwindow);
 }
 
 // Start server

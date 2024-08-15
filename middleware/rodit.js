@@ -725,6 +725,16 @@ async function generate_jwt_token(
       throw new Error("Error 009: RODiT duration check failed");
     }
 
+    // CG: It is possible to implement logic so the new token obtains a premium duration base 
+    // on the previous token, primarily using longer durations for frequent API callers, 
+    // It rewards and improves the experience for your most active users.
+    // It reduces overall server load from token renewals.
+    // Dynamic Duration: Token duration increases with user activity, up to a maximum limit.
+    // Bounded Limits: We set both minimum and maximum durations to ensure security and manageability.
+    // Gradual Scaling: The duration scales gradually based on activity, not in large jumps.
+    // Recent Activity Focus: We track activity over the last hours, adapting quickly to changes in user behavior.
+    // Flexibility: The configuration allows easy adjustment of parameters to fine-tune the system.
+
     console.debug("Info: This API endpoint Login of Client check passed");
     const notbefore = await dateStringToUnixTime(ownrodit.metadata.notbefore);
 
