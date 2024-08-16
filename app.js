@@ -53,7 +53,6 @@ const options = {
 let ratelimiter = ratelimitmw(100, 15);
 
 // Configuration is now loaded from config files
-const SERVERPORT = config.get("SERVERPORT");
 const RODIT_CONFIGURATION_FILE_PATH = config.get(
   "RODIT_CONFIGURATION_FILE_PATH"
 );
@@ -112,20 +111,36 @@ app.post(
     next();
   },
   async (req, res) => {
-    const { roditid: peer_roditid, roditid_base64url_signature: peer_roditid_base64url_signature } = req.body;
+    const {
+      roditid: peer_roditid,
+      roditid_base64url_signature: peer_roditid_base64url_signature,
+    } = req.body;
 
     console.debug("Info: Client RODiT ID:", peer_roditid);
 
     if (!peer_roditid || !peer_roditid_base64url_signature) {
-      return res.status(400).json({ message: "Error 100: Missing RODiT ID and Signature" });
+      return res
+        .status(400)
+        .json({ message: "Error 100: Missing RODiT ID and Signature" });
     }
 
     try {
-      const { peer_rodit: peer_rodit, goodrodit: isRoditValid } = await verify_peerrodit_getit(peer_roditid, peer_roditid_base64url_signature);
+      const { peer_rodit: peer_rodit, goodrodit: isRoditValid } =
+        await verify_peerrodit_getit(
+          peer_roditid,
+          peer_roditid_base64url_signature
+        );
 
       if (!isRoditValid) {
-        logger.error("Error 101: Login attempt failed: Invalid RODiT ID or Signature");
-        return res.status(401).json({ message: "Error 102: Login attempt failed: Invalid RODiT ID or Signature" });
+        logger.error(
+          "Error 101: Login attempt failed: Invalid RODiT ID or Signature"
+        );
+        return res
+          .status(401)
+          .json({
+            message:
+              "Error 102: Login attempt failed: Invalid RODiT ID or Signature",
+          });
       }
 
       const config_own_rodit = await get_rodit_config();
@@ -140,16 +155,18 @@ app.post(
         config_own_rodit.own_roditid_base64url_signature
       );
 
-      logger.info(`Login attempt succeeded for token ID: ${peer_rodit.token_id}`);
+      logger.info(
+        `Login attempt succeeded for token ID: ${peer_rodit.token_id}`
+      );
       return res.json({ token });
-
     } catch (error) {
       logger.error(`Error 104: Login attempt failed: ${error.message}`);
-      return res.status(401).json({ message: `Error 105: Login attempt failed: ${error.message}` });
+      return res
+        .status(401)
+        .json({ message: `Error 105: Login attempt failed: ${error.message}` });
     }
   }
 );
-
 
 app.use((req, res, next) => {
   if (req.logAction) {

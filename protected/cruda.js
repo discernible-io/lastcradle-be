@@ -2,10 +2,12 @@ const express = require("express");
 const router = express.Router();
 const logger = require("../config/logger");
 const config = require("config");
-const nacl = require('tweetnacl');
-const crypto = require('crypto');
 
-const { set_rodit_config, get_rodit_config, send_webhook } = require("../middleware/rodit");
+const {
+  set_rodit_config,
+  get_rodit_config,
+  send_webhook,
+} = require("../middleware/rodit");
 
 const RODIT_CONFIGURATION_FILE_PATH = config.get(
   "RODIT_CONFIGURATION_FILE_PATH"
@@ -21,7 +23,9 @@ const initializeRouter = async () => {
     logger.info("Rodit configuration initialized successfully");
     return config;
   } catch (error) {
-    logger.error(`Error 112: initializing Rodit configuration: ${error.message}`);
+    logger.error(
+      `Error 112: initializing Rodit configuration: ${error.message}`
+    );
     throw error;
   }
 };
@@ -68,6 +72,7 @@ const itemExists = (req, res, next) => {
 // CREATE - Add a new comment
 router.post(
   "/cruda/create",
+
   (req, res, next) => {
     req.logAction = "create_item";
     next();
@@ -75,8 +80,7 @@ router.post(
   (req, res) => {
     const { title, content } = req.body;
     if (!title || !content) {
-      const errorMessage =
-        "Invalid create request: missing title or content";
+      const errorMessage = "Invalid create request: missing title or content";
       logAndSendWebhook("create_comment_error", { error: errorMessage }, true);
       return res.status(400).json({ error: errorMessage });
     }
@@ -91,13 +95,18 @@ router.post(
       title: newItem.title,
       content: newItem.content,
     });
-    res.status(201).json(newItem);
+    const response = { ...newItem };
+    if (req.new_jwt_token) {
+      response.new_jwt_token = req.new_jwt_token;
+    }
+    res.status(201).json(response);
   }
 );
 
 // READ - Read all comments
 router.post(
   "/cruda/list",
+
   (req, res, next) => {
     req.logAction = "read_all_items";
     next();
@@ -105,27 +114,41 @@ router.post(
   (req, res) => {
     const itemCount = comments.length;
     logAndSendWebhook("comments_listed", { count: itemCount });
-    res.json(comments);
+    const response = { comments };
+    if (req.new_jwt_token) {
+      response.new_jwt_token = req.new_jwt_token;
+    }
+    res.json(response);
   }
 );
 
 // READ - Read a specific comment
 router.post(
   "/cruda/read",
+
   itemExists,
   (req, res, next) => {
     req.logAction = "read_item";
     next();
   },
   (req, res) => {
-    logAndSendWebhook("comment_read", { id: req.comment.id, title: req.comment.title, content: req.comment.content });
-    res.json(req.comment);
+    logAndSendWebhook("comment_read", {
+      id: req.comment.id,
+      title: req.comment.title,
+      content: req.comment.content,
+    });
+    const response = { ...req.comment };
+    if (req.new_jwt_token) {
+      response.new_jwt_token = req.new_jwt_token;
+    }
+    res.json(response);
   }
 );
 
 // UPDATE - Update a comment
 router.post(
   "/cruda/update",
+
   itemExists,
   (req, res, next) => {
     req.logAction = "update_item";
@@ -141,15 +164,20 @@ router.post(
       oldTitle: oldComment.title,
       newTitle: req.comment.title,
       oldContent: oldComment.content,
-      newContent: req.comment.content
+      newContent: req.comment.content,
     });
-    res.json(req.comment);
+    const response = { ...req.comment };
+    if (req.new_jwt_token) {
+      response.new_jwt_token = req.new_jwt_token;
+    }
+    res.json(response);
   }
 );
 
 // DESTROY - Destroy a comment
 router.post(
   "/cruda/destroy",
+
   itemExists,
   (req, res, next) => {
     req.logAction = "destroy_item";
@@ -163,16 +191,20 @@ router.post(
     logAndSendWebhook("comment_destroyed", {
       id: deletedComment.id,
       title: deletedComment.title,
-      content: deletedComment.content
+      content: deletedComment.content,
     });
-    res.status(200).json({
+    const response = {
       message: "Comment successfully deleted",
       deletedComment: {
         id: deletedComment.id,
         title: deletedComment.title,
         content: deletedComment.content,
       },
-    });
+    };
+    if (req.new_jwt_token) {
+      response.new_jwt_token = req.new_jwt_token;
+    }
+    res.status(200).json(response);
   }
 );
 
