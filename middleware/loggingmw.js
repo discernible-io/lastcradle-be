@@ -1,6 +1,15 @@
 const { ulid } = require("ulid");
 const logger = require("../config/logger");
 
+/* const logger = createLogger({
+  level: 'info',
+  format: format.combine(
+    format.timestamp(),
+    format.json()
+  ),
+  transports: [new transports.Console()]
+}); */
+
 const loggingmw = (req, res, next) => {
   const start = Date.now();
 

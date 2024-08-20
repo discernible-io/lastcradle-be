@@ -4,8 +4,17 @@ function ratelimitmw(maxrequests, maxrqwindow) {
   return rateLimit({
     windowMs: Math.min(maxrqwindow * 60 * 1000, 2147483647), // Cap at max 32-bit integer
     max: maxrequests,
-    message: `You have exceeded your ${maxrequests} requests per ${maxrqwindow} minute(s) limit.`,
+    handler: (req, res) => {
+      res.status(429).json({
+        error: "RateLimitExceeded",
+        message: "Rate limit exceeded",
+        maxRequests: maxrequests,
+        windowMinutes: maxrqwindow
+      });
+    },
     headers: true,
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   });
 }
 

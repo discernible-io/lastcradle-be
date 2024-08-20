@@ -46,6 +46,7 @@ account.env
 cgapi.log
 nohup.out
 output.txt
+*.sqlite
 
 npm-debug.log*
 /frontent/privkey.key

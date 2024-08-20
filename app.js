@@ -19,7 +19,7 @@ const {
   get_rodit_config,
   generate_jwt_token,
   verify_jwt_token,
-  verify_peerrodit_getit,
+  verify_peerrodit_getrodit,
 } = require("./middleware/rodit");
 
 const options = {
@@ -84,7 +84,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *             properties:
  *               peer_roditid:
  *                 type: string
- *                 description: The RODiT ID verify_peerrodit_getitof the user
+ *                 description: The RODiT ID verify_peerrodit_getroditof the user
  *               peer_roditid_base64url_signature:
  *                 type: string
  *                 description: The base64url signature of the RODiT ID
@@ -126,7 +126,7 @@ app.post(
 
     try {
       const { peer_rodit: peer_rodit, goodrodit: isRoditValid } =
-        await verify_peerrodit_getit(
+        await verify_peerrodit_getrodit(
           peer_roditid,
           peer_roditid_base64url_signature
         );
@@ -182,8 +182,8 @@ const echoprotectedRoute = require("./protected/echo");
 // Mount Logging middleware
 app.use(loggingmw);
 
-// Apply rate limiting middleware to all routes
-app.use((req, res, next) => ratelimiter(req, res, next));
+// CG: Temporarily remove for token renewal tests: Apply Logging middleware to all routes
+// app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
 app.use("/api", verify_jwt_token, echoprotectedRoute);
@@ -236,3 +236,8 @@ async function startServer() {
 }
 
 startServer();
+
+process.on('SIGINT', async () => {
+  await db.close();
+  process.exit(0);
+});

@@ -7,5 +7,8 @@
     "tzname": "Europe/Madrid",
     "tzoffset": "+01:00",
     "datetimeformat": "2023-04-15T14:30:00-05:00"
-  }
+  },
+  "RENEWAL_PERCENTAGE": "0.75",
+  "THRESHOLD_VALIDATION_TYPE": "0.75",
+  "DURATIONRAMP" : "0.9"
 }
