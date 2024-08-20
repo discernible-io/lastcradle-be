@@ -1,4 +1,5 @@
 const { decodeJwt } = require("jose");
+const logger = require("../config/logger");
 
 /**
  * @swagger
@@ -24,7 +25,7 @@ async function validatepermissions(req, res, next) {
 
   try {
     const decodedToken = decodeJwt(token);
-    console.debug(`Info: Endpoint reached: ${req.path}`);
+    logger.info(`Info: Endpoint reached: ${req.path}`);
     const permissionedRoutes = JSON.parse(
       decodedToken.rodit_permissionedroutes
     );
@@ -36,10 +37,10 @@ async function validatepermissions(req, res, next) {
     // Verify Rate and sign (+ for entity and property, - for property only, nada for entity only) to each route for internal processing
     for (const endpoint of endpoints) {
       const { url, _, entities } = endpoint;
-      console.debug(`url: ${url}`);
+      logger.info(`url: ${url}`);
       if (url === currentPath) {
         const method = url.split("/").pop();
-        console.debug(`method: ${method}`);
+        logger.info(`method: ${method}`);
         switch (method) {
           case "create":
             isPermitted = entities.some((entity) => {
@@ -94,7 +95,7 @@ async function validatepermissions(req, res, next) {
             });
             break;
           default:
-            console.debug(`Unknown method type: ${method}`);
+            logger.error(`Error: Unknown method type: ${method}`);
         }
         if (isPermitted) break; // Exit the loop if permission is granted
       }
