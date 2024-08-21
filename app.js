@@ -15,8 +15,8 @@ const forge = require("node-forge");
 const {
   set_rodit_config,
   get_rodit_config,
-  rodit_login,
-  verify_jwt_token,
+  login_client,
+  authenticate_jwt_token,
 } = require("./middleware/rodit");
 
 const options = {
@@ -107,7 +107,7 @@ app.post(
       req.logAction = "login-attempt";
       next();
   },
-  rodit_login
+  login_client
 );
 
 app.use((req, res, next) => {
@@ -128,10 +128,10 @@ app.use(loggingmw);
 // app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", verify_jwt_token, echoprotectedRoute);
+app.use("/api", authenticate_jwt_token, echoprotectedRoute);
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", verify_jwt_token, validatepermissions, crudaprotectedRoute);
+app.use("/api", authenticate_jwt_token, validatepermissions, crudaprotectedRoute);
 
 app.use((err, req, res, next) => {
   logger.error({
