@@ -56,8 +56,16 @@ const logEvent = (event, data, isError = false) => {
 
 // Combined function that logs and sends webhook
 const logAndSendWebhook = async (event, data, isError = false) => {
-  logEvent(event, data, isError);
-  await send_webhook(event, data, isError);
+  const result = await send_webhook(event, data, isError);
+  
+  if (result.isValid) {
+    logger.info(`Webhook sent successfully - Event: ${event}, Request ID: ${result.requestId}`);
+  } else {
+    logger.error(`Webhook send failed - Event: ${event}, Error: ${result.error.message}, Request ID: ${result.requestId}`);
+  }
+  
+  // You can still log the event locally if needed
+  logEvent(event, data, isError, result.requestId);
 };
 
 // Initialize the router
