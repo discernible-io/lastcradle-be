@@ -1052,31 +1052,52 @@ async function authenticate_apicall(req, res, next) {
     const token = extractTokenFromHeader(req.headers["authorization"]);
     if (token == null) {
       logger.warn(`No token provided - Request ID: ${requestId}`);
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: {
-          code: 'MISSING_TOKEN',
-          message: 'No token provided',
-          requestId
-        }
+          code: "MISSING_TOKEN",
+          message: "No token provided",
+          requestId,
+        },
       });
     }
 
     try {
-      const jwk_public_key = await base64url2jwk_public_key(get_session_jwk_public_key());
+      const jwk_public_key = await base64url2jwk_public_key(
+        get_session_jwk_public_key()
+      );
       logger.debug(`Public key retrieved - Request ID: ${requestId}`);
 
-      let { payload, protectedHeader, newToken } = await verifyToken(token, jwk_public_key, req.headers["x-timestamp"], requestId);
+      let { payload, protectedHeader, newToken } = await verifyToken(
+        token,
+        jwk_public_key,
+        req.headers["x-timestamp"],
+        requestId
+      );
 
       if (newToken) {
         res.setHeader("New-Token", newToken);
-        logger.info(`Token renewed after expiration - Request ID: ${requestId}`);
-      } else {
-        // Token renewal logic
-        const renewalResult = await checkAndRenewToken(payload, req.headers["x-timestamp"], requestId);
+        logger.info(
+          `Token renewed after expiration - Request ID: ${requestId}`
+        );
+      } else if (tokenrenewaloptions.SERVERORCLIENT === "SERVER-INITIATED") {
+        // Server-initiated token renewal logic
+        const renewalResult = await checkAndRenewToken(
+          payload,
+          req.headers["x-timestamp"],
+          requestId
+        );
         if (renewalResult.newToken) {
           res.setHeader("New-Token", renewalResult.newToken);
-          logger.info(`Token renewed - Request ID: ${requestId}`, renewalResult.logInfo);
+          logger.info(
+            `Token renewed - Request ID: ${requestId}`,
+            renewalResult.logInfo
+          );
         }
+      }
+
+      if (tokenrenewaloptions.SERVERORCLIENT === "CLIENT-INITIATED") {
+        // Add token expiration time to response header for client-initiated refresh
+        res.setHeader("Token-Expiration", payload.exp);
       }
 
       req.user = payload;
@@ -1086,13 +1107,15 @@ async function authenticate_apicall(req, res, next) {
       handleTokenError(error, res, requestId);
     }
   } catch (error) {
-    logger.error(`Unexpected error in authenticate_apicall: ${error.message} - Request ID: ${requestId}`);
-    return res.status(500).json({ 
+    logger.error(
+      `Unexpected error in authenticate_apicall: ${error.message} - Request ID: ${requestId}`
+    );
+    return res.status(500).json({
       error: {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Internal server error during authentication',
-        requestId
-      }
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Internal server error during authentication",
+        requestId,
+      },
     });
   }
 }
@@ -1107,15 +1130,22 @@ function extractTokenFromHeader(authHeader) {
 
 async function verifyToken(token, jwk_public_key, timestamp, requestId) {
   try {
-    const result = await jwtVerify(token, jwk_public_key, { algorithms: ["EdDSA"] });
+    const result = await jwtVerify(token, jwk_public_key, {
+      algorithms: ["EdDSA"],
+    });
     logger.debug(`Token verified successfully - Request ID: ${requestId}`);
     return result;
   } catch (jwtError) {
     if (jwtError.code === "ERR_JWT_EXPIRED") {
-      logger.info(`Token expired, attempting renewal - Request ID: ${requestId}`);
+      logger.info(
+        `Token expired, attempting renewal - Request ID: ${requestId}`
+      );
       const config_own_rodit = await get_rodit_config();
       const unverifiedpayload = decodeJwt(token);
-      const { isValid, notAfter } = await thorough_validate_jwt_token(unverifiedpayload, requestId);
+      const { isValid, notAfter } = await thorough_validate_jwt_token(
+        unverifiedpayload,
+        requestId
+      );
       if (isValid) {
         const newToken = await generate_jwt_token_fromtoken(
           unverifiedpayload,
@@ -1123,7 +1153,9 @@ async function verifyToken(token, jwk_public_key, timestamp, requestId) {
           notAfter,
           timestamp
         );
-        logger.info(`New token generated for expired token - Request ID: ${requestId}`);
+        logger.info(
+          `New token generated for expired token - Request ID: ${requestId}`
+        );
         return { payload: unverifiedpayload, protectedHeader: null, newToken };
       }
     }
@@ -1138,37 +1170,64 @@ async function checkAndRenewToken(payload, timestamp, requestId) {
   const durationLeftpct = (timeLeft / currentDuration) * 100;
   const newduration = currentDuration * tokenrenewaloptions.DURATIONRAMP;
 
-  logger.debug(`Token renewal check - Time left: ${durationLeftpct}%, Request ID: ${requestId}`);
+  logger.debug(
+    `Token renewal check - Time left: ${durationLeftpct}%, Request ID: ${requestId}`
+  );
 
   if (durationLeftpct < 100 - tokenrenewaloptions.MIN_RENEWAL_PERCENTAGE) {
     const randomNumber = generateRandomNumber();
-    if (randomNumber < tokenrenewaloptions.THRESHOLD_VALIDATION_TYPE ||
-        newduration < (payload.rodit_maxrqwindow * (100 - tokenrenewaloptions.MIN_RENEWAL_PERCENTAGE)) / 100) {
-      logger.info(`Performing full verification for token renewal - Request ID: ${requestId}`);
-      const { isValid, notAfter } = await thorough_validate_jwt_token(payload, requestId);
+    if (
+      randomNumber < tokenrenewaloptions.THRESHOLD_VALIDATION_TYPE ||
+      newduration <
+        (payload.rodit_maxrqwindow *
+          (100 - tokenrenewaloptions.MIN_RENEWAL_PERCENTAGE)) /
+          100
+    ) {
+      logger.info(
+        `Performing full verification for token renewal - Request ID: ${requestId}`
+      );
+      const { isValid, notAfter } = await thorough_validate_jwt_token(
+        payload,
+        requestId
+      );
       if (isValid) {
-        const newToken = await generate_jwt_token_fromtoken(payload, newduration, notAfter, timestamp);
-        return { 
-          newToken, 
+        const newToken = await generate_jwt_token_fromtoken(
+          payload,
+          newduration,
+          notAfter,
+          timestamp
+        );
+        return {
+          newToken,
           logInfo: {
             newDuration: newduration,
             reason: "Full verification",
             notAfter: notAfter,
-          }
+          },
         };
       }
     } else {
-      logger.info(`Performing light verification for token renewal - Request ID: ${requestId}`);
-      const { isValid, notAfter } = await brief_validate_jwt_token(payload, requestId);
+      logger.info(
+        `Performing light verification for token renewal - Request ID: ${requestId}`
+      );
+      const { isValid, notAfter } = await brief_validate_jwt_token(
+        payload,
+        requestId
+      );
       if (isValid) {
-        const newToken = await generate_jwt_token_fromtoken(payload, newduration, notAfter, timestamp);
-        return { 
-          newToken, 
+        const newToken = await generate_jwt_token_fromtoken(
+          payload,
+          newduration,
+          notAfter,
+          timestamp
+        );
+        return {
+          newToken,
           logInfo: {
             newDuration: newduration,
             reason: "Light verification",
             notAfter: notAfter,
-          }
+          },
         };
       }
     }
@@ -1179,20 +1238,20 @@ async function checkAndRenewToken(payload, timestamp, requestId) {
 function handleTokenError(error, res, requestId) {
   logger.error(`Token error: ${error.message} - Request ID: ${requestId}`);
   if (error.code === "ERR_JWT_INVALID") {
-    return res.status(401).json({ 
+    return res.status(401).json({
       error: {
-        code: 'INVALID_TOKEN',
-        message: 'Invalid token',
-        requestId
-      }
+        code: "INVALID_TOKEN",
+        message: "Invalid token",
+        requestId,
+      },
     });
   }
-  return res.status(403).json({ 
+  return res.status(403).json({
     error: {
-      code: 'TOKEN_VERIFICATION_FAILED',
-      message: 'Token verification failed',
-      requestId
-    }
+      code: "TOKEN_VERIFICATION_FAILED",
+      message: "Token verification failed",
+      requestId,
+    },
   });
 }
 
@@ -1212,20 +1271,31 @@ const send_webhook = async (event, data, isError = false) => {
 
   try {
     if (!config_own_rodit || !config_own_rodit.own_rodit.metadata.webhookurl) {
-      logger.error(`Error: Webhook URL not available in Rodit configuration - Request ID: ${requestId}`);
+      logger.error(
+        `Error: Webhook URL not available in Rodit configuration - Request ID: ${requestId}`
+      );
       return {
         isValid: false,
         error: {
-          code: 'WEBHOOK_CONFIG_ERROR',
-          message: 'Webhook URL not available in Rodit configuration',
-          requestId
-        }
+          code: "WEBHOOK_CONFIG_ERROR",
+          message: "Webhook URL not available in Rodit configuration",
+          requestId,
+        },
       };
     }
 
     const timestamp = Date.now();
-    const payload = JSON.stringify({ event, data, isError, timestamp, requestId });
-    const sha256_ofpayload = crypto.createHash("sha256").update(payload).digest();
+    const payload = JSON.stringify({
+      event,
+      data,
+      isError,
+      timestamp,
+      requestId,
+    });
+    const sha256_ofpayload = crypto
+      .createHash("sha256")
+      .update(payload)
+      .digest();
 
     const own_rodit_private_key = new Uint8Array(
       Buffer.from(config_own_rodit.own_rodit_bytes_private_key, "hex")
@@ -1234,7 +1304,8 @@ const send_webhook = async (event, data, isError = false) => {
       sha256_ofpayload,
       own_rodit_private_key
     );
-    const signature_hex_ofpayload = Buffer.from(signature_ofpayload).toString("hex");
+    const signature_hex_ofpayload =
+      Buffer.from(signature_ofpayload).toString("hex");
 
     const response = await fetch(
       `http://${config_own_rodit.own_rodit.metadata.webhookurl}/webhook`,
@@ -1244,7 +1315,7 @@ const send_webhook = async (event, data, isError = false) => {
           "Content-Type": "application/json",
           "X-Signature": signature_hex_ofpayload,
           "X-Timestamp": timestamp.toString(),
-          "X-Request-ID": requestId
+          "X-Request-ID": requestId,
         },
         body: payload,
       }
@@ -1255,23 +1326,26 @@ const send_webhook = async (event, data, isError = false) => {
     }
 
     await response.text(); // consume the response body
-    logger.info(`Webhook sent successfully - Event: ${event}, Request ID: ${requestId}`);
+    logger.info(
+      `Webhook sent successfully - Event: ${event}, Request ID: ${requestId}`
+    );
 
     return {
       isValid: true,
-      message: 'Webhook sent successfully',
-      requestId
+      message: "Webhook sent successfully",
+      requestId,
     };
-
   } catch (error) {
-    logger.error(`Error in send_webhook: ${error.message} - Request ID: ${requestId}`);
+    logger.error(
+      `Error in send_webhook: ${error.message} - Request ID: ${requestId}`
+    );
     return {
       isValid: false,
       error: {
-        code: 'WEBHOOK_SEND_ERROR',
+        code: "WEBHOOK_SEND_ERROR",
         message: `Failed to send webhook: ${error.message}`,
-        requestId
-      }
+        requestId,
+      },
     };
   }
 };
@@ -1286,7 +1360,12 @@ const send_webhook = async (event, data, isError = false) => {
  * @param {Uint8Array} peer_bytes_public_key - Peer's public key
  * @returns {Object} Authentication result
  */
-function authenticate_webhook(payload, signature_hex_ofpayload, timestamp, peer_bytes_public_key) {
+function authenticate_webhook(
+  payload,
+  signature_hex_ofpayload,
+  timestamp,
+  peer_bytes_public_key
+) {
   const requestId = ulid();
   logger.info(`Webhook authentication started - Request ID: ${requestId}`);
 
@@ -1299,16 +1378,22 @@ function authenticate_webhook(payload, signature_hex_ofpayload, timestamp, peer_
       return {
         isValid: false,
         error: {
-          code: 'TIMESTAMP_EXPIRED',
-          message: 'Webhook timestamp is too old',
-          requestId
-        }
+          code: "TIMESTAMP_EXPIRED",
+          message: "Webhook timestamp is too old",
+          requestId,
+        },
       };
     }
 
-    const sha256_ofpayload = crypto.createHash("sha256").update(payload).digest();
-    const buffer_signature_ofpayload = Buffer.from(signature_hex_ofpayload, "hex");
-    
+    const sha256_ofpayload = crypto
+      .createHash("sha256")
+      .update(payload)
+      .digest();
+    const buffer_signature_ofpayload = Buffer.from(
+      signature_hex_ofpayload,
+      "hex"
+    );
+
     const isValid = nacl.sign.detached.verify(
       sha256_ofpayload,
       buffer_signature_ofpayload,
@@ -1320,30 +1405,31 @@ function authenticate_webhook(payload, signature_hex_ofpayload, timestamp, peer_
       return {
         isValid: false,
         error: {
-          code: 'INVALID_SIGNATURE',
-          message: 'Invalid webhook signature',
-          requestId
-        }
+          code: "INVALID_SIGNATURE",
+          message: "Invalid webhook signature",
+          requestId,
+        },
       };
     }
 
     logger.info(`Webhook authentication successful - Request ID: ${requestId}`);
     return {
       isValid: true,
-      message: 'Webhook authentication successful',
-      requestId
+      message: "Webhook authentication successful",
+      requestId,
     };
-
   } catch (error) {
-    logger.error(`Unexpected error in webhook authentication: ${error.message} - Request ID: ${requestId}`);
+    logger.error(
+      `Unexpected error in webhook authentication: ${error.message} - Request ID: ${requestId}`
+    );
     return {
       isValid: false,
       error: {
-        code: 'AUTHENTICATION_ERROR',
-        message: 'An unexpected error occurred during webhook authentication',
+        code: "AUTHENTICATION_ERROR",
+        message: "An unexpected error occurred during webhook authentication",
         details: error.message,
-        requestId
-      }
+        requestId,
+      },
     };
   }
 }
