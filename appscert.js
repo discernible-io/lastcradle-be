@@ -18,7 +18,7 @@ const {
   set_rodit_config,
   get_rodit_config,
   generate_jwt_token,
-  authenticate_jwt_token,
+  authenticate_apicall,
   verify_peerrodit_getit,
 } = require("./middleware/rodit");
 
@@ -182,10 +182,10 @@ app.use(loggingmw);
 app.use((req, res, next) => ratelimitmwph(req, res, next));
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", authenticate_jwt_token, echoprotectedRoute);
+app.use("/api", authenticate_apicall, echoprotectedRoute);
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", authenticate_jwt_token, validatepermissions, crudarotectedRoute);
+app.use("/api", authenticate_apicall, validatepermissions, crudarotectedRoute);
 
 app.use((err, req, res, next) => {
   logger.error({

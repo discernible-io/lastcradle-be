@@ -16,7 +16,7 @@ const {
   set_rodit_config,
   get_rodit_config,
   login_client,
-  authenticate_jwt_token,
+  authenticate_apicall,
 } = require("./middleware/rodit");
 
 const options = {
@@ -124,14 +124,14 @@ const echoprotectedRoute = require("./protected/echo");
 // Mount Logging middleware
 app.use(loggingmw);
 
-// CG: Temporarily remove for token renewal tests: Apply Logging middleware to all routes
-// app.use((req, res, next) => ratelimiter(req, res, next));
+// Temporarily remove for token renewal tests: Apply Logging middleware to all routes
+app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", authenticate_jwt_token, echoprotectedRoute);
+app.use("/api", authenticate_apicall, echoprotectedRoute);
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", authenticate_jwt_token, validatepermissions, crudaprotectedRoute);
+app.use("/api", authenticate_apicall, validatepermissions, crudaprotectedRoute);
 
 app.use((err, req, res, next) => {
   logger.error({
