@@ -90,8 +90,7 @@ async function set_rodit_config(configuration_file_path) {
       throw new Error("Error 043: Invalid private_key value");
     }
 
-    const own_rodit_base58_private_key = own_string_private_key.split(":")[1];
-
+  
     // Check if the account is funded
     const result = await nearorg_rpc_state(
       CONSTANTS.SMART_CONTRACT,
@@ -108,27 +107,21 @@ async function set_rodit_config(configuration_file_path) {
       own_rodit_hex_accountid
     );
 
+    const session_base64url_jwk_public_key = hex2base64url(
+      own_rodit_hex_accountid
+    );
+    set_session_jwk_public_key(session_base64url_jwk_public_key);
+
     const own_rodit_bytes_roditid = new Uint8Array(
       Buffer.from(own_rodit.token_id)
     );
+
+    const own_rodit_base58_private_key = own_string_private_key.split(":")[1];
 
     const own_rodit_private_key = bs58.decode(own_rodit_base58_private_key);
     const own_rodit_bytes_private_key = new Uint8Array(
       Buffer.from(own_rodit_private_key)
     );
-
-    const own_rodit_bytes_signature = nacl.sign.detached(
-      own_rodit_bytes_roditid,
-      own_rodit_bytes_private_key
-    );
-    const own_roditid_base64url_signature = Buffer.from(
-      own_rodit_bytes_signature
-    ).toString("base64url");
-
-    const session_base64url_jwk_public_key = hex2base64url(
-      own_rodit_hex_accountid
-    );
-    set_session_jwk_public_key(session_base64url_jwk_public_key);
 
     let apiendpoint =
       API_PROTOCOL +
@@ -142,14 +135,13 @@ async function set_rodit_config(configuration_file_path) {
     const iso3166 = config.get("ISO3166"); // Country code
     const iso15924 = config.get("ISO15924"); // Language Script
     const timeoptions = config.get("TIMEOPTIONS"); // Time and date options, including timezone name, offset and date and time format
-
+    
     config_own_rodit = {
       own_rodit,
-      own_roditid_base64url_signature,
       own_rodit_bytes_private_key,
       apiendpoint,
       port,
-      // CG: webhook url, port? Is this selfconfig only or per client?
+      // CG: webhook url and port Is this selfconfig only or per client?
       iso639, // Language
       iso3166, // Country code
       iso15924, // Language Script
@@ -158,7 +150,6 @@ async function set_rodit_config(configuration_file_path) {
 
     return {
       own_rodit,
-      own_roditid_base64url_signature,
       own_rodit_bytes_private_key,
       apiendpoint,
       port,
@@ -169,7 +160,7 @@ async function set_rodit_config(configuration_file_path) {
   }
 }
 
-async function get_rodit_config() {
+async function get_rodit_config(own_rodit) {
   return config_own_rodit;
 }
 
@@ -185,21 +176,23 @@ async function login_client(req, res) {
   try {
     const {
       roditid: peer_roditid,
-      roditid_base64url_signature: peer_roditid_base64url_signature,
+      timestamp: peer_timestamp,
+      roditid_base64url_signature: roditid_base64url_signature,
     } = req.body;
     console.debug("Info: Client RODiT ID:", peer_roditid);
 
-    if (!peer_roditid || !peer_roditid_base64url_signature) {
+    if (!peer_roditid ||  !peer_timestamp || !roditid_base64url_signature ) {
       return res
         .status(400)
-        .json({ message: "Error 100: Missing RODiT ID and Signature" });
+        .json({ message: "Error 100: Missing RODiT ID, Signature or Timestamp" });
     }
 
     try {
       const { peer_rodit: peer_rodit, goodrodit: isRoditValid } =
         await verify_peerrodit_getrodit(
           peer_roditid,
-          peer_roditid_base64url_signature
+          peer_timestamp,
+          roditid_base64url_signature
         );
 
       if (!isRoditValid) {
@@ -219,9 +212,9 @@ async function login_client(req, res) {
 
       const token = await generate_jwt_token(
         peer_rodit,
+        peer_timestamp,
         config_own_rodit.own_rodit,
         config_own_rodit.own_rodit_bytes_private_key,
-        config_own_rodit.own_roditid_base64url_signature
       );
 
       logger.info(
@@ -244,20 +237,37 @@ async function login_client(req, res) {
 
 // Log in and verify the server endpoint
 async function login_server(
-  apiendpoint,
-  roditid_base64url_signature,
-  own_rodit
+  own_rodit // Ready to login to several servers
 ) {
   try {
+    const config_own_rodit = await get_rodit_config(own_rodit); // Ready to login to several servers
+    if (!config_own_rodit) {
+      logger.error("Error:  Client configuration not initialized");
+      return;
+    }
+    const apiendpoint = config_own_rodit.apiendpoint;
     let roditid = own_rodit.token_id;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const roditidandtimestamp = new TextEncoder().encode(roditid + await unixTimeToDateString(timestamp));
+
+    const own_rodit_bytes_signature = nacl.sign.detached(
+      roditidandtimestamp,
+      config_own_rodit.own_rodit_bytes_private_key
+    );
+
+    const roditid_base64url_signature = Buffer.from(
+      own_rodit_bytes_signature
+    ).toString("base64url");
+
     // The variables roditid, roditid_base64url_signature must match in name
-    // with the variables used in the server side
+    // with the variables used in the server side    
     const response = await fetch(apiendpoint + "/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ roditid, roditid_base64url_signature }),
+      body: JSON.stringify({ roditid, timestamp, roditid_base64url_signature }),
     });
 
     if (!response.ok) {
@@ -280,7 +290,7 @@ async function login_server(
       );
     }
     console.debug("Info: Client of API endpoint is logged in");
-    return { jwt_token, peer_bytes_ed25519_public_key };
+    return { jwt_token, apiendpoint };
   } catch (error) {
     logger.error(`Error in login_server: ${error.message}`);
     return { error: "Failed to login to server" };
@@ -312,6 +322,7 @@ async function validate_jwt_token(token, own_rodit) {
 
     let { peer_rodit, goodrodit } = await verify_peerrodit_getrodit(
       payload.rodit_id,
+      payload.iat,
       payload.rodit_idsignature
     );
     if (goodrodit) {
@@ -342,11 +353,14 @@ async function validate_jwt_token(token, own_rodit) {
 
 async function verify_peerrodit_getrodit(
   peerroditid,
+  peertimestamp,
   peerroditid_base64url_signature
 ) {
   try {
+
     const peer_rodit = await verify_hasrodit_getit(
       peerroditid,
+      peertimestamp,
       peerroditid_base64url_signature
     );
 
@@ -354,7 +368,7 @@ async function verify_peerrodit_getrodit(
       verify_rodit_isamatch(
         own_rodit.metadata.serviceproviderid,
         peer_rodit.metadata.serviceprovidersignature,
-        peer_rodit.token_id
+        peer_rodit.token_id,
       ),
       verify_rodit_islive(
         peer_rodit.metadata.notafter,
@@ -368,51 +382,56 @@ async function verify_peerrodit_getrodit(
         own_rodit.metadata.subjectuniqueidentifierurl
       ),
     ]);
-    let goodrodit;
+
     if (!isVerified || !isLive || !isActive || !isTrusted) {
-      goodrodit = false;
       throw new Error("Error 037: Peer RODiT verification failed");
     }
-    goodrodit = true;
+
     console.debug("Info: Peer Account ID:", peer_rodit.owner_id);
     return {
       peer_rodit,
-      goodrodit,
+      goodrodit: true,
     };
   } catch (error) {
     logger.error(`Error 036: in verify_peerrodit_getrodit: ${error.message}`);
     return {
       peer_rodit: null,
       goodrodit: false,
+      error: `Error 036: in verify_peerrodit_getrodit: ${error.message}`
     };
   }
 }
 
 async function verify_hasrodit_getit(
   peerroditid,
+  peertimestamp,
   peerroditid_base64url_signature
 ) {
   const account_idargs = `{"token_id": "${peerroditid}"}`;
 
   try {
-    // Ensure rodit_id and rodit_id_signature are Uint8Array
-    const bytes_roditid = new Uint8Array(Buffer.from(peerroditid));
-
-    const bytes_ed25519_signature = new Uint8Array(
-      Buffer.from(peerroditid_base64url_signature, "base64url")
-    );
+    console.debug("verify_hasrodit_getit peerroditid",peerroditid);
 
     const peer_rodit = await nearorg_rpc_tokenfromroditid(
       CONSTANTS.SMART_CONTRACT,
       account_idargs
     );
 
+    const roditidandtimestamp = new TextEncoder().encode(peerroditid + await unixTimeToDateString(peertimestamp));
+
+    const bytes_ed25519_signature = new Uint8Array(
+      Buffer.from(peerroditid_base64url_signature, "base64url")
+    );
+
     const peer_bytes_ed25519_public_key = new Uint8Array(
       Buffer.from(peer_rodit.owner_id, "hex")
     );
 
+    console.debug("verify_hasrodit_getit roditidandtimestamp",roditidandtimestamp);
+    console.debug("verify_hasrodit_getit bytes_ed25519_signature",bytes_ed25519_signature);
+    console.debug("verify_hasrodit_getit peer_bytes_ed25519_public_key",peer_bytes_ed25519_public_key);
     const isVerified = nacl.sign.detached.verify(
-      bytes_roditid,
+      roditidandtimestamp,
       bytes_ed25519_signature,
       peer_bytes_ed25519_public_key
     );
@@ -426,87 +445,80 @@ async function verify_hasrodit_getit(
     }
   } catch (error) {
     logger.error(
-      `Error 034: There is no Peer RODiT associated with the account: ${err}`
+      `Error 034: ${error}`
     );
-    throw new Error("Error 033: PeerEd25519RoditMissing");
+    throw new Error("Error 033:");
   }
 }
 
 async function verify_rodit_isamatch(
-  ownServiceProviderId,
-  peerServiceProviderSignature,
-  peerTokenId
-) {
-  // Obtain a Own Service Provider RODiT (Mother RODiT) from its ID
-  const args_ownServiceProviderId = JSON.stringify({
-    token_id: ownServiceProviderId,
-  });
-  let own_serviceprovider_rodit;
-  try {
-    own_serviceprovider_rodit = await nearorg_rpc_tokenfromroditid(
-      CONSTANTS.SMART_CONTRACT,
-      args_ownServiceProviderId
-    );
-  } catch (error) {
-    logger.error("Error 032: Peer RODiT does not match Own RODiT - Fetching");
-    return false;
-  }
+        own_service_provider_id,
+        peer_service_provider_signature,
+        peer_token_id,
+      ) {
+        // Obtain a Own Service Provider RODiT (Mother RODiT) from its ID
+        const args_own_service_provider_id = JSON.stringify({
+          token_id: own_service_provider_id,
+        });
+        let own_service_provider_rodit;
+        try {
+          own_service_provider_rodit = await nearorg_rpc_tokenfromroditid(
+            CONSTANTS.SMART_CONTRACT,
+            args_own_service_provider_id
+          );
+        } catch (error) {
+          logger.error("Error 032: Peer RODiT does not match Own RODiT - Fetching");
+          return false;
+        }
+        let bytes_own_service_provider_owner_id;
+        console.debug(
+          "Info: Service Provider Account ID:",
+          own_service_provider_rodit.owner_id
+        );
+        try {
+          bytes_own_service_provider_owner_id = new Uint8Array(
+            Buffer.from(own_service_provider_rodit.owner_id, "hex")
+          );
+        } catch (error) {
+          logger.error("Error 031: Failed to decode hex string");
+          return false;
+        }
+        if (bytes_own_service_provider_owner_id.length !== CONSTANTS.RODIT_ID_PK_SZ) {
+          logger.error("Error 030: Invalid byte array length");
+          return false;
+        }
+        const bytes_peer_service_provider_signature = new Uint8Array(
+          Buffer.from(peer_service_provider_signature, "base64")
+        );
+        if (
+          bytes_peer_service_provider_signature.length !==
+          CONSTANTS.RODIT_ID_SIGNATURE_SZ
+        ) {
+          logger.error("Error 029: Invalid public key length");
+          return false;
+        }
+        const bytes_peer_token_id = new Uint8Array(Buffer.from(peer_token_id));
+        try {
 
-  let bytes_ownServiceProviderOwnerId;
-
-  console.debug(
-    "Info: Service Provider Account ID:",
-    own_serviceprovider_rodit.owner_id
-  );
-  try {
-    bytes_ownServiceProviderOwnerId = new Uint8Array(
-      Buffer.from(own_serviceprovider_rodit.owner_id, "hex")
-    );
-  } catch (error) {
-    logger.error("Error 031: Failed to decode hex string");
-    return false;
-  }
-
-  if (bytes_ownServiceProviderOwnerId.length !== CONSTANTS.RODIT_ID_PK_SZ) {
-    logger.error("Error 030: Invalid byte array length");
-    return false;
-  }
-
-  const bytes_peerServiceProviderSignature = new Uint8Array(
-    Buffer.from(peerServiceProviderSignature, "base64")
-  );
-
-  if (
-    bytes_peerServiceProviderSignature.length !==
-    CONSTANTS.RODIT_ID_SIGNATURE_SZ
-  ) {
-    logger.error("Error 029: Invalid public key length");
-    return false;
-  }
-
-  const bytes_peerTokenId = new Uint8Array(Buffer.from(peerTokenId));
-
-  try {
-    const isValid = nacl.sign.detached.verify(
-      bytes_peerTokenId,
-      bytes_peerServiceProviderSignature,
-      bytes_ownServiceProviderOwnerId
-    );
-
-    if (isValid) {
-      console.debug("Info Peer RODiT matches Own RODiT");
-      return true;
-    } else {
-      logger.error("Error 028: Peer RODiT does not match Own RODiT");
-      return false;
-    }
-  } catch (error) {
-    logger.error(
-      "Error 027: Peer RODiT does not match Own RODiT - Parsing public key"
-    );
-    return false;
-  }
-}
+          const is_valid = nacl.sign.detached.verify(
+            bytes_peer_token_id,
+            bytes_peer_service_provider_signature,
+            bytes_own_service_provider_owner_id
+          );
+          if (is_valid) {
+            console.debug("Info Peer RODiT matches Own RODiT");
+            return true;
+          } else {
+            logger.error("Error 028: Peer RODiT does not match Own RODiT");
+            return false;
+          }
+        } catch (error) {
+          logger.error(
+            "Error 027: Peer RODiT does not match Own RODiT - Parsing public key"
+          );
+          return false;
+        }
+      }
 
 async function verify_rodit_isactive(tokenId, ownsubjectuniqueidentifierurl) {
   const domainAndExtensionRegex = /(\w+\.\w+)$/;
@@ -813,18 +825,17 @@ async function nearorg_rpc_tokensfromaccountid(id, account_id) {
 
 async function generate_jwt_token(
   peer_rodit,
+  peer_timestamp,
   own_rodit,
   own_rodit_bytes_private_key,
-  own_roditid_base64url_signature
 ) {
   try {
-    const now = Math.floor(Date.now() / 1000);
+    const now = peer_timestamp;
 
     // Make sure that the token will not last beyond the expiration date of the RODiT
     const notafter = await dateStringToUnixTime(peer_rodit.metadata.notafter);
     const duration = parseInt(peer_rodit.metadata.jwtduration, 10);
     let expiresat = now;
-
     if (now + duration < notafter) {
       expiresat = parseInt(now) + parseInt(peer_rodit.metadata.jwtduration);
     } else {
@@ -833,6 +844,19 @@ async function generate_jwt_token(
 
     console.debug("Info: This API endpoint Login of Client check passed");
     const notbefore = await dateStringToUnixTime(own_rodit.metadata.notbefore);
+
+    const roditidandtimestamp = new TextEncoder().encode(own_rodit.token_id+await unixTimeToDateString(peer_timestamp));
+
+    console.debug("generate_jwt_token roditidandtimestamp",roditidandtimestamp);
+    console.debug("generate_jwt_token own_rodit_bytes_private_key",own_rodit_bytes_private_key);
+    const own_rodit_bytes_signature = nacl.sign.detached(
+      roditidandtimestamp,
+      own_rodit_bytes_private_key
+    );
+
+    const own_roditid_base64url_signature = Buffer.from(
+      own_rodit_bytes_signature
+    ).toString("base64url");
 
     // For private key
     const own_rodit_keyobject_private_key = crypto.createPrivateKey({
@@ -851,7 +875,7 @@ async function generate_jwt_token(
       aud: peer_rodit.owner_id, // App Client
       exp: expiresat,
       nbf: notbefore,
-      iat: now,
+      iat: peer_timestamp,
       jti: "jti" + ulid(), // jti added to distinguish this quickly visually from the rodit_id
       // amr: "near.org/rodit" // field added to indicate which blockchain and authentication method version has been used
       rodit_id: own_rodit.token_id,
@@ -923,7 +947,8 @@ async function thorough_validate_jwt_token(token) {
       verify_rodit_isamatch(
         config_own_rodit.own_rodit.metadata.serviceproviderid,
         peer_rodit.metadata.serviceprovidersignature,
-        peer_rodit.token_id
+        peer_rodit.token_id,
+        peer_rodit.iat
       ),
       verify_rodit_islive(
         peer_rodit.metadata.notafter,
@@ -964,7 +989,7 @@ async function thorough_validate_jwt_token(token) {
         token.userId
       );
     } else {
-      logger.warn("Token renewal conditions not met for user:", token.userId); // CG: There must be a mechanism so the end user can choose the logger
+      logger.warn("Token renewal conditions not met for user:", token.userId);
     }
 
     return {
@@ -993,7 +1018,7 @@ async function generate_jwt_token_fromtoken(
     if (tokenexpiration <= notafterunixtime) {
       // Proceed with token generation
     } else {
-      throw new Error("Error 009: RODiT has expired");
+      throw new Error("Error 109: RODiT has expired");
     }
 
     const config_own_rodit = await get_rodit_config();
@@ -1054,52 +1079,36 @@ async function authenticate_apicall(req, res, next) {
       logger.warn(`No token provided - Request ID: ${requestId}`);
       return res.status(401).json({
         error: {
-          code: "MISSING_TOKEN",
-          message: "No token provided",
-          requestId,
-        },
+          code: 'MISSING_TOKEN',
+          message: 'No token provided',
+          requestId
+        }
       });
     }
-
+    
     try {
-      const jwk_public_key = await base64url2jwk_public_key(
-        get_session_jwk_public_key()
-      );
+      const jwk_public_key = await base64url2jwk_public_key(get_session_jwk_public_key());
       logger.debug(`Public key retrieved - Request ID: ${requestId}`);
-
-      let { payload, protectedHeader, newToken } = await verifyToken(
-        token,
-        jwk_public_key,
-        req.headers["x-timestamp"],
-        requestId
-      );
-
+      
+      let { payload, protectedHeader, newToken } = await verifyToken(token, jwk_public_key, req.headers["x-timestamp"], requestId);
+      
       if (newToken) {
         res.setHeader("New-Token", newToken);
-        logger.info(
-          `Token renewed after expiration - Request ID: ${requestId}`
-        );
+        logger.info(`Token renewed after expiration - Request ID: ${requestId}`);
       } else if (tokenrenewaloptions.SERVERORCLIENT === "SERVER-INITIATED") {
         // Server-initiated token renewal logic
-        const renewalResult = await checkAndRenewToken(
-          payload,
-          req.headers["x-timestamp"],
-          requestId
-        );
+        const renewalResult = await checkAndRenewToken(payload, req.headers["x-timestamp"], requestId);
         if (renewalResult.newToken) {
           res.setHeader("New-Token", renewalResult.newToken);
-          logger.info(
-            `Token renewed - Request ID: ${requestId}`,
-            renewalResult.logInfo
-          );
+          logger.info(`Token renewed - Request ID: ${requestId}`, renewalResult.logInfo);
         }
       }
-
+      
       if (tokenrenewaloptions.SERVERORCLIENT === "CLIENT-INITIATED") {
         // Add token expiration time to response header for client-initiated refresh
         res.setHeader("Token-Expiration", payload.exp);
       }
-
+      
       req.user = payload;
       logger.info(`Authentication successful - Request ID: ${requestId}`);
       next();
@@ -1107,15 +1116,13 @@ async function authenticate_apicall(req, res, next) {
       handleTokenError(error, res, requestId);
     }
   } catch (error) {
-    logger.error(
-      `Unexpected error in authenticate_apicall: ${error.message} - Request ID: ${requestId}`
-    );
+    logger.error(`Unexpected error in authenticate_apicall: ${error.message} - Request ID: ${requestId}`);
     return res.status(500).json({
       error: {
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Internal server error during authentication",
-        requestId,
-      },
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Internal server error during authentication',
+        requestId
+      }
     });
   }
 }
@@ -1130,22 +1137,15 @@ function extractTokenFromHeader(authHeader) {
 
 async function verifyToken(token, jwk_public_key, timestamp, requestId) {
   try {
-    const result = await jwtVerify(token, jwk_public_key, {
-      algorithms: ["EdDSA"],
-    });
+    const result = await jwtVerify(token, jwk_public_key, { algorithms: ["EdDSA"] });
     logger.debug(`Token verified successfully - Request ID: ${requestId}`);
     return result;
   } catch (jwtError) {
     if (jwtError.code === "ERR_JWT_EXPIRED") {
-      logger.info(
-        `Token expired, attempting renewal - Request ID: ${requestId}`
-      );
+      logger.info(`Token expired, attempting renewal - Request ID: ${requestId}`);
       const config_own_rodit = await get_rodit_config();
       const unverifiedpayload = decodeJwt(token);
-      const { isValid, notAfter } = await thorough_validate_jwt_token(
-        unverifiedpayload,
-        requestId
-      );
+      const { isValid, notAfter } = await thorough_validate_jwt_token(unverifiedpayload, requestId);
       if (isValid) {
         const newToken = await generate_jwt_token_fromtoken(
           unverifiedpayload,
@@ -1153,9 +1153,7 @@ async function verifyToken(token, jwk_public_key, timestamp, requestId) {
           notAfter,
           timestamp
         );
-        logger.info(
-          `New token generated for expired token - Request ID: ${requestId}`
-        );
+        logger.info(`New token generated for expired token - Request ID: ${requestId}`);
         return { payload: unverifiedpayload, protectedHeader: null, newToken };
       }
     }
@@ -1170,64 +1168,37 @@ async function checkAndRenewToken(payload, timestamp, requestId) {
   const durationLeftpct = (timeLeft / currentDuration) * 100;
   const newduration = currentDuration * tokenrenewaloptions.DURATIONRAMP;
 
-  logger.debug(
-    `Token renewal check - Time left: ${durationLeftpct}%, Request ID: ${requestId}`
-  );
+  logger.debug(`Token renewal check - Time left: ${durationLeftpct}%, Request ID: ${requestId}`);
 
   if (durationLeftpct < 100 - tokenrenewaloptions.MIN_RENEWAL_PERCENTAGE) {
     const randomNumber = generateRandomNumber();
-    if (
-      randomNumber < tokenrenewaloptions.THRESHOLD_VALIDATION_TYPE ||
-      newduration <
-        (payload.rodit_maxrqwindow *
-          (100 - tokenrenewaloptions.MIN_RENEWAL_PERCENTAGE)) /
-          100
-    ) {
-      logger.info(
-        `Performing full verification for token renewal - Request ID: ${requestId}`
-      );
-      const { isValid, notAfter } = await thorough_validate_jwt_token(
-        payload,
-        requestId
-      );
+    if (randomNumber < tokenrenewaloptions.THRESHOLD_VALIDATION_TYPE ||
+        newduration < (payload.rodit_maxrqwindow * (100 - tokenrenewaloptions.MIN_RENEWAL_PERCENTAGE)) / 100) {
+      logger.info(`Performing full verification for token renewal - Request ID: ${requestId}`);
+      const { isValid, notAfter } = await thorough_validate_jwt_token(payload, requestId);
       if (isValid) {
-        const newToken = await generate_jwt_token_fromtoken(
-          payload,
-          newduration,
-          notAfter,
-          timestamp
-        );
-        return {
-          newToken,
+        const newToken = await generate_jwt_token_fromtoken(payload, newduration, notAfter, timestamp);
+        return { 
+          newToken, 
           logInfo: {
             newDuration: newduration,
             reason: "Full verification",
             notAfter: notAfter,
-          },
+          }
         };
       }
     } else {
-      logger.info(
-        `Performing light verification for token renewal - Request ID: ${requestId}`
-      );
-      const { isValid, notAfter } = await brief_validate_jwt_token(
-        payload,
-        requestId
-      );
+      logger.info(`Performing light verification for token renewal - Request ID: ${requestId}`);
+      const { isValid, notAfter } = await brief_validate_jwt_token(payload, requestId);
       if (isValid) {
-        const newToken = await generate_jwt_token_fromtoken(
-          payload,
-          newduration,
-          notAfter,
-          timestamp
-        );
-        return {
-          newToken,
+        const newToken = await generate_jwt_token_fromtoken(payload, newduration, notAfter, timestamp);
+        return { 
+          newToken, 
           logInfo: {
             newDuration: newduration,
             reason: "Light verification",
             notAfter: notAfter,
-          },
+          }
         };
       }
     }
@@ -1238,20 +1209,20 @@ async function checkAndRenewToken(payload, timestamp, requestId) {
 function handleTokenError(error, res, requestId) {
   logger.error(`Token error: ${error.message} - Request ID: ${requestId}`);
   if (error.code === "ERR_JWT_INVALID") {
-    return res.status(401).json({
+    return res.status(401).json({ 
       error: {
-        code: "INVALID_TOKEN",
-        message: "Invalid token",
-        requestId,
-      },
+        code: 'INVALID_TOKEN',
+        message: 'Invalid token',
+        requestId
+      }
     });
   }
-  return res.status(403).json({
+  return res.status(403).json({ 
     error: {
-      code: "TOKEN_VERIFICATION_FAILED",
-      message: "Token verification failed",
-      requestId,
-    },
+      code: 'TOKEN_VERIFICATION_FAILED',
+      message: 'Token verification failed',
+      requestId
+    }
   });
 }
 
@@ -1271,41 +1242,32 @@ const send_webhook = async (event, data, isError = false) => {
 
   try {
     if (!config_own_rodit || !config_own_rodit.own_rodit.metadata.webhookurl) {
-      logger.error(
-        `Error: Webhook URL not available in Rodit configuration - Request ID: ${requestId}`
-      );
+      logger.error(`Error: Webhook URL not available in Rodit configuration - Request ID: ${requestId}`);
       return {
         isValid: false,
         error: {
-          code: "WEBHOOK_CONFIG_ERROR",
-          message: "Webhook URL not available in Rodit configuration",
-          requestId,
-        },
+          code: 'WEBHOOK_CONFIG_ERROR',
+          message: 'Webhook URL not available in Rodit configuration',
+          requestId
+        }
       };
     }
 
     const timestamp = Date.now();
-    const payload = JSON.stringify({
-      event,
-      data,
-      isError,
-      timestamp,
-      requestId,
-    });
-    const sha256_ofpayload = crypto
-      .createHash("sha256")
-      .update(payload)
-      .digest();
+    const payload = JSON.stringify({ event, data, isError, timestamp, requestId });
+    const sha256_ofpayload = crypto.createHash("sha256").update(payload).digest();
 
     const own_rodit_private_key = new Uint8Array(
       Buffer.from(config_own_rodit.own_rodit_bytes_private_key, "hex")
     );
+
+    console.debug("send_webhook sha256_ofpayload",sha256_ofpayload);
+    console.debug("send_webhook own_rodit_private_key",own_rodit_private_key);
     const signature_ofpayload = nacl.sign.detached(
       sha256_ofpayload,
       own_rodit_private_key
     );
-    const signature_hex_ofpayload =
-      Buffer.from(signature_ofpayload).toString("hex");
+    const signature_hex_ofpayload = Buffer.from(signature_ofpayload).toString("hex");
 
     const response = await fetch(
       `http://${config_own_rodit.own_rodit.metadata.webhookurl}/webhook`,
@@ -1315,7 +1277,7 @@ const send_webhook = async (event, data, isError = false) => {
           "Content-Type": "application/json",
           "X-Signature": signature_hex_ofpayload,
           "X-Timestamp": timestamp.toString(),
-          "X-Request-ID": requestId,
+          "X-Request-ID": requestId
         },
         body: payload,
       }
@@ -1326,26 +1288,23 @@ const send_webhook = async (event, data, isError = false) => {
     }
 
     await response.text(); // consume the response body
-    logger.info(
-      `Webhook sent successfully - Event: ${event}, Request ID: ${requestId}`
-    );
+    logger.info(`Webhook sent successfully - Event: ${event}, Request ID: ${requestId}`);
 
     return {
       isValid: true,
-      message: "Webhook sent successfully",
-      requestId,
+      message: 'Webhook sent successfully',
+      requestId
     };
+
   } catch (error) {
-    logger.error(
-      `Error in send_webhook: ${error.message} - Request ID: ${requestId}`
-    );
+    logger.error(`Error in send_webhook: ${error.message} - Request ID: ${requestId}`);
     return {
       isValid: false,
       error: {
-        code: "WEBHOOK_SEND_ERROR",
+        code: 'WEBHOOK_SEND_ERROR',
         message: `Failed to send webhook: ${error.message}`,
-        requestId,
-      },
+        requestId
+      }
     };
   }
 };
@@ -1360,12 +1319,7 @@ const send_webhook = async (event, data, isError = false) => {
  * @param {Uint8Array} peer_bytes_public_key - Peer's public key
  * @returns {Object} Authentication result
  */
-function authenticate_webhook(
-  payload,
-  signature_hex_ofpayload,
-  timestamp,
-  peer_bytes_public_key
-) {
+function authenticate_webhook(payload, signature_hex_ofpayload, timestamp, peer_bytes_public_key) {
   const requestId = ulid();
   logger.info(`Webhook authentication started - Request ID: ${requestId}`);
 
@@ -1378,22 +1332,16 @@ function authenticate_webhook(
       return {
         isValid: false,
         error: {
-          code: "TIMESTAMP_EXPIRED",
-          message: "Webhook timestamp is too old",
-          requestId,
-        },
+          code: 'TIMESTAMP_EXPIRED',
+          message: 'Webhook timestamp is too old',
+          requestId
+        }
       };
     }
 
-    const sha256_ofpayload = crypto
-      .createHash("sha256")
-      .update(payload)
-      .digest();
-    const buffer_signature_ofpayload = Buffer.from(
-      signature_hex_ofpayload,
-      "hex"
-    );
-
+    const sha256_ofpayload = crypto.createHash("sha256").update(payload).digest();
+    const buffer_signature_ofpayload = Buffer.from(signature_hex_ofpayload, "hex");
+    
     const isValid = nacl.sign.detached.verify(
       sha256_ofpayload,
       buffer_signature_ofpayload,
@@ -1405,31 +1353,30 @@ function authenticate_webhook(
       return {
         isValid: false,
         error: {
-          code: "INVALID_SIGNATURE",
-          message: "Invalid webhook signature",
-          requestId,
-        },
+          code: 'INVALID_SIGNATURE',
+          message: 'Invalid webhook signature',
+          requestId
+        }
       };
     }
 
     logger.info(`Webhook authentication successful - Request ID: ${requestId}`);
     return {
       isValid: true,
-      message: "Webhook authentication successful",
-      requestId,
+      message: 'Webhook authentication successful',
+      requestId
     };
+
   } catch (error) {
-    logger.error(
-      `Unexpected error in webhook authentication: ${error.message} - Request ID: ${requestId}`
-    );
+    logger.error(`Unexpected error in webhook authentication: ${error.message} - Request ID: ${requestId}`);
     return {
       isValid: false,
       error: {
-        code: "AUTHENTICATION_ERROR",
-        message: "An unexpected error occurred during webhook authentication",
+        code: 'AUTHENTICATION_ERROR',
+        message: 'An unexpected error occurred during webhook authentication',
         details: error.message,
-        requestId,
-      },
+        requestId
+      }
     };
   }
 }
@@ -1451,6 +1398,20 @@ async function dateStringToUnixTime(datestring) {
 
   return unixTimeSec;
 }
+
+async function unixTimeToDateString(unixTimeSec) {
+  // Convert seconds to milliseconds
+  const unixTimeMs = unixTimeSec * 1000;
+
+  // Create a new Date object using the milliseconds timestamp
+  const date = new Date(unixTimeMs);
+
+  // Convert the Date object to an ISO 8601 string
+  const dateString = date.toISOString();
+
+  return dateString;
+}
+
 
 function set_session_jwk_public_key(jwk_public_key) {
   session_base64url_jwk_public_key = jwk_public_key;
