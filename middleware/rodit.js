@@ -410,7 +410,6 @@ async function verify_hasrodit_getit(
   const account_idargs = `{"token_id": "${peerroditid}"}`;
 
   try {
-    console.debug("verify_hasrodit_getit peerroditid",peerroditid);
 
     const peer_rodit = await nearorg_rpc_tokenfromroditid(
       CONSTANTS.SMART_CONTRACT,
@@ -427,9 +426,6 @@ async function verify_hasrodit_getit(
       Buffer.from(peer_rodit.owner_id, "hex")
     );
 
-    console.debug("verify_hasrodit_getit roditidandtimestamp",roditidandtimestamp);
-    console.debug("verify_hasrodit_getit bytes_ed25519_signature",bytes_ed25519_signature);
-    console.debug("verify_hasrodit_getit peer_bytes_ed25519_public_key",peer_bytes_ed25519_public_key);
     const isVerified = nacl.sign.detached.verify(
       roditidandtimestamp,
       bytes_ed25519_signature,

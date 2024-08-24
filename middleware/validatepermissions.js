@@ -29,75 +29,56 @@ async function validatepermissions(req, res, next) {
     const permissionedRoutes = JSON.parse(
       decodedToken.rodit_permissionedroutes
     );
-    const { endpoints } = permissionedRoutes;
+    const { entities } = permissionedRoutes;
     const currentPath = req.path;
     let isPermitted = false;
     let commentsRate = null;
+    let permissionScope = null;
 
-    // Verify Rate and sign (+ for entity and property, - for property only, nada for entity only) to each route for internal processing
-    for (const endpoint of endpoints) {
-      const { url, _, entities } = endpoint;
-      logger.info(`url: ${url}`);
-      if (url === currentPath) {
-        const method = url.split("/").pop();
+    // Find the entity that has the current path in its methods
+    for (const entityObj of entities) {
+      const entity = entityObj.entity || entityObj.name; // Handle both "entity" and "name" keys
+      const methods = entityObj.methods;
+
+      if (methods.hasOwnProperty(currentPath)) {
+        const rateValue = methods[currentPath];
+        const method = currentPath.split("/").pop();
+
+        logger.info(`url: ${currentPath}`);
         logger.info(`method: ${method}`);
-        switch (method) {
-          case "create":
-            isPermitted = entities.some((entity) => {
-              if (entity.R && entity.R.startsWith("+")) {
-                commentsRate = entity.R;
-                return true;
-              }
-              return false;
-            });
-            break;
-          case "read":
-            isPermitted = entities.some((entity) => {
-              if (
-                entity.R &&
-                (entity.R.startsWith("+") || !entity.R.startsWith("-"))
-              ) {
-                commentsRate = entity.R;
-                return true;
-              }
-              return false;
-            });
-            break;
-          case "update":
-            isPermitted = entities.some((entity) => {
-              if (
-                entity.R &&
-                (entity.R.startsWith("+") || !entity.R.startsWith("-"))
-              ) {
-                commentsRate = entity.R;
-                return true;
-              }
-              return false;
-            });
-            break;
-          case "destroy":
-            isPermitted = entities.some((entity) => {
-              if (entity.R && entity.R.startsWith("+")) {
-                commentsRate = entity.R;
-                return true;
-              }
-              return false;
-            });
-            break;
-          // CG TEST LIST OK
-          case "list":
-            isPermitted = entities.some((entity) => {
-              if (entity.R && entity.R.startsWith("+")) {
-                commentsRate = entity.R;
-                return true;
-              }
-              return true;
-            });
-            break;
-          default:
-            logger.error(`Error: Unknown method type: ${method}`);
+
+        // Determine permission scope based on rate sign
+        if (rateValue.startsWith("+")) {
+          permissionScope = "entityAndProperties";
+        } else if (rateValue.startsWith("-")) {
+          permissionScope = "propertiesOnly";
+        } else {
+          permissionScope = "entityOnly";
         }
-        if (isPermitted) break; // Exit the loop if permission is granted
+
+        switch (method) {
+            case "create":
+            case "destroy":
+              isPermitted = permissionScope === "entityAndProperties";
+              break;
+            case "read":
+            case "update":
+              isPermitted = permissionScope !== "propertiesOnly";
+              break;
+            case "list":
+            case "list_all":
+              // Only permitted if explicitly included in the JSON
+              isPermitted = permissionScope !== "propertiesOnly";
+              break;
+            default:
+              logger.error(`Error: Unknown method type: ${method}`);
+              isPermitted = false;
+          }
+
+        if (isPermitted) {
+          commentsRate = rateValue;
+          break; // Exit the loop if permission is granted
+        }
       }
     }
 
@@ -108,6 +89,7 @@ async function validatepermissions(req, res, next) {
     // If we've made it this far, permissions are valid
     if (commentsRate) {
       req.commentsRate = commentsRate; // Pass the value to the next middleware
+      req.permissionScope = permissionScope; // Pass the permission scope to the next middleware
     }
     next();
   } catch (error) {
