@@ -2,8 +2,8 @@ const express = require("express");
 const router = express.Router();
 const logger = require("../config/logger");
 const config = require("config");
-const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
+const sqlite3 = require("sqlite3").verbose();
+const { open } = require("sqlite");
 
 const {
   set_rodit_config,
@@ -14,6 +14,8 @@ const {
 const RODIT_CONFIGURATION_FILE_PATH = config.get(
   "RODIT_CONFIGURATION_FILE_PATH"
 );
+const LOG_DIR = config.get("LOG_DIR");
+const DB_PATH = config.get("DB_PATH");
 
 let db;
 
@@ -26,8 +28,8 @@ const initializeRouter = async () => {
 
     // Initialize SQLite database
     db = await open({
-      filename: './database.sqlite',
-      driver: sqlite3.Database
+      filename: DB_PATH,
+      driver: sqlite3.Database,
     });
 
     // Create comments table if it doesn't exist
@@ -57,13 +59,17 @@ const logEvent = (event, data, isError = false) => {
 // Combined function that logs and sends webhook
 const logAndSendWebhook = async (event, data, isError = false) => {
   const result = await send_webhook(event, data, isError);
-  
+
   if (result.isValid) {
-    logger.info(`Webhook sent successfully - Event: ${event}, Request ID: ${result.requestId}`);
+    logger.info(
+      `Webhook sent successfully - Event: ${event}, Request ID: ${result.requestId}`
+    );
   } else {
-    logger.error(`Webhook send failed - Event: ${event}, Error: ${result.error.message}, Request ID: ${result.requestId}`);
+    logger.error(
+      `Webhook send failed - Event: ${event}, Error: ${result.error.message}, Request ID: ${result.requestId}`
+    );
   }
-  
+
   // You can still log the event locally if needed
   logEvent(event, data, isError, result.requestId);
 };
@@ -83,7 +89,7 @@ initializeRouter()
 const itemExists = async (req, res, next) => {
   const id = parseInt(req.body.id);
   try {
-    const comment = await db.get('SELECT * FROM comments WHERE id = ?', id);
+    const comment = await db.get("SELECT * FROM comments WHERE id = ?", id);
     if (!comment) {
       const errorMessage = `Comment not found: ${id}`;
       logAndSendWebhook("comment_not_found", { id, error: errorMessage }, true);
@@ -113,7 +119,7 @@ router.post(
     }
     try {
       const result = await db.run(
-        'INSERT INTO comments (title, content) VALUES (?, ?)',
+        "INSERT INTO comments (title, content) VALUES (?, ?)",
         [title, content]
       );
       const newItem = {
@@ -143,7 +149,7 @@ router.post(
   },
   async (req, res) => {
     try {
-      const comments = await db.all('SELECT * FROM comments');
+      const comments = await db.all("SELECT * FROM comments");
       const itemCount = comments.length;
       logAndSendWebhook("comments_listed", { count: itemCount });
       const response = { comments };
@@ -189,10 +195,13 @@ router.post(
     const oldComment = { ...req.comment };
     try {
       await db.run(
-        'UPDATE comments SET title = COALESCE(?, title), content = COALESCE(?, content) WHERE id = ?',
+        "UPDATE comments SET title = COALESCE(?, title), content = COALESCE(?, content) WHERE id = ?",
         [title, content, id]
       );
-      const updatedComment = await db.get('SELECT * FROM comments WHERE id = ?', id);
+      const updatedComment = await db.get(
+        "SELECT * FROM comments WHERE id = ?",
+        id
+      );
       logAndSendWebhook("comment_updated", {
         id: updatedComment.id,
         oldTitle: oldComment.title,
@@ -224,7 +233,7 @@ router.post(
     const { id } = req.body;
     try {
       const deletedComment = { ...req.comment };
-      await db.run('DELETE FROM comments WHERE id = ?', id);
+      await db.run("DELETE FROM comments WHERE id = ?", id);
       logAndSendWebhook("comment_destroyed", deletedComment);
       const response = {
         message: "Comment successfully deleted",

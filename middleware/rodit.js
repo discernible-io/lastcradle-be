@@ -13,6 +13,7 @@ const { Resolver } = require("dns").promises;
 
 const CONSTANTS = {
   SMART_CONTRACT: "10903-cableguard-org.testnet", // // ".testnet" for TESTNET ".near" for MAINNET
+  SMART_CONTRACT_REVOKED: "10903-revoked-cableguard-org.testnet", // // ".testnet" for TESTNET ".near" for MAINNET
   BLOCKCHAIN_NETWORK: ".testnet", // ".testnet" for TESTNET "." for MAINNET
   RODIT_ID_SZ: 128,
   RODIT_ID_PK_SZ: 32,
@@ -467,9 +468,7 @@ async function verify_rodit_isamatch(
           return false;
         }
         let bytes_own_service_provider_owner_id;
-        console.debug(
-          "Info: Service Provider Account ID:",
-          own_service_provider_rodit.owner_id
+        console.debug("Info: Service Provider Account ID:",own_service_provider_rodit.owner_id
         );
         try {
           bytes_own_service_provider_owner_id = new Uint8Array(
@@ -843,8 +842,6 @@ async function generate_jwt_token(
 
     const roditidandtimestamp = new TextEncoder().encode(own_rodit.token_id+await unixTimeToDateString(peer_timestamp));
 
-    console.debug("generate_jwt_token roditidandtimestamp",roditidandtimestamp);
-    console.debug("generate_jwt_token own_rodit_bytes_private_key",own_rodit_bytes_private_key);
     const own_rodit_bytes_signature = nacl.sign.detached(
       roditidandtimestamp,
       own_rodit_bytes_private_key
@@ -1257,8 +1254,6 @@ const send_webhook = async (event, data, isError = false) => {
       Buffer.from(config_own_rodit.own_rodit_bytes_private_key, "hex")
     );
 
-    console.debug("send_webhook sha256_ofpayload",sha256_ofpayload);
-    console.debug("send_webhook own_rodit_private_key",own_rodit_private_key);
     const signature_ofpayload = nacl.sign.detached(
       sha256_ofpayload,
       own_rodit_private_key
