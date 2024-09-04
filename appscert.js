@@ -53,8 +53,8 @@ const options = {
 let ratelimitmwph = ratelimitmw(100, 15 * 60 * 1000);
 
 // Configuration is now loaded from config files
-const RODIT_CONFIGURATION_FILE_PATH = config.get(
-  "RODIT_CONFIGURATION_FILE_PATH"
+const VAULT_RODIT_KEYVALUE_PATH = config.get(
+  "VAULT_RODIT_KEYVALUE_PATH"
 );
 const PORT = config.get("PORT");
 
@@ -207,7 +207,7 @@ function updateratelimit(maxrequests, maxrqwindow) {
 // Start server
 async function startServer() {
   try {
-    await set_rodit_config(RODIT_CONFIGURATION_FILE_PATH);
+    await set_rodit_config(VAULT_RODIT_KEYVALUE_PATH);
     const config_own_rodit = await get_rodit_config();
 
     // Create key objects using Node.js crypto

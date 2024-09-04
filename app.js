@@ -11,13 +11,19 @@ const loggingmw = require("./middleware/loggingmw");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 const forge = require("node-forge");
-
 const {
   set_rodit_config,
   get_rodit_config,
   login_client,
   authenticate_apicall,
 } = require("./middleware/rodit");
+
+const {
+  initializeAndUnsealVault,
+  get_rodit_fromvault,
+  get_rodit_fromfile,
+  vault,
+} = require("./middleware/vaultsetup");
 
 const options = {
   definition: {
@@ -50,9 +56,7 @@ const options = {
 let ratelimiter = ratelimitmw(100, 15);
 
 // Configuration is now loaded from config files
-const RODIT_CONFIGURATION_FILE_PATH = config.get(
-  "RODIT_CONFIGURATION_FILE_PATH"
-);
+const VAULT_RODIT_KEYVALUE_PATH = config.get("VAULT_RODIT_KEYVALUE_PATH");
 
 const swaggerSpec = swaggerJsdoc(options);
 const app = express();
@@ -104,8 +108,8 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.post(
   "/login",
   async (req, res, next) => {
-      req.logAction = "login-attempt";
-      next();
+    req.logAction = "login-attempt";
+    next();
   },
   login_client
 );
@@ -153,9 +157,16 @@ function updateratelimit(maxrequests, maxrqwindow) {
 // Start server
 async function startServer() {
   try {
-    await set_rodit_config(RODIT_CONFIGURATION_FILE_PATH);
+    // Initialize and unseal Vault
+    await initializeAndUnsealVault();
+
+    const { own_rodit_hex_accountid, own_string_private_key } =
+      await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH);
+    await set_rodit_config(own_rodit_hex_accountid, own_string_private_key);
+
     const config_own_rodit = await get_rodit_config();
 
+    // Check and update rate limits if applicable
     if (
       config_own_rodit.own_rodit.metadata.maxrequests &&
       config_own_rodit.own_rodit.metadata.maxrqwindow
@@ -168,27 +179,29 @@ async function startServer() {
       logger.info("Info: Unable to update rate limit due to missing data");
     }
 
+    // Start the server
     app.listen(config_own_rodit.port, () => {
       logger.info(`Info: Server started on port ${config_own_rodit.port}`);
     });
   } catch (error) {
-    logger.error(`Error 107:Failed to start server: ${error}`);
+    // Log and handle any errors that occur during server startup
+    logger.error(`Error 107: Failed to start server: ${error.message}`);
     process.exit(1);
   }
 }
 
 startServer();
 
-process.on('SIGINT', async () => {
+process.on("SIGINT", async () => {
   await db.close();
   process.exit(0);
 });
 
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server')
+process.on("SIGTERM", () => {
+  console.log("SIGTERM signal received: closing HTTP server");
   server.close(() => {
-    console.log('HTTP server closed')
+    console.log("HTTP server closed");
     db.close();
-    process.exit(0)
-  })
-})
+    process.exit(0);
+  });
+});

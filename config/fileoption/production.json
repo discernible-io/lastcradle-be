@@ -1,0 +1,6 @@
+{
+  "RODIT_CONFIGURATION_FILE_PATH": "/etc/rodit/roditconfig.server",
+  "SERVERPORT": 443,
+  "API_PROTOCOL": "https",
+  "NEAR_RPC_URL": "https://rpc.mainnet.near.org"
+}

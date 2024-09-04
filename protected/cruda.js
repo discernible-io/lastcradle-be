@@ -4,16 +4,20 @@ const logger = require("../config/logger");
 const config = require("config");
 const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
-
+const {
+  initializeAndUnsealVault,
+  get_rodit_fromvault,
+  get_rodit_fromfile,
+  vault,
+} = require("../middleware/vaultsetup");
 const {
   set_rodit_config,
   get_rodit_config,
   send_webhook,
 } = require("../middleware/rodit");
 
-const RODIT_CONFIGURATION_FILE_PATH = config.get(
-  "RODIT_CONFIGURATION_FILE_PATH"
-);
+const VAULT_RODIT_KEYVALUE_PATH = config.get("VAULT_RODIT_KEYVALUE_PATH");
+
 const LOG_DIR = config.get("LOG_DIR");
 const DB_PATH = config.get("DB_PATH");
 
@@ -22,7 +26,25 @@ let db;
 // Initialization function
 const initializeRouter = async () => {
   try {
-    await set_rodit_config(RODIT_CONFIGURATION_FILE_PATH);
+    await initializeAndUnsealVault();
+
+    const { own_rodit_hex_accountid, own_string_private_key } = await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH);
+    await set_rodit_config(own_rodit_hex_accountid, own_string_private_key);
+    
+    const config_own_rodit = await get_rodit_config();
+
+    // Validate and log the account ID and private key
+    if (
+      !own_rodit_hex_accountid ||
+      typeof own_rodit_hex_accountid !== "string"
+    ) {
+      throw new Error("Error 044: Invalid or missing account_id value");
+    }
+    if (!own_string_private_key || typeof own_string_private_key !== "string") {
+      throw new Error("Error 043: Invalid or missing private_key value");
+    }
+    
+    await set_rodit_config(own_rodit_hex_accountid, own_string_private_key);
     const config = await get_rodit_config();
     logger.info("Rodit configuration initialized successfully");
 

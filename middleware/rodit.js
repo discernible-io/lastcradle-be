@@ -55,7 +55,7 @@ class RODiT {
   }
 }
 
-async function set_rodit_config(configuration_file_path) {
+async function set_rodit_config(own_rodit_hex_accountid,own_string_private_key) {
   try {
     const smartContractUrl = CONSTANTS.SMART_CONTRACT;
     // Extract the extension from the SMART_CONTRACT URL
@@ -71,26 +71,9 @@ async function set_rodit_config(configuration_file_path) {
       );
     }
 
-    // Read the configuration file to get the path of the JSON file
-    const configoptions = await fs.readFile(configuration_file_path, "utf8");
-    const pathaccountidfile = configoptions.trim(); // Assuming the file contains just the path
-
-    // Now read the JSON file using the path we got from the configuration file
-    const accountidfile = await fs.readFile(pathaccountidfile, "utf8");
-    const options = JSON.parse(accountidfile);
-
-    const own_rodit_hex_accountid = options.implicit_account_id;
     if (typeof own_rodit_hex_accountid !== "string") {
       throw new Error("Error 044: Invalid or missing account_id value");
     }
-
-    console.debug("Info: Own Account ID:", own_rodit_hex_accountid);
-
-    let own_string_private_key = options.private_key;
-    if (typeof own_string_private_key !== "string") {
-      throw new Error("Error 043: Invalid private_key value");
-    }
-
   
     // Check if the account is funded
     const result = await nearorg_rpc_state(

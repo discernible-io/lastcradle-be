@@ -35,6 +35,7 @@ roditconfig.server
 roditconfig.client
 account
 account.env
+*.hcl
 
 # Executables
 boringtun-cli
