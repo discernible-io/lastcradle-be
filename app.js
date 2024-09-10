@@ -161,7 +161,7 @@ async function startServer() {
     await initializeAndUnsealVault();
 
     const { own_rodit_hex_accountid, own_string_private_key } =
-      await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH);
+      await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH,"account_server");
     await set_rodit_config(own_rodit_hex_accountid, own_string_private_key);
 
     const config_own_rodit = await get_rodit_config();

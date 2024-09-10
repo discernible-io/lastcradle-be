@@ -28,10 +28,7 @@ const initializeRouter = async () => {
   try {
     await initializeAndUnsealVault();
 
-    const { own_rodit_hex_accountid, own_string_private_key } = await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH);
-    await set_rodit_config(own_rodit_hex_accountid, own_string_private_key);
-    
-    const config_own_rodit = await get_rodit_config();
+    const { own_rodit_hex_accountid, own_string_private_key } = await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH,"account_server");
 
     // Validate and log the account ID and private key
     if (
@@ -43,7 +40,7 @@ const initializeRouter = async () => {
     if (!own_string_private_key || typeof own_string_private_key !== "string") {
       throw new Error("Error 043: Invalid or missing private_key value");
     }
-    
+
     await set_rodit_config(own_rodit_hex_accountid, own_string_private_key);
     const config = await get_rodit_config();
     logger.info("Rodit configuration initialized successfully");

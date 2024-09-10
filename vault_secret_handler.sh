@@ -4,8 +4,8 @@
 export VAULT_ADDR='http://127.0.0.1:8200'
 
 # AppRole credentials
-ROLE_ID='95df3211-643f-b3a4-ebca-1dc7d16e6655'
-SECRET_ID='321962aa-ecc9-5bdf-a5b6-056124e6abd0'
+ROLE_ID='3faefcf7-25d5-5ac5-bb11-4441c9da04b8'
+SECRET_ID='a4985226-90a8-68d2-26c0-ee95a889e313'
 
 # Function to authenticate with Vault using AppRole
 authenticate_vault() {
