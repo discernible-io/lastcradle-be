@@ -19,11 +19,11 @@ const {
 } = require("./middleware/rodit");
 
 const {
-  initializeAndUnsealVault,
+  initializeProductionVault,
   get_rodit_fromvault,
   get_rodit_fromfile,
   vault,
-} = require("./middleware/vaultsetup");
+} = require("./middleware/vaultsetup-production");
 
 const options = {
   definition: {
@@ -158,7 +158,7 @@ function updateratelimit(maxrequests, maxrqwindow) {
 async function startServer() {
   try {
     // Initialize and unseal Vault
-    await initializeAndUnsealVault();
+    await initializeProductionVault();
 
     const { own_rodit_hex_accountid, own_string_private_key } =
       await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH,"account_server");

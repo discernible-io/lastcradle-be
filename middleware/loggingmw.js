@@ -1,15 +1,6 @@
 const { ulid } = require("ulid");
 const logger = require("../config/logger");
 
-/* const logger = createLogger({
-  level: 'info',
-  format: format.combine(
-    format.timestamp(),
-    format.json()
-  ),
-  transports: [new transports.Console()]
-}); */
-
 const loggingmw = (req, res, next) => {
   const start = Date.now();
 
@@ -28,7 +19,7 @@ const loggingmw = (req, res, next) => {
       clientIP: req.ip, // Address ID
       roditID: req.user ? req.user.id : "unauthenticated", // Credential ID / Credential Directory
       url: req.originalUrl,
-      service: req.logService || "rodit-api", // Source ID / Source Directory
+      service: req.logService || "rodit-signrodit-api", // Source ID / Source Directory
       action: req.logAction || "unspecified", // Type of event / Request type
       // payload with information necessary to perform the request
       resource: res.itemid, // Resource ID / Resource Directory

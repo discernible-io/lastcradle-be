@@ -5,11 +5,11 @@ const config = require("config");
 const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
 const {
-  initializeAndUnsealVault,
+  initializeProductionVault,
   get_rodit_fromvault,
   get_rodit_fromfile,
   vault,
-} = require("../middleware/vaultsetup");
+} = require("../middleware/vaultsetup-production");
 const {
   set_rodit_config,
   get_rodit_config,
@@ -26,7 +26,7 @@ let db;
 // Initialization function
 const initializeRouter = async () => {
   try {
-    await initializeAndUnsealVault();
+    await initializeProductionVault();
 
     const { own_rodit_hex_accountid, own_string_private_key } = await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH,"account_server");
 
