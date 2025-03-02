@@ -36,12 +36,12 @@ const options = {
       //},
       contact: {
         name: "JSONPlaceholder for the contact name",
-        url: "https://localhost:3000/home.js",
+        url: "https:// https://dev-api.aparejos.net:3443/home.js",
       },
     },
     servers: [
       {
-        url: "https://localhost:3000",
+        url: "https:// https://dev-api.aparejos.net:3443",
         description: "RODiT Development server",
       },
     ],

@@ -1,0 +1,107 @@
+name: Deploy Node.js API
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  SSH_HOST: 178.128.173.226
+  SSH_USER: ${{ secrets.SSH_USER }}
+  API_DOMAIN: dev-api.aparejos.net
+  API_PORT: 8443
+  NODE_VERSION: 18
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          name: id_rsa
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+          
+      - name: Setup and Copy Files
+        run: |
+          echo "Setting up directories..."
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertestapi-app/{certs,logs,data,nginx}"
+          
+          echo "Copying API files..."
+          rsync -avz --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'node_modules' \
+            --exclude 'certs' \
+            --exclude 'logs' \
+            --exclude 'data' \
+            ./ ${{ env.SSH_USER }}@${{ env.SSH_HOST }}:~/servertestapi-app/
+
+      - name: Deploy Containers
+        run: |
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
+            set -x
+            cd ~/servertestapi-app
+            
+            # Clean up existing resources
+            echo 'Cleaning up existing resources...'
+            podman pod exists servertestapi-pod && podman pod rm -f servertestapi-pod
+            podman image exists servertestapi-image:latest && podman rmi -f servertestapi-image:latest
+            podman image exists localhost/servertestapi-nginx:latest && podman rmi -f localhost/servertestapi-nginx:latest
+            
+            # Create new pod
+            echo 'Creating API pod...'
+            podman pod create --name servertestapi-pod -p ${API_PORT}:${API_PORT}
+            
+            # Build and run API container
+            echo 'Building and running API container...'
+            podman build -t servertestapi-image:latest -f api.Dockerfile .
+            podman run -d \
+              --pod servertestapi-pod \
+              --name servertestapi-container \
+              --restart=unless-stopped \
+              -v ~/servertestapi-app/logs:/app/logs:Z \
+              -v ~/servertestapi-app/data:/app/data:Z \
+              -v ~/servertestapi-app/certs:/app/certs:ro,Z \
+              servertestapi-image:latest
+            
+            # Build and run nginx
+            echo 'Building and running nginx...'
+            podman build -t localhost/servertestapi-nginx:latest -f nginx.Dockerfile .
+            podman run -d \
+              --pod servertestapi-pod \
+              --name servertestapi-nginx \
+              --restart=unless-stopped \
+              -v ~/servertestapi-app/certs:/app/certs:ro,Z \
+              localhost/servertestapi-nginx:latest
+            
+            # Check status and logs
+            echo 'Container status:'
+            podman ps -a
+            
+            echo 'API logs:'
+            podman logs servertestapi-container || true
+            
+            echo 'Nginx logs:'
+            podman logs servertestapi-nginx || true
+          "
