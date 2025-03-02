@@ -1,28 +1,22 @@
 FROM node:18
 
-# Install tini
 ENV TINI_VERSION v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
 
 WORKDIR /app
 
-# Copy package files first
+# Copy package files first for caching
 COPY package*.json ./
 
-# Install dependencies with extra error handling
+# Install dependencies
 RUN npm install --production \
     && npm cache clean --force \
     && rm -rf /root/.npm/_cacache
 
-# Copy application files
-COPY . .
+# Copy src directory
+COPY src/ ./src/
 
-# Create non-root user for better security
-RUN adduser --disabled-password --gecos "" nodeuser && \
-    chown -R nodeuser:nodeuser /app
-USER nodeuser
-
-EXPOSE 8080
+# Set entry point to app.js
 ENTRYPOINT ["/tini", "--"]
-CMD ["node", "app.js"]
+CMD ["node", "src/app.js"]
