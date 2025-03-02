@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Cableguard, Inc. All rights reserved.
 
-const config = require("./config/default.json");
+const config = require("config");
 const express = require("express");
 const cors = require("cors");
 const https = require("https");
 const ratelimitmw = require("./middleware/ratelimit");
 const validatepermissions = require("./middleware/validatepermissions");
-const logger = require("./config/logger");
+const logger = require("../../config/logger");
 const loggingmw = require("./middleware/loggingmw");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");

@@ -1,5 +1,5 @@
 const { ulid } = require("ulid");
-const logger = require("../config/logger");
+const logger = require("../../config/logger");
 
 const loggingmw = (req, res, next) => {
  const start = Date.now();
