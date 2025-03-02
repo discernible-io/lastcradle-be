@@ -1,6 +1,6 @@
 const config = require("config");
 const { CONSTANTS } = require("../middleware/rodit");
-const logger = require("../config/logger");
+const logger = require("../../config/logger");
 
 class VaultManager {
   constructor() {
