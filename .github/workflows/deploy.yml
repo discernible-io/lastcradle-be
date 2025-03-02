@@ -10,7 +10,7 @@ env:
   SSH_HOST: 178.128.173.226
   SSH_USER: ${{ secrets.SSH_USER }}
   API_DOMAIN: dev-api.aparejos.net
-  API_PORT: 8443
+  API_PORT: 3443
   NODE_VERSION: 18
 
 jobs:
