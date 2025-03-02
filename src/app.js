@@ -1,6 +1,6 @@
 // Copyright (c) 2024 Cableguard, Inc. All rights reserved.
 
-const config = require("config");
+const config = require("../config");
 const express = require("express");
 const cors = require("cors");
 const https = require("https");
