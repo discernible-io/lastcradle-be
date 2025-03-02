@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const logger = require("../../config/logger");
+const logger = require("../config/logger");
 const config = require("config");
 const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
