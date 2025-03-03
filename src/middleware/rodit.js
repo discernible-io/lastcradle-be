@@ -7,7 +7,7 @@ const bs58 = require("bs58");
 const { ulid } = require("ulid");
 const config = require("config");
 const fs = require("fs").promises;
-const logger = require("../../config/logger");
+const logger = require("../config/logger");
 const crypto = require("crypto");
 const nacl = require("tweetnacl");
 const borsh = require("borsh");
@@ -201,10 +201,10 @@ class RoditManager {
 
     try {
       const accountType =
-        type === "portal" ? "account_portal" : "sanctum";
+        type === "portal" ? "account_portal" : "account_sanctum";
       const vaultData = await get_rodit_fromvault(
         vault,
-        this.vaultPath, type,
+        `${this.vaultPath}/${type}`,
         accountType
       );
 
