@@ -32,7 +32,7 @@ const initializeRouter = async () => {
     logger.info(`Attempting to retrieve Rodit config from Vault path: secret/data/${VAULT_RODIT_KEYVALUE_PATH} with key: sanctum`);
     
     // Get credentials using the "sanctum" key that works in the main app
-    const credentials = await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH, "sanctum");
+    const credentials = await get_rodit_fromvault(vault, `${VAULT_RODIT_KEYVALUE_PATH}/sanctum`, "account_sanctum");
     
     // Map the returned credentials to your expected variable names
     const own_rodit_hex_accountid = credentials.account_id;
