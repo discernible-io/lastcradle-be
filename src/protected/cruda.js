@@ -11,8 +11,8 @@ const {
   vault,
 } = require("../middleware/vaultsetup-production");
 const {
-  set_rodit_config,
-  get_rodit_config,
+  roditManager,
+  stateManager,
   send_webhook,
 } = require("../middleware/rodit");
 
@@ -22,35 +22,23 @@ const LOG_DIR = config.get("API_OPTIONS.LOG_DIR");
 const DB_PATH = config.get("API_OPTIONS.LOG_DIR");
 
 let db;
-
-// Initialization function
 const initializeRouter = async () => {
   try {
-    await initializeProductionVault();
+    // Initialize the vault
+    await roditManager.initializeVault();
     
-    // Log which Vault path and secret key we're using
-    logger.info(`Attempting to retrieve Rodit config from Vault path: secret/data/${VAULT_RODIT_KEYVALUE_PATH} with key: sanctum`);
+    // Initialize RODIT configuration using the same method as the working API
+    logger.info("Initializing RODIT configuration using RoditManager");
+    await roditManager.initializeRoditConfig("sanctum");
     
-    // Get credentials using the "sanctum" key that works in the main app
-    const credentials = await get_rodit_fromvault(vault, `${VAULT_RODIT_KEYVALUE_PATH}/sanctum`, "account_sanctum");
+    // Get the configuration from the stateManager
+    const config = await stateManager.getConfigOwnRodit();
     
-    // Map the returned credentials to your expected variable names
-    const own_rodit_hex_accountid = credentials.account_id;
-    const own_string_private_key = credentials.private_key;
-
-    // Validate and log the account ID and private key
-    if (!own_rodit_hex_accountid || typeof own_rodit_hex_accountid !== "string") {
-      throw new Error("Error 044: Invalid or missing account_id value");
+    if (!config) {
+      throw new Error("Failed to initialize RODiT configuration");
     }
-    if (!own_string_private_key || typeof own_string_private_key !== "string") {
-      throw new Error("Error 043: Invalid or missing private_key value");
-    }
-
-    logger.info(`Successfully retrieved Rodit credentials with account_id: ${own_rodit_hex_accountid.substring(0, 8)}...`);
     
-    await set_rodit_config(own_rodit_hex_accountid, own_string_private_key);
-    const config = await get_rodit_config();
-    logger.info("Rodit configuration initialized successfully");
+    logger.info(`Successfully initialized RODiT configuration with account_id: ${config.own_rodit.owner_id.substring(0, 8)}...`);
 
     // Initialize SQLite database
     db = await open({
