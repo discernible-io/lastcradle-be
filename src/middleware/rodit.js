@@ -201,10 +201,10 @@ class RoditManager {
 
     try {
       const accountType =
-        type === "portal" ? "account_portal" : "account_sanctum";
+        type === "portal" ? "account_portal" : "sanctum";
       const vaultData = await get_rodit_fromvault(
         vault,
-        `${this.vaultPath}/${type}`,
+        this.vaultPath, type,
         accountType
       );
 
