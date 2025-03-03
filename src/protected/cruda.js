@@ -28,7 +28,7 @@ const initializeRouter = async () => {
   try {
     await initializeProductionVault();
 
-    const { own_rodit_hex_accountid, own_string_private_key } = await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH,"account_server");
+    const { own_rodit_hex_accountid, own_string_private_key } = await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH,"sanctum");
 
     // Validate and log the account ID and private key
     if (
