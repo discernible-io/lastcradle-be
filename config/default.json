@@ -25,7 +25,7 @@
   "notbefore": "2024-08-24",
   "maxrequests": "0",
   "maxrqwindow": "0",
-  "webhookurl": "https://webhook.aparejos.net",
+  "webhookurl": "https://webhook.aparejos.net:3444",
   "userselecteddn": "CN=Backend,OU=Engineering,O=Rodit Inc,L=San Enrique,ST=Cadiz,C=ES",
   "fee": "1"
  },
