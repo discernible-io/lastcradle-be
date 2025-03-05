@@ -159,44 +159,6 @@ function updateratelimit(maxrequests, maxrqwindow) {
   ratelimiter = ratelimitmw(maxrequests, maxrqwindow);
 }
 
-// Start server
-// Replace this:
-async function startServer() {
-  try {
-    // Initialize and unseal Vault
-    await initializeProductionVault();
-
-    const { own_rodit_hex_accountid, own_string_private_key } =
-      await get_rodit_fromvault(vault, VAULT_RODIT_KEYVALUE_PATH,"sanctum");
-    await set_rodit_config(own_rodit_hex_accountid, own_string_private_key);
-
-    const config_own_rodit = await get_rodit_config();
-
-    // Check and update rate limits if applicable
-    if (
-      config_own_rodit.own_rodit.metadata.maxrequests &&
-      config_own_rodit.own_rodit.metadata.maxrqwindow
-    ) {
-      updateratelimit(
-        config_own_rodit.own_rodit.metadata.maxrequests,
-        config_own_rodit.own_rodit.metadata.maxrqwindow
-      );
-    } else {
-      logger.info("Info: Unable to update rate limit due to missing data");
-    }
-
-    // Start the server
-    app.listen(config_own_rodit.port, () => {
-      logger.info(`Info: Server started on port ${config_own_rodit.port}`);
-    });
-  } catch (error) {
-    // Log and handle any errors that occur during server startup
-    logger.error(`Error 107: Failed to start server: ${error.message}`);
-    process.exit(1);
-  }
-}
-
-// With this:
 async function startServer() {
   try {
     // Initialize vault using the manager
