@@ -15,6 +15,7 @@
    "SERVERORCLIENT": "SERVER-INITIATED"
   },
   "LOG_DIR": "/app/logs",
+  "DB_PATH": "/app/database.sqlite",
   "MAX_REQUESTS": 100,
   "MAXRQ_WINDOW": 100
  },

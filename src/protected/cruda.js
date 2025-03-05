@@ -19,7 +19,7 @@ const {
 const VAULT_RODIT_KEYVALUE_PATH = config.get("VAULT_RODIT_KEYVALUE_PATH");
 
 const LOG_DIR = config.get("API_OPTIONS.LOG_DIR");
-const DB_PATH = config.get("API_OPTIONS.LOG_DIR");
+const DB_PATH = config.get("API_OPTIONS.DB_PATH");
 
 let db;
 const initializeRouter = async () => {
