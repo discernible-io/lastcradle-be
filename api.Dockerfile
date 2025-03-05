@@ -21,8 +21,13 @@ COPY . .
 # Create non-root user for better security
 RUN adduser --disabled-password --gecos "" nodeuser && \
     chown -R nodeuser:nodeuser /app
+
 USER nodeuser
 
-EXPOSE 8080
+# Update the port to match your application (3443 from your GitHub workflow)
+EXPOSE 3443
+
 ENTRYPOINT ["/tini", "--"]
-CMD ["node", "app.js"]
+
+# Fix the path to point to src/app.js
+CMD ["node", "src/app.js"]
