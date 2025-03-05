@@ -27,7 +27,7 @@
    "winston": "^3.13.1",
    "node-vault": "^0.10.2"
   },
-  "name": "signrodit",
+  "name": "servertestapi",
   "version": "1.0.0",
   "description": "Description",
   "main": "app.js",
@@ -36,13 +36,13 @@
   },
   "repository": {
    "type": "git",
-   "url": "git+https://github.com/cableguard/signrodit.git"
+   "url": "git+https://github.com/cableguard/servertestapi.git"
   },
   "author": "Vicente Aceituno Canal",
   "license": "UNLICENSED",
   "bugs": {
-   "url": "https://github.com/cableguard/signrodit/issues"
+   "url": "https://github.com/cableguard/servertestapi/issues"
   },
-  "homepage": "https://github.com/cableguard/signrodit#readme"
+  "homepage": "https://github.com/cableguard/servertestapi#readme"
  }
  
