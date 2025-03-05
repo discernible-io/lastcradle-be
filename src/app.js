@@ -159,6 +159,10 @@ function updateratelimit(maxrequests, maxrqwindow) {
   ratelimiter = ratelimitmw(maxrequests, maxrqwindow);
 }
 
+// Store server instance and db reference
+let server;
+let db;
+
 async function startServer() {
   try {
     // Initialize vault using the manager
@@ -187,9 +191,10 @@ async function startServer() {
       logger.info("Info: Unable to update rate limit due to missing data");
     }
 
-    // Start the server
-    app.listen(config_own_rodit.port, () => {
-      logger.info(`Info: Server started on port ${config_own_rodit.port}`);
+    // Start the server and save the instance
+    const port = config_own_rodit.port || 8080;
+    server = app.listen(port, () => {
+      logger.info(`Info: Server started on port ${port}`);
     });
   } catch (error) {
     // Log and handle any errors that occur during server startup
@@ -198,18 +203,61 @@ async function startServer() {
   }
 }
 
+// Try to get db reference from the CRUDA route (if loaded)
+try {
+  if (crudaprotectedRoute.getDb) {
+    db = crudaprotectedRoute.getDb();
+  }
+} catch (error) {
+  logger.warn(`Could not get database reference: ${error.message}`);
+}
+
 startServer();
 
 process.on("SIGINT", async () => {
-  await db.close();
+  logger.info("SIGINT signal received: shutting down...");
+  
+  if (server) {
+    server.close(() => {
+      logger.info("HTTP server closed");
+    });
+  }
+  
+  // Check if db exists and has a close method before calling it
+  if (db && typeof db.close === 'function') {
+    try {
+      await db.close();
+      logger.info("Database connection closed");
+    } catch (error) {
+      logger.error(`Error closing database: ${error.message}`);
+    }
+  }
+  
   process.exit(0);
 });
 
 process.on("SIGTERM", () => {
-  console.log("SIGTERM signal received: closing HTTP server");
-  server.close(() => {
-    console.log("HTTP server closed");
-    db.close();
+  logger.info("SIGTERM signal received: closing HTTP server");
+  
+  if (server) {
+    server.close(() => {
+      logger.info("HTTP server closed");
+      
+      // Check if db exists and has a close method before calling it
+      if (db && typeof db.close === 'function') {
+        try {
+          db.close();
+          logger.info("Database connection closed");
+        } catch (error) {
+          logger.error(`Error closing database: ${error.message}`);
+        }
+      }
+      
+      process.exit(0);
+    });
+  } else {
     process.exit(0);
-  });
+  }
 });
+
+module.exports = app;
