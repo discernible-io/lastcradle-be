@@ -85,12 +85,11 @@ const logAndSendWebhook = async (event, data, isError = false) => {
 // Initialize the router
 initializeRouter()
   .then((config) => {
-    roditConfig = config;
     logger.info("CRUDA Router initialized successfully");
   })
   .catch((error) => {
     logger.error(`Failed to initialize router: ${error.message}`);
-    process.exit(1); // Exit the process if initialization fails
+    process.exit(1);
   });
 
 // Middleware to check if the comment exists

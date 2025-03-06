@@ -102,15 +102,13 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *       401:
  *         description: Authentication failed
  */
-app.post(
-  "/login",
-  async (req, res, next) => {
-    req.logAction = "login-attempt";
-    next();
-  },
-  login_client
-);
-
+app.post("/login", (req, res, next) => {
+  req.logAction = "login-attempt";
+  next();
+}, async (req, res) => {
+  const config_own_rodit = await stateManager.getConfigOwnRodit();
+  return login_client(req, res, config_own_rodit);
+});
 app.use((req, res, next) => {
   if (req.logAction) {
     logger.info(`Action logged: ${req.logAction}`);
@@ -157,51 +155,45 @@ let db;
 
 async function startServer() {
   try {
-    // Initialize vault using the manager
+    // Initialize vault and configuration
     await roditManager.initializeVault();
-    
-    // Initialize RODIT configuration
     await roditManager.initializeRoditConfig("sanctum");
-    
-    // Get configuration from state manager
-    const config_own_rodit = await stateManager.getConfigOwnRodit();
-    
-    if (!config_own_rodit) {
+
+    logger.info(`Vault initialized and RODiT configuration loaded`);
+
+    // Get and apply configuration
+    const configObject = await stateManager.getConfigOwnRodit();
+    if (!configObject) {
       throw new Error("Failed to initialize RODiT configuration");
     }
 
-    // Check and update rate limits if applicable
-    if (
-      config_own_rodit.own_rodit.metadata.maxrequests &&
-      config_own_rodit.own_rodit.metadata.maxrqwindow
-    ) {
+    // Update rate limits if applicable
+    const own_rodit = configObject.own_rodit;
+    if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
       updateratelimit(
-        config_own_rodit.own_rodit.metadata.maxrequests,
-        config_own_rodit.own_rodit.metadata.maxrqwindow
+        own_rodit.metadata.maxrequests,
+        own_rodit.metadata.maxrqwindow
       );
-    } else {
-      logger.info("Info: Unable to update rate limit due to missing data");
     }
 
-    // Start the server and save the instance
-    const port = config_own_rodit.port || 8080;
+    // Start the HTTP server
+    const port = configObject.port || 8080;
     server = app.listen(port, () => {
-      logger.info(`Info: Server started on port ${port}`);
+      logger.info(`HTTP Server started on port ${port}`);
+    });
+
+    // Graceful shutdown handling
+    process.on("SIGTERM", () => {
+      logger.info("SIGTERM signal received: closing HTTP server");
+      server.close(() => {
+        logger.info("HTTP server closed");
+        process.exit(0);
+      });
     });
   } catch (error) {
-    // Log and handle any errors that occur during server startup
-    logger.error(`Error 107: Failed to start server: ${error.message}`);
+    logger.error(`Error 907: Failed to start server: ${error.message}`);
     process.exit(1);
   }
-}
-
-// Try to get db reference from the CRUDA route (if loaded)
-try {
-  if (crudaprotectedRoute.getDb) {
-    db = crudaprotectedRoute.getDb();
-  }
-} catch (error) {
-  logger.warn(`Could not get database reference: ${error.message}`);
 }
 
 startServer();
