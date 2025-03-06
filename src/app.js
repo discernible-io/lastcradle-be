@@ -20,15 +20,7 @@ const {
 const {
   roditManager,
   stateManager,
-  // other imports as needed
 } = require("./middleware/rodit");  
-
-const {
-  initializeProductionVault,
-  get_rodit_fromvault,
-  get_rodit_fromfile,
-  vault,
-} = require("./middleware/vaultsetup-production");
 
 const options = {
   definition: {
