@@ -157,7 +157,7 @@ async function startServer() {
   try {
     // Initialize vault and configuration
     await roditManager.initializeVault();
-    await roditManager.initializeRoditConfig("sanctum");
+    await roditManager.initializeRoditConfig("serverapi");
 
     logger.info(`Vault initialized and RODiT configuration loaded`);
 
