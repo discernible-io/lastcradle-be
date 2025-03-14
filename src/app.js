@@ -52,9 +52,6 @@ const options = {
 // Default rate limits
 let ratelimiter = ratelimitmw(100, 15);
 
-// Configuration is now loaded from config files
-const VAULT_RODIT_KEYVALUE_PATH = config.get("VAULT_RODIT_KEYVALUE_PATH");
-
 const swaggerSpec = swaggerJsdoc(options);
 const app = express();
 
@@ -157,7 +154,7 @@ async function startServer() {
   try {
     // Initialize vault and configuration
     await roditManager.initializeVault();
-    await roditManager.initializeRoditConfig("server");
+    await roditManager.initializeRoditConfig("account_server");
 
     logger.info(`Vault initialized and RODiT configuration loaded`);
 
@@ -220,21 +217,63 @@ process.on("SIGINT", async () => {
   process.exit(0);
 });
 
+// And replace with the following that also closes the CRUDA database:
+process.on("SIGINT", async () => {
+  logger.info("SIGINT signal received: shutting down...");
+  
+  if (server) {
+    server.close(() => {
+      logger.info("HTTP server closed");
+    });
+  }
+  
+  // Check if db exists and has a close method before calling it
+  if (db && typeof db.close === 'function') {
+    try {
+      await db.close();
+      logger.info("Database connection closed");
+    } catch (error) {
+      logger.error(`Error closing database: ${error.message}`);
+    }
+  }
+  
+  // Close the CRUDA database connection
+  try {
+    if (crudaprotectedRoute.closeDatabase) {
+      await crudaprotectedRoute.closeDatabase();
+    }
+  } catch (error) {
+    logger.error(`Error closing CRUDA database: ${error.message}`);
+  }
+  
+  process.exit(0);
+});
+
+// And do the same for the SIGTERM handler:
 process.on("SIGTERM", () => {
   logger.info("SIGTERM signal received: closing HTTP server");
   
   if (server) {
-    server.close(() => {
+    server.close(async () => {
       logger.info("HTTP server closed");
       
       // Check if db exists and has a close method before calling it
       if (db && typeof db.close === 'function') {
         try {
-          db.close();
+          await db.close();
           logger.info("Database connection closed");
         } catch (error) {
           logger.error(`Error closing database: ${error.message}`);
         }
+      }
+      
+      // Close the CRUDA database connection
+      try {
+        if (crudaprotectedRoute.closeDatabase) {
+          await crudaprotectedRoute.closeDatabase();
+        }
+      } catch (error) {
+        logger.error(`Error closing CRUDA database: ${error.message}`);
       }
       
       process.exit(0);

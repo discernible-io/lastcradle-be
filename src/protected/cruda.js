@@ -10,30 +10,14 @@ const {
   send_webhook,
 } = require("../middleware/rodit");
 
-const VAULT_RODIT_KEYVALUE_PATH = config.get("VAULT_RODIT_KEYVALUE_PATH");
-
-const LOG_DIR = config.get("API_OPTIONS.LOG_DIR");
 const DB_PATH = config.get("API_OPTIONS.DB_PATH");
 
+// Database connection
 let db;
-const initializeRouter = async () => {
-  try {
-    // Initialize the vault
-    await roditManager.initializeVault();
-    
-    // Initialize RODIT configuration using the same method as the working API
-    logger.info("Initializing RODIT configuration using RoditManager");
-    await roditManager.initializeRoditConfig("server");
-    
-    // Get the configuration from the stateManager
-    const config = await stateManager.getConfigOwnRodit();
-    
-    if (!config) {
-      throw new Error("Failed to initialize RODiT configuration");
-    }
-    
-    logger.info(`Successfully initialized RODiT configuration with account_id: ${config.own_rodit.owner_id.substring(0, 8)}...`);
 
+// Initialize database and export a function that can be awaited by app.js
+const initializeDatabase = async () => {
+  try {
     // Initialize SQLite database
     db = await open({
       filename: DB_PATH,
@@ -48,15 +32,15 @@ const initializeRouter = async () => {
     )`);
 
     logger.info("SQLite database initialized successfully");
-
-    return config;
+    return db;
   } catch (error) {
-    logger.error(
-      `Error initializing Rodit configuration or SQLite database: ${error.message}`
-    );
+    logger.error(`Error initializing SQLite database: ${error.message}`);
     throw error;
   }
 };
+
+// Expose the database connection for proper cleanup in app.js
+const getDatabase = () => db;
 
 const logEvent = (event, data, isError = false) => {
   const logMethod = isError ? logger.error : logger.info;
@@ -79,17 +63,17 @@ const logAndSendWebhook = async (event, data, isError = false) => {
   }
 
   // You can still log the event locally if needed
-  logEvent(event, data, isError, result.requestId);
+  logEvent(event, data, isError);
 };
 
-// Initialize the router
-initializeRouter()
-  .then((config) => {
-    logger.info("CRUDA Router initialized successfully");
+// Initialize the database when this module is loaded
+initializeDatabase()
+  .then(() => {
+    logger.info("CRUDA Router database initialized successfully");
   })
   .catch((error) => {
-    logger.error(`Failed to initialize router: ${error.message}`);
-    process.exit(1);
+    logger.error(`Failed to initialize database: ${error.message}`);
+    // Don't exit the process - let app.js handle errors
   });
 
 // Middleware to check if the comment exists
@@ -256,5 +240,18 @@ router.post(
     }
   }
 );
+
+// Export functions to allow proper cleanup in app.js
+router.closeDatabase = async () => {
+  if (db) {
+    try {
+      await db.close();
+      logger.info("Database connection closed");
+    } catch (error) {
+      logger.error(`Error closing database: ${error.message}`);
+      throw error;
+    }
+  }
+};
 
 module.exports = router;
