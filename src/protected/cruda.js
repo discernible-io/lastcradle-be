@@ -23,7 +23,7 @@ const initializeRouter = async () => {
     
     // Initialize RODIT configuration using the same method as the working API
     logger.info("Initializing RODIT configuration using RoditManager");
-    await roditManager.initializeRoditConfig("serverapi");
+    await roditManager.initializeRoditConfig("server");
     
     // Get the configuration from the stateManager
     const config = await stateManager.getConfigOwnRodit();
