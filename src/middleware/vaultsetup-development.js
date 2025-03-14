@@ -113,7 +113,7 @@ class VaultManager {
     this.validateVaultParameters(vaultPath, secretKey);
 
     try {
-      const result = await this.vault.read(`secret/${vaultPath}`);
+      const result = await this.vault.read(`secret/data/${vaultPath}`);
       this.validateVaultResult(result, secretKey, vaultPath);
 
       const parsedData = this.parseVaultData(result.data.data[secretKey], secretKey);
@@ -139,7 +139,7 @@ class VaultManager {
   validateVaultResult(result, secretKey, vaultPath) {
     if (!result?.data?.data?.[secretKey]) {
       throw new Error(
-        `Error 048: No data found for ${secretKey} at secret/${vaultPath}`
+        `Error 048: No data found for ${secretKey} at secret/data/${vaultPath}`
       );
     }
   }
