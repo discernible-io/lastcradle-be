@@ -244,12 +244,12 @@ class RoditManager {
     try {
       const vaultData = await get_rodit_fromvault(
         vault,
-        `${this.vaultPath}/${type}`,
+        `${this.vaultPath}/${accountType}`,
         accountType
       );
 
       if (!vaultData.private_key || typeof vaultData.private_key !== "string") {
-        throw new Error(`Invalid or missing private_key for ${type}`);
+        throw new Error(`Invalid or missing private_key for ${accountType}`);
       }
 
       const privateKeyStr = vaultData.private_key.startsWith("ed25519:")
@@ -322,7 +322,7 @@ class RoditManager {
       return configObject;
     } catch (error) {
       logger.error(
-        `Error initializing RODiT config for ${type}: ${error.message}`
+        `Error initializing RODiT config for ${accountType}: ${error.message}`
       );
       throw error;
     }
