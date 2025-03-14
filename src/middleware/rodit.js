@@ -200,12 +200,12 @@ class RoditManager {
     try {
       const vaultData = await get_rodit_fromvault(
         vault,
-        `${this.vaultPath}/${account_Type}`,
-        account_Type
+        `${this.vaultPath}/${accountType}`,
+        accountType
       );
 
       if (!vaultData.private_key || typeof vaultData.private_key !== "string") {
-        throw new Error(`Invalid or missing private_key for ${account_Type}`);
+        throw new Error(`Invalid or missing private_key for ${accountType}`);
       }
 
       const privateKeyStr = vaultData.private_key.startsWith("ed25519:")
@@ -213,7 +213,7 @@ class RoditManager {
         : vaultData.private_key;
 
       vaultData.signing_bytes_key = new Uint8Array(bs58.decode(privateKeyStr));
-      this.credentials[account_Type] = vaultData;
+      this.credentials[accountType] = vaultData;
       return vaultData;
     } catch (error) {
       logger.error(
