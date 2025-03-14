@@ -199,7 +199,7 @@ class RoditManager {
 
     try {
       // NOTE: Unnecessary hidden functionality to remove
-      const account_Type = `account_${account_Type}`;
+      const account_Type = `account_${accountType}`;
 
       const vaultData = await get_rodit_fromvault(
         vault,
