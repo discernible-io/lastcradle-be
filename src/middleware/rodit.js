@@ -198,17 +198,17 @@ class RoditManager {
     }
 
     try {
-      // Make the accountType consistent with the accountType parameter
-      const accountType = `account_${accountType}`;
+      // NOTE: Unnecessary hidden functionality to remove
+      const account_Type = `account_${account_Type}`;
 
       const vaultData = await get_rodit_fromvault(
         vault,
-        `${this.vaultPath}/${accountType}`,
-        accountType
+        `${this.vaultPath}/${account_Type}`,
+        account_Type
       );
 
       if (!vaultData.private_key || typeof vaultData.private_key !== "string") {
-        throw new Error(`Invalid or missing private_key for ${accountType}`);
+        throw new Error(`Invalid or missing private_key for ${account_Type}`);
       }
 
       const privateKeyStr = vaultData.private_key.startsWith("ed25519:")
@@ -216,7 +216,7 @@ class RoditManager {
         : vaultData.private_key;
 
       vaultData.signing_bytes_key = new Uint8Array(bs58.decode(privateKeyStr));
-      this.credentials[accountType] = vaultData;
+      this.credentials[account_Type] = vaultData;
       return vaultData;
     } catch (error) {
       logger.error(
