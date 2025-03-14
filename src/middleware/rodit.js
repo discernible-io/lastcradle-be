@@ -198,9 +198,6 @@ class RoditManager {
     }
 
     try {
-      // NOTE: Unnecessary hidden functionality to remove
-      const account_Type = `account_${accountType}`;
-
       const vaultData = await get_rodit_fromvault(
         vault,
         `${this.vaultPath}/${account_Type}`,
