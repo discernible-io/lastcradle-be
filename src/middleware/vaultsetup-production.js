@@ -64,7 +64,7 @@ class ProductionVaultManager {
     this.validateVaultParameters(vaultPath, secretKey);
 
     try {
-      const result = await this.vault.read(`secret/${vaultPath}`);
+      const result = await this.vault.read(`secret/data/${vaultPath}`);
       const secretData = result.data.data[secretKey];
 
       if (!secretData) {
