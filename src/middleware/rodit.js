@@ -188,44 +188,45 @@ class RoditManager {
     }
   }
 
-  async getCredentials(accountType) {
+  async getCredentials(type) {
     if (!this.vaultInitialized) {
       await this.initializeVault();
     }
-
-    if (this.credentials[accountType]) {
-      return this.credentials[accountType];
+      
+    if (this.credentials[type]) {
+      return this.credentials[type];
     }
-
+    
     try {
+      // Make the accountType consistent with the type parameter
+      const accountType = `account_${type}`;
+      
       const vaultData = await get_rodit_fromvault(
         vault,
-        `${this.vaultPath}/${accountType}`,
+        `${this.vaultPath}/${type}`,
         accountType
       );
-
+      
       if (!vaultData.private_key || typeof vaultData.private_key !== "string") {
-        throw new Error(`Invalid or missing private_key for ${accountType}`);
+        throw new Error(`Invalid or missing private_key for ${type}`);
       }
-
+      
       const privateKeyStr = vaultData.private_key.startsWith("ed25519:")
         ? vaultData.private_key.replace("ed25519:", "")
         : vaultData.private_key;
-
+      
       vaultData.signing_bytes_key = new Uint8Array(bs58.decode(privateKeyStr));
-      this.credentials[accountType] = vaultData;
+      this.credentials[type] = vaultData;
       return vaultData;
     } catch (error) {
-      logger.error(
-        `Error retrieving ${accountType} credentials: ${error.message}`
-      );
+      logger.error(`Error retrieving ${type} credentials: ${error.message}`);
       throw error;
     }
   }
 
-  async initializeRoditConfig(accountType) {
+  async initializeRoditConfig(type) {
     try {
-      const credentials = await this.getCredentials(accountType);
+      const credentials = await this.getCredentials(type);
       const { account_id, implicit_account_id } = credentials;
 
       const accountState = await nearorg_rpc_state(
@@ -279,7 +280,7 @@ class RoditManager {
       return configObject;
     } catch (error) {
       logger.error(
-        `Error initializing RODiT config for ${accountType}: ${error.message}`
+        `Error initializing RODiT config for ${type}: ${error.message}`
       );
       throw error;
     }
@@ -2135,6 +2136,8 @@ const send_webhook = async (event, data, isError = false) => {
       .createHash("sha256")
       .update(payload)
       .digest();
+
+    // This is a dubious comversion, isn't the hey already in bytes?
     const own_rodit_private_key = new Uint8Array(
       Buffer.from(config_own_rodit.own_rodit_bytes_private_key, "hex")
     );
