@@ -1407,17 +1407,33 @@ async function verify_rodit_isamatch(
 
     let bytes_signing_owner_id;
     try {
+      // Log the raw input we're trying to decode
+      logger.debug("Attempting to decode signing RODiT owner_id:", signing_rodit.owner_id);
+      
       bytes_signing_owner_id = new Uint8Array(
         Buffer.from(signing_rodit.owner_id, "hex")
       );
+      
+      // Log successful decode and show key length and expected length
       logger.debug("Signing RODiT Account ID:", signing_rodit.owner_id);
+      logger.debug("Decoded key length:", bytes_signing_owner_id.length);
+      logger.debug("Expected key length (RODIT_ID_PK_SZ):", CONSTANTS.RODIT_ID_PK_SZ);
+      
+      // Optionally log the first few bytes for verification
+      logger.debug("First 8 bytes of decoded key:", 
+        Array.from(bytes_signing_owner_id.slice(0, 8))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join(' ')
+      );
     } catch (error) {
-      logger.error("Failed to decode signing key");
+      // Enhanced error logging
+      logger.error("Failed to decode signing key:", error.message);
+      logger.debug("Error stack:", error.stack);
       return false;
     }
-
+    
     if (bytes_signing_owner_id.length !== CONSTANTS.RODIT_ID_PK_SZ) {
-      logger.error("Invalid signing key length");
+      logger.error(`Invalid signing key length: got ${bytes_signing_owner_id.length}, expected ${CONSTANTS.RODIT_ID_PK_SZ}`);
       return false;
     }
 
