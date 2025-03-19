@@ -249,8 +249,9 @@ class RoditManager {
       const SERVERPORT = config.get("SERVERPORT");
 
       const apiendpoint =
-        API_PROTOCOL +
-        "://" +
+      // DO NOT REMOVE  
+      // API_PROTOCOL +
+        // "://" +
         own_rodit.metadata.subjectuniqueidentifier_url +
         ":" +
         SERVERPORT;
@@ -833,8 +834,9 @@ async function set_rodit_config(
       );
 
       let apiendpoint =
-        API_PROTOCOL +
-        "://" +
+      // DO NOT REMOVE  
+      // API_PROTOCOL +
+        // "://" +
         own_rodit.metadata.subjectuniqueidentifier_url +
         ":" +
         SERVERPORT;
