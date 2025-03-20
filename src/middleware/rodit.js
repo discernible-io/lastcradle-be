@@ -1391,8 +1391,18 @@ async function verify_rodit_isamatch(
   requestId
 ) {
   try {
+    // Log all input parameters
+    logger.debug("=== STARTING RODIT MATCH VERIFICATION ===");
+    logger.debug("Function inputs:", {
+      own_service_provider_id,
+      peer_rodit_id: peer_rodit?.token_id || "undefined",
+      requestId
+    });
+    
+    // Split and validate the provider ID
     const own_provider_ids = own_service_provider_id.split(";");
-
+    logger.debug("Split provider IDs:", JSON.stringify(own_provider_ids));
+    
     if (own_provider_ids.length < 2) {
       logger.error("Invalid provider ID format", {
         providerId: own_service_provider_id,
@@ -1400,49 +1410,126 @@ async function verify_rodit_isamatch(
       });
       return false;
     }
-
-    const signing_token_ulid = own_provider_ids[1];
-    const base_prefix = "bc=near.org;sc=" + config.get("NEAR_CONTRACT_ID");
-    logger.debug("signing_token_ulid :", signing_token_ulid );
-    logger.debug("base_prefix :", base_prefix );
+    
+    // Extract and log token details before construction
+    logger.debug("Provider ID parts:", {
+      full: own_service_provider_id,
+      parts: own_provider_ids
+    });
+    
+    // The ULID should be extracted from the id= part, not just taking the second element
+    let signing_token_ulid = "";
+    for (const part of own_provider_ids) {
+      if (part.startsWith("id=")) {
+        signing_token_ulid = part.substring(3);
+        break;
+      }
+    }
+    
+    if (!signing_token_ulid) {
+      logger.error("Failed to extract ULID from service provider ID");
+      logger.debug("Expected format: 'bc=near.org;sc=10975.cableguard-org;id=<ULID>'");
+      return false;
+    }
+    
+    logger.debug("Extracted signing token ULID:", signing_token_ulid);
+    
+    // Construct and log the base prefix
+    const near_contract_id = config.get("NEAR_CONTRACT_ID");
+    logger.debug("NEAR contract ID from config:", near_contract_id);
+    
+    const base_prefix = "bc=near.org;sc=" + near_contract_id;
+    logger.debug("Constructed base prefix:", base_prefix);
+    
+    // Construct and log the full signing token ID
     const signing_token_id = `${base_prefix};id=${signing_token_ulid}`;
-
+    logger.debug("Full signing token ID constructed:", signing_token_id);
+    
+    // Fetch the signing RODiT
+    logger.debug("Fetching signing RODiT from blockchain...");
     const signing_rodit = await nearorg_rpc_tokenfromroditid(signing_token_id);
-
+    logger.debug("Raw signing RODiT response:", JSON.stringify(signing_rodit));
+    
+    // Check if signing RODiT exists and has expected fields
+    if (!signing_rodit) {
+      logger.error("Failed to fetch signing RODiT - null response");
+      return false;
+    }
+    
+    if (!signing_rodit.token_id) {
+      logger.error("Signing RODiT missing token_id - likely not found");
+      logger.debug("Signing RODiT full object:", JSON.stringify(signing_rodit));
+      return false;
+    }
+    
+    logger.debug("Signing RODiT found with token_id:", signing_rodit.token_id);
+    logger.debug("Signing RODiT owner_id:", signing_rodit.owner_id);
+    
+    // Extract and decode the owner_id
     let bytes_signing_owner_id;
     try {
-      // Log the raw input we're trying to decode
+      if (!signing_rodit.owner_id) {
+        logger.error("Signing RODiT owner_id is empty or undefined");
+        return false;
+      }
+      
       logger.debug("Attempting to decode signing RODiT owner_id:", signing_rodit.owner_id);
+      logger.debug("Owner ID type:", typeof signing_rodit.owner_id);
+      logger.debug("Owner ID length:", signing_rodit.owner_id.length);
       
-      bytes_signing_owner_id = new Uint8Array(
-        Buffer.from(signing_rodit.owner_id, "hex")
-      );
+      // Try to convert to hex if it's not already in hex format
+      let owner_id_hex = signing_rodit.owner_id;
+      if (!/^[0-9a-f]+$/i.test(owner_id_hex)) {
+        logger.debug("Owner ID doesn't appear to be in hex format, attempting conversion");
+        // If it's base64/base64url encoded, try to convert
+        try {
+          const decoded = Buffer.from(owner_id_hex, 'base64').toString('hex');
+          logger.debug("Converted from base64 to hex:", decoded);
+          owner_id_hex = decoded;
+        } catch (conversionError) {
+          logger.error("Failed to convert owner_id:", conversionError.message);
+        }
+      }
       
-      // Log successful decode and show key length and expected length
-      logger.debug("Signing RODiT Account ID:", signing_rodit.owner_id);
-      logger.debug("Decoded key length:", bytes_signing_owner_id.length);
-      logger.debug("Expected key length (RODIT_ID_PK_SZ):", CONSTANTS.RODIT_ID_PK_SZ);
+      bytes_signing_owner_id = new Uint8Array(Buffer.from(owner_id_hex, "hex"));
       
-      // Optionally log the first few bytes for verification
-      logger.debug("First 8 bytes of decoded key:", 
-        Array.from(bytes_signing_owner_id.slice(0, 8))
-          .map(b => b.toString(16).padStart(2, '0'))
-          .join(' ')
-      );
+      logger.debug("Decoded key successfully:", {
+        length: bytes_signing_owner_id.length,
+        expected: CONSTANTS.RODIT_ID_PK_SZ
+      });
+      
+      if (bytes_signing_owner_id.length > 0) {
+        logger.debug("First 8 bytes of decoded key:",
+          Array.from(bytes_signing_owner_id.slice(0, Math.min(8, bytes_signing_owner_id.length)))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join(' ')
+        );
+      }
     } catch (error) {
-      // Enhanced error logging
       logger.error("Failed to decode signing key:", error.message);
       logger.debug("Error stack:", error.stack);
+      logger.debug("Raw owner_id value:", signing_rodit.owner_id);
       return false;
     }
     
     if (bytes_signing_owner_id.length !== CONSTANTS.RODIT_ID_PK_SZ) {
       logger.error(`Invalid signing key length: got ${bytes_signing_owner_id.length}, expected ${CONSTANTS.RODIT_ID_PK_SZ}`);
+      logger.debug("CONSTANTS object:", JSON.stringify(CONSTANTS));
       return false;
     }
-
+    
+    // Extract and decode the signature
+    logger.debug("Extracting serviceprovider_signature from peer RODiT");
+    
+    if (!peer_rodit.metadata || !peer_rodit.metadata.serviceprovider_signature) {
+      logger.error("Missing serviceprovider_signature in peer RODiT metadata");
+      logger.debug("Peer RODiT metadata:", JSON.stringify(peer_rodit.metadata));
+      return false;
+    }
+    
     const base64urlSignature = peer_rodit.metadata.serviceprovider_signature;
-
+    logger.debug("Base64url signature:", base64urlSignature);
+    
     const base64Signature = base64urlSignature
       .replace(/-/g, "+")
       .replace(/_/g, "/")
@@ -1450,11 +1537,25 @@ async function verify_rodit_isamatch(
         base64urlSignature.length + ((4 - (base64urlSignature.length % 4)) % 4),
         "="
       );
-
-    const bytes_signature = new Uint8Array(
-      Buffer.from(base64Signature, "base64")
-    );
-
+    logger.debug("Converted to standard base64:", base64Signature);
+    
+    let bytes_signature;
+    try {
+      bytes_signature = new Uint8Array(Buffer.from(base64Signature, "base64"));
+      logger.debug("Decoded signature length:", bytes_signature.length);
+      
+      if (bytes_signature.length > 0) {
+        logger.debug("First 8 bytes of signature:",
+          Array.from(bytes_signature.slice(0, Math.min(8, bytes_signature.length)))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join(' ')
+        );
+      }
+    } catch (signatureError) {
+      logger.error("Failed to decode signature:", signatureError.message);
+      return false;
+    }
+    
     if (bytes_signature.length !== CONSTANTS.RODIT_ID_SIGNATURE_SZ) {
       logger.error("Invalid signature length", {
         actual: bytes_signature.length,
@@ -1462,7 +1563,9 @@ async function verify_rodit_isamatch(
       });
       return false;
     }
-
+    
+    // Prepare the hash input
+    logger.debug("Preparing hash input for verification");
     const hashInput = {
       token_id: peer_rodit.token_id,
       openapijson_url: peer_rodit.metadata.openapijson_url,
@@ -1476,24 +1579,40 @@ async function verify_rodit_isamatch(
       jwt_duration: peer_rodit.metadata.jwt_duration,
       permissioned_routes: peer_rodit.metadata.permissioned_routes,
       serviceprovider_id: peer_rodit.metadata.serviceprovider_id,
-      subjectuniqueidentifier_url:
-        peer_rodit.metadata.subjectuniqueidentifier_url,
+      subjectuniqueidentifier_url: peer_rodit.metadata.subjectuniqueidentifier_url,
     };
-
+    
+    logger.debug("Hash input object:", JSON.stringify(hashInput));
+    
+    // Calculate the hash and verify the signature
     const hashHex = calculateCanonicalHash(hashInput);
+    logger.debug("Calculated canonical hash:", hashHex);
+    
     const hashBytes = new Uint8Array(Buffer.from(hashHex, "hex"));
-
-    const is_valid = nacl.sign.detached.verify(
-      hashBytes,
-      bytes_signature,
-      bytes_signing_owner_id
-    );
-
-    return is_valid;
+    logger.debug("Hash bytes length:", hashBytes.length);
+    
+    try {
+      const is_valid = nacl.sign.detached.verify(
+        hashBytes,
+        bytes_signature,
+        bytes_signing_owner_id
+      );
+      
+      logger.debug("Signature verification result:", is_valid);
+      logger.debug("=== RODIT MATCH VERIFICATION COMPLETE ===");
+      
+      return is_valid;
+    } catch (verificationError) {
+      logger.error("Signature verification threw exception:", verificationError.message);
+      logger.debug("Verification error stack:", verificationError.stack);
+      return false;
+    }
   } catch (error) {
-    logger.error("Verification failed:", {
+    logger.error("Verification process failed with exception:", {
       error: error.message,
+      stack: error.stack
     });
+    logger.debug("=== RODIT MATCH VERIFICATION FAILED WITH EXCEPTION ===");
     return false;
   }
 }
