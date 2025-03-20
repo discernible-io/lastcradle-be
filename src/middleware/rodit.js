@@ -1403,6 +1403,8 @@ async function verify_rodit_isamatch(
 
     const signing_token_ulid = own_provider_ids[1];
     const base_prefix = "bc=near.org;sc=" + config.get("NEAR_CONTRACT_ID");
+    logger.debug("signing_token_ulid :", signing_token_ulid );
+    logger.debug("base_prefix :", base_prefix );
     const signing_token_id = `${base_prefix};id=${signing_token_ulid}`;
 
     const signing_rodit = await nearorg_rpc_tokenfromroditid(signing_token_id);
