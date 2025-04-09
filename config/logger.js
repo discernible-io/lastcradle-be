@@ -25,15 +25,15 @@ const logger = winston.createLogger({
     winston.format.timestamp(),
     winston.format.json()
   ),
-  defaultMeta: { service: "servertestapi-api" },
+  defaultMeta: { service: "signrodit-api" },
   transports: [
     new winston.transports.Console(),
     new winston.transports.File({ 
-      filename: path.join(LOG_DIR, 'servertestapiserror.log'), 
+      filename: path.join(LOG_DIR, 'signroditserror.log'), 
       level: 'error' 
     }),
     new winston.transports.File({ 
-      filename: path.join(LOG_DIR, 'servertestapicombined.log') 
+      filename: path.join(LOG_DIR, 'signroditcombined.log') 
     }),
   ],
 });

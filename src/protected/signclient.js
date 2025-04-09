@@ -3,7 +3,7 @@
 const config = require("config");
 const express = require("express");
 const bodyParser = require("body-parser");
-const logger = require("../config/logger");
+const logger = require("../../config/logger");
 const {
   roditManager,
   stateManager,
