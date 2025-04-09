@@ -19,27 +19,19 @@
   "MAX_REQUESTS": 100,
   "MAXRQ_WINDOW": 100
  },
- "SANCTUM_APISERVICEOPTIONS": {
+ "APISERVICEOPTIONS": {
   "scaccountid": "10975-cableguard-org.testnet",
   "serviceprovider_id": "10975-cableguard-org.testnet",
   "openapijsonurl": "https://api.aparejos.net/api-docs",
   "notbefore": "2024-08-24",
   "maxrequests": "0",
   "maxrqwindow": "0",
-  "webhookurl": "https://webhook.aparejos.net:3444",
-  "userselecteddn": "CN=Backend,OU=Engineering,O=Rodit Inc,L=San Enrique,ST=Cadiz,C=ES",
-  "fee": "1"
- },
- "CLIENT_APISERVICEOPTIONS": {
-  "scaccountid": "10975-cableguard-org.testnet",
-  "serviceprovider_id": "10975-cableguard-org.testnet",
-  "openapijsonurl": "https://api.aparejos.net/api-docs",
-  "notbefore": "2024-08-24",
   "webhookcidr": "0.0.0.0/0",
   "allowedcidr": "0.0.0.0/0",
   "allowediso3166list": { "allow": ["WLD"] },
   "jwtduration": 3600,
-  "subjectuniqueidentifier_url": "https://api.aparejos.net",
+  "webhookurl": "https://webhook.aparejos.net:3444",
+  "userselecteddn": "CN=Backend,OU=Engineering,O=Rodit Inc,L=San Enrique,ST=Cadiz,C=ES",
   "fee": "1"
  }
 }
