@@ -10,7 +10,7 @@ const {
   login_server,
   send_webhook,
   authenticate_webhook
-} = require("./middleware/rodit");
+} = require("../middleware/rodit");
 
 // Configuration constants
 const VAULT_RODIT_KEYVALUE_PATH = config.get("VAULT_RODIT_KEYVALUE_PATH");
