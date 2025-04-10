@@ -2632,6 +2632,7 @@ async function authenticate_webhook(
 module.exports = {
   login_client,
   login_server,
+  login_portal,
   login_client_withnep413,
   generate_jwt_token,
   authenticate_apicall,
