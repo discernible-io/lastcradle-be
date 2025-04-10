@@ -220,7 +220,7 @@ async function sampleSignClient() {
       throw new Error("Failed to initialize RODiT configuration");
     }
 
-    const loginResult = await login_portal(config.own_rodit);
+    const loginResult = await login_portal(config.own_rodit,1443);
     
     // Store JWT token in the state manager
     if (loginResult.jwt_token) {

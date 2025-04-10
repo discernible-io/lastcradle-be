@@ -1,7 +1,7 @@
 {
  "VAULT_ENDPOINT": "https://vault.cableguard.net:8200",
  "SERVERPORT": 8443,
- "WEBHOOKPORT": 1443,
+ "WEBHOOKPORT": 9443,
  "API_PROTOCOL": "https",
  "NEAR_NETWORK_ID": ".mainnet",
  "MAX_REQUESTS": 1,

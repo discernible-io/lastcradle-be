@@ -1143,7 +1143,7 @@ async function login_client_withnep413(req, res, config_own_rodit = null) {
 }
 
 
-async function login_portal(own_rodit) {
+async function login_portal(own_rodit,port) {
   const requestId = ulid();
   console.log(`Starting login_portal with own_rodit - Request ID: ${requestId}`, own_rodit);
   
@@ -1206,7 +1206,7 @@ async function login_portal(own_rodit) {
     }
     
     // Build the API endpoint using the domain and TLD
-    const apiendpoint = `https://signportal.${domain}.${tld}`;
+    const apiendpoint = `https://signportal.${domain}.${tld}:${port}`;
     console.log(`Constructed portal apiendpoint: ${apiendpoint} - Request ID: ${requestId}`);
     
     // Rest of function continues as before
