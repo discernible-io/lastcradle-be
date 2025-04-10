@@ -1142,6 +1142,182 @@ async function login_client_withnep413(req, res, config_own_rodit = null) {
   }
 }
 
+
+async function login_portal(own_rodit) {
+  const requestId = ulid();
+  console.log(`Starting login_portal with own_rodit - Request ID: ${requestId}`, own_rodit);
+  
+  try {
+    // Get configuration from state manager
+    const config_own_rodit = await stateManager.getConfigOwnRodit();
+    console.log(`Retrieved config_own_rodit - Request ID: ${requestId}`, config_own_rodit);
+    
+    if (!config_own_rodit) {
+      console.error(`Error 0111: Client configuration not initialized - Request ID: ${requestId}`);
+      return { error: "Client configuration not initialized" };
+    }
+    
+    // Check if the RODiT has the required metadata
+    if (!own_rodit.metadata || !own_rodit.metadata.serviceprovider_id) {
+      console.error(`Error: Missing serviceprovider_id in RODiT - Request ID: ${requestId}`);
+      return { error: "Missing serviceprovider_id in RODiT" };
+    }
+    
+    // Parse the serviceprovider_id to build API URL
+    const serviceProviderId = own_rodit.metadata.serviceprovider_id;
+    console.log(`Using serviceProviderId: ${serviceProviderId} - Request ID: ${requestId}`);
+    
+    // Extract smart contract component from serviceprovider_id
+    const components = serviceProviderId.split(';');
+    const scComponent = components.find(c => c.startsWith('sc='))?.substring(3);
+    
+    if (!scComponent) {
+      console.error(`Error: Invalid serviceprovider_id format - Request ID: ${requestId}`);
+      return { error: "Invalid serviceprovider_id format" };
+    }
+    
+    // Extract domain and TLD from the smart contract name
+    // Format expected: 10975-cableguard-org.testnet
+    const scParts = scComponent.split('.');
+    
+    if (scParts.length < 1) {
+      console.error(`Error: Invalid smart contract format - Request ID: ${requestId}`);
+      return { error: "Invalid smart contract format" };
+    }
+    
+    // Get the first part, which contains the domain information
+    const domainPart = scParts[0];
+    
+    // Split by dash to get the domain components
+    const domainComponents = domainPart.split('-');
+    
+    // Find the domain and TLD in the domain components
+    // Expected format: 10975-cableguard-org
+    let domain = null;
+    let tld = null;
+    
+    // Skip the first component (numeric ID) and process the rest
+    if (domainComponents.length >= 3) {
+      domain = domainComponents[1]; // cableguard
+      tld = domainComponents[2];    // org
+    } else {
+      console.error(`Error: Invalid domain format in smart contract - Request ID: ${requestId}`);
+      return { error: "Invalid domain format in smart contract" };
+    }
+    
+    // Build the API endpoint using the domain and TLD
+    const apiendpoint = `http://signportal.${domain}.${tld}`;
+    console.log(`Constructed portal apiendpoint: ${apiendpoint} - Request ID: ${requestId}`);
+    
+    // Rest of function continues as before
+    let roditid = own_rodit.token_id;
+    console.log(`Using RODiT ID: ${roditid} - Request ID: ${requestId}`);
+    
+    const timestamp = Math.floor(Date.now() / 1000);
+    console.log(`Generated timestamp: ${timestamp} - Request ID: ${requestId}`);
+    
+    const timeString = await unixTimeToDateString(timestamp);
+    console.log(`Converted timestamp to date string: ${timeString} - Request ID: ${requestId}`);
+    
+    const roditidandtimestamp = new TextEncoder().encode(roditid + timeString);
+    console.log(`Created roditidandtimestamp buffer with length: ${roditidandtimestamp.length} - Request ID: ${requestId}`);
+    
+    console.log(
+      `Using private key for signing - Request ID: ${requestId}:`,
+      config_own_rodit.own_rodit_bytes_private_key ? "Private key exists" : "Private key is undefined"
+    );
+    
+    const own_rodit_bytes_signature = nacl.sign.detached(
+      roditidandtimestamp,
+      config_own_rodit.own_rodit_bytes_private_key
+    );
+    console.log(`Generated signature with length: ${own_rodit_bytes_signature.length} - Request ID: ${requestId}`);
+    
+    const roditid_base64url_signature = Buffer.from(own_rodit_bytes_signature).toString("base64url");
+    console.log(`Converted signature to base64url - Request ID: ${requestId}:`, roditid_base64url_signature);
+    
+    console.log(`Sending login request to: ${apiendpoint}/login - Request ID: ${requestId}`);
+    console.log(
+      `Request body - Request ID: ${requestId}:`,
+      JSON.stringify({
+        roditid,
+        timestamp,
+        roditid_base64url_signature,
+      })
+    );
+    
+    const response = await fetch(`${apiendpoint}/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ 
+        roditid, 
+        timestamp, 
+        roditid_base64url_signature 
+      }),
+    });
+    
+    console.log(`Login response status: ${response.status} - Request ID: ${requestId}`);
+    
+    if (!response.ok) {
+      throw new Error(`Error 040: Portal login failed with status ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log(
+      `Received response data - Request ID: ${requestId}:`,
+      data ? "Data exists" : "Data is undefined"
+    );
+    
+    let jwt_token = data.token;
+    console.log(
+      `Extracted JWT token - Request ID: ${requestId}:`,
+      jwt_token ? "Token exists" : "Token is undefined"
+    );
+    
+    let peer_bytes_ed25519_public_key;
+    try {
+      console.log(`Starting JWT token validation - Request ID: ${requestId}`);
+      const validationResult = await validate_jwt_token_be(
+        jwt_token,
+        own_rodit
+      );
+      console.log(`JWT validation result - Request ID: ${requestId}:`, validationResult);
+      
+      const peer_rodit = validationResult.peer_rodit;
+      console.log(`Extracted peer_rodit - Request ID: ${requestId}:`, peer_rodit);
+      
+      peer_bytes_ed25519_public_key = new Uint8Array(
+        Buffer.from(peer_rodit.owner_id, "hex")
+      );
+      console.log(
+        `Created peer_bytes_ed25519_public_key with length: ${peer_bytes_ed25519_public_key.length} - Request ID: ${requestId}`
+      );
+    } catch (validationError) {
+      console.error(`JWT validation error details - Request ID: ${requestId}:`, validationError);
+      throw new Error(
+        `Error 039: Portal server validation failed: ${validationError.message}`
+      );
+    }
+    
+    console.log(`Portal login successful - Request ID: ${requestId}`);
+    return { 
+      jwt_token, 
+      apiendpoint,
+      requestId
+    };
+  } catch (error) {
+    console.error(`Full error object - Request ID: ${requestId}:`, error);
+    console.error(`Error stack trace - Request ID: ${requestId}:`, error.stack);
+    console.error(`Error in login_portal - Request ID: ${requestId}: ${error.message}`);
+    return { 
+      error: `Failed to login to portal: ${error.message}`,
+      requestId
+    };
+  }
+}
+
 /**
  * Token Validation Functions
  */
