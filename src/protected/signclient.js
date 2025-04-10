@@ -7,7 +7,7 @@ const logger = require("../../config/logger");
 const {
   roditManager,
   stateManager,
-  login_server,
+  login_portal,
   send_webhook,
   authenticate_webhook
 } = require("../middleware/rodit");
