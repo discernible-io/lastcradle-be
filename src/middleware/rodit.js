@@ -1206,7 +1206,7 @@ async function login_portal(own_rodit) {
     }
     
     // Build the API endpoint using the domain and TLD
-    const apiendpoint = `http://signportal.${domain}.${tld}`;
+    const apiendpoint = `https://signportal.${domain}.${tld}`;
     console.log(`Constructed portal apiendpoint: ${apiendpoint} - Request ID: ${requestId}`);
     
     // Rest of function continues as before
