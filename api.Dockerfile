@@ -24,7 +24,6 @@ RUN adduser --disabled-password --gecos "" nodeuser && \
 
 USER nodeuser
 
-# Update the port to match your application (3443 from your GitHub workflow)
 EXPOSE 8080
 
 ENTRYPOINT ["/tini", "--"]
