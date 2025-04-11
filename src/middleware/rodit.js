@@ -1781,7 +1781,6 @@ async function verify_rodit_isamatch(own_service_provider_id, peer_rodit) {
           not_before: peer_rodit.metadata.not_before,
           max_requests: peer_rodit.metadata.max_requests,
           maxrq_window: peer_rodit.metadata.maxrq_window,
-          webhook_cidr: peer_rodit.metadata.webhook_cidr,
           allowed_cidr: peer_rodit.metadata.allowed_cidr,
           allowed_iso3166list: peer_rodit.metadata.allowed_iso3166list,
           jwt_duration: peer_rodit.metadata.jwt_duration,
