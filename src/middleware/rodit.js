@@ -991,9 +991,6 @@ async function login_server(own_rodit) {
     let peer_bytes_ed25519_public_key;
     try {
       console.log("Starting JWT token validation...");
-      // There seems to be a syntax error in the destructuring here
-      // The original code had { *, peer*rodit } which is invalid
-      // Let's fix and log it properly
       const validationResult = await validate_jwt_token_be(
         jwt_token,
         own_rodit
@@ -1433,45 +1430,169 @@ async function verify_peerrodit_getrodit(
   peerroditid_base64url_signature,
   own_rodit
 ) {
+  // Log input parameters
+  logger.debug("verify_peerrodit_getrodit called with parameters:", {
+    peerroditid,
+    peertimestamp,
+    hasPeerSignature: !!peerroditid_base64url_signature,
+    signatureLength: peerroditid_base64url_signature
+      ? peerroditid_base64url_signature.length
+      : 0,
+    hasOwnRodit: !!own_rodit,
+    ownRoditId: own_rodit ? own_rodit.token_id : null,
+    ownRoditServiceProviderId: own_rodit?.metadata?.serviceprovider_id || null,
+  });
+
   try {
+    logger.debug("Fetching peer RODiT from nearorg_rpc_tokenfromroditid");
     const peer_rodit = await nearorg_rpc_tokenfromroditid(peerroditid);
 
-    const [ownershipVerified, isaMatch, isLive, isActive, isTrusted] =
-      await Promise.all([
-        verify_rodit_ownership(
-          peerroditid,
-          peertimestamp,
-          peerroditid_base64url_signature,
-          peer_rodit
-        ),
-        verify_rodit_isamatch(
-          own_rodit.metadata.serviceprovider_id,
-          peer_rodit
-        ),
-        verify_rodit_islive(
-          peer_rodit.metadata.not_after,
-          peer_rodit.metadata.not_before
-        ),
-        verify_rodit_isactive(
-          peer_rodit.token_id,
-          own_rodit.metadata.subjectuniqueidentifier_url
-        ),
-        verify_rodit_istrusted_issuingsmartcontract(
-          own_rodit.metadata.subjectuniqueidentifier_url
-        ),
-      ]);
+    // Log the received peer_rodit
+    logger.debug("Received peer_rodit:", {
+      hasPeerRodit: !!peer_rodit,
+      peerRoditId: peer_rodit ? peer_rodit.token_id : null,
+      peerRoditOwnerId: peer_rodit ? peer_rodit.owner_id : null,
+      hasPeerRoditMetadata: peer_rodit && !!peer_rodit.metadata,
+      metadataKeys:
+        peer_rodit && peer_rodit.metadata
+          ? Object.keys(peer_rodit.metadata)
+          : [],
+    });
+
+    if (!peer_rodit) {
+      logger.error(
+        "peer_rodit is null or undefined after nearorg_rpc_tokenfromroditid call"
+      );
+      throw new Error("Failed to retrieve peer RODiT data");
+    }
+
+    if (!peer_rodit.metadata) {
+      logger.error("peer_rodit.metadata is null or undefined");
+      throw new Error("Peer RODiT missing metadata");
+    }
+
+    logger.debug("Starting verification checks", {
+      verifyingOwnership: true,
+      verifyingMatch: true,
+      verifyingLive: true,
+      verifyingActive: true,
+      verifyingTrusted: true,
+    });
+
+    // Initialize verification results
+    let ownershipVerified, isaMatch, isLive, isActive, isTrusted;
+
+    try {
+      logger.debug("Verifying RODiT ownership");
+      ownershipVerified = await verify_rodit_ownership(
+        peerroditid,
+        peertimestamp,
+        peerroditid_base64url_signature,
+        peer_rodit
+      );
+      logger.debug("Ownership verification result:", { ownershipVerified });
+    } catch (ownershipError) {
+      logger.error("Error during ownership verification:", ownershipError);
+      ownershipVerified = false;
+    }
+
+    try {
+      logger.debug(
+        "Verifying RODiT match with service provider ID:",
+        own_rodit.metadata.serviceprovider_id
+      );
+      isaMatch = await verify_rodit_isamatch(
+        own_rodit.metadata.serviceprovider_id,
+        peer_rodit
+      );
+      logger.debug("Match verification result:", { isaMatch });
+    } catch (matchError) {
+      logger.error("Error during match verification:", matchError);
+      isaMatch = false;
+    }
+
+    try {
+      logger.debug("Verifying RODiT is live with dates:", {
+        not_after: peer_rodit.metadata.not_after,
+        not_before: peer_rodit.metadata.not_before,
+      });
+      isLive = await verify_rodit_islive(
+        peer_rodit.metadata.not_after,
+        peer_rodit.metadata.not_before
+      );
+      logger.debug("Live verification result:", { isLive });
+    } catch (liveError) {
+      logger.error("Error during live verification:", liveError);
+      isLive = false;
+    }
+
+    try {
+      logger.debug("Verifying RODiT is active with token ID and URL:", {
+        token_id: peer_rodit.token_id,
+        url: own_rodit.metadata.subjectuniqueidentifier_url,
+      });
+      isActive = await verify_rodit_isactive(
+        peer_rodit.token_id,
+        own_rodit.metadata.subjectuniqueidentifier_url
+      );
+      logger.debug("Active verification result:", { isActive });
+    } catch (activeError) {
+      logger.error("Error during active verification:", activeError);
+      isActive = false;
+    }
+
+    try {
+      logger.debug(
+        "Verifying RODiT issuing smart contract is trusted with URL:",
+        own_rodit.metadata.subjectuniqueidentifier_url
+      );
+      isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
+        own_rodit.metadata.subjectuniqueidentifier_url
+      );
+      logger.debug("Trust verification result:", { isTrusted });
+    } catch (trustError) {
+      logger.error("Error during trust verification:", trustError);
+      isTrusted = false;
+    }
+
+    // Log all verification results
+    logger.debug("All verification results:", {
+      ownershipVerified,
+      isaMatch,
+      isLive,
+      isActive,
+      isTrusted,
+    });
 
     if (!ownershipVerified || !isaMatch || !isLive || !isActive || !isTrusted) {
-      throw new Error("Error 037: Peer RODiT verification failed");
+      const failedChecks = [];
+      if (!ownershipVerified) failedChecks.push("ownership");
+      if (!isaMatch) failedChecks.push("match");
+      if (!isLive) failedChecks.push("live");
+      if (!isActive) failedChecks.push("active");
+      if (!isTrusted) failedChecks.push("trusted");
+
+      logger.error("Peer RODiT verification failed on checks:", failedChecks);
+      throw new Error(
+        `Error 037: Peer RODiT verification failed on: ${failedChecks.join(
+          ", "
+        )}`
+      );
     }
 
     logger.info("Peer Account ID:", peer_rodit.owner_id);
+    logger.debug("verify_peerrodit_getrodit successful, returning peer_rodit");
+
     return {
       peer_rodit,
       goodrodit: true,
     };
   } catch (error) {
-    logger.error(`Error in verify_peerrodit_getrodit: ${error.message}`);
+    logger.error(`Error in verify_peerrodit_getrodit: ${error.message}`, {
+      stack: error.stack,
+      errorType: error.constructor.name,
+    });
+
     return {
       peer_rodit: null,
       goodrodit: false,
