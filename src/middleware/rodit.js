@@ -120,6 +120,7 @@ class AuthStateManager {
     this.sessionBase64urlJwkPublicKey = null;
     this.configOwnRodit = null;
     this.currentToken = null;
+    this.jwtToken = null; // Add this line to store the JWT token
 
     AuthStateManager.instance = this;
   }
@@ -149,6 +150,16 @@ class AuthStateManager {
 
   getCurrentToken() {
     return this.currentToken;
+  }
+
+  // Add these two methods for JWT token management
+  async setJwtToken(token) {
+    this.jwtToken = token;
+    return token;
+  }
+
+  getJwtToken() {
+    return this.jwtToken;
   }
 }
 
