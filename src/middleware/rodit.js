@@ -1393,11 +1393,14 @@ async function validate_jwt_token_be(token, own_rodit) {
       serviceprovider_base64_public_key
     );
 
+    // Pass the own_rodit parameter here
     let { peer_rodit, goodrodit } = await verify_peerrodit_getrodit(
       payload.rodit_id,
       payload.iat,
-      payload.rodit_idsignature
+      payload.rodit_idsignature,
+      own_rodit // This was missing
     );
+
     if (goodrodit) {
       const now = Math.floor(Date.now() / 1000);
       if (payload.exp <= now) {
