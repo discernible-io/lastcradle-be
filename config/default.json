@@ -22,7 +22,7 @@
  "APISERVICEOPTIONS": {
   "scaccountid": "10975-cableguard-org.testnet",
   "serviceprovider_id": "10975-cableguard-org.testnet",
-  "openapijsonurl": "https://api.aparejos.net/api-docs",
+  "openapijsonurl": "https://dev-api.aparejos.net/api-docs",
   "notbefore": "2024-08-24",
   "maxrequests": "0",
   "maxrqwindow": "0",
