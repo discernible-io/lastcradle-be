@@ -1202,6 +1202,11 @@ async function login_portal(own_rodit, port) {
     // Extract domain and TLD from the smart contract name
     // Format expected: 10975-cableguard-org.testnet
     const scParts = scComponent.split(".");
+    console.log(
+      `Smart contract parts: ${JSON.stringify(
+        scParts
+      )} - Request ID: ${requestId}`
+    );
 
     if (scParts.length < 1) {
       console.error(
@@ -1212,9 +1217,15 @@ async function login_portal(own_rodit, port) {
 
     // Get the first part, which contains the domain information
     const domainPart = scParts[0];
+    console.log(`Domain part: ${domainPart} - Request ID: ${requestId}`);
 
     // Split by dash to get the domain components
     const domainComponents = domainPart.split("-");
+    console.log(
+      `Domain components: ${JSON.stringify(
+        domainComponents
+      )} - Request ID: ${requestId}`
+    );
 
     // Find the domain and TLD in the domain components
     // Expected format: 10975-cableguard-org
@@ -1225,6 +1236,9 @@ async function login_portal(own_rodit, port) {
     if (domainComponents.length >= 3) {
       domain = domainComponents[1]; // cableguard
       tld = domainComponents[2]; // org
+      console.log(
+        `Extracted domain: ${domain}, TLD: ${tld} - Request ID: ${requestId}`
+      );
     } else {
       console.error(
         `Error: Invalid domain format in smart contract - Request ID: ${requestId}`
@@ -1235,8 +1249,28 @@ async function login_portal(own_rodit, port) {
     // Build the API endpoint using the domain and TLD
     const apiendpoint = `https://signportal.${domain}.${tld}:${port}`;
     console.log(
-      `Constructed portal apiendpoint: ${apiendpoint} ${domain} ${tld} ${port} - Request ID: ${requestId}`
+      `Constructed portal apiendpoint: ${apiendpoint} - Request ID: ${requestId}`
     );
+
+    // DNS resolution check - not a fetch but just logging what it would resolve to
+    try {
+      const dns = require("dns");
+      dns.lookup(`signportal.${domain}.${tld}`, (err, address, family) => {
+        if (err) {
+          console.error(
+            `DNS lookup error: ${err.message} - Request ID: ${requestId}`
+          );
+        } else {
+          console.log(
+            `DNS lookup for signportal.${domain}.${tld} resolved to: ${address} (IPv${family}) - Request ID: ${requestId}`
+          );
+        }
+      });
+    } catch (dnsError) {
+      console.error(
+        `DNS lookup attempt failed: ${dnsError.message} - Request ID: ${requestId}`
+      );
+    }
 
     // Rest of function continues as before
     let roditid = own_rodit.token_id;
@@ -1290,80 +1324,139 @@ async function login_portal(own_rodit, port) {
       })
     );
 
-    const response = await fetch(`${apiendpoint}/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        roditid,
-        timestamp,
-        roditid_base64url_signature,
-      }),
-    });
-
+    // Add more detailed fetch logging for network issues
+    const fetchUrl = `${apiendpoint}/login`;
     console.log(
-      `Login response status: ${response.status} - Request ID: ${requestId}`
+      `Fetch starting to URL: ${fetchUrl} - Request ID: ${requestId}`
     );
 
-    if (!response.ok) {
-      throw new Error(
-        `Error 040: Portal login failed with status ${response.status}`
-      );
-    }
-
-    const data = await response.json();
-    console.log(
-      `Received response data - Request ID: ${requestId}:`,
-      data ? "Data exists" : "Data is undefined"
-    );
-
-    let jwt_token = data.token;
-    console.log(
-      `Extracted JWT token - Request ID: ${requestId}:`,
-      jwt_token ? "Token exists" : "Token is undefined"
-    );
-
-    let peer_bytes_ed25519_public_key;
     try {
-      console.log(`Starting JWT token validation - Request ID: ${requestId}`);
-      const validationResult = await validate_jwt_token_be(
+      const response = await fetch(fetchUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          roditid,
+          timestamp,
+          roditid_base64url_signature,
+        }),
+      });
+
+      console.log(
+        `Login response status: ${response.status} - Request ID: ${requestId}`
+      );
+
+      if (!response.ok) {
+        console.error(
+          `Response not OK: ${response.status} ${response.statusText} - Request ID: ${requestId}`
+        );
+        try {
+          const errorText = await response.text();
+          console.error(
+            `Response body: ${errorText} - Request ID: ${requestId}`
+          );
+        } catch (responseError) {
+          console.error(
+            `Failed to read error response: ${responseError.message} - Request ID: ${requestId}`
+          );
+        }
+        throw new Error(
+          `Error 040: Portal login failed with status ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      console.log(
+        `Received response data - Request ID: ${requestId}:`,
+        data ? JSON.stringify(data) : "Data is undefined"
+      );
+
+      let jwt_token = data.token;
+      console.log(
+        `Extracted JWT token - Request ID: ${requestId}:`,
+        jwt_token ? `${jwt_token.substring(0, 20)}...` : "Token is undefined"
+      );
+
+      let peer_bytes_ed25519_public_key;
+      try {
+        console.log(`Starting JWT token validation - Request ID: ${requestId}`);
+        const validationResult = await validate_jwt_token_be(
+          jwt_token,
+          own_rodit
+        );
+        console.log(
+          `JWT validation result - Request ID: ${requestId}:`,
+          validationResult ? "Validation successful" : "Validation failed"
+        );
+
+        const peer_rodit = validationResult.peer_rodit;
+        console.log(
+          `Extracted peer_rodit - Request ID: ${requestId}:`,
+          peer_rodit
+            ? `Token ID: ${peer_rodit.token_id}`
+            : "peer_rodit is undefined"
+        );
+
+        peer_bytes_ed25519_public_key = new Uint8Array(
+          Buffer.from(peer_rodit.owner_id, "hex")
+        );
+        console.log(
+          `Created peer_bytes_ed25519_public_key with length: ${peer_bytes_ed25519_public_key.length} - Request ID: ${requestId}`
+        );
+      } catch (validationError) {
+        console.error(
+          `JWT validation error details - Request ID: ${requestId}:`,
+          validationError
+        );
+        console.error(
+          `JWT validation error stack - Request ID: ${requestId}:`,
+          validationError.stack
+        );
+        throw new Error(
+          `Error 039: Portal server validation failed: ${validationError.message}`
+        );
+      }
+
+      console.log(`Portal login successful - Request ID: ${requestId}`);
+      return {
         jwt_token,
-        own_rodit
-      );
-      console.log(
-        `JWT validation result - Request ID: ${requestId}:`,
-        validationResult
-      );
-
-      const peer_rodit = validationResult.peer_rodit;
-      console.log(
-        `Extracted peer_rodit - Request ID: ${requestId}:`,
-        peer_rodit
-      );
-
-      peer_bytes_ed25519_public_key = new Uint8Array(
-        Buffer.from(peer_rodit.owner_id, "hex")
-      );
-      console.log(
-        `Created peer_bytes_ed25519_public_key with length: ${peer_bytes_ed25519_public_key.length} - Request ID: ${requestId}`
-      );
-    } catch (validationError) {
+        apiendpoint,
+        requestId,
+      };
+    } catch (fetchError) {
+      console.error(`Fetch error - Request ID: ${requestId}:`, fetchError);
       console.error(
-        `JWT validation error details - Request ID: ${requestId}:`,
-        validationError
+        `Fetch error name: ${fetchError.name} - Request ID: ${requestId}`
       );
-      throw new Error(
-        `Error 039: Portal server validation failed: ${validationError.message}`
+      console.error(
+        `Fetch error message: ${fetchError.message} - Request ID: ${requestId}`
       );
-    }
+      console.error(
+        `Fetch error code: ${fetchError.code} - Request ID: ${requestId}`
+      );
 
-    console.log(`Portal login successful - Request ID: ${requestId}`);
-    return {
-      jwt_token,
-      apiendpoint,
-      requestId,
-    };
+      if (fetchError.cause) {
+        console.error(
+          `Fetch error cause - Request ID: ${requestId}:`,
+          fetchError.cause
+        );
+        console.error(
+          `Fetch error errno: ${fetchError.cause.errno} - Request ID: ${requestId}`
+        );
+        console.error(
+          `Fetch error syscall: ${fetchError.cause.syscall} - Request ID: ${requestId}`
+        );
+        console.error(
+          `Fetch error address: ${fetchError.cause.address} - Request ID: ${requestId}`
+        );
+        console.error(
+          `Fetch error port: ${fetchError.cause.port} - Request ID: ${requestId}`
+        );
+      }
+
+      throw fetchError;
+    }
   } catch (error) {
     console.error(`Full error object - Request ID: ${requestId}:`, error);
     console.error(`Error stack trace - Request ID: ${requestId}:`, error.stack);
