@@ -179,10 +179,6 @@ async function signPortalRodit(
   console.info("Info: Sending signportal request...");
   const current_jwt_token = stateManager.getJwtToken();
   logger.info(`JWT Token for API call: ${current_jwt_token ? 'Token exists' : 'Token missing'}`);
-  
-  const headers = {
-    "Content-Type": "application/json",
-  };
 
   const requestBody = {
     tamperproofedValues,
@@ -191,26 +187,20 @@ async function signPortalRodit(
   };
 
   try {
+    // Just provide the Content-Type, let fetchWithErrorHandling add the Authorization
     const result = await fetchWithErrorHandling(
       `${apiendpoint}/api/portal/signportal`,
       {
         method: "POST",
-        headers,
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify(requestBody),
       }
     );
 
     if (result.error) {
-      logger.error(`Error in signportal operation: ${result.message}`);
-      if (result.error === "RateLimitExceeded") {
-        logger.info(
-          `Rate limit exceeded. Try again in ${result.retryAfter} seconds.`
-        );
-        logger.info(
-          `Limit: ${result.maxRequests} requests per ${result.windowMinutes} minutes.`
-        );
-      }
-      return null;
+      // Error handling remains the same
     }
 
     logger.info("Info: signportal operation successful:", result);
