@@ -71,7 +71,7 @@ jobs:
             
             # Create new pod
             echo 'Creating API pod...'
-            podman pod create --name servertestapi-pod -p ${API_PORT}:${API_PORT}
+            podman pod create --name servertestapi-pod -p ${API_PORT}:${API_PORT} --add-host=dev-api.aparejos.net:178.128.173.226
             
             # Build and run API container
             echo 'Building and running API container...'
@@ -80,7 +80,6 @@ jobs:
               --pod servertestapi-pod \
               --name servertestapi-container \
               --restart=unless-stopped \
-              --add-host=signportal.cableguard.org:178.128.173.226 \
               -v ~/servertestapi-app/logs:/app/logs:Z \
               -v ~/servertestapi-app/data:/app/data:Z \
               -v ~/servertestapi-app/certs:/app/certs:ro,Z \
