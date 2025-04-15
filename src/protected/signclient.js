@@ -199,17 +199,17 @@ const server = app.listen(WEBHOOKPORT, async () => {
 });
 
 process.on("SIGINT", () => {
-  logger.log("SIGINT signal received: closing HTTP server");
+  logger.info("SIGINT signal received: closing HTTP server");
   server.close(() => {
-    logger.log("HTTP server closed");
+    logger.info("HTTP server closed");
     process.exit(0);
   });
 });
 
 process.on("SIGTERM", () => {
-  logger.log("SIGTERM signal received: closing HTTP server");
+  logger.info("SIGTERM signal received: closing HTTP server");
   server.close(() => {
-    logger.log("HTTP server closed");
+    logger.info("HTTP server closed");
     process.exit(0);
   });
 });

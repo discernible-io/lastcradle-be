@@ -284,8 +284,8 @@ async function startServer() {
     const certdigest = certhash.digest();
     cert.signature = crypto.sign('sha512', certdigest, own_rodit_keyobject_privatekey);
     const isVerified = crypto.verify('sha512', digest, own_rodit_keyobject_publickey, cert.signature);
-    logger.log('Signature:', cert.signature.toString('base64'));
-    logger.log('Signature Verified:', isVerified);
+    logger.info('Signature:', cert.signature.toString('base64'));
+    logger.info('Signature Verified:', isVerified);
     */
 
     cert.sign(own_forge_keypair.privateKey, forge.md.sha512.create());
