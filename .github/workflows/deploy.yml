@@ -80,6 +80,7 @@ jobs:
               --pod servertestapi-pod \
               --name servertestapi-container \
               --restart=unless-stopped \
+              --add-host=signportal.cableguard.org:178.128.173.226 \
               -v ~/servertestapi-app/logs:/app/logs:Z \
               -v ~/servertestapi-app/data:/app/data:Z \
               -v ~/servertestapi-app/certs:/app/certs:ro,Z \
