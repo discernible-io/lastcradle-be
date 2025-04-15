@@ -73,12 +73,12 @@ router.post("/signclient", async (req, res) => {
 
   try {
     // Get data from frontend
-    const { signedValues, mintingfee, mintingfeeaccount } = req.body;
+    const { tobesignedValues, mintingfee, mintingfeeaccount } = req.body;
 
     // Basic validation
-    if (!signedValues || !mintingfee || !mintingfeeaccount) {
+    if (!tobesignedValues || !mintingfee || !mintingfeeaccount) {
       logger.warn(`Missing required fields - Request ID: ${requestId}`, {
-        hasSignedValues: !!signedValues,
+        hasSignedValues: !!tobesignedValues,
         hasMintingFee: !!mintingfee,
         hasMintingFeeAccount: !!mintingfeeaccount,
       });
@@ -125,20 +125,20 @@ router.post("/signclient", async (req, res) => {
 
     const tamperproofedValues = {
       openapijson_url: config.openapijson_url,
-      not_after: signedValues.not_after,
-      not_before: signedValues.not_before,
-      max_requests: signedValues.max_requests,
-      maxrq_window: signedValues.maxrq_window,
+      not_after: tobesignedValues.not_after,
+      not_before: tobesignedValues.not_before,
+      max_requests: tobesignedValues.max_requests,
+      maxrq_window: tobesignedValues.maxrq_window,
       webhook_cidr: config.webhook_cidr,
       allowed_cidr: config.allowed_cidr,
       allowed_iso3166list: config.allowed_iso3166list,
       jwt_duration: config.jwt_duration,
-      permissioned_routes: signedValues.permissioned_routes,
+      permissioned_routes: tobesignedValues.permissioned_routes,
       subjectuniqueidentifier_url:
       config.subjectuniqueidentifier_url,
-      serviceprovider_id: signedValues.serviceprovider_id,
+      serviceprovider_id: tobesignedValues.serviceprovider_id,
       serviceprovider_signature:
-        signedValues.serviceprovider_signature,
+        tobesignedValues.serviceprovider_signature,
       webhook_url: validateAndSetUrl(defaultValues.webhookurl),
       userselected_dn: defaultValues.userselecteddn,
     };
