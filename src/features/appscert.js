@@ -114,7 +114,7 @@ app.post(
 
     let peer_roditid = roditid;
     let peer_roditid_base64url_signature = roditid_base64url_signature;
-    console.debug("Info: Client RODiT ID:", peer_roditid);
+    logger.debug("Info: Client RODiT ID:", peer_roditid);
 
     if (!peer_roditid || !peer_roditid_base64url_signature) {
       return res
@@ -284,8 +284,8 @@ async function startServer() {
     const certdigest = certhash.digest();
     cert.signature = crypto.sign('sha512', certdigest, own_rodit_keyobject_privatekey);
     const isVerified = crypto.verify('sha512', digest, own_rodit_keyobject_publickey, cert.signature);
-    console.log('Signature:', cert.signature.toString('base64'));
-    console.log('Signature Verified:', isVerified);
+    logger.log('Signature:', cert.signature.toString('base64'));
+    logger.log('Signature Verified:', isVerified);
     */
 
     cert.sign(own_forge_keypair.privateKey, forge.md.sha512.create());
@@ -333,11 +333,11 @@ async function startServer() {
 */
 
 
-    console.debug(
+    logger.debug(
       "config_own_rodit.own_rodit.metadata.maxrequests",
       config_own_rodit.own_rodit.metadata.maxrequests
     );
-    console.debug(
+    logger.debug(
       "config_own_rodit.own_rodit.metadata.maxrqwindow",
       config_own_rodit.own_rodit.metadata.maxrqwindow
     );
@@ -350,7 +350,7 @@ async function startServer() {
         config_own_rodit.own_rodit.metadata.maxrqwindow
       );
     } else {
-      console.debug("Info: Unable to update rate limit due to missing data");
+      logger.debug("Info: Unable to update rate limit due to missing data");
     }
     
     app.listen(config_own_rodit.port, () => {

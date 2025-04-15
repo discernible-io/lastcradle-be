@@ -13,7 +13,7 @@ function scheduleTokenRefresh() {
 
     if (refreshTime > 0) {
       refreshTimeout = setTimeout(async () => {
-        console.debug("Info: Refreshing token...");
+        logger.debug("Info: Refreshing token...");
         await refreshToken();
       }, refreshTime);
     }
@@ -69,7 +69,7 @@ async function fetchWithErrorHandling(url, options) {
       jwt_token = newToken;
       tokenExpirationTime = Date.now() + 3600000; // Assuming 1 hour validity by default
       scheduleTokenRefresh(); // Schedule the next token refresh
-      console.debug("Info: Received an updated JWT token");
+      logger.debug("Info: Received an updated JWT token");
     }
 
     // Parse the response as JSON
@@ -123,8 +123,8 @@ async function fetchWithErrorHandling(url, options) {
 
 // Start the server and run the client
 app.listen(WEBHOOKPORT, async () => {
-  console.info(`Webhook server listening on port ${WEBHOOKPORT}`);
+  logger.info(`Webhook server listening on port ${WEBHOOKPORT}`);
   // Run the client operations before the server starts accepting requests
   await sampleclient();
-  console.info("Server ready to accept webhook requests");
+  logger.info("Server ready to accept webhook requests");
 });

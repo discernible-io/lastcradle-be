@@ -117,7 +117,7 @@ async function fetchWithErrorHandling(url, options) {
           `Error 139: Server validation failed: ${validationError.message}`
         );
       }
-      console.debug("Info: Received an updated JWT token");
+      logger.debug("Info: Received an updated JWT token");
     }
 
     // Parse the response as JSON
@@ -176,7 +176,7 @@ async function signPortalRodit(
   mintingfee,
   mintingfeeaccount
 ) {
-  console.info("Info: Sending signportal request...");
+  logger.info("Info: Sending signportal request...");
   const current_jwt_token = stateManager.getJwtToken();
   logger.info(`JWT Token for API call: ${current_jwt_token ? 'Token exists' : 'Token missing'}`);
 
@@ -275,30 +275,30 @@ async function sampleSignClient() {
 
 // Start the server and run the client
 const server = app.listen(WEBHOOKPORT, async () => {
-  console.info(`Webhook server listening on port ${WEBHOOKPORT}`);
+  logger.info(`Webhook server listening on port ${WEBHOOKPORT}`);
 
   try {
     // Run the client operations
     await sampleSignClient();
-    console.info("Server ready to accept webhook requests");
+    logger.info("Server ready to accept webhook requests");
   } catch (error) {
-    console.error("Error during server startup:", error);
+    logger.error("Error during server startup:", error);
     process.exit(1);
   }
 });
 
 process.on("SIGINT", () => {
-  console.log("SIGINT signal received: closing HTTP server");
+  logger.log("SIGINT signal received: closing HTTP server");
   server.close(() => {
-    console.log("HTTP server closed");
+    logger.log("HTTP server closed");
     process.exit(0);
   });
 });
 
 process.on("SIGTERM", () => {
-  console.log("SIGTERM signal received: closing HTTP server");
+  logger.log("SIGTERM signal received: closing HTTP server");
   server.close(() => {
-    console.log("HTTP server closed");
+    logger.log("HTTP server closed");
     process.exit(0);
   });
 });
