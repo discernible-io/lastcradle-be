@@ -1,8 +1,7 @@
-// Copyright (c) 2024 Cableguard, Inc. All rights reserved.
-
-const config = require("config");
+// In the protected/signclient.js file
 const express = require("express");
-const bodyParser = require("body-parser");
+const router = express.Router();
+const { ulid } = require("ulid");
 const logger = require("../../config/logger");
 const {
   roditManager,
@@ -10,86 +9,24 @@ const {
   login_portal,
   send_webhook,
   fetchWithErrorHandling,
-  authenticate_webhook,
 } = require("../middleware/rodit");
 
-// Configuration constants
-const WEBHOOKPORT = config.get("WEBHOOKPORT");
-
-// Set up Express server
-const app = express();
-app.use(bodyParser.json());
-
-const attachPeerKey = (peer_bytes_ed25519_public_key) => (req, res, next) => {
-  req.peer_bytes_ed25519_public_key = peer_bytes_ed25519_public_key;
-  next();
-};
-
-// Webhook endpoint
-app.post(
-  "/webhook",
-  async (req, res, next) => {
-    try {
-      // Get peer key from state manager
-      const config = await stateManager.getConfigOwnRodit();
-      if (
-        !config ||
-        !config.peer_rodit ||
-        !config.peer_rodit.bytes_ed25519_public_key
-      ) {
-        throw new Error("Peer public key not available");
-      }
-      req.peer_bytes_ed25519_public_key =
-        config.peer_rodit.bytes_ed25519_public_key;
-      next();
-    } catch (error) {
-      logger.error(`Error getting peer key: ${error.message}`);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  },
-  async (req, res) => {
-    try {
-      const signature_hex_ofpayload = req.headers["x-signature"];
-      const timestamp = req.headers["x-timestamp"];
-      const payload = JSON.stringify(req.body);
-
-      // Authenticate the webhook
-      const authResult = authenticate_webhook(
-        payload,
-        signature_hex_ofpayload,
-        timestamp,
-        req.peer_bytes_ed25519_public_key
-      );
-
-      if (!authResult.isValid) {
-        throw new Error(authResult.error.message);
-      }
-
-      // If we've made it here, the signature is valid
-      const { event, data, isError } = req.body;
-      logger.info(
-        `Info: Received authenticated webhook: ${event}, Request ID: ${authResult.requestId}`
-      );
-      logger.info("Data:", data);
-
-      res.sendStatus(200);
-    } catch (error) {
-      logger.error(`Error processing webhook: ${error.message}`);
-      res.status(400).json({ error: error.message });
-    }
-  }
-);
-
-// SignPortal operation
+// SignPortal operation - reused from your existing code
 async function signPortalRodit(
   apiendpoint,
   tamperproofedValues,
   mintingfee,
   mintingfeeaccount
 ) {
-  logger.info("Info: Sending signportal request...");
+  const requestId = ulid();
+  logger.info(`Sending signportal request - Request ID: ${requestId}`);
+
   const current_jwt_token = stateManager.getJwtToken();
-  logger.info(`JWT Token for API call: ${current_jwt_token ? 'Token exists' : 'Token missing'}`);
+  logger.info(
+    `JWT Token for API call: ${
+      current_jwt_token ? "Token exists" : "Token missing"
+    } - Request ID: ${requestId}`
+  );
 
   const requestBody = {
     tamperproofedValues,
@@ -98,120 +35,160 @@ async function signPortalRodit(
   };
 
   try {
-    // Just provide the Content-Type, let fetchWithErrorHandling add the Authorization
     const result = await fetchWithErrorHandling(
       `${apiendpoint}/api/portal/signportal`,
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "X-Request-ID": requestId,
         },
         body: JSON.stringify(requestBody),
       }
     );
 
     if (result.error) {
-      // Error handling remains the same
+      logger.error(`SignPortal error - Request ID: ${requestId}`, result);
+      throw new Error(`SignPortal error: ${result.error}: ${result.message}`);
     }
 
-    logger.info("Info: signportal operation successful:", result);
+    logger.info(`SignPortal operation successful - Request ID: ${requestId}`, {
+      tokenId: result.token_id,
+      hasSignature: !!result.serviceprovider_signature,
+    });
+
     return result;
   } catch (error) {
-    logger.error(`Error during signportal operation: ${error.message}`);
-    return null;
+    logger.error(
+      `Error during signportal operation - Request ID: ${requestId}: ${error.message}`
+    );
+    throw error;
   }
 }
 
-async function sampleSignClient() {
-  try {
-    // Initialize vault using the manager
-    await roditManager.initializeVault();
+// The signclient endpoint that the frontend will call
+router.post("/signclient", async (req, res) => {
+  const requestId = ulid();
+  logger.info(`Received signclient request - Request ID: ${requestId}`);
 
-    // Initialize RODIT configuration with the "server" namespace
-    await roditManager.initializeRoditConfig("server");
+  try {
+    // Get data from frontend
+    const { signedValues, mintingfee, mintingfeeaccount } = req.body;
+
+    // Basic validation
+    if (!signedValues || !mintingfee || !mintingfeeaccount) {
+      logger.warn(`Missing required fields - Request ID: ${requestId}`, {
+        hasSignedValues: !!signedValues,
+        hasMintingFee: !!mintingfee,
+        hasMintingFeeAccount: !!mintingfeeaccount,
+      });
+
+      return res.status(400).json({
+        error: "Missing required fields",
+        requestId,
+      });
+    }
+
+    // Initialize vault and config if not already done
+    if (!roditManager.vaultInitialized) {
+      logger.info(`Initializing vault - Request ID: ${requestId}`);
+      await roditManager.initializeVault();
+      await roditManager.initializeRoditConfig("server");
+    }
 
     // Get configuration from state manager
     const config = await stateManager.getConfigOwnRodit();
-
     if (!config) {
+      logger.error(
+        `Failed to get RODiT configuration - Request ID: ${requestId}`
+      );
       throw new Error("Failed to initialize RODiT configuration");
     }
 
-    const loginResult = await login_portal(config.own_rodit, 8443);
 
-    // Store JWT token in the state manager
-    if (loginResult.jwt_token) {
-      await stateManager.setJwtToken(loginResult.jwt_token);
-      logger.info(`JWT Token stored after login: ${loginResult.jwt_token ? 'loginToken exists' : 'Token missing'}`);
-      // Define sample values that match what contract.js expects
-      const tamperproofedValues = {
-        openapijson_url: "https://api.example.com/openapi.json",
-        not_after: new Date(
-          Date.now() + 365 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-        not_before: new Date().toISOString(),
-        max_requests: 100,
-        maxrq_window: 60,
-        webhook_cidr: "10.0.0.0/24",
-        allowed_cidr: "0.0.0.0/0",
-        allowed_iso3166list: JSON.stringify(["US", "CA", "UK"]),
-        jwt_duration: 3600,
-        permissioned_routes: JSON.stringify(["/api/data", "/api/users"]),
-        subjectuniqueidentifier_url: "https://example.com/identifier",
-      };
+    if (!stateManager.getJwtToken()) {
+      logger.info(`Authenticating with SignPortal - Request ID: ${requestId}`);
 
-      // Use signPortalRodit which now matches the contract.js approach
-      const signResult = await signPortalRodit(
-        loginResult.apiendpoint,
-        tamperproofedValues,
-        "0.001", // mintingfee
-        "0x1234567890abcdef" // mintingfeeaccount
-      );
+      const portalPort = 8443; // Make this configurable if needed
+      const loginResult = await login_portal(config.own_rodit, portalPort);
 
-      if (signResult) {
-        logger.info(
-          "Sign operation successful. RODIT token ID:",
-          signResult.token_id
-        );
-      } else {
-        logger.error("Sign operation failed");
+      if (!loginResult.jwt_token) {
+        logger.error(`Failed to obtain JWT token - Request ID: ${requestId}`);
+        throw new Error("Failed to obtain JWT token from SignPortal");
       }
-    } else {
-      logger.error("Error: Failed to obtain JWT token");
+
+      await stateManager.setJwtToken(loginResult.jwt_token);
+      logger.info(
+        `Successfully authenticated with SignPortal - Request ID: ${requestId}`
+      );
     }
+
+    const tamperproofedValues = {
+      openapijson_url: config.openapijson_url,
+      not_after: signedValues.not_after,
+      not_before: signedValues.not_before,
+      max_requests: signedValues.max_requests,
+      maxrq_window: signedValues.maxrq_window,
+      webhook_cidr: config.webhook_cidr,
+      allowed_cidr: config.allowed_cidr,
+      allowed_iso3166list: config.allowed_iso3166list,
+      jwt_duration: config.jwt_duration,
+      permissioned_routes: signedValues.permissioned_routes,
+      subjectuniqueidentifier_url:
+      config.subjectuniqueidentifier_url,
+      serviceprovider_id: signedValues.serviceprovider_id,
+      serviceprovider_signature:
+        signedValues.serviceprovider_signature,
+      webhook_url: validateAndSetUrl(defaultValues.webhookurl),
+      userselected_dn: defaultValues.userselecteddn,
+    };
+
+
+    // Use the apiendpoint from configuration
+    const apiendpoint = config.apiendpoint;
+    logger.debug(
+      `Using API endpoint: ${apiendpoint} - Request ID: ${requestId}`
+    );
+
+    // Sign token using SignPortal
+    logger.info(`Sending request to SignPortal - Request ID: ${requestId}`);
+    const signResult = await signPortalRodit(
+      apiendpoint,
+      tamperproofedValues,
+      mintingfee,
+      mintingfeeaccount,
+      subjectuniqueidentifier_url,
+      requestId,
+    );
+
+    if (!signResult) {
+      throw new Error("Sign operation failed");
+    }
+
+    logger.info(
+      `Successfully created new RODiT token: ${signResult.token_id} - Request ID: ${requestId}`
+    );
+
+    res.status(201).json({
+      token_id: signResult.token_id,
+      serviceprovider_id: signResult.serviceprovider_id,
+      serviceprovider_signature: signResult.serviceprovider_signature,
+      fee_signature: signResult.fee_signature,
+    });
   } catch (error) {
-    logger.error(`Error: Sample client function error: ${error.message}`);
-  }
-}
+    logger.error(
+      `Error in signclient endpoint - Request ID: ${requestId}: ${error.message}`,
+      {
+        stack: error.stack,
+      }
+    );
 
-// Start the server and run the client
-const server = app.listen(WEBHOOKPORT, async () => {
-  logger.info(`Webhook server listening on port ${WEBHOOKPORT}`);
-
-  try {
-    // Run the client operations
-    await sampleSignClient();
-    logger.info("Server ready to accept webhook requests");
-  } catch (error) {
-    logger.error("Error during server startup:", error);
-    process.exit(1);
+    res.status(500).json({
+      error: "Failed to sign client request",
+      details: error.message,
+      requestId,
+    });
   }
 });
 
-process.on("SIGINT", () => {
-  logger.info("SIGINT signal received: closing HTTP server");
-  server.close(() => {
-    logger.info("HTTP server closed");
-    process.exit(0);
-  });
-});
-
-process.on("SIGTERM", () => {
-  logger.info("SIGTERM signal received: closing HTTP server");
-  server.close(() => {
-    logger.info("HTTP server closed");
-    process.exit(0);
-  });
-});
-
-module.exports = app;
+module.exports = router;
