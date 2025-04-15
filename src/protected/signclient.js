@@ -139,8 +139,8 @@ router.post("/signclient", async (req, res) => {
       serviceprovider_id: tobesignedValues.serviceprovider_id,
       serviceprovider_signature:
         tobesignedValues.serviceprovider_signature,
-      webhook_url: validateAndSetUrl(defaultValues.webhookurl),
-      userselected_dn: defaultValues.userselecteddn,
+      webhook_url: tobesignedValues.webhookurl,
+      userselected_dn: tobesignedValues.userselecteddn,
     };
 
 
