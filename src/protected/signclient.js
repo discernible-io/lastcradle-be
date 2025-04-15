@@ -157,7 +157,6 @@ router.post("/signclient", async (req, res) => {
       tamperproofedValues,
       mintingfee,
       mintingfeeaccount,
-      subjectuniqueidentifier_url,
       requestId,
     );
 
