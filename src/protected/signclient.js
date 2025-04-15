@@ -9,6 +9,7 @@ const {
   stateManager,
   login_portal,
   send_webhook,
+  fetchWithErrorHandling,
   authenticate_webhook,
 } = require("../middleware/rodit");
 
@@ -78,96 +79,6 @@ app.post(
     }
   }
 );
-
-// Client-side functions
-async function fetchWithErrorHandling(url, options) {
-  try {
-    // Get the JWT token from the state manager
-    const jwt_token = stateManager.getJwtToken();
-
-    // Add the current token to the request headers
-    if (jwt_token) {
-      options.headers = {
-        ...options.headers,
-        Authorization: `Bearer ${jwt_token}`,
-      };
-    }
-
-    const response = await fetch(url, options);
-
-    // Check for a new token in the response headers
-    const newToken = response.headers.get("New-Token");
-    if (newToken) {
-      // Update JWT token in state manager
-      await stateManager.setJwtToken(newToken);
-      logger.info(`JWT Token stored after login: ${newToken ? 'newToken exists' : 'Token missing'}`);
-      try {
-        // Use state manager to validate the token
-        const config = await stateManager.getConfigOwnRodit();
-        if (!config) {
-          logger.error("Error: Client configuration not initialized");
-          return;
-        }
-        const result = await roditManager.validateJwtToken(newToken);
-        if (!result.isValid) {
-          throw new Error(`Token validation failed: ${result.error.message}`);
-        }
-      } catch (validationError) {
-        throw new Error(
-          `Error 139: Server validation failed: ${validationError.message}`
-        );
-      }
-      logger.debug("Info: Received an updated JWT token");
-    }
-
-    // Parse the response as JSON
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      // Check if it's a rate limiting error
-      if (
-        response.status === 429 &&
-        responseData.error === "RateLimitExceeded"
-      ) {
-        const retryAfter = parseInt(
-          response.headers.get("Retry-After") || "60",
-          10
-        );
-        return {
-          error: "RateLimitExceeded",
-          message: responseData.message,
-          retryAfter,
-          maxRequests: responseData.maxRequests,
-          windowMinutes: responseData.windowMinutes,
-        };
-      }
-
-      // For other errors, throw with details
-      throw new Error(
-        `Error: Request failed: ${
-          response.statusText
-        }, Details: ${JSON.stringify(responseData)}`
-      );
-    }
-
-    return responseData;
-  } catch (error) {
-    logger.error(`Error: fetchWithErrorHandling: ${error.message}`);
-
-    // If the error is due to JSON parsing (i.e., the response wasn't JSON)
-    if (error instanceof SyntaxError && error.message.includes("JSON")) {
-      return {
-        error: "Error: InvalidResponse",
-        message: "The server returned an invalid response",
-      };
-    }
-
-    return {
-      error: "RequestFailed",
-      message: error.message,
-    };
-  }
-}
 
 // SignPortal operation
 async function signPortalRodit(
