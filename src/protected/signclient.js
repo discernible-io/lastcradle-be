@@ -100,6 +100,7 @@ async function fetchWithErrorHandling(url, options) {
     if (newToken) {
       // Update JWT token in state manager
       await stateManager.setJwtToken(newToken);
+      logger.info(`JWT Token stored after login: ${newToken ? 'newToken exists' : 'Token missing'}`);
       try {
         // Use state manager to validate the token
         const config = await stateManager.getConfigOwnRodit();
@@ -176,7 +177,9 @@ async function signPortalRodit(
   mintingfeeaccount
 ) {
   console.info("Info: Sending signportal request...");
-
+  const current_jwt_token = stateManager.getJwtToken();
+  logger.info(`JWT Token for API call: ${current_jwt_token ? 'Token exists' : 'Token missing'}`);
+  
   const headers = {
     "Content-Type": "application/json",
   };
@@ -238,7 +241,7 @@ async function sampleSignClient() {
     // Store JWT token in the state manager
     if (loginResult.jwt_token) {
       await stateManager.setJwtToken(loginResult.jwt_token);
-
+      logger.info(`JWT Token stored after login: ${loginResult.jwt_token ? 'loginToken exists' : 'Token missing'}`);
       // Define sample values that match what contract.js expects
       const tamperproofedValues = {
         openapijson_url: "https://api.example.com/openapi.json",
