@@ -67,7 +67,7 @@ async function signPortalRodit(
 
   try {
     const result = await fetchWithErrorHandling(
-      `${apiendpoint}/api/portal/signportal`,
+      `${apiendpoint}/signportal`,
       {
         method: "POST",
         headers,
