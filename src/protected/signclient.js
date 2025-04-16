@@ -46,12 +46,17 @@ async function signPortalRodit(
     headers["Authorization"] = `Bearer ${current_jwt_token}`;
   }
 
+  logger.info(`Detailed request info - URL: ${fetchUrl}, Headers: ${JSON.stringify(headers)}`);
+  logger.info(`Request body: ${JSON.stringify(requestBody)}`);
+
   try {
     const result = await fetchWithErrorHandling(fetchUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),
     });
+
+    logger.info(`Raw response received from SignPortal - Request ID: ${requestId}`);
 
     if (result.error) {
       logger.error(`SignPortal error - Request ID: ${requestId}`);
