@@ -135,7 +135,7 @@ router.post("/signclient", async (req, res) => {
       allowed_iso3166list: config.own_rodit.metadata.allowed_iso3166list,
       jwt_duration: config.own_rodit.metadata.jwt_duration,
       permissioned_routes: tobesignedValues.permissioned_routes,
-      subjectuniqueidentifier_url: config.own_rodit.metadata.subjectuniqueidentifier_url,
+      subjectuniqueidentifier_url: config.subjectuniqueidentifier_url,
       serviceprovider_id: config.own_rodit.metadata.serviceprovider_id,
       serviceprovider_signature: tobesignedValues.serviceprovider_signature,
       webhook_url: tobesignedValues.webhookurl,
@@ -160,7 +160,7 @@ router.post("/signclient", async (req, res) => {
     // Sign token using SignPortal
     logger.info(`Sending request to SignPortal - Request ID: ${requestId}`);
     const signResult = await signPortalRodit(
-      config.port,
+      portalPort,
       tamperproofedValues,
       mintingfee,
       mintingfeeaccount
