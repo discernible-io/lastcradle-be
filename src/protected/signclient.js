@@ -34,7 +34,7 @@ async function signPortalRodit(
     mintingfeeaccount,
   };
 
-  const fetchUrl = `${apiendpoint}/signportal`;
+  const fetchUrl = `${apiendpoint}/api/portal/signportal`;
   logger.info(`Calling: ${fetchUrl} - Request ID: ${requestId}`);
 
   const headers = {
