@@ -216,29 +216,6 @@ process.on("SIGINT", async () => {
     }
   }
   
-  process.exit(0);
-});
-
-// And replace with the following that also closes the CRUDA database:
-process.on("SIGINT", async () => {
-  logger.info("SIGINT signal received: shutting down...");
-  
-  if (server) {
-    server.close(() => {
-      logger.info("HTTP server closed");
-    });
-  }
-  
-  // Check if db exists and has a close method before calling it
-  if (db && typeof db.close === 'function') {
-    try {
-      await db.close();
-      logger.info("Database connection closed");
-    } catch (error) {
-      logger.error(`Error closing database: ${error.message}`);
-    }
-  }
-  
   // Close the CRUDA database connection
   try {
     if (crudaprotectedRoute.closeDatabase) {

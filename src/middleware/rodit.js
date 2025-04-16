@@ -2901,7 +2901,7 @@ async function fetchWithErrorHandling(url, options) {
           `Error 139: Server validation failed: ${validationError.message}`
         );
       }
-      console.debug("Info: Received an updated JWT token");
+      logger.debug("Info: Received an updated JWT token");
     }
 
     // Parse the response as JSON
