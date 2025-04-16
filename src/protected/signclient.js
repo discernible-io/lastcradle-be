@@ -21,48 +21,47 @@ async function signPortalRodit(
 ) {
   const requestId = ulid();
   logger.info(`Sending signportal request - Request ID: ${requestId}`);
-  
+
   // Get API endpoint using the getPortalUrl function
   const apiendpoint = getPortalUrl(serviceProviderId, port);
-  
+
   const current_jwt_token = stateManager.getJwtToken();
   const requestBody = {
     tamperproofedValues,
     mintingfee,
     mintingfeeaccount,
   };
-  
+
   const fetchUrl = `${apiendpoint}/signportal`;
   logger.info(`Calling: ${fetchUrl} - Request ID: ${requestId}`);
-  
+
   const headers = {
     "Content-Type": "application/json",
     "X-Request-ID": requestId,
   };
-  
+
   if (current_jwt_token) {
     headers["Authorization"] = `Bearer ${current_jwt_token}`;
   }
-  
+
   try {
-    const result = await fetchWithErrorHandling(
-      fetchUrl,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify(requestBody),
-      }
-    );
-    
+    const result = await fetchWithErrorHandling(fetchUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(requestBody),
+    });
+
     if (result.error) {
       logger.error(`SignPortal error - Request ID: ${requestId}`);
       throw new Error(`SignPortal error: ${result.error}: ${result.message}`);
     }
-    
+
     logger.info(`SignPortal operation successful - Request ID: ${requestId}`);
     return result;
   } catch (error) {
-    logger.error(`Error during signportal operation: ${error.message} - Request ID: ${requestId}`);
+    logger.error(
+      `Error during signportal operation: ${error.message} - Request ID: ${requestId}`
+    );
     throw error;
   }
 }
@@ -150,7 +149,8 @@ router.post("/signclient", async (req, res) => {
     // Sign token using SignPortal
     logger.info(`Sending request to SignPortal - Request ID: ${requestId}`);
     const signResult = await signPortalRodit(
-      apiendpoint,
+      tamperproofedValues.serviceprovider_id,
+      config.port || 8443, // Use port from config or default to 8443
       tamperproofedValues,
       mintingfee,
       mintingfeeaccount
