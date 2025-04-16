@@ -11,7 +11,6 @@ const {
   fetchWithErrorHandling,
 } = require("../middleware/rodit");
 
-// SignPortal operation - reused from your existing code
 async function signPortalRodit(
   apiendpoint,
   tamperproofedValues,
@@ -22,6 +21,14 @@ async function signPortalRodit(
   logger.info(`Sending signportal request - Request ID: ${requestId}`);
 
   const current_jwt_token = stateManager.getJwtToken();
+  logger.debug("JWT token for request:", {
+    tokenExists: !!current_jwt_token,
+    tokenLength: current_jwt_token ? current_jwt_token.length : 0,
+    tokenStart: current_jwt_token
+      ? current_jwt_token.substring(0, 20) + "..."
+      : null,
+  });
+
   logger.info(
     `JWT Token for API call: ${
       current_jwt_token ? "Token exists" : "Token missing"
@@ -33,16 +40,37 @@ async function signPortalRodit(
     mintingfee,
     mintingfeeaccount,
   };
-  logger.debug(`Complete URL being called: ${apiendpoint}/api/portal/signportal`);
+
+  // Log the complete URL
+  logger.debug(
+    `Complete URL being called: ${apiendpoint}/api/portal/signportal`
+  );
+
+  // Prepare the headers explicitly including the Authorization header
+  const headers = {
+    "Content-Type": "application/json",
+    "X-Request-ID": requestId,
+  };
+
+  // Explicitly add the Authorization header if token exists
+  if (current_jwt_token) {
+    headers["Authorization"] = `Bearer ${current_jwt_token}`;
+    logger.debug("Added Authorization header with token");
+  } else {
+    logger.warn("No JWT token available to add to request headers");
+  }
+
+  // Log the complete headers (safely)
+  logger.debug("Request headers being sent:", {
+    headers: JSON.stringify(headers),
+  });
+
   try {
     const result = await fetchWithErrorHandling(
       `${apiendpoint}/api/portal/signportal`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Request-ID": requestId,
-        },
+        headers,
         body: JSON.stringify(requestBody),
       }
     );
@@ -105,7 +133,6 @@ router.post("/signclient", async (req, res) => {
       throw new Error("Failed to initialize RODiT configuration");
     }
 
-
     if (!stateManager.getJwtToken()) {
       logger.info(`Authenticating with SignPortal - Request ID: ${requestId}`);
 
@@ -134,15 +161,12 @@ router.post("/signclient", async (req, res) => {
       allowed_iso3166list: config.allowed_iso3166list,
       jwt_duration: config.jwt_duration,
       permissioned_routes: tobesignedValues.permissioned_routes,
-      subjectuniqueidentifier_url:
-      config.subjectuniqueidentifier_url,
+      subjectuniqueidentifier_url: config.subjectuniqueidentifier_url,
       serviceprovider_id: tobesignedValues.serviceprovider_id,
-      serviceprovider_signature:
-        tobesignedValues.serviceprovider_signature,
+      serviceprovider_signature: tobesignedValues.serviceprovider_signature,
       webhook_url: tobesignedValues.webhookurl,
       userselected_dn: tobesignedValues.userselecteddn,
     };
-
 
     // Use the apiendpoint from configuration
     const apiendpoint = config.apiendpoint;
@@ -156,7 +180,7 @@ router.post("/signclient", async (req, res) => {
       apiendpoint,
       tamperproofedValues,
       mintingfee,
-      mintingfeeaccount,
+      mintingfeeaccount
     );
 
     if (!signResult) {
