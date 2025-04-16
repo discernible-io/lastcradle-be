@@ -2786,6 +2786,7 @@ module.exports = {
   AuthStateManager,
   roditManager,
   stateManager,
+  getPortalUrl,
   logServerBufferState,
   fetchWithErrorHandling,
 };

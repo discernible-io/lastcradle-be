@@ -8,6 +8,7 @@ const {
   stateManager,
   login_portal,
   send_webhook,
+  getPortalUrl,
   fetchWithErrorHandling,
 } = require("../middleware/rodit");
 
