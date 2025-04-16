@@ -8,7 +8,6 @@ const {
   stateManager,
   login_portal,
   send_webhook,
-  getPortalUrl,
   fetchWithErrorHandling,
 } = require("../middleware/rodit");
 
@@ -21,8 +20,8 @@ async function signPortalRodit(
   const requestId = ulid();
   logger.info(`Sending signportal request - Request ID: ${requestId}`);
 
-  // Get API endpoint using the getPortalUrl function
-  const apiendpoint = getPortalUrl(
+  // Get API endpoint using the stateManager's getPortalUrl method
+  const apiendpoint = stateManager.getPortalUrl(
     tamperproofedValues.serviceprovider_id,
     port
   );
@@ -46,7 +45,11 @@ async function signPortalRodit(
     headers["Authorization"] = `Bearer ${current_jwt_token}`;
   }
 
-  logger.info(`Detailed request info - URL: ${fetchUrl}, Headers: ${JSON.stringify(headers)}`);
+  logger.info(
+    `Detailed request info - URL: ${fetchUrl}, Headers: ${JSON.stringify(
+      headers
+    )}`
+  );
   logger.info(`Request body: ${JSON.stringify(requestBody)}`);
 
   try {
@@ -56,7 +59,9 @@ async function signPortalRodit(
       body: JSON.stringify(requestBody),
     });
 
-    logger.info(`Raw response received from SignPortal - Request ID: ${requestId}`);
+    logger.info(
+      `Raw response received from SignPortal - Request ID: ${requestId}`
+    );
 
     if (result.error) {
       logger.error(`SignPortal error - Request ID: ${requestId}`);
@@ -116,7 +121,7 @@ router.post("/signclient", async (req, res) => {
     if (!stateManager.getJwtToken()) {
       logger.info(`Authenticating with SignPortal - Request ID: ${requestId}`);
 
-       // Make this configurable if needed
+      // Make this configurable if needed
       const loginResult = await login_portal(config.own_rodit, portalPort);
 
       if (!loginResult.jwt_token) {

@@ -161,6 +161,38 @@ class AuthStateManager {
   getJwtToken() {
     return this.jwtToken;
   }
+  c(serviceProviderId, port) {
+    // Extract smart contract component from serviceprovider_id
+    const components = serviceProviderId.split(";");
+    const scComponent = components
+      .find((c) => c.startsWith("sc="))
+      ?.substring(3);
+
+    if (!scComponent) {
+      throw new Error("Invalid serviceprovider_id format");
+    }
+
+    // Extract domain parts from smart contract name
+    const scParts = scComponent.split(".");
+    if (scParts.length < 1) {
+      throw new Error("Invalid smart contract format");
+    }
+
+    // Get domain information from the first part
+    const domainPart = scParts[0];
+    const domainComponents = domainPart.split("-");
+
+    // Find domain and TLD in the components (format: 10975-cableguard-org)
+    if (domainComponents.length < 3) {
+      throw new Error("Invalid domain format in smart contract");
+    }
+
+    const domain = domainComponents[1]; // cableguard
+    const tld = domainComponents[2]; // org
+
+    // Build and return the API endpoint
+    return `https://signportal.${domain}.${tld}:${port}`;
+  }
 }
 
 class RoditManager {
@@ -1150,38 +1182,6 @@ async function login_client_withnep413(req, res, config_own_rodit = null) {
   }
 }
 
-// Helper function to construct the portal URL
-function getPortalUrl(serviceProviderId, port) {
-  // Extract smart contract component from serviceprovider_id
-  const components = serviceProviderId.split(";");
-  const scComponent = components.find((c) => c.startsWith("sc="))?.substring(3);
-  
-  if (!scComponent) {
-    throw new Error("Invalid serviceprovider_id format");
-  }
-  
-  // Extract domain parts from smart contract name
-  const scParts = scComponent.split(".");
-  if (scParts.length < 1) {
-    throw new Error("Invalid smart contract format");
-  }
-  
-  // Get domain information from the first part
-  const domainPart = scParts[0];
-  const domainComponents = domainPart.split("-");
-  
-  // Find domain and TLD in the components (format: 10975-cableguard-org)
-  if (domainComponents.length < 3) {
-    throw new Error("Invalid domain format in smart contract");
-  }
-  
-  const domain = domainComponents[1]; // cableguard
-  const tld = domainComponents[2]; // org
-  
-  // Build and return the API endpoint
-  return `https://signportal.${domain}.${tld}:${port}`;
-}
-
 // Simplified login_portal function
 async function login_portal(own_rodit, port) {
   const requestId = ulid();
@@ -1201,9 +1201,9 @@ async function login_portal(own_rodit, port) {
       return { error: "Missing serviceprovider_id in RODiT" };
     }
 
-    // Use helper function to get API endpoint
+    // Use stateManager's getPortalUrl method to get API endpoint
     const serviceProviderId = own_rodit.metadata.serviceprovider_id;
-    const apiendpoint = getPortalUrl(serviceProviderId, port);
+    const apiendpoint = stateManager.getPortalUrl(serviceProviderId, port);
     logger.info(`Using portal endpoint: ${apiendpoint} - Request ID: ${requestId}`);
 
     // Prepare authentication data
@@ -2675,7 +2675,7 @@ async function fetchWithErrorHandling(url, options) {
   try {
     // Get the JWT token from the state manager
     const jwt_token = stateManager.getJwtToken();
-    
+
     // Add the current token to the request headers
     if (jwt_token) {
       options.headers = {
@@ -2786,7 +2786,6 @@ module.exports = {
   AuthStateManager,
   roditManager,
   stateManager,
-  getPortalUrl,
   logServerBufferState,
   fetchWithErrorHandling,
 };
