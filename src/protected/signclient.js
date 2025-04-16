@@ -107,10 +107,11 @@ router.post("/signclient", async (req, res) => {
       throw new Error("Failed to initialize RODiT configuration");
     }
 
+    const portalPort = 8443;
     if (!stateManager.getJwtToken()) {
       logger.info(`Authenticating with SignPortal - Request ID: ${requestId}`);
 
-      const portalPort = 8443; // Make this configurable if needed
+       // Make this configurable if needed
       const loginResult = await login_portal(config.own_rodit, portalPort);
 
       if (!loginResult.jwt_token) {
