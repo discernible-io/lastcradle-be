@@ -12,84 +12,56 @@ const {
 } = require("../middleware/rodit");
 
 async function signPortalRodit(
-  apiendpoint,
+  serviceProviderId,
+  port,
   tamperproofedValues,
   mintingfee,
   mintingfeeaccount
 ) {
   const requestId = ulid();
   logger.info(`Sending signportal request - Request ID: ${requestId}`);
-
+  
+  // Get API endpoint using the getPortalUrl function
+  const apiendpoint = getPortalUrl(serviceProviderId, port);
+  
   const current_jwt_token = stateManager.getJwtToken();
-  logger.debug("JWT token for request:", {
-    tokenExists: !!current_jwt_token,
-    tokenLength: current_jwt_token ? current_jwt_token.length : 0,
-    tokenStart: current_jwt_token
-      ? current_jwt_token.substring(0, 20) + "..."
-      : null,
-  });
-
-  logger.info(
-    `JWT Token for API call: ${
-      current_jwt_token ? "Token exists" : "Token missing"
-    } - Request ID: ${requestId}`
-  );
-
   const requestBody = {
     tamperproofedValues,
     mintingfee,
     mintingfeeaccount,
   };
-
-  // Log the complete URL
-  logger.debug(
-    `Complete URL being called: ${apiendpoint}/api/portal/signportal`
-  );
-
-  // Prepare the headers explicitly including the Authorization header
+  
+  const fetchUrl = `${apiendpoint}/signportal`;
+  logger.info(`Calling: ${fetchUrl} - Request ID: ${requestId}`);
+  
   const headers = {
     "Content-Type": "application/json",
     "X-Request-ID": requestId,
   };
-
-  // Explicitly add the Authorization header if token exists
+  
   if (current_jwt_token) {
     headers["Authorization"] = `Bearer ${current_jwt_token}`;
-    logger.debug("Added Authorization header with token");
-  } else {
-    logger.warn("No JWT token available to add to request headers");
   }
-
-  // Log the complete headers (safely)
-  logger.debug("Request headers being sent:", {
-    headers: JSON.stringify(headers),
-  });
-
+  
   try {
     const result = await fetchWithErrorHandling(
-      `${apiendpoint}/signportal`,
+      fetchUrl,
       {
         method: "POST",
         headers,
         body: JSON.stringify(requestBody),
       }
     );
-
+    
     if (result.error) {
-      logger.error(`SignPortal error - Request ID: ${requestId}`, result);
+      logger.error(`SignPortal error - Request ID: ${requestId}`);
       throw new Error(`SignPortal error: ${result.error}: ${result.message}`);
     }
-
-    logger.info(`SignPortal operation successful - Request ID: ${requestId}`, {
-      tokenId: result.token_id,
-      hasSignature: !!result.serviceprovider_signature,
-    });
-
+    
+    logger.info(`SignPortal operation successful - Request ID: ${requestId}`);
     return result;
   } catch (error) {
-    logger.error(
-      `Error during signportal operation - Request ID: ${requestId}: ${error.message}`
-    );
+    logger.error(`Error during signportal operation: ${error.message} - Request ID: ${requestId}`);
     throw error;
   }
 }
