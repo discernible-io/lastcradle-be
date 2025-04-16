@@ -161,7 +161,8 @@ class AuthStateManager {
   getJwtToken() {
     return this.jwtToken;
   }
-  c(serviceProviderId, port) {
+  
+  getPortalUrl(serviceProviderId, port) {
     // Extract smart contract component from serviceprovider_id
     const components = serviceProviderId.split(";");
     const scComponent = components
@@ -1191,20 +1192,26 @@ async function login_portal(own_rodit, port) {
     // Get configuration from state manager
     const config_own_rodit = await stateManager.getConfigOwnRodit();
     if (!config_own_rodit) {
-      logger.error(`Client configuration not initialized - Request ID: ${requestId}`);
+      logger.error(
+        `Client configuration not initialized - Request ID: ${requestId}`
+      );
       return { error: "Client configuration not initialized" };
     }
 
     // Check RODiT metadata
     if (!own_rodit.metadata || !own_rodit.metadata.serviceprovider_id) {
-      logger.error(`Missing serviceprovider_id in RODiT - Request ID: ${requestId}`);
+      logger.error(
+        `Missing serviceprovider_id in RODiT - Request ID: ${requestId}`
+      );
       return { error: "Missing serviceprovider_id in RODiT" };
     }
 
     // Use stateManager's getPortalUrl method to get API endpoint
     const serviceProviderId = own_rodit.metadata.serviceprovider_id;
     const apiendpoint = stateManager.getPortalUrl(serviceProviderId, port);
-    logger.info(`Using portal endpoint: ${apiendpoint} - Request ID: ${requestId}`);
+    logger.info(
+      `Using portal endpoint: ${apiendpoint} - Request ID: ${requestId}`
+    );
 
     // Prepare authentication data
     let roditid = own_rodit.token_id;
@@ -1223,7 +1230,9 @@ async function login_portal(own_rodit, port) {
 
     // Send login request
     const fetchUrl = `${apiendpoint}/login`;
-    logger.info(`Sending login request to: ${fetchUrl} - Request ID: ${requestId}`);
+    logger.info(
+      `Sending login request to: ${fetchUrl} - Request ID: ${requestId}`
+    );
 
     try {
       const response = await fetch(fetchUrl, {
@@ -1239,8 +1248,12 @@ async function login_portal(own_rodit, port) {
       });
 
       if (!response.ok) {
-        logger.error(`Login failed with status ${response.status} - Request ID: ${requestId}`);
-        throw new Error(`Error 040: Portal login failed with status ${response.status}`);
+        logger.error(
+          `Login failed with status ${response.status} - Request ID: ${requestId}`
+        );
+        throw new Error(
+          `Error 040: Portal login failed with status ${response.status}`
+        );
       }
 
       const data = await response.json();
@@ -1248,14 +1261,21 @@ async function login_portal(own_rodit, port) {
 
       // Validate JWT token
       try {
-        const validationResult = await validate_jwt_token_be(jwt_token, own_rodit);
+        const validationResult = await validate_jwt_token_be(
+          jwt_token,
+          own_rodit
+        );
         const peer_rodit = validationResult.peer_rodit;
         const peer_bytes_ed25519_public_key = new Uint8Array(
           Buffer.from(peer_rodit.owner_id, "hex")
         );
       } catch (validationError) {
-        logger.error(`JWT validation failed: ${validationError.message} - Request ID: ${requestId}`);
-        throw new Error(`Error 039: Portal server validation failed: ${validationError.message}`);
+        logger.error(
+          `JWT validation failed: ${validationError.message} - Request ID: ${requestId}`
+        );
+        throw new Error(
+          `Error 039: Portal server validation failed: ${validationError.message}`
+        );
       }
 
       logger.info(`Portal login successful - Request ID: ${requestId}`);
@@ -1265,11 +1285,15 @@ async function login_portal(own_rodit, port) {
         requestId,
       };
     } catch (fetchError) {
-      logger.error(`Fetch error: ${fetchError.message} - Request ID: ${requestId}`);
+      logger.error(
+        `Fetch error: ${fetchError.message} - Request ID: ${requestId}`
+      );
       throw fetchError;
     }
   } catch (error) {
-    logger.error(`Error in login_portal: ${error.message} - Request ID: ${requestId}`);
+    logger.error(
+      `Error in login_portal: ${error.message} - Request ID: ${requestId}`
+    );
     return {
       error: `Failed to login to portal: ${error.message}`,
       requestId,
