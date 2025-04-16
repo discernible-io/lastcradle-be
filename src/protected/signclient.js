@@ -13,7 +13,6 @@ const {
 } = require("../middleware/rodit");
 
 async function signPortalRodit(
-  serviceProviderId,
   port,
   tamperproofedValues,
   mintingfee,
@@ -23,7 +22,7 @@ async function signPortalRodit(
   logger.info(`Sending signportal request - Request ID: ${requestId}`);
 
   // Get API endpoint using the getPortalUrl function
-  const apiendpoint = getPortalUrl(serviceProviderId, port);
+  const apiendpoint = getPortalUrl(tamperproofedValues.serviceprovider_id , port);
 
   const current_jwt_token = stateManager.getJwtToken();
   const requestBody = {
@@ -146,11 +145,19 @@ router.post("/signclient", async (req, res) => {
       `Using API endpoint: ${apiendpoint} - Request ID: ${requestId}`
     );
 
+    logger.debug(
+      `Using API endpoint: ${tamperproofedValues}`
+    );
+    logger.debug(
+      `Using API endpoint: ${mintingfee}`
+    );
+    logger.debug(
+      `Using API endpoint: ${mintingfeeaccount}`
+    );
     // Sign token using SignPortal
     logger.info(`Sending request to SignPortal - Request ID: ${requestId}`);
     const signResult = await signPortalRodit(
-      tamperproofedValues.serviceprovider_id,
-      config.port || 8443, // Use port from config or default to 8443
+      config.port,
       tamperproofedValues,
       mintingfee,
       mintingfeeaccount
