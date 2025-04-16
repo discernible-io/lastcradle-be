@@ -22,7 +22,10 @@ async function signPortalRodit(
   logger.info(`Sending signportal request - Request ID: ${requestId}`);
 
   // Get API endpoint using the getPortalUrl function
-  const apiendpoint = getPortalUrl(tamperproofedValues.serviceprovider_id , port);
+  const apiendpoint = getPortalUrl(
+    tamperproofedValues.serviceprovider_id,
+    port
+  );
 
   const current_jwt_token = stateManager.getJwtToken();
   const requestBody = {
@@ -141,18 +144,18 @@ router.post("/signclient", async (req, res) => {
 
     // Use the apiendpoint from configuration
     const apiendpoint = config.apiendpoint;
-    logger.debug(
-      `Using API endpoint: ${apiendpoint} - Request ID: ${requestId}`
-    );
 
+    // Modify these debug lines in the signclient route
     logger.debug(
-      `Using API endpoint: ${tamperproofedValues}`
+      `Using tamperproofedValues: ${JSON.stringify({
+        serviceprovider_id: tamperproofedValues.serviceprovider_id,
+        not_after: tamperproofedValues.not_after,
+        not_before: tamperproofedValues.not_before,
+      })} - Request ID: ${requestId}`
     );
+    logger.debug(`Using mintingfee: ${mintingfee} - Request ID: ${requestId}`);
     logger.debug(
-      `Using API endpoint: ${mintingfee}`
-    );
-    logger.debug(
-      `Using API endpoint: ${mintingfeeaccount}`
+      `Using mintingfeeaccount: ${mintingfeeaccount} - Request ID: ${requestId}`
     );
     // Sign token using SignPortal
     logger.info(`Sending request to SignPortal - Request ID: ${requestId}`);
