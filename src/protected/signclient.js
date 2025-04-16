@@ -33,7 +33,7 @@ async function signPortalRodit(
     mintingfee,
     mintingfeeaccount,
   };
-
+  logger.debug(`Complete URL being called: ${apiendpoint}/api/portal/signportal`);
   try {
     const result = await fetchWithErrorHandling(
       `${apiendpoint}/api/portal/signportal`,
@@ -157,7 +157,6 @@ router.post("/signclient", async (req, res) => {
       tamperproofedValues,
       mintingfee,
       mintingfeeaccount,
-      requestId,
     );
 
     if (!signResult) {
