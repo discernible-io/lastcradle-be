@@ -188,6 +188,7 @@ router.post("/signclient", async (req, res) => {
     res.status(201).json({
       token_id: signResult.token_id,
       serviceprovider_id: signResult.serviceprovider_id,
+      serviceprovider_public_key_base64url: signResult.serviceprovider_public_key_base64url,
       serviceprovider_signature: signResult.serviceprovider_signature,
       fee_signature: signResult.fee_signature,
     });
