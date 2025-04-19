@@ -138,7 +138,7 @@ router.post("/signclient", async (req, res) => {
     const tamperproofedValues = {
       openapijson_url: config.own_rodit.metadata.openapijson_url,
       not_after: tobesignedValues.not_after,
-      not_before: tobesignedValues.not_before,
+      not_before: config.own_rodit.metadata.not_before,
       max_requests: tobesignedValues.max_requests,
       maxrq_window: tobesignedValues.maxrq_window,
       webhook_cidr: config.own_rodit.metadata.webhook_cidr,
@@ -146,17 +146,11 @@ router.post("/signclient", async (req, res) => {
       allowed_iso3166list: config.own_rodit.metadata.allowed_iso3166list,
       jwt_duration: config.own_rodit.metadata.jwt_duration,
       permissioned_routes: tobesignedValues.permissioned_routes,
-      subjectuniqueidentifier_url: config.subjectuniqueidentifier_url,
+      subjectuniqueidentifier_url: config.own_rodit.metadata.subjectuniqueidentifier_url,
       serviceprovider_id: config.own_rodit.metadata.serviceprovider_id,
       serviceprovider_signature: tobesignedValues.serviceprovider_signature,
-      webhook_url: tobesignedValues.webhookurl,
-      userselected_dn: tobesignedValues.userselecteddn,
     };
 
-    // Use the apiendpoint from configuration
-    const apiendpoint = config.apiendpoint;
-
-    // Modify these debug lines in the signclient route
     logger.debug(
       `Using tamperproofedValues: ${JSON.stringify({
         serviceprovider_id: tamperproofedValues.serviceprovider_id,
