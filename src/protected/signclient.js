@@ -179,13 +179,7 @@ router.post("/signclient", async (req, res) => {
       `Successfully created new RODiT token: ${signResult.token_id} - Request ID: ${requestId}`
     );
 
-    res.status(201).json({
-      token_id: signResult.token_id,
-      serviceprovider_id: signResult.serviceprovider_id,
-      serviceprovider_public_key_base64url: signResult.serviceprovider_public_key_base64url,
-      serviceprovider_signature: signResult.serviceprovider_signature,
-      fee_signature: signResult.fee_signature,
-    });
+    res.status(201).json(signResult);
   } catch (error) {
     logger.error(
       `Error in signclient endpoint - Request ID: ${requestId}: ${error.message}`,
