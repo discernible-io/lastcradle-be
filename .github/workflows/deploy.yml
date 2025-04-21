@@ -45,8 +45,8 @@ jobs:
       - name: Setup and Copy Files
         run: |
           echo "Setting up directories..."
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertestapi-app/{certs,logs,data,nginx}"
-          
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertestapi-app/{certs,logs,data,nginx,promtrail}"
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "if [ ! -f ~/servertestapi-app/promtrail/promtail-config.yml ]; then mkdir -p ~/servertestapi-app && cp ./promtrail/promtail-config.yml ~/servertestapi-app/promtail/promtail-config.yml; fi"
           echo "Copying API files..."
           rsync -avz --delete \
             --exclude '.git' \
@@ -68,6 +68,7 @@ jobs:
             podman pod exists servertestapi-pod && podman pod rm -f servertestapi-pod
             podman image exists servertestapi-image:latest && podman rmi -f servertestapi-image:latest
             podman image exists localhost/servertestapi-nginx:latest && podman rmi -f localhost/servertestapi-nginx:latest
+            podman image exists localhost/servertestapi-promtail:latest && podman rmi -f localhost/servertestapi-promtail:latest
             
             # Create new pod
             echo 'Creating API pod...'
@@ -96,17 +97,14 @@ jobs:
               localhost/servertestapi-nginx:latest
             # Build and run promtail
             echo 'Building and running Promtail...'
+            podman build -t localhost/servertestapi-promtail:latest -f promtrail.Dockerfile .
             podman run -d \
               --pod servertestapi-pod \
               --name servertestapi-promtail \
               --restart=unless-stopped \
               -v ~/servertestapi-app/logs:/app/logs:ro,Z \
-              -v ~/servertestapi-app/promtail-config.yaml:/etc/promtail/config.yaml:ro,Z \
-              docker.io/grafana/promtail:latest \
-              -config.file=/etc/promtail/config.yaml
-            # Check status and logs
-            echo 'Container status:'
-            podman ps -a
+              -v ~/servertestapi-app/promtrail/promtail-config.yml:/etc/promtail/config.yml:ro,Z \
+              localhost/servertestapi-promtail:latest
             
             echo 'API logs:'
             podman logs servertestapi-container || true
