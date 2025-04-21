@@ -45,7 +45,7 @@ jobs:
       - name: Setup and Copy Files
         run: |
           echo "Setting up directories..."
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertestapi-app/{certs,logs,data,nginx,promtrail}"
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertestapi-app/{certs,logs,data,nginx,promtail}"
           echo "Copying API files..."
           rsync -avz --delete \
             --exclude '.git' \
@@ -96,13 +96,13 @@ jobs:
               localhost/servertestapi-nginx:latest
             # Build and run promtail
             echo 'Building and running Promtail...'
-            podman build -t localhost/servertestapi-promtail:latest -f promtrail.Dockerfile .
+            podman build -t localhost/servertestapi-promtail:latest -f promtail.Dockerfile .
             podman run -d \
               --pod servertestapi-pod \
               --name servertestapi-promtail \
               --restart=unless-stopped \
               -v ~/servertestapi-app/logs:/app/logs:ro,Z \
-              -v ~/servertestapi-app/promtrail/promtail-config.yml:/etc/promtail/config.yml:ro,Z \
+              -v ~/servertestapi-app/promtail/promtail-config.yml:/etc/promtail/config.yml:ro,Z \
               localhost/servertestapi-promtail:latest
             
             echo 'API logs:'

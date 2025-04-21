@@ -3,7 +3,7 @@ FROM grafana/promtail:latest
 USER promtail
 
 # Copy the config file
-COPY /promtrail/promtail-config.yml /etc/promtail/config.yml
+COPY /promtail/promtail-config.yml /etc/promtail/config.yml
 
 # Expose the HTTP port that Promtail uses
 EXPOSE 9080
