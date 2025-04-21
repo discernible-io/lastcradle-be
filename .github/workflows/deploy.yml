@@ -94,7 +94,16 @@ jobs:
               --restart=unless-stopped \
               -v ~/servertestapi-app/certs:/app/certs:ro,Z \
               localhost/servertestapi-nginx:latest
-            
+            # Build and run promtail
+            echo 'Building and running Promtail...'
+            podman run -d \
+              --pod servertestapi-pod \
+              --name servertestapi-promtail \
+              --restart=unless-stopped \
+              -v ~/servertestapi-app/logs:/app/logs:ro,Z \
+              -v ~/servertestapi-app/promtail-config.yaml:/etc/promtail/config.yaml:ro,Z \
+              docker.io/grafana/promtail:latest \
+              -config.file=/etc/promtail/config.yaml
             # Check status and logs
             echo 'Container status:'
             podman ps -a
