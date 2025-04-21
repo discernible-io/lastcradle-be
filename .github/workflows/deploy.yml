@@ -94,16 +94,17 @@ jobs:
               --restart=unless-stopped \
               -v ~/servertestapi-app/certs:/app/certs:ro,Z \
               localhost/servertestapi-nginx:latest
-            # Build and run promtail
-            echo 'Building and running Promtail...'
-            podman build -t localhost/servertestapi-promtail:latest -f promtail.Dockerfile .
+
+            # Run promtail directly from Grafana's image
+            echo 'Running Promtail...'
             podman run -d \
               --pod servertestapi-pod \
               --name servertestapi-promtail \
               --restart=unless-stopped \
               -v ~/servertestapi-app/logs:/app/logs:ro,Z \
               -v ~/servertestapi-app/promtail/promtail-config.yml:/etc/promtail/config.yml:ro,Z \
-              localhost/servertestapi-promtail:latest
+              docker.io/grafana/promtail:latest \
+              -config.file=/etc/promtail/config.yml
             
             echo 'API logs:'
             podman logs servertestapi-container || true
