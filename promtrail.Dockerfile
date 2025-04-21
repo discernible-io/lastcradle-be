@@ -1,7 +1,5 @@
 FROM grafana/promtail:latest
 
-# Create a non-root user to run Promtail
-RUN adduser -D promtail
 USER promtail
 
 # Copy the config file
