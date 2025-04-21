@@ -6,7 +6,7 @@ positions:
   filename: /tmp/positions.yaml
 
 clients:
-  - url: https://178.128.173.226:3100/loki/api/v1/push
+  - url: https://dev-api.aparejos.net:3100/loki/api/v1/push
     tls_config:
       insecure_skip_verify: true # Required for self-signed certs
 
@@ -17,7 +17,7 @@ scrape_configs:
           - localhost
         labels:
           job: servertestapi
-          host: 178.128.173.226
+          host: dev-api.aparejos.net
           app: servertestapi
           __path__: /app/logs/*.log # Correct path syntax
     pipeline_stages:
