@@ -6,7 +6,7 @@ positions:
   filename: /tmp/positions.yaml
 
 clients:
-  - url: http://dev-api.aparejos.net:3100/loki/api/v1/push  # External IP of your Loki server
+  - url: https://dev-api.aparejos.net:3100/loki/api/v1/push  # External IP of your Loki server
 
 scrape_configs:
   - job_name: node_logs
@@ -15,7 +15,7 @@ scrape_configs:
           - localhost
         labels:
           job: node_logs
-          __path__: /app/logs/*.log  # Replace with your actual log directory
+          path: /app/logs/*.log  # Replace with your actual log directory
     
     # Extract labels from log file names
     pipeline_stages:
