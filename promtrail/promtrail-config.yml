@@ -1,0 +1,29 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://178.128.173.226:3100/loki/api/v1/push  # External IP of your Loki server
+
+scrape_configs:
+  - job_name: node_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: node_logs
+          __path__: /app/logs/*.log  # Replace with your actual log directory
+    
+    # Extract labels from log file names
+    pipeline_stages:
+      - regex:
+          expression: '(?P<filename>[^/]+)\\.log$'
+      - regex:
+          expression: '(?P<app>signrodits|servertestapi)(?P<logtype>error|combined)'
+          source: filename
+      - labels:
+          app:
+          logtype:
