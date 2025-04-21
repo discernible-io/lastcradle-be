@@ -22,7 +22,7 @@ scrape_configs:
           - localhost
         labels:
           job: servertestapi
-          hostname: "dev-api.aparejos.net" 
+          hostname: "dev-api.aparejos.net"
           app: servertestapi
           __path__: /app/logs/*.log
     pipeline_stages:
