@@ -46,7 +46,6 @@ jobs:
         run: |
           echo "Setting up directories..."
           ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertestapi-app/{certs,logs,data,nginx,promtrail}"
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "if [ ! -f ~/servertestapi-app/promtrail/promtail-config.yml ]; then mkdir -p ~/servertestapi-app && cp ./promtrail/promtail-config.yml ~/servertestapi-app/promtail/promtail-config.yml; fi"
           echo "Copying API files..."
           rsync -avz --delete \
             --exclude '.git' \
