@@ -5,7 +5,7 @@ const fs = require('fs');
 
 // Configuration
 const LOG_DIR = config.get("API_OPTIONS.LOG_DIR");
-const SERVICE_NAME = "signrodit-api";
+const SERVICE_NAME = "servertest-api";
 
 // Ensure log directory exists
 fs.mkdirSync(LOG_DIR, { recursive: true });
