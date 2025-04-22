@@ -18,7 +18,16 @@ async function signPortalRodit(
   mintingfeeaccount
 ) {
   const requestId = ulid();
-  logger.info(`Sending signportal request - Request ID: ${requestId}`);
+  
+  // Create context objects for structured logging
+  const requestContext = {
+    requestId,
+    operation: "signPortalRodit",
+    serviceProviderId: tamperproofedValues.serviceprovider_id,
+    port
+  };
+
+  logger.infoWithContext("Sending signportal request", requestContext);
 
   // Get API endpoint using the stateManager's getPortalUrl method
   const apiendpoint = stateManager.getPortalUrl(
@@ -34,8 +43,7 @@ async function signPortalRodit(
   };
 
   const fetchUrl = `${apiendpoint}/api/portal/signportal`;
-  logger.info(`Calling: ${fetchUrl} - Request ID: ${requestId}`);
-
+  
   const headers = {
     "Content-Type": "application/json",
     "X-Request-ID": requestId,
@@ -45,12 +53,22 @@ async function signPortalRodit(
     headers["Authorization"] = `Bearer ${current_jwt_token}`;
   }
 
-  logger.info(
-    `Detailed request info - URL: ${fetchUrl}, Headers: ${JSON.stringify(
-      headers
-    )}`
-  );
-  logger.info(`Request body: ${JSON.stringify(requestBody)}`);
+  // Enhanced logging with structured context
+  const apiCallContext = {
+    ...requestContext,
+    url: fetchUrl,
+    headers,
+    bodySize: JSON.stringify(requestBody).length,
+    hasToken: !!current_jwt_token
+  };
+  
+  logger.infoWithContext("Preparing SignPortal API call", apiCallContext);
+  
+  // Separate sensitive data into debug level logs
+  logger.debugWithContext("Request body details", {
+    ...requestContext,
+    body: requestBody
+  });
 
   try {
     const result = await fetchWithErrorHandling(fetchUrl, {
@@ -59,20 +77,35 @@ async function signPortalRodit(
       body: JSON.stringify(requestBody),
     });
 
-    logger.info(
-      `Raw response received from SignPortal - Request ID: ${requestId}`
-    );
+    logger.infoWithContext("Raw response received from SignPortal", {
+      ...requestContext,
+      responseReceived: true
+    });
 
     if (result.error) {
-      logger.error(`SignPortal error - Request ID: ${requestId}`);
+      const errorContext = {
+        ...requestContext,
+        errorCode: result.error,
+        errorMessage: result.message
+      };
+      
+      logger.errorWithContext("SignPortal error response", errorContext);
       throw new Error(`SignPortal error: ${result.error}: ${result.message}`);
     }
 
-    logger.info(`SignPortal operation successful - Request ID: ${requestId}`);
+    logger.infoWithContext("SignPortal operation successful", {
+      ...requestContext,
+      tokenId: result.token_id
+    });
+    
     return result;
   } catch (error) {
-    logger.error(
-      `Error during signportal operation: ${error.message} - Request ID: ${requestId}`
+    logger.errorWithContext("Error during signportal operation", 
+      {
+        ...requestContext,
+        errorMessage: error.message
+      },
+      error // Pass the error object directly for stack trace
     );
     throw error;
   }
@@ -81,19 +114,33 @@ async function signPortalRodit(
 // The signclient endpoint that the frontend will call
 router.post("/signclient", async (req, res) => {
   const requestId = ulid();
-  logger.info(`Received signclient request - Request ID: ${requestId}`);
+  
+  // Create base context object for consistent logging
+  const baseContext = {
+    requestId,
+    endpoint: "/signclient",
+    method: req.method,
+    ip: req.ip,
+    userAgent: req.get("User-Agent")
+  };
+  
+  logger.infoWithContext("Received signclient request", baseContext);
 
   try {
     // Get data from frontend
     const { tobesignedValues, mintingfee, mintingfeeaccount } = req.body;
 
+    // Enhanced context with request validation
+    const validationContext = {
+      ...baseContext,
+      hasSignedValues: !!tobesignedValues,
+      hasMintingFee: !!mintingfee,
+      hasMintingFeeAccount: !!mintingfeeaccount
+    };
+
     // Basic validation
     if (!tobesignedValues || !mintingfee || !mintingfeeaccount) {
-      logger.warn(`Missing required fields - Request ID: ${requestId}`, {
-        hasSignedValues: !!tobesignedValues,
-        hasMintingFee: !!mintingfee,
-        hasMintingFeeAccount: !!mintingfeeaccount,
-      });
+      logger.warnWithContext("Missing required fields in signclient request", validationContext);
 
       return res.status(400).json({
         error: "Missing required fields",
@@ -103,7 +150,7 @@ router.post("/signclient", async (req, res) => {
 
     // Initialize vault and config if not already done
     if (!roditManager.vaultInitialized) {
-      logger.info(`Initializing vault - Request ID: ${requestId}`);
+      logger.infoWithContext("Initializing vault for signclient", baseContext);
       await roditManager.initializeVault();
       await roditManager.initializeRoditConfig("server");
     }
@@ -111,28 +158,32 @@ router.post("/signclient", async (req, res) => {
     // Get configuration from state manager
     const config = await stateManager.getConfigOwnRodit();
     if (!config) {
-      logger.error(
-        `Failed to get RODiT configuration - Request ID: ${requestId}`
-      );
+      logger.errorWithContext("Failed to get RODiT configuration", baseContext);
       throw new Error("Failed to initialize RODiT configuration");
     }
 
     const portalPort = 8443;
+    
+    // JWT Token management
+    const jwtContext = {
+      ...baseContext,
+      portalPort,
+      hasExistingToken: !!stateManager.getJwtToken()
+    };
+    
     if (!stateManager.getJwtToken()) {
-      logger.info(`Authenticating with SignPortal - Request ID: ${requestId}`);
+      logger.infoWithContext("Authenticating with SignPortal", jwtContext);
 
       // Make this configurable if needed
       const loginResult = await login_portal(config.own_rodit, portalPort);
 
       if (!loginResult.jwt_token) {
-        logger.error(`Failed to obtain JWT token - Request ID: ${requestId}`);
+        logger.errorWithContext("Failed to obtain JWT token", jwtContext);
         throw new Error("Failed to obtain JWT token from SignPortal");
       }
 
       await stateManager.setJwtToken(loginResult.jwt_token);
-      logger.info(
-        `Successfully authenticated with SignPortal - Request ID: ${requestId}`
-      );
+      logger.infoWithContext("Successfully authenticated with SignPortal", jwtContext);
     }
 
     const tamperproofedValues = {
@@ -151,19 +202,24 @@ router.post("/signclient", async (req, res) => {
       serviceprovider_signature: tobesignedValues.serviceprovider_signature,
     };
 
-    logger.debug(
-      `Using tamperproofedValues: ${JSON.stringify({
-        serviceprovider_id: tamperproofedValues.serviceprovider_id,
-        not_after: tamperproofedValues.not_after,
-        not_before: tamperproofedValues.not_before,
-      })} - Request ID: ${requestId}`
-    );
-    logger.debug(`Using mintingfee: ${mintingfee} - Request ID: ${requestId}`);
-    logger.debug(
-      `Using mintingfeeaccount: ${mintingfeeaccount} - Request ID: ${requestId}`
-    );
+    // Log critical information at debug level with proper context
+    const tokenContext = {
+      ...baseContext,
+      serviceprovider_id: tamperproofedValues.serviceprovider_id,
+      not_after: tamperproofedValues.not_after,
+      not_before: tamperproofedValues.not_before,
+      mintingfee,
+      mintingfeeaccount
+    };
+    
+    logger.debugWithContext("Prepared tamperproofed values for signing", tokenContext);
+    
     // Sign token using SignPortal
-    logger.info(`Sending request to SignPortal - Request ID: ${requestId}`);
+    logger.infoWithContext("Sending request to SignPortal", {
+      ...baseContext,
+      operation: "signPortalRodit"
+    });
+    
     const signResult = await signPortalRodit(
       portalPort,
       tamperproofedValues,
@@ -172,21 +228,28 @@ router.post("/signclient", async (req, res) => {
     );
 
     if (!signResult) {
+      logger.errorWithContext("Sign operation failed with null result", baseContext);
       throw new Error("Sign operation failed");
     }
 
-    logger.info(
-      `Successfully created new RODiT token: ${signResult.token_id} - Request ID: ${requestId}`
-    );
+    // Success response
+    const successContext = {
+      ...baseContext,
+      token_id: signResult.token_id,
+      status: "success"
+    };
+    
+    logger.infoWithContext("Successfully created new RODiT token", successContext);
 
     res.status(201).json(signResult);
   } catch (error) {
-    logger.error(
-      `Error in signclient endpoint - Request ID: ${requestId}: ${error.message}`,
-      {
-        stack: error.stack,
-      }
-    );
+    const errorContext = {
+      ...baseContext,
+      errorMessage: error.message,
+      errorName: error.name
+    };
+    
+    logger.errorWithContext("Error in signclient endpoint", errorContext, error);
 
     res.status(500).json({
       error: "Failed to sign client request",

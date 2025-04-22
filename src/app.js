@@ -29,10 +29,6 @@ const options = {
       version: "1.0.0",
       description:
         "This is a REST API application made with Express. It just echoes whatever string you send to it.",
-      // license: {
-      //  name: 'Licensed Under MIT',
-      //  url: 'https://spdx.org/licenses/MIT.html',
-      //},
       contact: {
         name: "JSONPlaceholder for the contact name",
         url: "https:// https://dev-api.aparejos.net:3443/home.js",
@@ -104,9 +100,16 @@ app.post("/login", (req, res, next) => {
   const config_own_rodit = await stateManager.getConfigOwnRodit();
   return login_client(req, res, config_own_rodit);
 });
+
 app.use((req, res, next) => {
   if (req.logAction) {
-    logger.info(`Action logged: ${req.logAction}`);
+    logger.infoWithContext(`Action executed`, {
+      action: req.logAction,
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+      userId: req.user ? req.user.id : "anonymous"
+    });
   }
   next();
 });
@@ -131,21 +134,31 @@ app.use("/api", authenticate_apicall, echoprotectedRoute);
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
 app.use("/api", authenticate_apicall, validatepermissions, crudaprotectedRoute);
 
+// Enhanced error handling middleware
 app.use((err, req, res, next) => {
-  logger.error({
-    message: err.message,
-    stack: err.stack,
-    method: req.method,
-    url: req.originalUrl,
-    userIP: req.ip,
-    userId: req.user ? req.user.id : "anonymous",
-  });
+  logger.errorWithContext(
+    "Server error occurred",
+    {
+      method: req.method,
+      url: req.originalUrl,
+      userIP: req.ip,
+      userId: req.user ? req.user.id : "anonymous",
+      errorCode: "106",
+      route: req.route ? req.route.path : "unknown"
+    },
+    err // Pass the error object directly
+  );
+  
   res.status(500).json({ error: "Error 106: Internal Server Error" });
 });
 
 // Update rate limit once obtained config
 function updateratelimit(maxrequests, maxrqwindow) {
   ratelimiter = ratelimitmw(maxrequests, maxrqwindow);
+  logger.infoWithContext("Rate limit settings updated", { 
+    maxRequests: maxrequests, 
+    windowDuration: maxrqwindow 
+  });
 }
 
 // Store server instance and db reference
@@ -158,7 +171,10 @@ async function startServer() {
     await roditManager.initializeVault();
     await roditManager.initializeRoditConfig("server");
 
-    logger.info(`Vault initialized and RODiT configuration loaded`);
+    logger.infoWithContext("Server initialization successful", {
+      component: "vault",
+      status: "initialized"
+    });
 
     // Get and apply configuration
     const configObject = await stateManager.getConfigOwnRodit();
@@ -178,7 +194,11 @@ async function startServer() {
     // Start the HTTP server
     const port = configObject.port || 8080;
     server = app.listen(port, () => {
-      logger.info(`HTTP Server started on port ${port}`);
+      logger.infoWithContext("Server started", {
+        port: port,
+        env: process.env.NODE_ENV || "development",
+        protocol: "http"
+      });
     });
 
     // Graceful shutdown handling
@@ -190,19 +210,27 @@ async function startServer() {
       });
     });
   } catch (error) {
-    logger.error(`Error 907: Failed to start server: ${error.message}`);
+    logger.errorWithContext(
+      "Failed to start server", 
+      {
+        errorCode: "907",
+        component: "server-startup"
+      },
+      error
+    );
     process.exit(1);
   }
 }
 
 startServer();
 
+// Handle SIGINT gracefully
 process.on("SIGINT", async () => {
-  logger.info("SIGINT signal received: shutting down...");
+  logger.infoWithContext("Shutdown initiated", { signal: "SIGINT" });
   
   if (server) {
     server.close(() => {
-      logger.info("HTTP server closed");
+      logger.infoWithContext("HTTP server closed", { component: "http-server" });
     });
   }
   
@@ -210,9 +238,13 @@ process.on("SIGINT", async () => {
   if (db && typeof db.close === 'function') {
     try {
       await db.close();
-      logger.info("Database connection closed");
+      logger.infoWithContext("Database connection closed", { component: "main-db" });
     } catch (error) {
-      logger.error(`Error closing database: ${error.message}`);
+      logger.errorWithContext(
+        "Error closing database", 
+        { component: "main-db" },
+        error
+      );
     }
   }
   
@@ -220,29 +252,38 @@ process.on("SIGINT", async () => {
   try {
     if (crudaprotectedRoute.closeDatabase) {
       await crudaprotectedRoute.closeDatabase();
+      logger.infoWithContext("CRUDA database connection closed", { component: "cruda-db" });
     }
   } catch (error) {
-    logger.error(`Error closing CRUDA database: ${error.message}`);
+    logger.errorWithContext(
+      "Error closing CRUDA database", 
+      { component: "cruda-db" },
+      error
+    );
   }
   
   process.exit(0);
 });
 
-// And do the same for the SIGTERM handler:
-process.on("SIGTERM", () => {
-  logger.info("SIGTERM signal received: closing HTTP server");
+// Handle SIGTERM gracefully
+process.on("SIGTERM", async () => {
+  logger.infoWithContext("Shutdown initiated", { signal: "SIGTERM" });
   
   if (server) {
     server.close(async () => {
-      logger.info("HTTP server closed");
+      logger.infoWithContext("HTTP server closed", { component: "http-server" });
       
       // Check if db exists and has a close method before calling it
       if (db && typeof db.close === 'function') {
         try {
           await db.close();
-          logger.info("Database connection closed");
+          logger.infoWithContext("Database connection closed", { component: "main-db" });
         } catch (error) {
-          logger.error(`Error closing database: ${error.message}`);
+          logger.errorWithContext(
+            "Error closing database", 
+            { component: "main-db" },
+            error
+          );
         }
       }
       
@@ -250,9 +291,14 @@ process.on("SIGTERM", () => {
       try {
         if (crudaprotectedRoute.closeDatabase) {
           await crudaprotectedRoute.closeDatabase();
+          logger.infoWithContext("CRUDA database connection closed", { component: "cruda-db" });
         }
       } catch (error) {
-        logger.error(`Error closing CRUDA database: ${error.message}`);
+        logger.errorWithContext(
+          "Error closing CRUDA database", 
+          { component: "cruda-db" },
+          error
+        );
       }
       
       process.exit(0);
