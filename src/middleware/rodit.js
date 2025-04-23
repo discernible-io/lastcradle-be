@@ -3998,6 +3998,231 @@ function hex2base64url(hexString) {
   }
 }
 
+async function generate_jwt_token(
+  peer_rodit,
+  peer_timestamp,
+  own_rodit,
+  own_rodit_bytes_private_key
+) {
+  const requestId = ulid();
+  const startTime = Date.now();
+  
+  logger.debug("Starting JWT token generation", {
+    component: "JwtAuth",
+    method: "generate_jwt_token",
+    requestId,
+    peerRoditId: peer_rodit?.token_id,
+    peerTimestamp: peer_timestamp,
+    ownRoditId: own_rodit?.token_id
+  });
+
+  try {
+    const now = peer_timestamp;
+    
+    const notafterStart = Date.now();
+    const notafter = await dateStringToUnixTime(peer_rodit.metadata.not_after);
+    const notafterDuration = Date.now() - notafterStart;
+    
+    const duration = parseInt(peer_rodit.metadata.jwt_duration, 10);
+    let expiresat = now;
+    
+    logger.debug("Calculated token parameters", {
+      requestId,
+      now,
+      notafter,
+      duration,
+      notafterDuration
+    });
+
+    if (now + duration < notafter) {
+      expiresat = parseInt(now) + parseInt(peer_rodit.metadata.jwt_duration);
+      
+      logger.debug("Token expiration time valid", {
+        requestId,
+        expiresat,
+        validFor: expiresat - now
+      });
+    } else {
+      logger.error("RODiT duration check failed", {
+        component: "JwtAuth",
+        requestId,
+        duration: Date.now() - startTime,
+        now,
+        duration,
+        notafter,
+        calculatedExpiry: now + duration,
+        difference: (now + duration) - notafter
+      });
+      
+      // Add metrics for duration validation failures
+      logger.metric && logger.metric("jwt_token_generation_failures", 1, {
+        reason: "duration_check_failed",
+        peer_rodit_id: peer_rodit.token_id
+      });
+      
+      throw new Error("RODiT duration check failed");
+    }
+
+    const notbeforeStart = Date.now();
+    const notbefore = await dateStringToUnixTime(own_rodit.metadata.not_before);
+    const notbeforeDuration = Date.now() - notbeforeStart;
+    
+    logger.debug("Retrieved not-before time", {
+      requestId,
+      notbefore,
+      notbeforeDuration
+    });
+
+    const encodeStart = Date.now();
+    const timeString = await unixTimeToDateString(peer_timestamp);
+    const roditidandtimestamp = new TextEncoder().encode(
+      own_rodit.token_id + timeString
+    );
+    const encodeDuration = Date.now() - encodeStart;
+    
+    logger.debug("Encoded RODiT ID and timestamp", {
+      requestId,
+      encodeDuration,
+      roditIdLength: own_rodit.token_id.length,
+      timestampLength: timeString.length,
+      totalLength: roditidandtimestamp.length
+    });
+
+    const signatureStart = Date.now();
+    const own_rodit_bytes_signature = nacl.sign.detached(
+      roditidandtimestamp,
+      own_rodit_bytes_private_key
+    );
+    const signatureDuration = Date.now() - signatureStart;
+    
+    logger.debug("Created signature", {
+      requestId,
+      signatureDuration,
+      signatureLength: own_rodit_bytes_signature.length
+    });
+
+    const base64Start = Date.now();
+    const own_roditid_base64url_signature = Buffer.from(
+      own_rodit_bytes_signature
+    ).toString("base64url");
+    const base64Duration = Date.now() - base64Start;
+    
+    logger.debug("Converted signature to base64url", {
+      requestId,
+      base64Duration,
+      base64Length: own_roditid_base64url_signature.length
+    });
+
+    const keyStart = Date.now();
+    const own_rodit_keyobject_private_key = crypto.createPrivateKey({
+      key: Buffer.concat([
+        Buffer.from("302e020100300506032b657004220420", "hex"),
+        own_rodit_bytes_private_key,
+      ]),
+      format: "der",
+      type: "pkcs8",
+    });
+    const keyDuration = Date.now() - keyStart;
+    
+    logger.debug("Created private key object", {
+      requestId,
+      keyDuration
+    });
+
+    logger.debug("Preparing JWT payload", {
+      requestId,
+      issuer: peer_rodit.metadata.subjectuniqueidentifier_url,
+      audience: peer_rodit.owner_id,
+      notBefore: notbefore,
+      expiration: expiresat,
+      issuedAt: peer_timestamp
+    });
+
+    const jwtId = "jti" + ulid();
+    const jwtSignStart = Date.now();
+    const token = await new SignJWT({
+      iss: peer_rodit.metadata.subjectuniqueidentifier_url,
+      sub:
+        peer_rodit.metadata.serviceprovider_id + ";sub=" + peer_rodit.token_id,
+      aud: peer_rodit.owner_id,
+      exp: expiresat,
+      nbf: notbefore,
+      iat: peer_timestamp,
+      jti: jwtId,
+      rodit_id: own_rodit.token_id,
+      rodit_owner: own_rodit.owner_id,
+      rodit_idsignature: own_roditid_base64url_signature,
+      rodit_maxrequests: peer_rodit.metadata.max_requests,
+      rodit_maxrqwindow: peer_rodit.metadata.maxrq_window,
+      rodit_permissionedroutes: peer_rodit.metadata.permissioned_routes,
+      rodit_webhookcidr: peer_rodit.metadata.webhook_cidr,
+      rodit_allowedcidr: peer_rodit.metadata.allowed_cidr,
+      rodit_allowediso3166list: peer_rodit.metadata.allowed_iso3166list,
+      rodit_webhookurl: peer_rodit.metadata.webhook_url,
+      config_iso639: null,
+      config_iso3166: null,
+      config_iso15924: null,
+      config_timeoptions: null,
+    })
+      .setProtectedHeader({ alg: "EdDSA", typ: "JWT" })
+      .sign(own_rodit_keyobject_private_key);
+    const jwtSignDuration = Date.now() - jwtSignStart;
+    
+    const totalDuration = Date.now() - startTime;
+    
+    logger.info("JWT token generation successful", {
+      component: "JwtAuth",
+      method: "generate_jwt_token",
+      requestId,
+      duration: totalDuration,
+      notafterDuration,
+      notbeforeDuration,
+      encodeDuration,
+      signatureDuration,
+      base64Duration,
+      keyDuration,
+      jwtSignDuration,
+      peerRoditId: peer_rodit.token_id,
+      ownRoditId: own_rodit.token_id,
+      jwtId,
+      validFor: expiresat - peer_timestamp
+    });
+    
+    // Add metrics for successful token generation
+    logger.metric && logger.metric("jwt_token_generation", totalDuration, {
+      result: "success",
+      peer_rodit_id: peer_rodit.token_id,
+      valid_seconds: expiresat - peer_timestamp
+    });
+
+    return token;
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    
+    logger.error("Failed to generate JWT token", {
+      component: "JwtAuth",
+      method: "generate_jwt_token",
+      requestId,
+      duration,
+      peerRoditId: peer_rodit?.token_id,
+      ownRoditId: own_rodit?.token_id,
+      error: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      }
+    });
+    
+    // Add metrics for token generation errors
+    logger.metric && logger.metric("jwt_token_generation_errors", 1, {
+      error_type: error.name || "Unknown",
+      peer_rodit_id: peer_rodit?.token_id || "unknown"
+    });
+    
+    throw error;
+  }
+}
+
 async function generate_jwt_token_fromtoken(
   token,
   duration,
