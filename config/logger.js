@@ -54,12 +54,7 @@ const logger = winston.createLogger({
   defaultMeta: { 
     service_name: SERVICE_NAME
   },
-  levels: {
-    ERROR: 0,
-    WARN: 1,
-    INFO: 2,
-    DEBUG: 3
-  },
+  levels: winston.config.npm.levels, 
   transports: [
     new winston.transports.File({
       filename: path.join(LOG_DIR, 'signroditserror.log'),
