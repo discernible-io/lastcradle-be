@@ -129,7 +129,7 @@ app.use("/api", signclientprotectedRoute);
 // app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
-app.use("/api", authenticate_apicall, echoprotectedRoute);
+app.use("/api", authenticate_apicall, validatepermissions, echoprotectedRoute);
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
 app.use("/api", authenticate_apicall, validatepermissions, crudaprotectedRoute);
