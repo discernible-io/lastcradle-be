@@ -26,6 +26,11 @@ const logActionMiddleware = (req, res, next) => {
 router.post("/echo", logActionMiddleware, (req, res) => {
   const inputString = req.body.message;
   
+  if (!inputString || typeof inputString !== 'string') {
+    logger.warnWithContext("Invalid input for echo", routeContext);
+    return res.status(400).json({ error: "Invalid input" });
+  }
+
   // Create structured context for the route handler
   const routeContext = {
     action: req.logAction,
