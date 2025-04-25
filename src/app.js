@@ -126,7 +126,7 @@ app.use(loggingmw);
 app.use("/api", signclientprotectedRoute);
 
 // Temporarily remove for token renewal tests: Apply Logging middleware to all routes
-// app.use((req, res, next) => ratelimiter(req, res, next));
+app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Mount CRUDA protected route, where token is authenticated and permissions vetted
 app.use("/api", authenticate_apicall, echoprotectedRoute);
