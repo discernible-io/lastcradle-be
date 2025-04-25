@@ -1,121 +1,121 @@
 const { decodeJwt } = require("jose");
 const logger = require("../../config/logger");
-const crypto = require('crypto');
+const crypto = require("crypto");
 
 class PermissionValidator {
   constructor() {
     this.methodPermissionMap = {
-      create: ['entityAndProperties'],
-      destroy: ['entityAndProperties'],
-      read: ['entityAndProperties', 'entityOnly'],
-      update: ['entityAndProperties', 'entityOnly'],
-      list: ['entityAndProperties', 'entityOnly'],
-      list_all: ['entityAndProperties', 'entityOnly']
+      create: ["entityAndProperties"],
+      destroy: ["entityAndProperties"],
+      read: ["entityAndProperties", "entityOnly"],
+      update: ["entityAndProperties", "entityOnly"],
+      list: ["entityAndProperties", "entityOnly"],
+      list_all: ["entityAndProperties", "entityOnly"],
     };
   }
 
   getPermissionScope(rateValue) {
-    if (rateValue.startsWith('+')) {
-      return 'entityAndProperties';
-    } else if (rateValue.startsWith('-')) {
-      return 'propertiesOnly';
+    if (rateValue.startsWith("+")) {
+      return "entityAndProperties";
+    } else if (rateValue.startsWith("-")) {
+      return "propertiesOnly";
     }
-    return 'entityOnly';
+    return "entityOnly";
   }
 
   isMethodAllowed(method, permissionScope) {
     const startTime = Date.now();
-    
+
     if (!this.methodPermissionMap[method]) {
-      logger.error("Unknown method type detected", { 
-        component: "PermissionValidator", 
-        method: "isMethodAllowed", 
+      logger.error("Unknown method type detected", {
+        component: "PermissionValidator",
+        method: "isMethodAllowed",
         requestedMethod: method,
         error: `Unknown method type: ${method}`,
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       });
       return false;
     }
-    
-    const isAllowed = this.methodPermissionMap[method].includes(permissionScope);
-    
+
+    const isAllowed =
+      this.methodPermissionMap[method].includes(permissionScope);
+
     logger.debug("Method permission check completed", {
       component: "PermissionValidator",
       method: "isMethodAllowed",
       requestedMethod: method,
       permissionScope,
       isAllowed,
-      duration: Date.now() - startTime
+      duration: Date.now() - startTime,
     });
-    
+
     return isAllowed;
   }
 
   findMatchingEntity(entities, currentPath, requestId) {
     const startTime = Date.now();
-    
-    for (const entityObj of entities) {
-      const entity = entityObj.entity || entityObj.name;
-      const methods = entityObj.methods;
-      
-      if (methods.hasOwnProperty(currentPath)) {
-        const rateValue = methods[currentPath];
-        const method = currentPath.split("/").pop();
-        
-        logger.info("Processing permission request", {
-          component: "PermissionValidator",
-          method: "findMatchingEntity",
-          url: currentPath,
-          requestedMethod: method,
-          entity,
-          requestId
-        });
-        
-        const permissionScope = this.getPermissionScope(rateValue);
-        const isPermitted = this.isMethodAllowed(method, permissionScope);
-        
-        logger.debug("Permission check result", {
-          component: "PermissionValidator",
-          method: "findMatchingEntity",
-          url: currentPath,
-          requestedMethod: method,
-          entity,
+
+    // Handle entities as an object with name and methods
+    const entity = entities.name;
+    const methods = entities.methods;
+
+    if (methods.hasOwnProperty(currentPath)) {
+      const rateValue = methods[currentPath];
+      const method = currentPath.split("/").pop();
+
+      logger.info("Processing permission request", {
+        component: "PermissionValidator",
+        method: "findMatchingEntity",
+        url: currentPath,
+        requestedMethod: method,
+        entity,
+        requestId,
+      });
+
+      const permissionScope = this.getPermissionScope(rateValue);
+      const isPermitted = this.isMethodAllowed(method, permissionScope);
+
+      logger.debug("Permission check result", {
+        component: "PermissionValidator",
+        method: "findMatchingEntity",
+        url: currentPath,
+        requestedMethod: method,
+        entity,
+        permissionScope,
+        rateValue,
+        isPermitted,
+        duration: Date.now() - startTime,
+        requestId,
+      });
+
+      if (isPermitted) {
+        return {
+          isPermitted: true,
+          commentsRate: rateValue,
           permissionScope,
-          rateValue,
-          isPermitted,
-          duration: Date.now() - startTime,
-          requestId
-        });
-        
-        if (isPermitted) {
-          return {
-            isPermitted: true,
-            commentsRate: rateValue,
-            permissionScope
-          };
-        }
+        };
       }
     }
-    
+
     logger.warn("No matching permission found", {
       component: "PermissionValidator",
       method: "findMatchingEntity",
       url: currentPath,
       duration: Date.now() - startTime,
-      requestId
+      requestId,
     });
-    
+
     return {
       isPermitted: false,
       commentsRate: null,
-      permissionScope: null
+      permissionScope: null,
     };
   }
 
   async validate(req) {
-    const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+    const requestId = req.headers["x-request-id"] || crypto.randomUUID();
     const startTime = Date.now();
-    
+
     const token = req.header("Authorization");
     if (!token) {
       logger.warn("Authorization token missing", {
@@ -123,71 +123,81 @@ class PermissionValidator {
         method: "validate",
         path: req.path,
         ip: req.ip,
-        userAgent: req.headers['user-agent'],
+        userAgent: req.headers["user-agent"],
         duration: Date.now() - startTime,
-        requestId
+        requestId,
       });
-      
+
       return {
         isValid: false,
         status: 401,
-        message: "Access denied. No token provided."
+        message: "Access denied. No token provided.",
       };
     }
-    
+
     try {
       const decodedToken = decodeJwt(token);
-      
+
       logger.info("Endpoint access attempt", {
         component: "PermissionValidator",
         method: "validate",
         endpoint: req.path,
-        userId: decodedToken.sub || 'unknown',
-        requestId
+        userId: decodedToken.sub || "unknown",
+        requestId,
       });
-      
-      const permissionedRoutes = JSON.parse(decodedToken.rodit_permissionedroutes);
-      const { entities } = permissionedRoutes;
+
+      const permissionedRoutes = JSON.parse(
+        decodedToken.rodit_permissionedroutes
+      );
+
+      // Add debug logging for permission routes content
+      logger.debug("Permission routes content", {
+        component: "PermissionValidator",
+        method: "validate",
+        permissionedRoutes: JSON.stringify(permissionedRoutes),
+        entitiesType: typeof permissionedRoutes.entities,
+        requestId,
+      });
+
+      // Use entities directly, assuming it's an object
+      const entities = permissionedRoutes.entities;
       const currentPath = req.path;
-      
-      const {
-        isPermitted,
-        commentsRate,
-        permissionScope
-      } = this.findMatchingEntity(entities, currentPath, requestId);
-      
+
+      const { isPermitted, commentsRate, permissionScope } =
+        this.findMatchingEntity(entities, currentPath, requestId);
+
       if (!isPermitted) {
         logger.warn("Permission denied", {
           component: "PermissionValidator",
           method: "validate",
           path: req.path,
-          userId: decodedToken.sub || 'unknown',
+          userId: decodedToken.sub || "unknown",
           duration: Date.now() - startTime,
-          requestId
+          requestId,
         });
-        
+
         return {
           isValid: false,
           status: 403,
-          message: "Permission denied"
+          message: "Permission denied",
         };
       }
-      
+
       logger.info("Authorization successful", {
         component: "PermissionValidator",
         method: "validate",
         path: req.path,
-        userId: decodedToken.sub || 'unknown',
+        userId: decodedToken.sub || "unknown",
         permissionScope,
         rateValue: commentsRate,
         duration: Date.now() - startTime,
-        requestId
+        requestId,
       });
-      
+
       return {
         isValid: true,
         commentsRate,
-        permissionScope
+        permissionScope,
       };
     } catch (error) {
       logger.error("Permission check failed", {
@@ -198,13 +208,13 @@ class PermissionValidator {
         errorCode: "112",
         stack: error.stack,
         duration: Date.now() - startTime,
-        requestId
+        requestId,
       });
-      
+
       return {
         isValid: false,
         status: 400,
-        message: "Error 119: Invalid token or permissions."
+        message: "Error 119: Invalid token or permissions.",
       };
     }
   }
@@ -228,21 +238,21 @@ const permissionValidator = new PermissionValidator();
  */
 async function validatepermissions(req, res, next) {
   const startTime = Date.now();
-  const requestId = req.headers['x-request-id'] || crypto.randomUUID();
-  
-  if (!req.headers['x-request-id']) {
-    req.headers['x-request-id'] = requestId;
+  const requestId = req.headers["x-request-id"] || crypto.randomUUID();
+
+  if (!req.headers["x-request-id"]) {
+    req.headers["x-request-id"] = requestId;
   }
-  
+
   logger.debug("Permission validation started", {
     component: "validatepermissions",
     method: "middleware",
     path: req.path,
-    requestId
+    requestId,
   });
-  
+
   const result = await permissionValidator.validate(req);
-  
+
   if (!result.isValid) {
     logger.warn("Permission validation failed", {
       component: "validatepermissions",
@@ -251,26 +261,26 @@ async function validatepermissions(req, res, next) {
       status: result.status,
       message: result.message,
       duration: Date.now() - startTime,
-      requestId
+      requestId,
     });
-    
+
     return res.status(result.status).json({ message: result.message });
   }
-  
+
   if (result.commentsRate) {
     req.commentsRate = result.commentsRate;
     req.permissionScope = result.permissionScope;
   }
-  
+
   logger.debug("Permission validation successful", {
     component: "validatepermissions",
     method: "middleware",
     path: req.path,
     permissionScope: result.permissionScope,
     duration: Date.now() - startTime,
-    requestId
+    requestId,
   });
-  
+
   next();
 }
 
