@@ -39,6 +39,17 @@ const initializeDatabase = async () => {
       content TEXT
     )`);
 
+    // Create webhook_tests table to track webhook test results
+    await db.run(`CREATE TABLE IF NOT EXISTS webhook_tests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      correlation_id TEXT,
+      event_type TEXT,
+      payload TEXT,
+      success BOOLEAN,
+      timestamp TEXT,
+      error_message TEXT
+    )`);
+
     logger.infoWithContext("SQLite database initialized successfully", dbContext);
     return db;
   } catch (error) {
@@ -77,19 +88,60 @@ const logEvent = (event, data, isError = false) => {
   });
 };
 
-// Combined function that logs and sends webhook
-const logAndSendWebhook = async (event, data, isError = false) => {
-  const requestId = ulid();
+// Enhanced function that logs, sends webhook, and tracks test results
+const logAndSendWebhook = async (event, data, isError = false, isTest = false) => {
+  const requestId = data.test_id || ulid();
   const webhookContext = {
     event,
     requestId,
     isError,
+    isTest,
     dataType: typeof data,
     operation: "webhook"
   };
 
   try {
+    // Log the webhook attempt
+    logger.infoWithContext("Sending webhook", {
+      ...webhookContext,
+      status: "attempt",
+      eventType: event
+    });
+
     const result = await send_webhook(event, data, isError);
+
+    // Save test results if this is a test
+    if (isTest && db) {
+      try {
+        await db.run(
+          `INSERT INTO webhook_tests (correlation_id, event_type, payload, success, timestamp, error_message) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            requestId,
+            event,
+            JSON.stringify(data),
+            result.isValid ? 1 : 0,
+            new Date().toISOString(),
+            result.error ? result.error.message || JSON.stringify(result.error) : null
+          ]
+        );
+
+        logger.infoWithContext("Webhook test result recorded", {
+          ...webhookContext,
+          status: result.isValid ? "success" : "failure",
+          databaseRecorded: true
+        });
+      } catch (dbError) {
+        logger.errorWithContext(
+          "Failed to record webhook test result", 
+          {
+            ...webhookContext,
+            status: "database_error"
+          },
+          dbError
+        );
+      }
+    }
 
     if (result.isValid) {
       logger.infoWithContext("Webhook sent successfully", {
@@ -108,10 +160,10 @@ const logAndSendWebhook = async (event, data, isError = false) => {
       );
     }
 
-    // You can still log the event locally if needed
+    // Log the event locally
     logEvent(event, data, isError);
     
-    return result;
+    return { ...result, requestId };
   } catch (error) {
     logger.errorWithContext(
       "Exception occurred while sending webhook", 
@@ -124,6 +176,33 @@ const logAndSendWebhook = async (event, data, isError = false) => {
     
     // Still log the event locally
     logEvent(event, data, isError);
+
+    // Save test failure if this is a test
+    if (isTest && db) {
+      try {
+        await db.run(
+          `INSERT INTO webhook_tests (correlation_id, event_type, payload, success, timestamp, error_message) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            requestId,
+            event,
+            JSON.stringify(data),
+            0,
+            new Date().toISOString(),
+            error.message || JSON.stringify(error)
+          ]
+        );
+      } catch (dbError) {
+        logger.errorWithContext(
+          "Failed to record webhook test failure", 
+          {
+            ...webhookContext,
+            status: "database_error"
+          },
+          dbError
+        );
+      }
+    }
     
     return { isValid: false, error, requestId };
   }
@@ -178,7 +257,15 @@ const itemExists = async (req, res, next) => {
         }
       );
       
-      await logAndSendWebhook("comment_not_found", { id, error: errorMessage }, true);
+      // Determine if this is part of a test
+      const isTest = req.headers['x-webhook-test'] === 'true';
+      
+      await logAndSendWebhook("comment_not_found", { 
+        id, 
+        error: errorMessage,
+        test_id: isTest ? requestId : undefined
+      }, true, isTest);
+      
       return res.status(404).json({ error: errorMessage });
     }
     
@@ -210,6 +297,7 @@ router.post(
   (req, res, next) => {
     req.logAction = "create_item";
     req.requestId = req.headers['x-request-id'] || ulid();
+    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   async (req, res) => {
@@ -224,7 +312,8 @@ router.post(
       hasContent: !!content,
       method: req.method,
       path: req.path,
-      ip: req.ip
+      ip: req.ip,
+      isTest: req.isWebhookTest
     };
     
     logger.infoWithContext("Processing create comment request", createContext);
@@ -242,7 +331,11 @@ router.post(
         }
       );
       
-      await logAndSendWebhook("create_comment_error", { error: errorMessage }, true);
+      await logAndSendWebhook("create_comment_error", { 
+        error: errorMessage,
+        test_id: req.isWebhookTest ? req.requestId : undefined
+      }, true, req.isWebhookTest);
+      
       return res.status(400).json({ error: errorMessage });
     }
     
@@ -258,6 +351,11 @@ router.post(
         content,
       };
       
+      // Add test_id for webhook tracking if this is a test
+      if (req.isWebhookTest) {
+        newItem.test_id = req.requestId;
+      }
+      
       logger.infoWithContext(
         "Comment created successfully", 
         {
@@ -269,9 +367,20 @@ router.post(
         }
       );
       
-      await logAndSendWebhook("comment_created", newItem);
+      // Send the webhook with additional test flag
+      const webhookResult = await logAndSendWebhook("comment_created", newItem, false, req.isWebhookTest);
       
       const response = { ...newItem };
+      
+      // If this is a test, include webhook result info
+      if (req.isWebhookTest) {
+        response.webhook_result = {
+          success: webhookResult.isValid,
+          correlation_id: webhookResult.requestId,
+          error: webhookResult.error ? webhookResult.error.message : null
+        };
+      }
+      
       if (req.new_jwt_token) {
         response.new_jwt_token = req.new_jwt_token;
         logger.debugWithContext(
@@ -301,6 +410,7 @@ router.post(
   (req, res, next) => {
     req.logAction = "read_all_items";
     req.requestId = req.headers['x-request-id'] || ulid();
+    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   async (req, res) => {
@@ -311,7 +421,8 @@ router.post(
       action: req.logAction,
       method: req.method,
       path: req.path,
-      ip: req.ip
+      ip: req.ip,
+      isTest: req.isWebhookTest
     };
     
     logger.infoWithContext("Processing list comments request", listContext);
@@ -329,9 +440,25 @@ router.post(
         }
       );
       
-      await logAndSendWebhook("comments_listed", { count: itemCount });
+      // Send webhook with test flag if needed
+      const webhookPayload = { 
+        count: itemCount,
+        test_id: req.isWebhookTest ? req.requestId : undefined
+      };
+      
+      const webhookResult = await logAndSendWebhook("comments_listed", webhookPayload, false, req.isWebhookTest);
       
       const response = { comments };
+      
+      // If this is a test, include webhook result info
+      if (req.isWebhookTest) {
+        response.webhook_result = {
+          success: webhookResult.isValid,
+          correlation_id: webhookResult.requestId,
+          error: webhookResult.error ? webhookResult.error.message : null
+        };
+      }
+      
       if (req.new_jwt_token) {
         response.new_jwt_token = req.new_jwt_token;
         logger.debugWithContext(
@@ -360,6 +487,7 @@ router.post(
   "/cruda/read",
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
+    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   itemExists,
@@ -367,7 +495,7 @@ router.post(
     req.logAction = "read_item";
     next();
   },
-  (req, res) => {
+  async (req, res) => {
     // Create context for read operation
     const readContext = {
       operation: "read_comment",
@@ -376,23 +504,42 @@ router.post(
       commentId: req.comment.id,
       method: req.method,
       path: req.path,
-      ip: req.ip
+      ip: req.ip,
+      isTest: req.isWebhookTest
     };
     
     logger.infoWithContext("Processing read comment request", readContext);
     
-    logAndSendWebhook("comment_read", req.comment);
+    // Add test_id for webhook tracking if this is a test
+    const commentData = { ...req.comment };
+    if (req.isWebhookTest) {
+      commentData.test_id = req.requestId;
+    }
+    
+    // Send the webhook with test flag if needed
+    const webhookResult = await logAndSendWebhook("comment_read", commentData, false, req.isWebhookTest);
     
     logger.infoWithContext(
       "Comment retrieved successfully", 
       {
         ...readContext,
         status: "success",
-        commentTitle: req.comment.title
+        commentTitle: req.comment.title,
+        webhookSent: webhookResult.isValid
       }
     );
     
     const response = { ...req.comment };
+    
+    // If this is a test, include webhook result info
+    if (req.isWebhookTest) {
+      response.webhook_result = {
+        success: webhookResult.isValid,
+        correlation_id: webhookResult.requestId,
+        error: webhookResult.error ? webhookResult.error.message : null
+      };
+    }
+    
     if (req.new_jwt_token) {
       response.new_jwt_token = req.new_jwt_token;
       logger.debugWithContext(
@@ -413,6 +560,7 @@ router.post(
   "/cruda/update",
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
+    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   itemExists,
@@ -434,7 +582,8 @@ router.post(
       contentUpdated: content !== undefined,
       method: req.method,
       path: req.path,
-      ip: req.ip
+      ip: req.ip,
+      isTest: req.isWebhookTest
     };
     
     logger.infoWithContext("Processing update comment request", updateContext);
@@ -462,15 +611,34 @@ router.post(
         }
       );
       
-      await logAndSendWebhook("comment_updated", {
+      // Prepare webhook payload
+      const webhookPayload = {
         id: updatedComment.id,
         oldTitle: oldComment.title,
         newTitle: updatedComment.title,
         oldContent: oldComment.content,
         newContent: updatedComment.content,
-      });
+      };
+      
+      // Add test_id for webhook tracking if this is a test
+      if (req.isWebhookTest) {
+        webhookPayload.test_id = req.requestId;
+      }
+      
+      // Send the webhook with test flag if needed
+      const webhookResult = await logAndSendWebhook("comment_updated", webhookPayload, false, req.isWebhookTest);
       
       const response = { ...updatedComment };
+      
+      // If this is a test, include webhook result info
+      if (req.isWebhookTest) {
+        response.webhook_result = {
+          success: webhookResult.isValid,
+          correlation_id: webhookResult.requestId,
+          error: webhookResult.error ? webhookResult.error.message : null
+        };
+      }
+      
       if (req.new_jwt_token) {
         response.new_jwt_token = req.new_jwt_token;
         logger.debugWithContext(
@@ -499,6 +667,7 @@ router.post(
   "/cruda/destroy",
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
+    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   itemExists,
@@ -517,7 +686,8 @@ router.post(
       commentId: id,
       method: req.method,
       path: req.path,
-      ip: req.ip
+      ip: req.ip,
+      isTest: req.isWebhookTest
     };
     
     logger.infoWithContext("Processing destroy comment request", destroyContext);
@@ -535,12 +705,27 @@ router.post(
         }
       );
       
-      await logAndSendWebhook("comment_destroyed", deletedComment);
+      // Add test_id for webhook tracking if this is a test
+      if (req.isWebhookTest) {
+        deletedComment.test_id = req.requestId;
+      }
+      
+      // Send the webhook with test flag if needed
+      const webhookResult = await logAndSendWebhook("comment_destroyed", deletedComment, false, req.isWebhookTest);
       
       const response = {
         message: "Comment successfully deleted",
         deletedComment,
       };
+      
+      // If this is a test, include webhook result info
+      if (req.isWebhookTest) {
+        response.webhook_result = {
+          success: webhookResult.isValid,
+          correlation_id: webhookResult.requestId,
+          error: webhookResult.error ? webhookResult.error.message : null
+        };
+      }
       
       if (req.new_jwt_token) {
         response.new_jwt_token = req.new_jwt_token;
@@ -561,6 +746,169 @@ router.post(
         error
       );
       res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+// Test webhook connectivity directly
+router.post(
+  "/webhook-test",
+  async (req, res) => {
+    const requestId = req.headers['x-request-id'] || ulid();
+    
+    const testContext = {
+      operation: "webhook_direct_test",
+      requestId,
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      userId: req.user ? req.user.id : "anonymous"
+    };
+    
+    logger.infoWithContext("Processing direct webhook test request", testContext);
+    
+    try {
+      // Get webhook URL configuration
+      const config = await stateManager.getConfigOwnRodit();
+      if (!config || !config.own_rodit || !config.own_rodit.metadata || !config.own_rodit.metadata.webhook_url) {
+        logger.warnWithContext(
+          "No webhook URL configured", 
+          {
+            ...testContext,
+            status: "no_webhook_url"
+          }
+        );
+        
+        return res.status(400).json({
+          success: false,
+          error: "No webhook URL configured in system"
+        });
+      }
+      
+      // Create test payload
+      const testPayload = {
+        event: "webhook_connectivity_test",
+        timestamp: new Date().toISOString(),
+        test_id: requestId,
+        origin: "direct_test",
+        data: {
+          message: "This is a webhook connectivity test"
+        }
+      };
+      
+      // Send a test webhook
+      const webhookResult = await logAndSendWebhook("webhook_test", testPayload, false, true);
+      
+      // Record the test in the database
+      try {
+        await db.run(
+          `INSERT INTO webhook_tests (correlation_id, event_type, payload, success, timestamp, error_message) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            requestId,
+            "webhook_test",
+            JSON.stringify(testPayload),
+            webhookResult.isValid ? 1 : 0,
+            new Date().toISOString(),
+            webhookResult.error ? webhookResult.error.message || JSON.stringify(webhookResult.error) : null
+          ]
+        );
+        
+        logger.infoWithContext("Direct webhook test recorded in database", {
+          ...testContext,
+          status: "database_record_created"
+        });
+      } catch (dbError) {
+        logger.errorWithContext(
+          "Failed to record webhook test in database", 
+          {
+            ...testContext,
+            status: "database_error"
+          },
+          dbError
+        );
+      }
+      
+      res.json({
+        success: webhookResult.isValid,
+        webhookUrl: config.own_rodit.metadata.webhook_url,
+        correlation_id: requestId,
+        timestamp: new Date().toISOString(),
+        error: webhookResult.error ? webhookResult.error.message : null
+      });
+    } catch (error) {
+      logger.errorWithContext(
+        "Error in direct webhook test", 
+        testContext,
+        error
+      );
+      
+      res.status(500).json({
+        success: false,
+        error: "Failed to execute webhook test: " + error.message
+      });
+    }
+  }
+);
+
+// Get webhook test results
+router.get(
+  "/webhook-test-results",
+  async (req, res) => {
+    const limit = parseInt(req.query.limit) || 20;
+    
+    const requestId = req.headers['x-request-id'] || ulid();
+    
+    const testContext = {
+      operation: "get_webhook_test_results",
+      requestId,
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      userId: req.user ? req.user.id : "anonymous",
+      limit
+    };
+    
+    logger.infoWithContext("Retrieving webhook test results", testContext);
+    
+    try {
+      const results = await db.all(
+        `SELECT * FROM webhook_tests ORDER BY timestamp DESC LIMIT ?`, 
+        [limit]
+      );
+      
+      // Parse JSON payloads
+      const formattedResults = results.map(result => ({
+        ...result,
+        payload: result.payload ? JSON.parse(result.payload) : null,
+        success: !!result.success  // Convert to boolean
+      }));
+      
+      logger.infoWithContext(
+        "Retrieved webhook test results", 
+        {
+          ...testContext,
+          status: "success",
+          count: results.length
+        }
+      );
+      
+      res.json({
+        success: true,
+        results: formattedResults,
+        count: formattedResults.length
+      });
+    } catch (error) {
+      logger.errorWithContext(
+        "Error retrieving webhook test results", 
+        testContext,
+        error
+      );
+      
+      res.status(500).json({
+        success: false,
+        error: "Failed to retrieve webhook test results: " + error.message
+      });
     }
   }
 );
@@ -589,5 +937,8 @@ router.closeDatabase = async () => {
     }
   }
 };
+
+// Export the database getter
+router.getDatabase = getDatabase;
 
 module.exports = router;
