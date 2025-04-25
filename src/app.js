@@ -123,15 +123,8 @@ const signclientprotectedRoute = require("./protected/signclient");
 app.use(loggingmw);
 
 // Mount signclient protected route, where token is authenticated and permissions vetted
-app.use("/api", signclientprotectedRoute);
-
-// Temporarily remove for token renewal tests: Apply Logging middleware to all routes
-//app.use((req, res, next) => ratelimiter(req, res, next));
-
-// Mount CRUDA protected route, where token is authenticated and permissions vetted
+app.use("/api/signclient", signclientprotectedRoute);
 app.use("/api", authenticate_apicall, echoprotectedRoute);
-
-// Mount CRUDA protected route, where token is authenticated and permissions vetted
 app.use("/api", authenticate_apicall, validatepermissions, crudaprotectedRoute);
 
 // Enhanced error handling middleware
