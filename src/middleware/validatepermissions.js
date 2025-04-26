@@ -55,6 +55,14 @@ class PermissionValidator {
   findRelativeMatchingEntity(entities, currentPath, requestId) {
     const startTime = Date.now();
 
+    logger.debug("findRelativeMatchingEntity input", {
+      component: "PermissionValidator",
+      currentPath,
+      entityName: entities.name,
+      availableMethods: entities.methods ? Object.keys(entities.methods) : [],
+      requestId
+  });
+
     // Normalize the path by removing the /api prefix if present
     let normalizedPath = currentPath;
     if (normalizedPath.startsWith("/api")) {
@@ -78,6 +86,14 @@ class PermissionValidator {
         requestId,
       });
     }
+
+    logger.debug("Path normalization result", {
+      component: "PermissionValidator",
+      originalPath: currentPath,
+      normalizedPath,
+      hasTrailingSlash,
+      requestId
+  });
 
     const entity = entities.name;
     const methods = entities.methods;
@@ -162,6 +178,16 @@ class PermissionValidator {
     const requestId = req.headers["x-request-id"] || crypto.randomUUID();
     const startTime = Date.now();
 
+    logger.debug("Permission validation request details", {
+      component: "PermissionValidator",
+      method: "validate",
+      path: req.path,
+      method: req.method,
+      headers: req.headers,
+      requestId
+  });
+
+
     const token = req.header("Authorization");
     if (!token) {
       logger.warn("Authorization token missing", {
@@ -174,6 +200,14 @@ class PermissionValidator {
         requestId,
       });
 
+      logger.debug("Token details", {
+        component: "PermissionValidator",
+        method: "validate",
+        tokenLength: token.length,
+        tokenStart: token.substring(0, 20) + "...",
+        requestId
+    });
+
       return {
         isValid: false,
         status: 401,
@@ -184,6 +218,15 @@ class PermissionValidator {
     try {
       const decodedToken = decodeJwt(token);
 
+      logger.debug("Decoded token structure", {
+        component: "PermissionValidator",
+        method: "validate",
+        tokenFields: Object.keys(decodedToken),
+        sub: decodedToken.sub,
+        hasPermissionedRoutes: !!decodedToken.rodit_permissionedroutes,
+        requestId
+    });
+
       logger.info("Endpoint access attempt", {
         component: "PermissionValidator",
         method: "validate",
@@ -192,9 +235,27 @@ class PermissionValidator {
         requestId,
       });
 
+      logger.debug("Raw permissionedRoutes", {
+        component: "PermissionValidator",
+        method: "validate",
+        rawPermissions: decodedToken.rodit_permissionedroutes,
+        requestId
+    });
+    
+
       const permissionedRoutes = JSON.parse(
         decodedToken.rodit_permissionedroutes
       );
+
+      logger.debug("Parsed permission structure", {
+        component: "PermissionValidator",
+        method: "validate",
+        hasEntities: !!permissionedRoutes.entities,
+        entityName: permissionedRoutes.entities?.name,
+        availableMethods: permissionedRoutes.entities?.methods ? 
+            Object.keys(permissionedRoutes.entities.methods) : [],
+        requestId
+    });
 
       // Add debug logging for permission routes content
       logger.debug("Permission routes content", {
