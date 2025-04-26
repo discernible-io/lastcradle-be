@@ -52,21 +52,42 @@ class PermissionValidator {
     return isAllowed;
   }
 
-  findMatchingEntity(entities, currentPath, requestId) {
+  findRelativeMatchingEntity(entities, currentPath, requestId) {
     const startTime = Date.now();
+
+    // Normalize the path by removing the /api prefix if present
+    let normalizedPath = currentPath;
+    if (normalizedPath.startsWith("/api")) {
+      normalizedPath = normalizedPath.substring(4); // Remove '/api'
+    }
+
+    // Ensure the path starts with a slash for consistency
+    if (!normalizedPath.startsWith("/")) {
+      normalizedPath = "/" + normalizedPath;
+    }
+
+    logger.debug("Path normalization for permission check", {
+      component: "PermissionValidator",
+      method: "findRelativeMatchingEntity",
+      originalPath: currentPath,
+      normalizedPath: normalizedPath,
+      requestId,
+    });
 
     // Handle entities as an object with name and methods
     const entity = entities.name;
     const methods = entities.methods;
 
-    if (methods.hasOwnProperty(currentPath)) {
-      const rateValue = methods[currentPath];
-      const method = currentPath.split("/").pop();
+    // Check for match using the normalized path
+    if (methods.hasOwnProperty(normalizedPath)) {
+      const rateValue = methods[normalizedPath];
+      const method = normalizedPath.split("/").pop();
 
       logger.info("Processing permission request", {
         component: "PermissionValidator",
-        method: "findMatchingEntity",
+        method: "findRelativeMatchingEntity",
         url: currentPath,
+        normalizedPath: normalizedPath,
         requestedMethod: method,
         entity,
         requestId,
@@ -77,8 +98,9 @@ class PermissionValidator {
 
       logger.debug("Permission check result", {
         component: "PermissionValidator",
-        method: "findMatchingEntity",
+        method: "findRelativeMatchingEntity",
         url: currentPath,
+        normalizedPath: normalizedPath,
         requestedMethod: method,
         entity,
         permissionScope,
@@ -99,8 +121,9 @@ class PermissionValidator {
 
     logger.warn("No matching permission found", {
       component: "PermissionValidator",
-      method: "findMatchingEntity",
+      method: "findRelativeMatchingEntity",
       url: currentPath,
+      normalizedPath: normalizedPath,
       duration: Date.now() - startTime,
       requestId,
     });
@@ -164,7 +187,7 @@ class PermissionValidator {
       const currentPath = req.path;
 
       const { isPermitted, commentsRate, permissionScope } =
-        this.findMatchingEntity(entities, currentPath, requestId);
+        this.findRelativeMatchingEntity(entities, currentPath, requestId);
 
       if (!isPermitted) {
         logger.warn("Permission denied", {
