@@ -138,7 +138,7 @@ class PermissionValidator {
   async validate(req) {
     const requestId = req.headers["x-request-id"] || crypto.randomUUID();
     const startTime = Date.now();
-
+  
     const token = req.header("Authorization");
     if (!token) {
       logger.warn("Authorization token missing", {
@@ -150,17 +150,17 @@ class PermissionValidator {
         duration: Date.now() - startTime,
         requestId,
       });
-
+  
       return {
         isValid: false,
         status: 401,
         message: "Access denied. No token provided.",
       };
     }
-
+  
     try {
       const decodedToken = decodeJwt(token);
-
+  
       logger.info("Endpoint access attempt", {
         component: "PermissionValidator",
         method: "validate",
@@ -168,11 +168,11 @@ class PermissionValidator {
         userId: decodedToken.sub || "unknown",
         requestId,
       });
-
+  
       const permissionedRoutes = JSON.parse(
         decodedToken.rodit_permissionedroutes
       );
-
+  
       // Add debug logging for permission routes content
       logger.debug("Permission routes content", {
         component: "PermissionValidator",
@@ -181,14 +181,14 @@ class PermissionValidator {
         entitiesType: typeof permissionedRoutes.entities,
         requestId,
       });
-
+  
       // Use entities directly, assuming it's an object
       const entities = permissionedRoutes.entities;
       const currentPath = req.path;
-
+  
       const { isPermitted, commentsRate, permissionScope } =
         this.findRelativeMatchingEntity(entities, currentPath, requestId);
-
+  
       if (!isPermitted) {
         logger.warn("Permission denied", {
           component: "PermissionValidator",
@@ -198,14 +198,14 @@ class PermissionValidator {
           duration: Date.now() - startTime,
           requestId,
         });
-
+  
         return {
           isValid: false,
           status: 403,
           message: "Permission denied",
         };
       }
-
+  
       logger.info("Authorization successful", {
         component: "PermissionValidator",
         method: "validate",
@@ -216,7 +216,7 @@ class PermissionValidator {
         duration: Date.now() - startTime,
         requestId,
       });
-
+  
       return {
         isValid: true,
         commentsRate,
@@ -233,7 +233,7 @@ class PermissionValidator {
         duration: Date.now() - startTime,
         requestId,
       });
-
+  
       return {
         isValid: false,
         status: 400,
