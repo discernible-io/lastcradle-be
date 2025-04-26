@@ -66,15 +66,33 @@ class PermissionValidator {
       normalizedPath = "/" + normalizedPath;
     }
 
-    // Handle entities as an object with name and methods
+    // Check for and log any trailing slashes
+    const hasTrailingSlash =
+      normalizedPath.endsWith("/") && normalizedPath.length > 1;
+    if (hasTrailingSlash) {
+      logger.debug("Path has trailing slash", {
+        component: "PermissionValidator",
+        method: "findRelativeMatchingEntity",
+        normalizedPath,
+        pathWithoutTrailingSlash: normalizedPath.slice(0, -1),
+        requestId,
+      });
+
+      // Optionally, remove trailing slash for comparison
+      // normalizedPath = normalizedPath.slice(0, -1);
+    }
+
     const entity = entities.name;
     const methods = entities.methods;
 
-    logger.debug("Permission check details", {
+    // Add detailed logging for path comparison
+    logger.debug("Path comparison details", {
       component: "PermissionValidator",
       method: "findRelativeMatchingEntity",
+      originalPath: currentPath,
       normalizedPath: normalizedPath,
-      availableMethods: JSON.stringify(methods),
+      availableMethodKeys: Object.keys(methods),
+      exactPathExists: methods.hasOwnProperty(normalizedPath),
       hasMethod: methods.hasOwnProperty(normalizedPath),
       requestId,
     });
