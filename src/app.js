@@ -54,7 +54,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Apply rate limiting to all routes
-app.use((req, res, next) => ratelimiter(req, res, next));
+// app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Routes
 
