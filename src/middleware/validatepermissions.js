@@ -86,7 +86,7 @@ class PermissionValidator {
     const methods = entities.methods;
 
     // Add detailed logging for path comparison
-    logger.debug("Path comparison details", {
+    logger.info("Path comparison details", {
       component: "PermissionValidator",
       method: "findRelativeMatchingEntity",
       originalPath: currentPath,
