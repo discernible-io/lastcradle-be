@@ -27,11 +27,13 @@ class PermissionValidator {
     const startTime = Date.now();
 
     if (!this.methodPermissionMap[method]) {
+      const errorCode = "113";
       logger.error("Unknown method type detected", {
         component: "PermissionValidator",
         method: "isMethodAllowed",
         requestedMethod: method,
         error: `Unknown method type: ${method}`,
+        errorCode,
         duration: Date.now() - startTime,
       });
       return false;
@@ -55,6 +57,24 @@ class PermissionValidator {
   findRelativeMatchingEntity(entities, currentPath, requestId) {
     const startTime = Date.now();
 
+    // Validate entities structure
+    if (!entities || typeof entities !== 'object') {
+      logger.warn("Invalid entities structure", {
+        component: "PermissionValidator",
+        method: "findRelativeMatchingEntity",
+        error: "Received invalid entities structure",
+        entitiesType: typeof entities,
+        errorCode: "114",
+        requestId,
+      });
+      return {
+        isPermitted: false,
+        commentsRate: null,
+        permissionScope: null,
+        errorCode: "114"
+      };
+    }
+
     // Normalize the path by removing the /api prefix if present
     let normalizedPath = currentPath;
     if (normalizedPath.startsWith("/api")) {
@@ -74,65 +94,124 @@ class PermissionValidator {
       requestId,
     });
 
-    // Handle entities as an object with name and methods
-    const entity = entities.name;
-    const methods = entities.methods;
+    try {
+      // Safely access entity properties with validation
+      if (!entities.name) {
+        logger.warn("Entity name missing", {
+          component: "PermissionValidator",
+          method: "findRelativeMatchingEntity",
+          errorCode: "115",
+          requestId,
+        });
+        return {
+          isPermitted: false,
+          commentsRate: null,
+          permissionScope: null,
+          errorCode: "115"
+        };
+      }
+      
+      const entity = entities.name;
+      
+      // Validate methods property exists and is an object
+      if (!entities.methods || typeof entities.methods !== 'object') {
+        logger.warn("Invalid methods structure in entity", {
+          component: "PermissionValidator",
+          method: "findRelativeMatchingEntity",
+          entity,
+          error: "methods is not defined or not an object",
+          errorCode: "116",
+          requestId,
+        });
+        return {
+          isPermitted: false,
+          commentsRate: null,
+          permissionScope: null,
+          errorCode: "116"
+        };
+      }
+      
+      const methods = entities.methods;
 
-    // Check for match using the normalized path
-    if (methods.hasOwnProperty(normalizedPath)) {
-      const rateValue = methods[normalizedPath];
-      const method = normalizedPath.split("/").pop();
+      // Check for match using the normalized path
+      if (Object.prototype.hasOwnProperty.call(methods, normalizedPath)) {
+        const rateValue = methods[normalizedPath];
+        const method = normalizedPath.split("/").pop();
 
-      logger.info("Processing permission request", {
+        logger.info("Processing permission request", {
+          component: "PermissionValidator",
+          method: "findRelativeMatchingEntity",
+          url: currentPath,
+          normalizedPath: normalizedPath,
+          requestedMethod: method,
+          entity,
+          requestId,
+        });
+
+        const permissionScope = this.getPermissionScope(rateValue);
+        const isPermitted = this.isMethodAllowed(method, permissionScope);
+
+        logger.debug("Permission check result", {
+          component: "PermissionValidator",
+          method: "findRelativeMatchingEntity",
+          url: currentPath,
+          normalizedPath: normalizedPath,
+          requestedMethod: method,
+          entity,
+          permissionScope,
+          rateValue,
+          isPermitted,
+          duration: Date.now() - startTime,
+          requestId,
+        });
+
+        if (isPermitted) {
+          return {
+            isPermitted: true,
+            commentsRate: rateValue,
+            permissionScope,
+          };
+        }
+      }
+      
+      const errorCode = "117";
+      logger.warn("No matching permission found", {
         component: "PermissionValidator",
         method: "findRelativeMatchingEntity",
         url: currentPath,
         normalizedPath: normalizedPath,
-        requestedMethod: method,
-        entity,
-        requestId,
-      });
-
-      const permissionScope = this.getPermissionScope(rateValue);
-      const isPermitted = this.isMethodAllowed(method, permissionScope);
-
-      logger.debug("Permission check result", {
-        component: "PermissionValidator",
-        method: "findRelativeMatchingEntity",
-        url: currentPath,
-        normalizedPath: normalizedPath,
-        requestedMethod: method,
-        entity,
-        permissionScope,
-        rateValue,
-        isPermitted,
+        errorCode,
         duration: Date.now() - startTime,
         requestId,
       });
 
-      if (isPermitted) {
-        return {
-          isPermitted: true,
-          commentsRate: rateValue,
-          permissionScope,
-        };
-      }
+      return {
+        isPermitted: false,
+        commentsRate: null,
+        permissionScope: null,
+        errorCode
+      };
+    } catch (error) {
+      const errorCode = "118";
+      logger.error("Error during permission matching", {
+        component: "PermissionValidator",
+        method: "findRelativeMatchingEntity",
+        url: currentPath,
+        normalizedPath,
+        error: error.message,
+        errorCode,
+        stack: error.stack,
+        duration: Date.now() - startTime,
+        requestId,
+      });
+      
+      return {
+        isPermitted: false,
+        commentsRate: null,
+        permissionScope: null,
+        errorCode
+      };
     }
-
-    logger.warn("No matching permission found", {
-      component: "PermissionValidator",
-      method: "findRelativeMatchingEntity",
-      url: currentPath,
-      normalizedPath: normalizedPath,
-      duration: Date.now() - startTime,
-      requestId,
-    });
-
-    return {
-      isPermitted: false,
-      commentsRate: null,
-      permissionScope: null,
-    };
   }
 
   async validate(req) {
@@ -141,12 +220,14 @@ class PermissionValidator {
   
     const token = req.header("Authorization");
     if (!token) {
+      const errorCode = "401";
       logger.warn("Authorization token missing", {
         component: "PermissionValidator",
         method: "validate",
         path: req.path,
         ip: req.ip,
         userAgent: req.headers["user-agent"],
+        errorCode,
         duration: Date.now() - startTime,
         requestId,
       });
@@ -154,7 +235,7 @@ class PermissionValidator {
       return {
         isValid: false,
         status: 401,
-        message: "Access denied. No token provided.",
+        message: `Error ${errorCode}: Access denied. No token provided.`,
       };
     }
   
@@ -168,10 +249,47 @@ class PermissionValidator {
         userId: decodedToken.sub || "unknown",
         requestId,
       });
+      
+      // Check if required JWT field exists
+      if (!decodedToken.rodit_permissionedroutes) {
+        const errorCode = "119";
+        logger.warn("Missing permissions in token", {
+          component: "PermissionValidator",
+          method: "validate",
+          userId: decodedToken.sub || "unknown",
+          errorCode,
+          requestId,
+        });
+        
+        return {
+          isValid: false,
+          status: 403,
+          message: `Error ${errorCode}: Token is missing required permission fields.`,
+        };
+      }
   
-      const permissionedRoutes = JSON.parse(
-        decodedToken.rodit_permissionedroutes
-      );
+      let permissionedRoutes;
+      try {
+        permissionedRoutes = JSON.parse(
+          decodedToken.rodit_permissionedroutes
+        );
+      } catch (parseError) {
+        const errorCode = "120";
+        logger.error("Failed to parse permissions JSON", {
+          component: "PermissionValidator",
+          method: "validate",
+          userId: decodedToken.sub || "unknown",
+          error: parseError.message,
+          errorCode,
+          requestId,
+        });
+        
+        return {
+          isValid: false,
+          status: 400,
+          message: `Error ${errorCode}: Invalid permission format in token.`,
+        };
+      }
   
       // Add debug logging for permission routes content
       logger.debug("Permission routes content", {
@@ -182,19 +300,37 @@ class PermissionValidator {
         requestId,
       });
   
-      // Use entities directly, assuming it's an object
+      // Validate entities structure
+      if (!permissionedRoutes.entities) {
+        const errorCode = "121";
+        logger.warn("Missing entities in permission routes", {
+          component: "PermissionValidator",
+          method: "validate",
+          userId: decodedToken.sub || "unknown",
+          errorCode,
+          requestId,
+        });
+        
+        return {
+          isValid: false,
+          status: 403,
+          message: `Error ${errorCode}: Token contains invalid permission structure.`,
+        };
+      }
+      
       const entities = permissionedRoutes.entities;
       const currentPath = req.path;
   
-      const { isPermitted, commentsRate, permissionScope } =
-        this.findRelativeMatchingEntity(entities, currentPath, requestId);
-  
-      if (!isPermitted) {
+      const result = this.findRelativeMatchingEntity(entities, currentPath, requestId);
+      
+      if (!result.isPermitted) {
+        const errorCode = result.errorCode || "122";
         logger.warn("Permission denied", {
           component: "PermissionValidator",
           method: "validate",
           path: req.path,
           userId: decodedToken.sub || "unknown",
+          errorCode,
           duration: Date.now() - startTime,
           requestId,
         });
@@ -202,7 +338,7 @@ class PermissionValidator {
         return {
           isValid: false,
           status: 403,
-          message: "Permission denied",
+          message: `Error ${errorCode}: Permission denied for this resource.`,
         };
       }
   
@@ -211,24 +347,25 @@ class PermissionValidator {
         method: "validate",
         path: req.path,
         userId: decodedToken.sub || "unknown",
-        permissionScope,
-        rateValue: commentsRate,
+        permissionScope: result.permissionScope,
+        rateValue: result.commentsRate,
         duration: Date.now() - startTime,
         requestId,
       });
   
       return {
         isValid: true,
-        commentsRate,
-        permissionScope,
+        commentsRate: result.commentsRate,
+        permissionScope: result.permissionScope,
       };
     } catch (error) {
+      const errorCode = "123";
       logger.error("Permission check failed", {
         component: "PermissionValidator",
         method: "validate",
         path: req.path,
         error: error.message,
-        errorCode: "112",
+        errorCode,
         stack: error.stack,
         duration: Date.now() - startTime,
         requestId,
@@ -237,7 +374,7 @@ class PermissionValidator {
       return {
         isValid: false,
         status: 400,
-        message: "Error 119: Invalid token or permissions.",
+        message: `Error ${errorCode}: Invalid token or permissions.`,
       };
     }
   }
