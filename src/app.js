@@ -83,16 +83,16 @@ app.use((req, res, next) => {
 // Import protected routes
 const crudaprotectedRoute = require("./protected/cruda");
 const echoprotectedRoute = require("./protected/echo");
-const signclientprotectedRoute = require("./routes/signclient");
+const signclientRoute = require("./routes/signclient");
 
 // Mount Logging middleware
 app.use(loggingmw);
 
 // Protected routes with authentication
 // Note: We're keeping the echo route in protected and ensuring it has authentication
-app.use("/api/signclient", authenticate_apicall, signclientprotectedRoute);
 app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
 app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaprotectedRoute);
+app.use("/api/signclient", signclientRoute);
 
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
