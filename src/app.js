@@ -1,5 +1,3 @@
-// Copyright (c) 2024 Cableguard, Inc. All rights reserved.
-
 const config = require("config");
 const express = require("express");
 const https = require("https");
@@ -55,44 +53,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+// Apply rate limiting to all routes
+app.use((req, res, next) => ratelimiter(req, res, next));
+
 // Routes
 
-// Log in route
-/**
- * @swagger
- * /login:
- *   post:
- *     summary: Authenticate user
- *     description: Authenticate a user using their RODiT ID and signature
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               peer_roditid:
- *                 type: string
- *                 description: The RODiT ID verify_peerrodit_getroditof the user
- *               peer_roditid_base64url_signature:
- *                 type: string
- *                 description: The base64url signature of the RODiT ID
- *     responses:
- *       200:
- *         description: Successful authentication
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 token:
- *                   type: string
- *                   description: JWT token for authenticated session
- *       400:
- *         description: Missing RODiT ID or Signature
- *       401:
- *         description: Authentication failed
- */
+// Log in route - non-protected
 app.post("/login", (req, res, next) => {
   req.logAction = "login-attempt";
   next();
@@ -117,16 +83,16 @@ app.use((req, res, next) => {
 // Import protected routes
 const crudaprotectedRoute = require("./protected/cruda");
 const echoprotectedRoute = require("./protected/echo");
-const signclientprotectedRoute = require("./protected/signclient");
+const signclientprotectedRoute = require("./routes/signclient");
 
 // Mount Logging middleware
 app.use(loggingmw);
 
-// Mount signclient protected route, where token is authenticated and permissions vetted
-app.use("/api/signclient", signclientprotectedRoute);
-app.use("/api", authenticate_apicall, echoprotectedRoute);
-app.use("/api", authenticate_apicall, validatepermissions, crudaprotectedRoute);
-// app.use((req, res, next) => ratelimiter(req, res, next));
+// Protected routes with authentication
+// Note: We're keeping the echo route in protected and ensuring it has authentication
+app.use("/api/signclient", authenticate_apicall, signclientprotectedRoute);
+app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
+app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaprotectedRoute);
 
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
