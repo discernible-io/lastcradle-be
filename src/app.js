@@ -1,16 +1,11 @@
-const config = require("config");
-const express = require("express");
-const https = require("https");
+const express = require("express")
 const ratelimitmw = require("./middleware/ratelimit");
 const validatepermissions = require("./middleware/validatepermissions");
 const logger = require("../config/logger");
 const loggingmw = require("./middleware/loggingmw");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
-const forge = require("node-forge");
 const {
-  set_rodit_config,
-  get_rodit_config,
   login_client,
   authenticate_apicall,
 } = require("./middleware/rodit");
@@ -88,8 +83,6 @@ const signclientRoute = require("./routes/signclient");
 // Mount Logging middleware
 app.use(loggingmw);
 
-// Protected routes with authentication
-// Note: We're keeping the echo route in protected and ensuring it has authentication
 app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
 app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaprotectedRoute);
 app.use("/api/signclient", signclientRoute);
