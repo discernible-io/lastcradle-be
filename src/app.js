@@ -126,6 +126,7 @@ app.use(loggingmw);
 app.use("/api/signclient", signclientprotectedRoute);
 app.use("/api", authenticate_apicall, echoprotectedRoute);
 app.use("/api", authenticate_apicall, validatepermissions, crudaprotectedRoute);
+// app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
