@@ -77,9 +77,6 @@ class PermissionValidator {
         pathWithoutTrailingSlash: normalizedPath.slice(0, -1),
         requestId,
       });
-
-      // Optionally, remove trailing slash for comparison
-      // normalizedPath = normalizedPath.slice(0, -1);
     }
 
     const entity = entities.name;
@@ -147,6 +144,13 @@ class PermissionValidator {
       requestId,
     });
 
+    logger.info("PERMISSION DEBUG: No permission match", {
+      path: normalizedPath,
+      availablePermissions: Object.keys(methods),
+      requestedOperation: normalizedPath.split("/").pop(),
+      requestId,
+    });
+
     return {
       isPermitted: false,
       commentsRate: null,
@@ -204,6 +208,18 @@ class PermissionValidator {
       // Use entities directly, assuming it's an object
       const entities = permissionedRoutes.entities;
       const currentPath = req.path;
+
+      logger.info("PERMISSION DEBUG: Permission validation details", {
+        originalPath: req.path,
+        normalizedPath: normalizedPath,
+        method: req.method,
+        availablePermissions: JSON.stringify(methods),
+        pathMatch: methods.hasOwnProperty(normalizedPath),
+        requestHeaders: {
+          requestId: req.headers["x-request-id"],
+          method: req.method,
+        },
+      });
 
       const { isPermitted, commentsRate, permissionScope } =
         this.findRelativeMatchingEntity(entities, currentPath, requestId);
