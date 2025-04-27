@@ -52,74 +52,21 @@ class PermissionValidator {
     return isAllowed;
   }
 
-  findRelativeMatchingEntity(entities, currentPath, requestId) {
+  findMatchingEntity(entities, currentPath, requestId) {
     const startTime = Date.now();
 
-    logger.debug("findRelativeMatchingEntity input", {
-      component: "PermissionValidator",
-      currentPath,
-      entityName: entities.name,
-      availableMethods: entities.methods ? Object.keys(entities.methods) : [],
-      requestId
-  });
-
-    // Normalize the path by removing the /api prefix if present
-    let normalizedPath = currentPath;
-    if (normalizedPath.startsWith("/api")) {
-      normalizedPath = normalizedPath.substring(4); // Remove '/api'
-    }
-
-    // Ensure the path starts with a slash for consistency
-    if (!normalizedPath.startsWith("/")) {
-      normalizedPath = "/" + normalizedPath;
-    }
-
-    // Check for and log any trailing slashes
-    const hasTrailingSlash =
-      normalizedPath.endsWith("/") && normalizedPath.length > 1;
-    if (hasTrailingSlash) {
-      logger.debug("Path has trailing slash", {
-        component: "PermissionValidator",
-        method: "findRelativeMatchingEntity",
-        normalizedPath,
-        pathWithoutTrailingSlash: normalizedPath.slice(0, -1),
-        requestId,
-      });
-    }
-
-    logger.debug("Path normalization result", {
-      component: "PermissionValidator",
-      originalPath: currentPath,
-      normalizedPath,
-      hasTrailingSlash,
-      requestId
-  });
-
+    // Handle entities as an object with name and methods
     const entity = entities.name;
     const methods = entities.methods;
 
-    // Add detailed logging for path comparison
-    logger.info("Path comparison details", {
-      component: "PermissionValidator",
-      method: "findRelativeMatchingEntity",
-      originalPath: currentPath,
-      normalizedPath: normalizedPath,
-      availableMethodKeys: Object.keys(methods),
-      exactPathExists: methods.hasOwnProperty(normalizedPath),
-      hasMethod: methods.hasOwnProperty(normalizedPath),
-      requestId,
-    });
-
-    // Check for match using the normalized path
-    if (methods.hasOwnProperty(normalizedPath)) {
-      const rateValue = methods[normalizedPath];
-      const method = normalizedPath.split("/").pop();
+    if (methods.hasOwnProperty(currentPath)) {
+      const rateValue = methods[currentPath];
+      const method = currentPath.split("/").pop();
 
       logger.info("Processing permission request", {
         component: "PermissionValidator",
-        method: "findRelativeMatchingEntity",
+        method: "findMatchingEntity",
         url: currentPath,
-        normalizedPath: normalizedPath,
         requestedMethod: method,
         entity,
         requestId,
@@ -130,9 +77,8 @@ class PermissionValidator {
 
       logger.debug("Permission check result", {
         component: "PermissionValidator",
-        method: "findRelativeMatchingEntity",
+        method: "findMatchingEntity",
         url: currentPath,
-        normalizedPath: normalizedPath,
         requestedMethod: method,
         entity,
         permissionScope,
@@ -153,17 +99,9 @@ class PermissionValidator {
 
     logger.warn("No matching permission found", {
       component: "PermissionValidator",
-      method: "findRelativeMatchingEntity",
+      method: "findMatchingEntity",
       url: currentPath,
-      normalizedPath: normalizedPath,
       duration: Date.now() - startTime,
-      requestId,
-    });
-
-    logger.info("PERMISSION DEBUG: No permission match", {
-      path: normalizedPath,
-      availablePermissions: Object.keys(methods),
-      requestedOperation: normalizedPath.split("/").pop(),
       requestId,
     });
 
@@ -178,16 +116,6 @@ class PermissionValidator {
     const requestId = req.headers["x-request-id"] || crypto.randomUUID();
     const startTime = Date.now();
 
-    logger.debug("Permission validation request details", {
-      component: "PermissionValidator",
-      method: "validate",
-      path: req.path,
-      method: req.method,
-      headers: req.headers,
-      requestId
-  });
-
-
     const token = req.header("Authorization");
     if (!token) {
       logger.warn("Authorization token missing", {
@@ -200,14 +128,6 @@ class PermissionValidator {
         requestId,
       });
 
-      logger.debug("Token details", {
-        component: "PermissionValidator",
-        method: "validate",
-        tokenLength: token.length,
-        tokenStart: token.substring(0, 20) + "...",
-        requestId
-    });
-
       return {
         isValid: false,
         status: 401,
@@ -218,15 +138,6 @@ class PermissionValidator {
     try {
       const decodedToken = decodeJwt(token);
 
-      logger.debug("Decoded token structure", {
-        component: "PermissionValidator",
-        method: "validate",
-        tokenFields: Object.keys(decodedToken),
-        sub: decodedToken.sub,
-        hasPermissionedRoutes: !!decodedToken.rodit_permissionedroutes,
-        requestId
-    });
-
       logger.info("Endpoint access attempt", {
         component: "PermissionValidator",
         method: "validate",
@@ -235,27 +146,9 @@ class PermissionValidator {
         requestId,
       });
 
-      logger.debug("Raw permissionedRoutes", {
-        component: "PermissionValidator",
-        method: "validate",
-        rawPermissions: decodedToken.rodit_permissionedroutes,
-        requestId
-    });
-    
-
       const permissionedRoutes = JSON.parse(
         decodedToken.rodit_permissionedroutes
       );
-
-      logger.debug("Parsed permission structure", {
-        component: "PermissionValidator",
-        method: "validate",
-        hasEntities: !!permissionedRoutes.entities,
-        entityName: permissionedRoutes.entities?.name,
-        availableMethods: permissionedRoutes.entities?.methods ? 
-            Object.keys(permissionedRoutes.entities.methods) : [],
-        requestId
-    });
 
       // Add debug logging for permission routes content
       logger.debug("Permission routes content", {
@@ -270,31 +163,8 @@ class PermissionValidator {
       const entities = permissionedRoutes.entities;
       const currentPath = req.path;
 
-      logger.info("PERMISSION DEBUG: Permission validation details", {
-        originalPath: req.path,
-        normalizedPath: normalizedPath,
-        method: req.method,
-        availablePermissions: JSON.stringify(methods),
-        pathMatch: methods.hasOwnProperty(normalizedPath),
-        requestHeaders: {
-          requestId: req.headers["x-request-id"],
-          method: req.method,
-        },
-      });
-
       const { isPermitted, commentsRate, permissionScope } =
-        this.findRelativeMatchingEntity(entities, currentPath, requestId);
-
-      // Add after parsing permissionedRoutes
-      logger.debug("Detailed permissions data", {
-        component: "PermissionValidator",
-        method: "validate",
-        permissionedRoutesRaw: decodedToken.rodit_permissionedroutes,
-        entityName: permissionedRoutes.entities.name,
-        methods: JSON.stringify(permissionedRoutes.entities.methods),
-        currentPath: req.path,
-        requestId,
-      });
+        this.findMatchingEntity(entities, currentPath, requestId);
 
       if (!isPermitted) {
         logger.warn("Permission denied", {
