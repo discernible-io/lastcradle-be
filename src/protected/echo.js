@@ -42,21 +42,22 @@ router.post("/", logActionMiddleware, (req, res) => {
     logger.warnWithContext("Invalid input for echo", routeContext);
     return res.status(400).json({ error: "Invalid input" });
   }
-
+  
   // Use context-based logging instead of string interpolation
   logger.infoWithContext("Processing echo request", routeContext);
-
-  // Create response and log success
+  
+  // Create the response
   const response = { echo: inputString.toUpperCase() };
   
+  // Handle token renewal by setting it in the response header, not the body
   if (req.new_jwt_token) {
-    response.new_jwt_token = req.new_jwt_token;
-    logger.debugWithContext("Adding new JWT token to response", {
+    res.setHeader("New-Token", req.new_jwt_token);
+    logger.debugWithContext("Adding new JWT token to response header", {
       ...routeContext,
       tokenAdded: true
     });
   }
-
+  
   // Log the response being sent
   logger.infoWithContext("Echo request completed successfully", {
     ...routeContext,
