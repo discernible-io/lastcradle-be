@@ -24,7 +24,7 @@ const logActionMiddleware = (req, res, next) => {
 
 // Protected route that echoes the input
 // Note: This route is now at "/" because it will be mounted at "/api/echo" in app.js
-router.post("/echo", logActionMiddleware, (req, res) => {
+router.post("/", logActionMiddleware, (req, res) => {
   const inputString = req.body.message;
   
   // Create structured context for the route handler
