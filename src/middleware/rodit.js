@@ -4039,7 +4039,7 @@ async function generate_jwt_token(
 
     if (now + duration < notafter) {
       // FOR TESTING PURPOSES, expiration /100
-      expiresat = 0.01 * (parseInt(now) + parseInt(peer_rodit.metadata.jwt_duration));
+      expiresat = (parseInt(now) + parseInt(peer_rodit.metadata.jwt_duration));
 
       logger.debug("Token expiration time valid", {
         requestId,
