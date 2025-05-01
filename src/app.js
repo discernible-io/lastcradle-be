@@ -76,8 +76,8 @@ app.use((req, res, next) => {
 });
 
 // Import protected routes
-const crudaprotectedRoute = require("./protected/cruda");
 const echoprotectedRoute = require("./protected/echo");
+const crudaprotectedRoute = require("./protected/cruda");
 const signclientRoute = require("./routes/signclient");
 
 // Mount Logging middleware
