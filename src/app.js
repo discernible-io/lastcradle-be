@@ -83,8 +83,7 @@ const signclientRoute = require("./routes/signclient");
 // Mount Logging middleware
 app.use(loggingmw);
 
-app.all("/api/echo", authenticate_apicall);
-app.use("/api/echo", echoprotectedRoute);
+app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
 app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaprotectedRoute);
 app.use("/api/signclient", signclientRoute);
 
