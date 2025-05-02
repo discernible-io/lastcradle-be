@@ -1,7 +1,3 @@
-const { decodeJwt } = require("jose");
-const logger = require("../../config/logger");
-const crypto = require("crypto");
-
 class PermissionValidator {
   constructor() {
     this.methodPermissionMap = {
@@ -52,21 +48,60 @@ class PermissionValidator {
     return isAllowed;
   }
 
-  findMatchingEntity(entities, currentPath, requestId) {
+  // New method to normalize path for permission checking
+  normalizePath(req) {
+    // Get the base URL (the mounted path prefix) and the route-specific path
+    const baseUrl = req.baseUrl || '';
+    const path = req.path || '';
+    
+    // Combine them to get the full path from the root
+    let fullPath = baseUrl + path;
+    
+    // Remove trailing slash if present (unless it's the root path)
+    if (fullPath.length > 1 && fullPath.endsWith('/')) {
+      fullPath = fullPath.slice(0, -1);
+    }
+    
+    // Extract the relevant parts for permission checking
+    // If the path is like /api/cruda/create, we want to extract /cruda/create
+    const pathParts = fullPath.split('/').filter(part => part.length > 0);
+    
+    if (pathParts.length >= 2) {
+      // Take the first two meaningful parts of the path
+      // This would give us "cruda/operation" from "/api/cruda/operation"
+      return '/' + pathParts.slice(0, 2).join('/');
+    } else if (pathParts.length === 1) {
+      // Just one path segment
+      return '/' + pathParts[0];
+    }
+    
+    // Default to root
+    return '/';
+  }
+
+  findMatchingEntity(entities, normalizedPath, requestId) {
     const startTime = Date.now();
 
     // Handle entities as an object with name and methods
     const entity = entities.name;
     const methods = entities.methods;
+    
+    logger.debug("Checking permission for path", {
+      component: "PermissionValidator",
+      method: "findMatchingEntity",
+      requestId,
+      normalizedPath,
+      availableMethods: Object.keys(methods),
+    });
 
-    if (methods.hasOwnProperty(currentPath)) {
-      const rateValue = methods[currentPath];
-      const method = currentPath.split("/").pop();
+    if (methods.hasOwnProperty(normalizedPath)) {
+      const rateValue = methods[normalizedPath];
+      const method = normalizedPath.split("/").pop();
 
       logger.info("Processing permission request", {
         component: "PermissionValidator",
         method: "findMatchingEntity",
-        url: currentPath,
+        url: normalizedPath,
         requestedMethod: method,
         entity,
         requestId,
@@ -78,7 +113,7 @@ class PermissionValidator {
       logger.debug("Permission check result", {
         component: "PermissionValidator",
         method: "findMatchingEntity",
-        url: currentPath,
+        url: normalizedPath,
         requestedMethod: method,
         entity,
         permissionScope,
@@ -100,7 +135,7 @@ class PermissionValidator {
     logger.warn("No matching permission found", {
       component: "PermissionValidator",
       method: "findMatchingEntity",
-      url: currentPath,
+      url: normalizedPath,
       duration: Date.now() - startTime,
       requestId,
     });
@@ -159,12 +194,24 @@ class PermissionValidator {
         requestId,
       });
 
+      // Get normalized path for permission checking
+      const normalizedPath = this.normalizePath(req);
+      
+      logger.debug("Normalized path for permission check", {
+        component: "PermissionValidator",
+        method: "validate",
+        requestId,
+        originalPath: req.path,
+        baseUrl: req.baseUrl,
+        fullPath: req.baseUrl + req.path,
+        normalizedPath,
+      });
+
       // Use entities directly, assuming it's an object
       const entities = permissionedRoutes.entities;
-      const currentPath = req.path;
 
       const { isPermitted, commentsRate, permissionScope } =
-        this.findMatchingEntity(entities, currentPath, requestId);
+        this.findMatchingEntity(entities, normalizedPath, requestId);
 
       if (!isPermitted) {
         logger.warn("Permission denied", {
@@ -248,6 +295,7 @@ async function validatepermissions(req, res, next) {
     component: "validatepermissions",
     method: "middleware",
     path: req.path,
+    baseUrl: req.baseUrl,
     requestId,
   });
 
