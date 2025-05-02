@@ -293,7 +293,7 @@ const itemExists = async (req, res, next) => {
 
 // CREATE - Add a new comment
 router.post(
-  "/cruda/create",
+  "/create",
   (req, res, next) => {
     req.logAction = "create_item";
     req.requestId = req.headers['x-request-id'] || ulid();
@@ -406,7 +406,7 @@ router.post(
 
 // READ - Read all comments
 router.post(
-  "/cruda/list",
+  "/list",
   (req, res, next) => {
     req.logAction = "read_all_items";
     req.requestId = req.headers['x-request-id'] || ulid();
@@ -484,7 +484,7 @@ router.post(
 
 // READ - Read a specific comment
 router.post(
-  "/cruda/read",
+  "/read",
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
     req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
@@ -557,7 +557,7 @@ router.post(
 
 // UPDATE - Update a comment
 router.post(
-  "/cruda/update",
+  "/update",
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
     req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
@@ -664,7 +664,7 @@ router.post(
 
 // DESTROY - Destroy a comment
 router.post(
-  "/cruda/destroy",
+  "/destroy",
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
     req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
