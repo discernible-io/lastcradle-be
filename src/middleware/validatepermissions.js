@@ -48,73 +48,45 @@ class PermissionValidator {
     return isAllowed;
   }
 
-  // New method to normalize path for permission checking
-  normalizePath(req) {
-    // Get the base URL (the mounted path prefix) and the route-specific path
-    const baseUrl = req.baseUrl || '';
-    const path = req.path || '';
-    
-    // Combine them to get the full path from the root
-    let fullPath = baseUrl + path;
-    
-    // Remove trailing slash if present (unless it's the root path)
-    if (fullPath.length > 1 && fullPath.endsWith('/')) {
-      fullPath = fullPath.slice(0, -1);
-    }
-    
-    // Extract the relevant parts for permission checking
-    // If the path is like /api/cruda/create, we want to extract /cruda/create
-    const pathParts = fullPath.split('/').filter(part => part.length > 0);
-    
-    if (pathParts.length >= 2) {
-      // Take the first two meaningful parts of the path
-      // This would give us "cruda/operation" from "/api/cruda/operation"
-      return '/' + pathParts.slice(0, 2).join('/');
-    } else if (pathParts.length === 1) {
-      // Just one path segment
-      return '/' + pathParts[0];
-    }
-    
-    // Default to root
-    return '/';
-  }
-
-  findMatchingEntity(entities, normalizedPath, requestId) {
+  findMatchingEntity(entities, fullPath, requestId) {
     const startTime = Date.now();
 
     // Handle entities as an object with name and methods
     const entity = entities.name;
     const methods = entities.methods;
     
+    // Log available methods for debugging
     logger.debug("Checking permission for path", {
       component: "PermissionValidator",
       method: "findMatchingEntity",
       requestId,
-      normalizedPath,
+      fullPath,
       availableMethods: Object.keys(methods),
     });
 
-    if (methods.hasOwnProperty(normalizedPath)) {
-      const rateValue = methods[normalizedPath];
-      const method = normalizedPath.split("/").pop();
+    // Check for an exact match in the methods
+    if (methods.hasOwnProperty(fullPath)) {
+      const rateValue = methods[fullPath];
+      // Extract the operation name (last part of the path)
+      const operation = fullPath.split("/").pop();
 
       logger.info("Processing permission request", {
         component: "PermissionValidator",
         method: "findMatchingEntity",
-        url: normalizedPath,
-        requestedMethod: method,
+        fullPath,
+        requestedMethod: operation,
         entity,
         requestId,
       });
 
       const permissionScope = this.getPermissionScope(rateValue);
-      const isPermitted = this.isMethodAllowed(method, permissionScope);
+      const isPermitted = this.isMethodAllowed(operation, permissionScope);
 
       logger.debug("Permission check result", {
         component: "PermissionValidator",
         method: "findMatchingEntity",
-        url: normalizedPath,
-        requestedMethod: method,
+        fullPath,
+        requestedMethod: operation,
         entity,
         permissionScope,
         rateValue,
@@ -135,7 +107,7 @@ class PermissionValidator {
     logger.warn("No matching permission found", {
       component: "PermissionValidator",
       method: "findMatchingEntity",
-      url: normalizedPath,
+      fullPath,
       duration: Date.now() - startTime,
       requestId,
     });
@@ -181,9 +153,25 @@ class PermissionValidator {
         requestId,
       });
 
-      const permissionedRoutes = JSON.parse(
-        decodedToken.rodit_permissionedroutes
-      );
+      let permissionedRoutes;
+      try {
+        if (typeof decodedToken.rodit_permissionedroutes === 'string') {
+          permissionedRoutes = JSON.parse(decodedToken.rodit_permissionedroutes);
+        } else {
+          permissionedRoutes = decodedToken.rodit_permissionedroutes;
+        }
+      } catch (error) {
+        logger.error("Failed to parse permissioned routes", {
+          component: "PermissionValidator",
+          method: "validate",
+          requestId,
+          error: error.message,
+          permissionedRoutesType: typeof decodedToken.rodit_permissionedroutes,
+          permissionedRoutesValue: decodedToken.rodit_permissionedroutes ? 
+            decodedToken.rodit_permissionedroutes.substring(0, 200) : "undefined",
+        });
+        throw error;
+      }
 
       // Add debug logging for permission routes content
       logger.debug("Permission routes content", {
@@ -194,30 +182,31 @@ class PermissionValidator {
         requestId,
       });
 
-      // Get normalized path for permission checking
-      const normalizedPath = this.normalizePath(req);
-      
-      logger.debug("Normalized path for permission check", {
-        component: "PermissionValidator",
-        method: "validate",
-        requestId,
-        originalPath: req.path,
-        baseUrl: req.baseUrl,
-        fullPath: req.baseUrl + req.path,
-        normalizedPath,
-      });
-
       // Use entities directly, assuming it's an object
       const entities = permissionedRoutes.entities;
-
+      
+      // Construct the full path for permission checking
+      // This must exactly match what's defined in the RODiT token
+      const fullPath = req.baseUrl + req.path;
+      
+      logger.debug("Validating permission for full path", {
+        component: "PermissionValidator", 
+        method: "validate",
+        requestId,
+        baseUrl: req.baseUrl,
+        path: req.path,
+        fullPath,
+      });
+      
       const { isPermitted, commentsRate, permissionScope } =
-        this.findMatchingEntity(entities, normalizedPath, requestId);
+        this.findMatchingEntity(entities, fullPath, requestId);
 
       if (!isPermitted) {
         logger.warn("Permission denied", {
           component: "PermissionValidator",
           method: "validate",
           path: req.path,
+          fullPath,
           userId: decodedToken.sub || "unknown",
           duration: Date.now() - startTime,
           requestId,
@@ -234,6 +223,7 @@ class PermissionValidator {
         component: "PermissionValidator",
         method: "validate",
         path: req.path,
+        fullPath,
         userId: decodedToken.sub || "unknown",
         permissionScope,
         rateValue: commentsRate,
@@ -296,6 +286,7 @@ async function validatepermissions(req, res, next) {
     method: "middleware",
     path: req.path,
     baseUrl: req.baseUrl,
+    fullPath: req.baseUrl + req.path,
     requestId,
   });
 
