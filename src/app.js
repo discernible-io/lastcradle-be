@@ -85,7 +85,7 @@ app.use(loggingmw);
 
 app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
 app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaprotectedRoute);
-app.use("/api/signclient", signclientRoute);
+app.use("/api", signclientRoute);
 
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
