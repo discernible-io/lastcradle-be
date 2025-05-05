@@ -38,7 +38,7 @@ const options = {
 };
 
 // Default rate limits
-let ratelimiter = ratelimitmw(100, 15);
+//let ratelimiter = ratelimitmw(100, 15);
 
 const swaggerSpec = swaggerJsdoc(options);
 const app = express();
@@ -49,9 +49,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Apply rate limiting to all routes
-// app.use((req, res, next) => ratelimiter(req, res, next));
-
-// Routes
+app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Log in route - non-protected
 app.post("/login", (req, res, next) => {
