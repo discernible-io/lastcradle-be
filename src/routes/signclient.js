@@ -190,8 +190,8 @@ router.post("/signclient", async (req, res) => {
       openapijson_url: config.own_rodit.metadata.openapijson_url,
       not_after: tobesignedValues.not_after,
       not_before: config.own_rodit.metadata.not_before,
-      max_requests: tobesignedValues.max_requests,
-      maxrq_window: tobesignedValues.maxrq_window,
+      max_requests: String(tobesignedValues.max_requests),    // Explicit conversion to string
+      maxrq_window: String(tobesignedValues.maxrq_window),
       webhook_cidr: config.own_rodit.metadata.webhook_cidr,
       allowed_cidr: config.own_rodit.metadata.allowed_cidr,
       allowed_iso3166list: config.own_rodit.metadata.allowed_iso3166list,
