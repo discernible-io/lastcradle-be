@@ -390,7 +390,8 @@ const logAndSendWebhook = async (event, data, isError = false, isTest = false, r
       eventType: event
     });
 
-    // Pass the request object to send_webhook
+    // Use the imported send_webhook function from the rodit middleware
+    // This avoids duplicating the complex logic for webhook generation
     const result = await send_webhook(event, data, isError, req);
 
     // Save test results if this is a test
