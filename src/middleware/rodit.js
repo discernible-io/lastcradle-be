@@ -150,9 +150,11 @@ class AuthStateManager {
   }
 
   getOwnBase64urlJwkPublicKey() {
-    console.warn(
-      "Deprecated: Use getOwnBase64urlJwkPublicKey or getPeerBase64urlJwkPublicKey instead"
-    );
+    logger.warn("Deprecated method called", {
+      component: "AuthStateManager",
+      method: "getOwnBase64urlJwkPublicKey",
+      deprecationMessage: "Use getOwnBase64urlJwkPublicKey or getPeerBase64urlJwkPublicKey instead"
+    });
     return this.ownBase64urlJwkPublicKey;
   }
 
@@ -6520,7 +6522,10 @@ async function checkAndRenewToken(payload, timestamp, requestId) {
       component: "TokenRenewalService",
       renewalNeeded: false,
     });
-
+    logger.metric("tokens_not_renewed_total", 1, {
+      component: "TokenRenewalService",
+      reason: "sufficient_lifetime",
+    });
     return { newToken: null };
   }
 
@@ -6541,6 +6546,22 @@ async function checkAndRenewToken(payload, timestamp, requestId) {
       (payload.rodit_maxrqwindow * (100 - LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY));
 
   const verificationStartTime = Date.now();
+
+  logger.debug("Validation strategy decision", {
+    component: "TokenRenewalService",
+    method: "checkAndRenewToken",
+    requestId,
+    randomValue: randomNumber,
+    threshold: THRESHOLD_VALIDATION_TYPE,
+    durationCheck: newduration > (payload.rodit_maxrqwindow * (100 - LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY)),
+    useFullVerification: shouldDoFullVerification,
+    renewalConfig: {
+      lapsedProportion: LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY,
+      validationThreshold: THRESHOLD_VALIDATION_TYPE,
+      durationRamp: DURATIONRAMP,
+      mode: tokenrenewaloptions.SERVERORCLIENT
+    }
+  });
 
   if (shouldDoFullVerification) {
     logger.debug("Performing thorough token verification", {
