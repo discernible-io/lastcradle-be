@@ -7962,7 +7962,7 @@ async function authenticate_apicall(req, res, next) {
       const payload = verificationResult.payload;
       let newToken = verificationResult.newToken;
       
-      // Check session validity (new step)
+      /*
       if (payload.session_id) {
         const isSessionActive = sessionManager.isSessionActive(payload.session_id);
         
@@ -7983,12 +7983,13 @@ async function authenticate_apicall(req, res, next) {
             },
           });
         }
+          
         
         // Update session last accessed time
         sessionManager.updateSession(payload.session_id, {
           lastAccessedAt: Math.floor(Date.now() / 1000)
         });
-      }
+      }*/
 
       // Check if token needs proactive renewal (only if server-initiated renewal is configured)
       if (
