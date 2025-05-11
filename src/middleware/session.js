@@ -7,6 +7,8 @@
  * Copyright (c) 2024 Cableguard, Inc. All rights reserved.
  */
 
+const express = require("express");
+const router = express.Router();
 const { ulid } = require('ulid');
 const logger = require("../../config/logger");
 
@@ -20,19 +22,6 @@ const sessions = new Map();
  * @param {string} roditId - The peer RODiT token ID to incorporate into the session ID
  * @returns {string} A unique session ID
  */
-
-/**
- * logoutRoutes.js - Express router for logout functionality
- * 
- * This module provides Express routes for handling user logout requests.
- * 
- * Copyright (c) 2024 Cableguard, Inc. All rights reserved.
- */
-
-const express = require("express");
-const router = express.Router();
-const logger = require("../../config/logger");
-
 /**
  * POST /logout - Handle user logout
  * 
