@@ -9,10 +9,10 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const sessionManager = require('./SessionManager');
+const sessionManager = require('../middleware/sessionsanager');
 const { authenticate_apicall } = require('./rodit');
 const logger = require('../../config/logger');
-const { runManualCleanup } = require('./sessionCleanup');
+const { runManualCleanup } = require('../features/sessioncleanup');
 
 /**
  * GET /api/sessions - Get all sessions

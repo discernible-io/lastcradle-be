@@ -14,7 +14,7 @@ const borsh = require("borsh");
 nacl.util = require("tweetnacl-util");
 const { decodeUTF8 } = require("tweetnacl-util");
 const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
-const sessionManager = require('./SessionManager');
+const sessionManager = require('./sessionmanager');
 const { Resolver } = require("dns").promises;
 const {
   initializeProductionVault,
