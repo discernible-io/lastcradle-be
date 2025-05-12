@@ -72,4 +72,4 @@ router.post("/echo", authenticate_apicall, async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;
