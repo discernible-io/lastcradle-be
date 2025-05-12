@@ -16,8 +16,8 @@ const validators = require('../validators');
 const utils = require('../utils');
 
 // Original state managers (keep same instances)
-const { AuthStateManager } = require('./initialrodit');
-const { RoditManager } = require('./initialrodit');
+// const { AuthStateManager } = require('./initialrodit');
+// const { RoditManager } = require('./initialrodit');
 
 // Create or use existing instances
 const stateManager = new AuthStateManager();
