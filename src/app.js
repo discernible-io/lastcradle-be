@@ -8,11 +8,11 @@ const swaggerJsdoc = require("swagger-jsdoc");
 const {
   login_client,
   authenticate_apicall,
-} = require("./middleware/initialrodit");
+} = require("./middleware/rodit");
 const {
   roditManager,
   stateManager,
-} = require("./middleware/initialrodit");  
+} = require("./middleware/rodit");  
 
 const options = {
   definition: {

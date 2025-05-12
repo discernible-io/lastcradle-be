@@ -9,7 +9,7 @@ const crypto = require("crypto");
 const {
   roditManager,
   stateManager,
-} = require("../middleware/initialrodit");
+} = require("../middleware/rodit");
 
 const DB_PATH = config.get("API_OPTIONS.DB_PATH");
 

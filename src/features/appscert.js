@@ -19,7 +19,7 @@ const {
   generate_jwt_token,
   authenticate_apicall,
   verify_peerrodit_getit,
-} = require("./middleware/initialrodit");
+} = require("./middleware/rodit");
 
 const options = {
   definition: {
