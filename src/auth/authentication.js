@@ -1245,7 +1245,7 @@ class Authentication {
   ) {
     const requestId = ulid();
     const startTime = Date.now();
-  
+
     logger.debug("Starting RODiT ownership verification", {
       component: "RoditAuth",
       method: "verify_rodit_ownership",
@@ -1254,48 +1254,48 @@ class Authentication {
       timestamp: peertimestamp,
       signatureLength: peerroditid_base64url_signature?.length,
     });
-  
+
     try {
       // DO NOT DELETE THE FOLLOWING COMMENT
       /* Maybe for NEP413 compatibility, the following line added "NEAR" before peerroditid */
-      const timeString = await utils.unixTimeToDateString(peertimestamp);
+      const timeString = await this.blockchainService.unixTimeToDateString(peertimestamp);
       const roditidandtimestamp = new TextEncoder().encode(
         peerroditid + timeString
       );
-  
+
       logger.debug("Encoded roditid and timestamp", {
         requestId,
         timeString,
         bufferLength: roditidandtimestamp.length,
       });
-  
+
       const bytes_ed25519_signature = new Uint8Array(
         Buffer.from(peerroditid_base64url_signature, "base64url")
       );
-  
+
       logger.debug("Decoded signature", {
         requestId,
         signatureLength: bytes_ed25519_signature.length,
       });
-  
-      const peer_bytes_ed25519_public_key = await this.blockchainServicenearorg_rpc_fetchpublickeybytes(
+
+      const peer_bytes_ed25519_public_key = await this.blockchainService.nearorg_rpc_fetchpublickeybytes(
         peer_rodit.owner_id
       );
-  
+
       logger.debug("Retrieved public key", {
         requestId,
         ownerId: peer_rodit.owner_id,
-        keyLength: peer_bytes_ed25519_public_key.length,
+        keyLength: peer_bytes_ed25519_public_key?.length || 0,
       });
-  
+
       const isaMatch = nacl.sign.detached.verify(
         roditidandtimestamp,
         bytes_ed25519_signature,
         peer_bytes_ed25519_public_key
       );
-  
+
       const duration = Date.now() - startTime;
-  
+
       if (isaMatch) {
         logger.info("Peer RODiT ownership check passed", {
           component: "RoditAuth",
@@ -1305,14 +1305,14 @@ class Authentication {
           ownerId: peer_rodit.owner_id,
           outcome: "success",
         });
-  
+
         // Add metric for successful verification
         logger.metric &&
           logger.metric("rodit_ownership_verification", duration, {
             result: "success",
             peer_rodit_id: peerroditid,
           });
-  
+
         return true;
       } else {
         logger.error("Peer RODiT ownership check failed", {
@@ -1323,19 +1323,19 @@ class Authentication {
           ownerId: peer_rodit.owner_id,
           outcome: "failed",
         });
-  
+
         // Add metric for failed verification
         logger.metric &&
           logger.metric("rodit_ownership_verification", duration, {
             result: "failure",
             peer_rodit_id: peerroditid,
           });
-  
+
         throw new Error("Error 035: PeerEd25519SignatureVerificationFailure");
       }
     } catch (error) {
       const duration = Date.now() - startTime;
-  
+
       logger.error("RODiT ownership verification failed", {
         component: "RoditAuth",
         method: "verify_rodit_ownership",
@@ -1348,14 +1348,14 @@ class Authentication {
           name: error.name,
         },
       });
-  
+
       // Add metric for verification errors
       logger.metric &&
         logger.metric("rodit_ownership_verification_errors", 1, {
           error_type: error.name || "Unknown",
           peer_rodit_id: peerroditid,
         });
-  
+
       throw new Error("Error A33: " + error.message);
     }
   }
@@ -2608,7 +2608,7 @@ async verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
     try {
       // DO NOT DELETE THE FOLLOWING COMMENT
       /* Maybe for NEP413 compatibility, the following line added "NEAR" before peerroditid */
-      const timeString = await utils.unixTimeToDateString(peertimestamp);
+      const timeString = await this.blockchainService.unixTimeToDateString(peertimestamp);
       const roditidandtimestamp = new TextEncoder().encode(
         peerroditid + timeString
       );
@@ -2636,7 +2636,7 @@ async verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
       logger.debug("Retrieved public key", {
         requestId,
         ownerId: peer_rodit.owner_id,
-        keyLength: peer_bytes_ed25519_public_key.length,
+        keyLength: peer_bytes_ed25519_public_key?.length || 0,
       });
 
       const isaMatch = nacl.sign.detached.verify(
