@@ -195,7 +195,6 @@ class RoditManager {
         method: "initializeVault",
         requestId,
         duration,
-        status: "error",
         errorMessage: error.message,
         errorCode: error.code || "UNKNOWN_ERROR",
         stack: error.stack,
@@ -696,27 +695,62 @@ class RoditManager {
   }
 }
 
-// Create new service instances first
+// Import singleton instances
+const tokenService = require('../auth/tokenservice');
+const authentication = require('../auth/authentication');
+const authMiddleware = require('./authenticationmiddleware');
+
+// Create singleton instances
+const stateManager = new AuthStateManager();
 const blockchainService = new BlockchainService({
   CONSTANTS,
   NEAR_RPC_URL
 });
-
-// Create or use existing instances
-const stateManager = new AuthStateManager();
 const roditManager = new RoditManager(blockchainService);
-const sessionManager = session;
+const sessionManager = session;  // Already a singleton from sessionmanager.js
 
-const tokenService = new TokenService(stateManager, blockchainService);
-const authentication = new Authentication(stateManager, tokenService, blockchainService);
-const authMiddleware = new AuthenticationMiddleware(tokenService, stateManager);
+// Initialize all services in the correct order
+async function initializeServices() {
+  try {
+    logger.info('Initializing services...');
+    
+    // 1. Initialize blockchain service first
+    if (blockchainService.initialize) {
+      await blockchainService.initialize();
+    }
+    
+    // 2. Initialize RoditManager which will initialize AuthStateManager
+    await roditManager.initializeVault();
+    
+    // 3. Initialize other services
+    await authentication.initialize();
+    await tokenService.initialize();
+    await authMiddleware.initialize();
+    
+    logger.info('All services initialized successfully');
+    return true;
+  } catch (error) {
+    logger.error('Failed to initialize services', {
+      error: error.message,
+      stack: error.stack
+    });
+    throw error;
+  }
+}
 
-// Maintain backward compatibility by exporting all the original functions
-// but delegating to our new class implementations
+// Export the singleton instances and initialization function
 module.exports = {
-  // Original state managers
+  // Core singletons
   stateManager,
   roditManager,
+  sessionManager,
+  tokenService,
+  authentication,
+  authMiddleware,
+  blockchainService,
+  
+  // Initialization function
+  initializeServices,
   
   // Constants
   CONSTANTS,
@@ -725,7 +759,7 @@ module.exports = {
   AuthStateManager,
   RoditManager,
   
-  // Authentication functions
+  // Authentication functions (maintain backward compatibility)
   login_client: (req, res) => authentication.login_client(req, res),
   logout_client: (req, res) => authentication.logout_client(req, res),
   login_server: (own_rodit) => authentication.login_server(own_rodit),
