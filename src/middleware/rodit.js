@@ -127,7 +127,7 @@ class AuthStateManager {
 }
 
 class RoditManager {
-  constructor() {
+  constructor(blockchainService) {
     if (RoditManager.instance) {
       return RoditManager.instance;
     }
@@ -135,6 +135,7 @@ class RoditManager {
     this.stateManager = new AuthStateManager();
     this.vaultInitialized = false;
     this.vaultPath = null;
+    this.blockchainService = blockchainService; // Store blockchainService
     this.credentials = {
       portal: null,
       sanctum: null,
@@ -374,7 +375,7 @@ class RoditManager {
         step: "blockchainCheck",
       });
 
-      const accountState = await nearorg_rpc_state(
+      const accountState = await this.blockchainService.nearorg_rpc_state(
         CONSTANTS.SMART_CONTRACT,
         account_id
       );
@@ -405,7 +406,7 @@ class RoditManager {
         step: "tokenFetch",
       });
 
-      const own_rodit = await nearorg_rpc_tokensfromaccountid(
+      const own_rodit = await this.blockchainService.nearorg_rpc_tokensfromaccountid(
         CONSTANTS.SMART_CONTRACT,
         account_id
       );
@@ -695,16 +696,16 @@ class RoditManager {
   }
 }
 
-// Create or use existing instances
-const stateManager = new AuthStateManager();
-const roditManager = new RoditManager();
-const sessionManager = session;
-
-// Create new service instances
+// Create new service instances first
 const blockchainService = new BlockchainService({
   CONSTANTS,
   NEAR_RPC_URL
 });
+
+// Create or use existing instances
+const stateManager = new AuthStateManager();
+const roditManager = new RoditManager(blockchainService);
+const sessionManager = session;
 
 const tokenService = new TokenService(stateManager, blockchainService);
 const authentication = new Authentication(stateManager, tokenService, blockchainService);
