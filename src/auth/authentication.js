@@ -5,27 +5,23 @@
 
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
-const { stateManager, roditManager } = require("../middleware/rodit");
-const TokenService = require("./tokenservice");
-const BlockchainService = require("../blockchain/blockchainservice");
-const { CONSTANTS } = require("../utils/constants");
 const nacl = require("tweetnacl");
 const { calculateCanonicalHash } = require("../utils");
 
 class Authentication {
   constructor() {
-    // Use singletons directly
     this.initialized = false;
-    this.stateManager = require('../middleware/rodit').stateManager;
-    this.tokenService = require('./tokenservice');
-    this.blockchainService = require('../blockchain/blockchainservice');
+    this.stateManager = null;
+    this.tokenService = null;
+    this.blockchainService = null;
   }
 
   /**
-   * Initialize the Authentication service
+   * Initialize the Authentication service with required dependencies
+   * @param {Object} dependencies - Object containing required dependencies
    * @returns {Promise<void>}
    */
-  async initialize() {
+  async initialize(dependencies) {
     if (this.initialized) {
       logger.debug("Authentication service already initialized");
       return;
@@ -34,10 +30,19 @@ class Authentication {
     try {
       logger.debug("Initializing Authentication service...");
 
-      // Initialize dependencies
-      await this.tokenService.initialize();
+      // Set dependencies from the provided object
+      this.stateManager = dependencies.stateManager;
+      this.tokenService = dependencies.tokenService;
+      this.blockchainService = dependencies.blockchainService;
 
-      // Initialize any other required services
+      if (!this.stateManager || !this.tokenService || !this.blockchainService) {
+        throw new Error("Missing required dependencies for Authentication service");
+      }
+
+      // Initialize token service if needed
+      if (this.tokenService.initialize) {
+        await this.tokenService.initialize(dependencies);
+      }
 
       this.initialized = true;
       logger.info("Authentication service initialized successfully");
@@ -147,7 +152,7 @@ class Authentication {
           const reason = req.body.reason || "user_logout";
 
           // Close the session
-          sessionClosed = stateManager.closeSession(
+          sessionClosed = this.stateManager.closeSession(
             decodedToken.session_id,
             reason
           );
@@ -367,7 +372,7 @@ class Authentication {
           requestId,
         });
 
-        const config_own_rodit = await stateManager.getConfigOwnRodit();
+        const config_own_rodit = await this.stateManager.getConfigOwnRodit();
 
         if (!config_own_rodit) {
           const duration = Date.now() - startTime;
@@ -723,13 +728,14 @@ class Authentication {
 
     try {
       // Get configuration from state manager
-      const config_own_rodit = await stateManager.getConfigOwnRodit();
+      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
 
       logger.debug("Retrieved configuration from state manager", {
         component: "AuthenticationService",
         method: "login_portal",
         requestId,
         hasConfig: !!config_own_rodit,
+        apiEndpoint: config_own_rodit?.apiendpoint,
       });
 
       if (!config_own_rodit) {
@@ -792,7 +798,7 @@ class Authentication {
 
       // Use stateManager's getPortalUrl method to get API endpoint
       const serviceProviderId = own_rodit.metadata.serviceprovider_id;
-      const apiendpoint = stateManager.getPortalUrl(serviceProviderId, port);
+      const apiendpoint = this.stateManager.getPortalUrl(serviceProviderId, port);
 
       logger.info("Using portal endpoint", {
         component: "AuthenticationService",
@@ -1030,7 +1036,7 @@ class Authentication {
     });
 
     try {
-      const config_own_rodit = await stateManager.getConfigOwnRodit();
+      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
 
       logger.debug("Retrieved config from state manager", {
         component: "AuthenticationService",
@@ -1487,7 +1493,7 @@ class Authentication {
 
     try {
       // Get the configuration from state manager
-      const config_own_rodit = await stateManager.getConfigOwnRodit();
+      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
 
       // Check if webhook configuration is available
       if (
@@ -1533,7 +1539,7 @@ class Authentication {
       }
 
       // Get the current JWT token or login to get one
-      let jwt_token = stateManager.getJwtToken();
+      let jwt_token = this.stateManager.getJwtToken();
       if (!jwt_token) {
         // If there's no token, we need to login first
         logger.debug("No JWT token available, attempting login", {
@@ -1550,7 +1556,7 @@ class Authentication {
 
           if (loginResult && loginResult.jwt_token) {
             jwt_token = loginResult.jwt_token;
-            await stateManager.setJwtToken(jwt_token);
+            await this.stateManager.setJwtToken(jwt_token);
 
             logger.info("Successfully obtained JWT token for webhook", {
               component: "WebhookSender",
@@ -3175,18 +3181,15 @@ class Authentication {
                 ((4 - (base64urlSignature.length % 4)) % 4),
               "="
             );
-
-          const bytes_signature = new Uint8Array(
-            Buffer.from(base64Signature, "base64")
-          );
+          const signatureBytes = nacl.util.decodeBase64(base64Signature);
 
           if (
-            bytes_signature.length !==
+            signatureBytes.length !==
             this.blockchainService.CONSTANTS.RODIT_ID_SIGNATURE_SZ
           ) {
             logger.warn(`Invalid signature length for ID ${idIndex}`, {
               requestId,
-              actual: bytes_signature.length,
+              actual: signatureBytes.length,
               expected: this.blockchainService.CONSTANTS.RODIT_ID_SIGNATURE_SZ,
             });
             continue; // Try the next ID
@@ -3226,7 +3229,7 @@ class Authentication {
           const verifyStart = Date.now();
           const is_valid = nacl.sign.detached.verify(
             hashBytes,
-            bytes_signature,
+            signatureBytes,
             bytes_signing_owner_id
           );
           const verifyDuration = Date.now() - verifyStart;
@@ -3617,6 +3620,5 @@ class Authentication {
   }
 }
 
-// Create and export a singleton instance
-const authentication = new Authentication();
-module.exports = authentication;
+// Export the class directly (will be instantiated in rodit.js)
+module.exports = Authentication;

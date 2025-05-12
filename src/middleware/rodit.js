@@ -695,19 +695,23 @@ class RoditManager {
   }
 }
 
-// Import singleton instances
-const tokenService = require('../auth/tokenservice');
-const authentication = require('../auth/authentication');
-const authMiddleware = require('./authenticationmiddleware');
+// Create a container for our instances
+const instances = {};
 
-// Create singleton instances
-const stateManager = new AuthStateManager();
-const blockchainService = new BlockchainService({
+// Create instances without circular dependencies
+instances.blockchainService = new BlockchainService({
   CONSTANTS,
   NEAR_RPC_URL
 });
-const roditManager = new RoditManager(blockchainService);
-const sessionManager = session;  // Already a singleton from sessionmanager.js
+
+instances.stateManager = new AuthStateManager();
+instances.roditManager = new RoditManager(instances.blockchainService);
+instances.sessionManager = session;
+
+// Import services (they'll be initialized later)
+instances.tokenService = require('../auth/tokenservice');
+instances.authentication = require('../auth/authentication');
+instances.authMiddleware = require('./authenticationmiddleware');
 
 // Initialize all services in the correct order
 async function initializeServices() {
@@ -715,17 +719,17 @@ async function initializeServices() {
     logger.info('Initializing services...');
     
     // 1. Initialize blockchain service first
-    if (blockchainService.initialize) {
-      await blockchainService.initialize();
+    if (instances.blockchainService.initialize) {
+      await instances.blockchainService.initialize();
     }
     
     // 2. Initialize RoditManager which will initialize AuthStateManager
-    await roditManager.initializeVault();
+    await instances.roditManager.initializeVault();
     
     // 3. Initialize other services
-    await authentication.initialize();
-    await tokenService.initialize();
-    await authMiddleware.initialize();
+    await instances.authentication.initialize(instances);
+    await instances.tokenService.initialize(instances);
+    await instances.authMiddleware.initialize(instances);
     
     logger.info('All services initialized successfully');
     return true;
@@ -738,16 +742,10 @@ async function initializeServices() {
   }
 }
 
-// Export the singleton instances and initialization function
+// Export the instances and initialization function
 module.exports = {
-  // Core singletons
-  stateManager,
-  roditManager,
-  sessionManager,
-  tokenService,
-  authentication,
-  authMiddleware,
-  blockchainService,
+  // Core instances
+  ...instances,
   
   // Initialization function
   initializeServices,
@@ -760,38 +758,38 @@ module.exports = {
   RoditManager,
   
   // Authentication functions (maintain backward compatibility)
-  login_client: (req, res) => authentication.login_client(req, res),
-  logout_client: (req, res) => authentication.logout_client(req, res),
-  login_server: (own_rodit) => authentication.login_server(own_rodit),
-  login_portal: (own_rodit, port) => authentication.login_portal(own_rodit, port),
+  login_client: (req, res) => instances.authentication.login_client(req, res),
+  logout_client: (req, res) => instances.authentication.logout_client(req, res),
+  login_server: (own_rodit) => instances.authentication.login_server(own_rodit),
+  login_portal: (own_rodit, port) => instances.authentication.login_portal(own_rodit, port),
   login_client_withnep413: (req, res, config_own_rodit) => 
-    authentication.login_client_withnep413(req, res, config_own_rodit),
+    instances.authentication.login_client_withnep413(req, res, config_own_rodit),
   
   // Token functions
   generate_jwt_token: (peer_rodit, peer_timestamp, own_rodit, own_rodit_bytes_private_key, session_status) =>
-    tokenService.generate_jwt_token(peer_rodit, peer_timestamp, own_rodit, own_rodit_bytes_private_key, session_status),
+    instances.tokenService.generate_jwt_token(peer_rodit, peer_timestamp, own_rodit, own_rodit_bytes_private_key, session_status),
   
   // Middleware
-  authenticate_apicall: (req, res, next) => authMiddleware.authenticate_apicall(req, res, next),
+  authenticate_apicall: (req, res, next) => instances.authMiddleware.authenticate_apicall(req, res, next),
   
   // Webhook functions
-  send_webhook: (event, data, isError, req) => authentication.send_webhook(event, data, isError, req),
+  send_webhook: (event, data, isError, req) => instances.authentication.send_webhook(event, data, isError, req),
   authenticate_webhook: (payload, signature_hex_ofpayload, timestamp, peer_rodit_owner_id) =>
-    authentication.authenticate_webhook(payload, signature_hex_ofpayload, timestamp, peer_rodit_owner_id),
+    instances.authentication.authenticate_webhook(payload, signature_hex_ofpayload, timestamp, peer_rodit_owner_id),
 
   // Blockchain functions
-  nearorg_rpc_state: (id, accountId) => blockchainService.nearorg_rpc_state(id, accountId),
+  nearorg_rpc_state: (id, accountId) => instances.blockchainService.nearorg_rpc_state(id, accountId),
   nearorg_rpc_tokensfromaccountid: (id, account_id) => 
-    blockchainService.nearorg_rpc_tokensfromaccountid(id, account_id),
+    instances.blockchainService.nearorg_rpc_tokensfromaccountid(id, account_id),
   nearorg_rpc_fetchpublickeybytes: (accountId) =>
-    blockchainService.nearorg_rpc_fetchpublickeybytes(accountId),
+    instances.blockchainService.nearorg_rpc_fetchpublickeybytes(accountId),
   nearorg_rpc_tokenfromroditid: (roditid) =>
-    blockchainService.nearorg_rpc_tokenfromroditid(roditid),
-  nearorg_rpc_timestamp: () => blockchainService.nearorg_rpc_timestamp(),
+    instances.blockchainService.nearorg_rpc_tokenfromroditid(roditid),
+  nearorg_rpc_timestamp: () => instances.blockchainService.nearorg_rpc_timestamp(),
 
   // Token service functions
   base64url2jwk_public_key: (base64url_public_key) => 
-    tokenService.base64url2jwk_public_key(base64url_public_key),
+    instances.tokenService.base64url2jwk_public_key(base64url_public_key),
 
   // Utility functions from utils/index.js
   debugWithType: utils.debugWithType,

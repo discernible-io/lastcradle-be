@@ -5,23 +5,23 @@
 
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
-const { stateManager } = require("./rodit");
-const tokenService = require('../auth/tokenservice');
 
 /**
  * Middleware for handling authentication in routes
  */
 class AuthenticationMiddleware {
   constructor() {
-    // Use singletons directly
     this.initialized = false;
+    this.stateManager = null;
+    this.tokenService = null;
   }
 
   /**
-   * Initialize the AuthenticationMiddleware
+   * Initialize the AuthenticationMiddleware with required dependencies
+   * @param {Object} dependencies - Object containing required dependencies
    * @returns {Promise<void>}
    */
-  async initialize() {
+  async initialize(dependencies) {
     if (this.initialized) {
       logger.debug('AuthenticationMiddleware already initialized');
       return;
@@ -30,12 +30,18 @@ class AuthenticationMiddleware {
     try {
       logger.debug('Initializing AuthenticationMiddleware...');
       
-      // Initialize token service if needed
-      if (tokenService.initialize) {
-        await tokenService.initialize();
+      // Set dependencies from the provided object
+      this.stateManager = dependencies.stateManager;
+      this.tokenService = dependencies.tokenService;
+      
+      if (!this.stateManager || !this.tokenService) {
+        throw new Error('Missing required dependencies for AuthenticationMiddleware');
       }
       
-      // Initialize any other required services
+      // Initialize token service if needed
+      if (this.tokenService.initialize) {
+        await this.tokenService.initialize(dependencies);
+      }
       
       this.initialized = true;
       logger.info('AuthenticationMiddleware initialized successfully');
@@ -131,7 +137,7 @@ class AuthenticationMiddleware {
       }
 
       // Use the token service to validate the token
-      const validationResult = await tokenService.validate_jwt_token(token);
+      const validationResult = await this.tokenService.validate_jwt_token(token);
 
       if (!validationResult.valid) {
         logger.warn("Invalid token provided", {
@@ -173,5 +179,5 @@ class AuthenticationMiddleware {
   }
 }
 
-// Export singleton
-module.exports = new AuthenticationMiddleware();
+// Export the class directly (will be instantiated in rodit.js)
+module.exports = AuthenticationMiddleware;
