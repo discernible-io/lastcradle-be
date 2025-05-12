@@ -14,6 +14,12 @@ const session = require('../auth/sessionmanager');
 const { CONSTANTS, API_OPTIONS, SERVERPORT, API_PROTOCOL, NEAR_RPC_URL, TOKEN_RENEWAL_OPTIONS } = require('../utils/constants');
 const validators = require('../validators');
 const utils = require('../utils');
+const {
+  initializeProductionVault,
+  get_rodit_fromvault,
+  setupTokenRenewal,
+  vault,
+} = require("./vaultsetup-production");
 
 // Copy the class definitions from initialrodit.js
 /**
