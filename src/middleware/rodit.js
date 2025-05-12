@@ -798,8 +798,8 @@ async function initializeServices() {
         // Try to list available keys in the vault for debugging
         try {
           const vaultKeys = instances.roditManager && instances.roditManager.vault 
-            ? await instances.roditManager.vault.list('secret/data/rodit') 
-            : [];
+            ? await instances.roditManager.vault.list(`secret/data/${instances.roditManager.vaultPath}`) 
+            : 'Vault not initialized';
           
           logger.error('Failed to load RODiT configuration from vault', {
             ...initializationContext,
