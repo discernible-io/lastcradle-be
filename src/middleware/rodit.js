@@ -708,10 +708,15 @@ instances.stateManager = new AuthStateManager();
 instances.roditManager = new RoditManager(instances.blockchainService);
 instances.sessionManager = session;
 
-// Import services (they'll be initialized later)
-instances.tokenService = require('../auth/tokenservice');
-instances.authentication = require('../auth/authentication');
-instances.authMiddleware = require('./authenticationmiddleware');
+// Import the classes
+const TokenService = require('../auth/tokenservice');
+const Authentication = require('../auth/authentication');
+const AuthenticationMiddleware = require('./authenticationmiddleware');
+
+// Create service instances
+instances.tokenService = new TokenService();
+instances.authentication = new Authentication();
+instances.authMiddleware = new AuthenticationMiddleware();
 
 // Initialize all services in the correct order
 async function initializeServices() {
@@ -726,7 +731,7 @@ async function initializeServices() {
     // 2. Initialize RoditManager which will initialize AuthStateManager
     await instances.roditManager.initializeVault();
     
-    // 3. Initialize other services
+    // 3. Initialize other services with dependencies
     await instances.authentication.initialize(instances);
     await instances.tokenService.initialize(instances);
     await instances.authMiddleware.initialize(instances);
