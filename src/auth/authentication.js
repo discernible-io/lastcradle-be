@@ -15,20 +15,6 @@ const BlockchainService = require('../blockchain/blockchainservice');
 // Add these imports at the top of authentication.js
 const { calculateCanonicalHash } = require('../utils');
 
-// Then in your class, make sure to bind these functions
-class Authentication {
-  constructor(stateManager, tokenService, blockchainService) {
-    this.stateManager = stateManager;
-    this.tokenService = tokenService;
-    this.blockchainService = blockchainService;
-    
-    // Bind the imported functions
-    this.verify_rodit_ownership = verify_rodit_ownership.bind(this);
-    this.verify_rodit_islive = verify_rodit_islive.bind(this);
-  }
-  // ... rest of your class
-}
-
 /**
  * Authentication class that provides methods for handling RODiT authentication
  */
