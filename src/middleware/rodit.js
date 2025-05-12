@@ -709,14 +709,14 @@ instances.roditManager = new RoditManager(instances.blockchainService);
 instances.sessionManager = session;
 
 // Import the classes
-const TokenService = require('../auth/tokenservice');
-const Authentication = require('../auth/authentication');
-const AuthenticationMiddleware = require('./authenticationmiddleware');
+const TokenServiceClass = require('../auth/tokenservice');
+const AuthenticationClass = require('../auth/authentication');
+const AuthenticationMiddlewareClass = require('./authenticationmiddleware');
 
 // Create service instances
-instances.tokenService = new TokenService();
-instances.authentication = new Authentication();
-instances.authMiddleware = new AuthenticationMiddleware();
+instances.tokenService = new TokenServiceClass();
+instances.authentication = new AuthenticationClass();
+instances.authMiddleware = new AuthenticationMiddlewareClass();
 
 // Initialize all services in the correct order
 async function initializeServices() {
