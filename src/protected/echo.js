@@ -1,47 +1,75 @@
 const express = require("express");
 const router = express.Router();
 const logger = require("../../config/logger");
-const { authenticate_apicall } = require("../middleware/rodit");
+const { authenticate_apicall, stateManager } = require("../middleware/rodit");
+const { ulid } = require("ulid");
 
-// Protected route that echoes the input
-// Using the new authentication middleware
-router.post("/echo", authenticate_apicall, (req, res) => {
-  const inputString = req.body.message;
+// Enhanced echo route with proper authentication and session management
+router.post("/echo", authenticate_apicall, async (req, res) => {
+  const requestId = req.headers['x-request-id'] || ulid();
+  const { message } = req.body;
   
-  // Create structured context for the route handler
-  const routeContext = {
+  // Get user session from the request (set by authenticate_apicall)
+  const user = req.user;
+  
+  // Create structured context for logging
+  const context = {
     action: "echo-request",
-    messageReceived: !!inputString,
+    requestId,
     endpoint: "/echo",
     method: req.method,
     ip: req.ip,
-    requestId: req.headers['x-request-id'] || 'none',
-    userId: req.user?.sub || 'anonymous'
+    userId: user?.sub || 'anonymous',
+    userRoles: user?.roles || [],
+    messageLength: message?.length || 0
   };
-  
-  if (!inputString || typeof inputString !== 'string') {
-    logger.warnWithContext("Invalid input for echo", routeContext);
-    return res.status(400).json({ error: "Invalid input" });
+
+  try {
+    // Input validation
+    if (!message || typeof message !== 'string') {
+      logger.warnWithContext("Invalid input for echo", {
+        ...context,
+        error: "Message is required and must be a string"
+      });
+      return res.status(400).json({ 
+        error: "Invalid input",
+        details: "Message is required and must be a string"
+      });
+    }
+
+    logger.infoWithContext("Processing echo request", context);
+    
+    // Create the response with additional session info
+    const response = { 
+      echo: message.toUpperCase(),
+      timestamp: new Date().toISOString(),
+      requestId,
+      userId: user?.sub,
+      roles: user?.roles || []
+    };
+    
+    // Log successful processing
+    logger.infoWithContext("Echo request completed successfully", {
+      ...context,
+      status: "success",
+      responseType: "json"
+    });
+    
+    res.json(response);
+  } catch (error) {
+    // Log the error with context
+    logger.errorWithContext("Error processing echo request", {
+      ...context,
+      error: error.message,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      error: "Internal server error",
+      requestId,
+      timestamp: new Date().toISOString()
+    });
   }
-  
-  logger.infoWithContext("Processing echo request", routeContext);
-  
-  // Create the response
-  const response = { 
-    echo: inputString.toUpperCase(),
-    timestamp: new Date().toISOString()
-  };
-  
-  // The new authentication middleware automatically handles token management
-  // No need to manually check/set JWT tokens here
-  
-  logger.infoWithContext("Echo request completed successfully", {
-    ...routeContext,
-    status: "success",
-    responseType: "json"
-  });
-  
-  res.json(response);
 });
 
 module.exports = router;

@@ -164,10 +164,23 @@ class ProductionVaultManager {
 
 const vaultManager = new ProductionVaultManager();
 
+// Initialize vault and set up token renewal
+let initializedVault = null;
+
+async function initialize() {
+  if (!initializedVault) {
+    initializedVault = await vaultManager.initialize();
+    await vaultManager.setupTokenRenewal();
+  }
+  return initializedVault;
+}
+
 module.exports = {
-  initializeProductionVault: () => vaultManager.initialize(),
-  get_rodit_fromvault: (vault, path, secretKey) =>
-    vaultManager.getRoditFromVault(path, secretKey),
+  initializeProductionVault: initialize,
+  get_rodit_fromvault: async (path, secretKey) => {
+    const vault = await initialize();
+    return vaultManager.getRoditFromVault(path, secretKey);
+  },
   setupTokenRenewal: () => vaultManager.setupTokenRenewal(),
-  vault: vaultManager.vault,
+  getVault: () => initialize()
 };
