@@ -797,11 +797,14 @@ async function initializeServices() {
       if (!config) {
         // Try to list available keys in the vault for debugging
         try {
-          const vaultKeys = await instances.roditManager.vault.list('secret/data/rodit');
+          const vaultKeys = instances.roditManager && instances.roditManager.vault 
+            ? await instances.roditManager.vault.list('secret/data/rodit') 
+            : [];
+          
           logger.error('Failed to load RODiT configuration from vault', {
             ...initializationContext,
             availableKeys: vaultKeys,
-            vaultPath: instances.roditManager.vaultPath
+            vaultPath: instances.roditManager && instances.roditManager.vaultPath
           });
         } catch (listError) {
           logger.error('Failed to list vault keys', {
@@ -823,8 +826,8 @@ async function initializeServices() {
         ...initializationContext,
         error: error.message,
         stack: error.stack,
-        stateManagerInitialized: !!instances.stateManager,
-        vaultInitialized: instances.roditManager?.vaultInitialized
+        stateManagerInitialized: !!(instances && instances.stateManager),
+        vaultInitialized: (instances && instances.roditManager && instances.roditManager.vaultInitialized) || false
       });
       throw new Error(`Configuration loading failed: ${error.message}`);
     }
@@ -861,120 +864,8 @@ async function initializeServices() {
       stack: error.stack,
       stateManager: instances.stateManager ? 'initialized' : 'not initialized',
       roditManager: instances.roditManager ? 'initialized' : 'not initialized',
-      vaultInitialized: instances.roditManager?.vaultInitialized || false,
-      configLoaded: !!instances.stateManager?.getConfigOwnRodit,
-      endTime: new Date().toISOString(),
-      duration: `${(new Date() - new Date(initializationContext.startTime))}ms`
-    };
-    
-    logger.error('Critical error during service initialization', errorContext);
-    throw error;
-  }
-}
-
-// Export the instances and initialization function
-module.exports = {
-  // Core instances
-  ...instances,
-  
-  // Initialization function
-  initializeServices,
-  
-  // Constants
-  CONSTANTS,
-  
-  // Class definitions for backward compatibility
-  AuthStateManager,
-  RoditManager,
-  
-  // Authentication functions (maintain backward compatibility)
-  login_client: (req, res) => instances.authentication.login_client(req, res),
-  logout_client: (req, res) => instances.authentication.logout_client(req, res),
-  login_server: (own_rodit) => instances.authentication.login_server(own_rodit),
-  login_portal: (own_rodit, port) => instances.authentication.login_portal(own_rodit, port),
-  login_client_withnep413: (req, res, config_own_rodit) => 
-    instances.authentication.login_client_withnep413(req, res, config_own_rodit),
-  
-  // Token functions
-  generate_jwt_token: (peer_rodit, peer_timestamp, own_rodit, own_rodit_bytes_private_key, session_status) =>
-    instances.tokenService.generate_jwt_token(peer_rodit, peer_timestamp, own_rodit, own_rodit_bytes_private_key, session_status),
-  
-  // Middleware
-  authenticate_apicall: (req, res, next) => instances.authMiddleware.authenticate_apicall(req, res, next),
-  
-  // Webhook functions
-  send_webhook: (event, data, isError, req) => instances.authentication.send_webhook(event, data, isError, req),
-  authenticate_webhook: (payload, signature_hex_ofpayload, timestamp, peer_rodit_owner_id) =>
-    instances.authentication.authenticate_webhook(payload, signature_hex_ofpayload, timestamp, peer_rodit_owner_id),
-
-  // Blockchain functions
-  nearorg_rpc_state: (id, accountId) => instances.blockchainService.nearorg_rpc_state(id, accountId),
-  nearorg_rpc_tokensfromaccountid: (id, account_id) => 
-    instances.blockchainService.nearorg_rpc_tokensfromaccountid(id, account_id),
-  nearorg_rpc_fetchpublickeybytes: (accountId) =>
-    instances.blockchainService.nearorg_rpc_fetchpublickeybytes(accountId),
-  nearorg_rpc_tokenfromroditid: (roditid) =>
-    instances.blockchainService.nearorg_rpc_tokenfromroditid(roditid),
-  nearorg_rpc_timestamp: () => instances.blockchainService.nearorg_rpc_timestamp(),
-
-  // Token service functions
-  base64url2jwk_public_key: (base64url_public_key) => 
-    instances.tokenService.base64url2jwk_public_key(base64url_public_key),
-
-  // Utility functions from utils/index.js
-  debugWithType: utils.debugWithType,
-  ensureDateIsSet: utils.ensureDateIsSet,
-  base64ToBase64Url: utils.base64ToBase64Url,
-  canonicalizeObject: utils.canonicalizeObject,
-  calculateCanonicalHash: utils.calculateCanonicalHash,
-  logServerBufferState: utils.logServerBufferState,
-  fetchWithErrorHandling: utils.fetchWithErrorHandling,
-
-  // Validation functions from validators/index.js
-  validateAndSetUrl: validators.validateAndSetUrl,
-  validateAndSetDate: validators.validateAndSetDate,
-  validateAndSetJson: validators.validateAndSetJson,
-  validateAndSetSignature: validators.validateAndSetSignature,
-};        stateManagerInitialized: !!instances.stateManager,
-        vaultInitialized: instances.roditManager?.vaultInitialized
-      });
-      throw new Error(`Configuration loading failed: ${error.message}`);
-    }
-    
-    // 3. Initialize other services with dependencies
-    logger.debug('Initializing authentication services...', initializationContext);
-    try {
-      await Promise.all([
-        instances.authentication.initialize(instances),
-        instances.tokenService.initialize(instances),
-        instances.authMiddleware.initialize(instances)
-      ]);
-      logger.debug('Authentication services initialized successfully', initializationContext);
-    } catch (error) {
-      logger.error('Failed to initialize authentication services', {
-        ...initializationContext,
-        error: error.message,
-        stack: error.stack
-      });
-      throw new Error(`Authentication services initialization failed: ${error.message}`);
-    }
-    
-    logger.info('All services initialized successfully', {
-      ...initializationContext,
-      endTime: new Date().toISOString(),
-      duration: `${(new Date() - new Date(initializationContext.startTime))}ms`
-    });
-    
-    return true;
-  } catch (error) {
-    const errorContext = {
-      ...initializationContext,
-      error: error.message,
-      stack: error.stack,
-      stateManager: instances.stateManager ? 'initialized' : 'not initialized',
-      roditManager: instances.roditManager ? 'initialized' : 'not initialized',
-      vaultInitialized: instances.roditManager?.vaultInitialized || false,
-      configLoaded: !!instances.stateManager?.getConfigOwnRodit,
+      vaultInitialized: (instances.roditManager && instances.roditManager.vaultInitialized) || false,
+      configLoaded: !!(instances.stateManager && instances.stateManager.getConfigOwnRodit),
       endTime: new Date().toISOString(),
       duration: `${(new Date() - new Date(initializationContext.startTime))}ms`
     };
