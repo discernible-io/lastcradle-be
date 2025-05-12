@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const logger = require("../../config/logger");
-const { login_client } = require("../middleware/rodit"); // Import the authentication handler
+const { login_client } = require("../middleware/initialrodit"); // Import the authentication handler
 
 // Handling login request - CHANGE TO POST
 router.post("/login", (req, res, next) => {

@@ -10,7 +10,7 @@ const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
 const sessionManager = require('../middleware/sessionsanager');
-const { authenticate_apicall } = require('./rodit');
+const { authenticate_apicall } = require('./initialrodit');
 const logger = require('../../config/logger');
 const { runManualCleanup } = require('../features/sessioncleanup');
 
