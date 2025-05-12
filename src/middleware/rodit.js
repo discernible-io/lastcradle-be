@@ -725,16 +725,28 @@ async function initializeServices() {
     
     // 1. Initialize blockchain service first
     if (instances.blockchainService.initialize) {
+      logger.debug('Initializing blockchain service...');
       await instances.blockchainService.initialize();
     }
     
-    // 2. Initialize RoditManager which will initialize AuthStateManager
+    // 2. Initialize RoditManager and Vault
+    logger.debug('Initializing RoditManager and Vault...');
     await instances.roditManager.initializeVault();
     
+    // 2.1 Load initial configuration
+    logger.debug('Loading initial configuration...');
+    const config = await instances.stateManager.getConfigOwnRodit();
+    if (!config) {
+      throw new Error('Failed to load RODiT configuration from vault');
+    }
+    
     // 3. Initialize other services with dependencies
-    await instances.authentication.initialize(instances);
-    await instances.tokenService.initialize(instances);
-    await instances.authMiddleware.initialize(instances);
+    logger.debug('Initializing authentication services...');
+    await Promise.all([
+      instances.authentication.initialize(instances),
+      instances.tokenService.initialize(instances),
+      instances.authMiddleware.initialize(instances)
+    ]);
     
     logger.info('All services initialized successfully');
     return true;
