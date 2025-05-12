@@ -9,6 +9,9 @@ const sessionManager = require("./sessionmanager");
 const nacl = require("tweetnacl");
 const crypto = require("crypto");
 const utils = require("../utils");
+const StateManager = require("../middleware/rodit");
+const TokenService = require('../auth/tokenservice');
+const BlockchainService = require('../blockchain/blockchainservice');
 
 /**
  * Authentication class that provides methods for handling RODiT authentication

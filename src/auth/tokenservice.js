@@ -8,7 +8,8 @@ const logger = require("../../config/logger");
 const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
 const nacl = require("tweetnacl");
 const crypto = require("crypto");
-const sessionManager = require("./sessionmanager");
+const StateManager = require("../middleware/rodit");
+const BlockchainService = require('../blockchain/blockchainservice');
 const utils = require("../utils");
 const {
   dateStringToUnixTime,
