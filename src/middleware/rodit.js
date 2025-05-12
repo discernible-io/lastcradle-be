@@ -317,8 +317,374 @@ class RoditManager {
   }
 
   async initializeRoditConfig(type) {
-    // Implementation details copied from initialrodit.js
-    // ...
+    const requestId = ulid();
+    const startTime = Date.now();
+
+    logger.info("Starting RODiT config initialization", {
+      component: "RoditManager",
+      method: "initializeRoditConfig",
+      requestId,
+      configType: type,
+    });
+
+    try {
+      logger.debug("Getting credentials", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        step: "fetchCredentials",
+      });
+
+      const credentials = await this.getCredentials(type);
+
+      if (!credentials) {
+        logger.error("Failed to retrieve credentials", {
+          component: "RoditManager",
+          method: "initializeRoditConfig",
+          requestId,
+          configType: type,
+          step: "credentialCheck",
+        });
+        throw new Error(`Credentials not available for ${type}`);
+      }
+
+      const { account_id, implicit_account_id } = credentials;
+      logger.info("Using account for initialization", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        accountId: account_id,
+        step: "accountSetup",
+      });
+
+      logger.debug("Checking account state on blockchain", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        accountId: account_id,
+        step: "blockchainCheck",
+      });
+
+      const accountState = await nearorg_rpc_state(
+        CONSTANTS.SMART_CONTRACT,
+        account_id
+      );
+
+      if (!accountState) {
+        logger.warn("Account has no balance in network", {
+          component: "RoditManager",
+          method: "initializeRoditConfig",
+          requestId,
+          accountId: account_id,
+          step: "blockchainCheck",
+        });
+      } else {
+        logger.info("Account state verified on blockchain", {
+          component: "RoditManager",
+          method: "initializeRoditConfig",
+          requestId,
+          accountId: account_id,
+          step: "blockchainCheck",
+        });
+      }
+
+      logger.debug("Fetching RODiT tokens for account", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        accountId: account_id,
+        step: "tokenFetch",
+      });
+
+      const own_rodit = await nearorg_rpc_tokensfromaccountid(
+        CONSTANTS.SMART_CONTRACT,
+        account_id
+      );
+
+      // Check if we have a real RODiT token
+      if (!own_rodit || !own_rodit.token_id) {
+        logger.warn(
+          "No RODiT instances found, proceeding with partial initialization",
+          {
+            component: "RoditManager",
+            method: "initializeRoditConfig",
+            requestId,
+            accountId: account_id,
+            step: "tokenCheck",
+          }
+        );
+
+        // Create a minimal configuration for signroot
+        const minimalConfig = {
+          own_rodit: {
+            token_id: "",
+            owner_id: account_id,
+            metadata: {
+              subjectuniqueidentifier_url: "localhost", // Fallback value
+              serviceprovider_id: "",
+              not_after: "2030-01-01",
+              not_before: "2020-01-01",
+            },
+          },
+          own_rodit_bytes_private_key: credentials.signing_bytes_key,
+          apiendpoint: "localhost:" + config.get("SERVERPORT"),
+          port: config.get("SERVERPORT"),
+          iso639: config.get("API_OPTIONS.ISO639"),
+          iso3166: config.get("API_OPTIONS.ISO3166"),
+          iso15924: config.get("API_OPTIONS.ISO15924"),
+          timeoptions: config.get("API_OPTIONS.TIMEOPTIONS"),
+        };
+
+        const configCopy = JSON.parse(
+          JSON.stringify({
+            ...minimalConfig,
+            // Exclude sensitive data
+            own_rodit_bytes_private_key: "*** REDACTED ***",
+          })
+        );
+
+        logger.info(
+          "Created minimal config object for partial initialization",
+          {
+            component: "RoditManager",
+            method: "initializeRoditConfig",
+            requestId,
+            configType: type,
+            configObject: configCopy,
+            step: "minimalConfig",
+          }
+        );
+
+        logger.debug("Storing minimal configuration in state manager", {
+          component: "RoditManager",
+          method: "initializeRoditConfig",
+          requestId,
+          configType: type,
+          step: "storeConfig",
+        });
+
+        await this.stateManager.setConfigOwnRodit(minimalConfig);
+
+        logger.debug("Converting implicit account ID to base64url", {
+          component: "RoditManager",
+          method: "initializeRoditConfig",
+          requestId,
+          configType: type,
+          step: "keyConversion",
+        });
+
+        const session_base64url_jwk_public_key = Buffer.from(
+          implicit_account_id,
+          "hex"
+        ).toString("base64url");
+
+        logger.debug("Setting session base64url JWK public key", {
+          component: "RoditManager",
+          method: "initializeRoditConfig",
+          requestId,
+          configType: type,
+          step: "setSessionKey",
+        });
+
+        await this.stateManager.setOwnBase64urlJwkPublicKey(
+          session_base64url_jwk_public_key
+        );
+
+        const duration = Date.now() - startTime;
+        logger.info("Partial RODiT configuration completed", {
+          component: "RoditManager",
+          method: "initializeRoditConfig",
+          requestId,
+          configType: type,
+          duration,
+          configLevel: "partial",
+          step: "complete",
+        });
+
+        // Emit metrics for Grafana dashboards
+        logger.metric("rodit_initialization_duration_ms", duration, {
+          success: true,
+          configType: type,
+          configLevel: "partial",
+          component: "RoditManager",
+        });
+
+        return minimalConfig;
+      }
+
+      logger.info("Successfully retrieved RODiT token", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        tokenId: own_rodit.token_id,
+        step: "tokenRetrieved",
+      });
+
+      const SERVERPORT = config.get("SERVERPORT");
+
+      if (
+        !own_rodit.metadata ||
+        !own_rodit.metadata.subjectuniqueidentifier_url
+      ) {
+        logger.error("Missing required metadata in RODiT", {
+          component: "RoditManager",
+          method: "initializeRoditConfig",
+          requestId,
+          configType: type,
+          missingField: "subjectuniqueidentifier_url",
+          step: "metadataCheck",
+        });
+
+        throw new Error(
+          "Missing required metadata: subjectuniqueidentifier_url"
+        );
+      }
+
+      const apiendpoint =
+        own_rodit.metadata.subjectuniqueidentifier_url + ":" + SERVERPORT;
+
+      logger.debug("Constructed API endpoint", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        apiEndpoint: apiendpoint,
+        step: "apiEndpointCreation",
+      });
+
+      logger.info("Building full configuration object", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        step: "fullConfigCreation",
+      });
+
+      const configObject = {
+        own_rodit,
+        own_rodit_bytes_private_key: credentials.signing_bytes_key,
+        apiendpoint,
+        port: SERVERPORT,
+        iso639: config.get("API_OPTIONS.ISO639"),
+        iso3166: config.get("API_OPTIONS.ISO3166"),
+        iso15924: config.get("API_OPTIONS.ISO15924"),
+        timeoptions: config.get("API_OPTIONS.TIMEOPTIONS"),
+      };
+
+      const configCopy = JSON.parse(
+        JSON.stringify({
+          ...configObject,
+          // Exclude sensitive data
+          own_rodit_bytes_private_key: "*** REDACTED ***",
+        })
+      );
+
+      logger.info("Created full config object", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        configObject: configCopy,
+        step: "fullConfig",
+      });
+
+      logger.debug("Storing configuration in state manager", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        step: "storeConfig",
+      });
+
+      await this.stateManager.setConfigOwnRodit(configObject);
+
+      logger.info("Configuration stored successfully", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        step: "configStored",
+      });
+
+      logger.debug("Converting implicit account ID to base64url", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        step: "keyConversion",
+      });
+
+      const session_base64url_jwk_public_key = Buffer.from(
+        implicit_account_id,
+        "hex"
+      ).toString("base64url");
+
+      logger.debug("Setting session base64url JWK public key", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        step: "setSessionKey",
+      });
+
+      await this.stateManager.setPeerBase64urlJwkPublicKey(
+        session_base64url_jwk_public_key
+      );
+
+      const duration = Date.now() - startTime;
+      logger.info("RODiT configuration completed", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        duration,
+        configLevel: "full",
+        step: "complete",
+      });
+
+      // Emit metrics for Grafana dashboards
+      logger.metric("rodit_initialization_duration_ms", duration, {
+        success: true,
+        configType: type,
+        configLevel: "full",
+        component: "RoditManager",
+      });
+
+      return configObject;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      logger.error("Error initializing RODiT config", {
+        component: "RoditManager",
+        method: "initializeRoditConfig",
+        requestId,
+        configType: type,
+        duration,
+        errorMessage: error.message,
+        errorCode: error.code || "UNKNOWN_ERROR",
+        stack: error.stack,
+        step: error.step || "unknown",
+      });
+
+      // Emit metrics for Grafana dashboards
+      logger.metric("rodit_initialization_duration_ms", duration, {
+        success: false,
+        configType: type,
+        component: "RoditManager",
+        errorType: error.code || "UNKNOWN_ERROR",
+      });
+      logger.metric("rodit_initialization_errors_total", 1, {
+        errorType: error.code || "UNKNOWN_ERROR",
+        configType: type,
+        component: "RoditManager",
+        step: error.step || "unknown",
+      });
+
+      throw error;
+    }
   }
 }
 
