@@ -7,10 +7,7 @@ const { ulid } = require("ulid");
 const bs58 = require("bs58");
 const config = require("config");
 const logger = require("../../config/logger");
-const Authentication = require('../auth/authentication');
-const TokenService = require('../auth/tokenservice');
 const BlockchainService = require('../blockchain/blockchainservice');
-const AuthenticationMiddleware = require('./authenticationmiddleware');
 const session = require('../auth/sessionmanager');
 const { CONSTANTS, API_OPTIONS, SERVERPORT, API_PROTOCOL, NEAR_RPC_URL, TOKEN_RENEWAL_OPTIONS } = require('../utils/constants');
 const validators = require('../validators');
@@ -146,17 +143,16 @@ class RoditManager {
     RoditManager.instance = this;
   }
 
-  async initializeVault(namespace = 'server') {
+  async initializeVault() {
     const requestId = ulid();
     const startTime = Date.now();
-
+  
     logger.debug("Starting vault initialization", {
       component: "RoditManager",
       method: "initializeVault",
-      requestId,
-      namespace
+      requestId
     });
-
+  
     if (this.vaultInitialized) {
       logger.debug("Vault already initialized", {
         component: "RoditManager",
@@ -165,34 +161,33 @@ class RoditManager {
       });
       return vault;
     }
-
+  
     try {
-      const vaultInstance = await initializeProductionVault(namespace);
-      await setupTokenRenewal(vaultInstance);
+      // Simplified initialization as per test suite
+      const vaultInstance = await initializeProductionVault();
+      await setupTokenRenewal();
       this.vaultInitialized = true;
       this.vaultPath = config.get("VAULT_RODIT_KEYVALUE_PATH");
-
+      
       const duration = Date.now() - startTime;
       logger.info("Vault initialized successfully", {
         component: "RoditManager",
         method: "initializeVault",
         requestId,
         duration,
-        status: "success",
-        namespace
+        status: "success"
       });
-
+  
       // Emit metrics for Grafana dashboards
       logger.metric("vault_initialization_duration_ms", duration, {
         success: true,
-        component: "RoditManager",
-        namespace
+        component: "RoditManager"
       });
-
+  
       return vaultInstance;
     } catch (error) {
       const duration = Date.now() - startTime;
-
+  
       logger.error("Vault initialization failed", {
         component: "RoditManager",
         method: "initializeVault",
@@ -200,23 +195,20 @@ class RoditManager {
         duration,
         errorMessage: error.message,
         errorCode: error.code || "UNKNOWN_ERROR",
-        stack: error.stack,
-        namespace
+        stack: error.stack
       });
-
+  
       // Emit metrics for Grafana dashboards
       logger.metric("vault_initialization_duration_ms", duration, {
         success: false,
         component: "RoditManager",
-        errorType: error.code || "UNKNOWN_ERROR",
-        namespace
+        errorType: error.code || "UNKNOWN_ERROR"
       });
       logger.metric("vault_initialization_errors_total", 1, {
         errorType: error.code || "UNKNOWN_ERROR",
-        component: "RoditManager",
-        namespace
+        component: "RoditManager"
       });
-
+  
       throw error;
     }
   }
@@ -224,14 +216,14 @@ class RoditManager {
   async getCredentials(type) {
     const requestId = ulid();
     const startTime = Date.now();
-
+  
     logger.debug("Retrieving credentials", {
       component: "RoditManager",
       method: "getCredentials",
       requestId,
       credentialType: type,
     });
-
+  
     if (!this.vaultInitialized) {
       logger.debug("Vault not initialized, initializing now", {
         component: "RoditManager",
@@ -239,8 +231,15 @@ class RoditManager {
         requestId,
       });
       await this.initializeVault();
+      logger.debug('Vault initialized successfully', {
+        component: "RoditManager",
+        method: "getCredentials",
+        requestId,
+        vaultPath: this.vaultPath,
+        vaultInitialized: this.vaultInitialized
+      });
     }
-
+  
     if (this.credentials[type]) {
       logger.debug("Using cached credentials", {
         component: "RoditManager",
@@ -250,11 +249,11 @@ class RoditManager {
       });
       return this.credentials[type];
     }
-
+  
     try {
       // Make the accountType consistent with the type parameter
       const accountType = `account_${type}`;
-
+  
       logger.debug("Fetching credentials from vault", {
         component: "RoditManager",
         method: "getCredentials",
@@ -262,24 +261,24 @@ class RoditManager {
         credentialType: type,
         vaultPath: `${this.vaultPath}/${type}`,
       });
-
+  
       const vaultData = await get_rodit_fromvault(
         vault,
         `${this.vaultPath}/${type}`,
         accountType
       );
-
+  
       if (!vaultData.private_key || typeof vaultData.private_key !== "string") {
         throw new Error(`Invalid or missing private_key for ${type}`);
       }
-
+  
       const privateKeyStr = vaultData.private_key.startsWith("ed25519:")
         ? vaultData.private_key.replace("ed25519:", "")
         : vaultData.private_key;
-
+  
       vaultData.signing_bytes_key = new Uint8Array(bs58.decode(privateKeyStr));
       this.credentials[type] = vaultData;
-
+  
       const duration = Date.now() - startTime;
       logger.info("Credentials retrieved successfully", {
         component: "RoditManager",
@@ -289,18 +288,18 @@ class RoditManager {
         duration,
         accountId: vaultData.account_id, // Safe to log account ID
       });
-
+  
       // Emit metrics for Grafana dashboards
       logger.metric("credential_retrieval_duration_ms", duration, {
         success: true,
         credentialType: type,
         component: "RoditManager",
       });
-
+  
       return vaultData;
     } catch (error) {
       const duration = Date.now() - startTime;
-
+  
       logger.error("Failed to retrieve credentials", {
         component: "RoditManager",
         method: "getCredentials",
@@ -311,7 +310,7 @@ class RoditManager {
         errorCode: error.code || "UNKNOWN_ERROR",
         stack: error.stack,
       });
-
+  
       // Emit metrics for Grafana dashboards
       logger.metric("credential_retrieval_duration_ms", duration, {
         success: false,
@@ -324,11 +323,10 @@ class RoditManager {
         credentialType: type,
         component: "RoditManager",
       });
-
+  
       throw error;
     }
   }
-
   async initializeRoditConfig(type) {
     const requestId = ulid();
     const startTime = Date.now();
@@ -750,31 +748,26 @@ async function initializeServices() {
       }
     }
     
-    // 2. Initialize RoditManager and Vault with 'server' namespace
-    const namespace = 'server'; // Default namespace for server initialization
-    logger.debug('Initializing RoditManager and Vault...', {
-      ...initializationContext,
-      namespace
-    });
+    // 2. Initialize RoditManager and Vault
+    logger.debug('Initializing RoditManager and Vault...', initializationContext);
 
     try {
-      // First initialize the vault
-      await instances.roditManager.initializeVault(namespace);
+      // First initialize the vault without namespace parameter
+      await instances.roditManager.initializeVault();
       logger.debug('Vault initialized successfully', {
         ...initializationContext,
         vaultPath: instances.roditManager.vaultPath,
         vaultInitialized: instances.roditManager.vaultInitialized
       });
 
-      // Then initialize the RODiT configuration with the namespace
-      await instances.roditManager.initializeRoditConfig(namespace);
+      // Then initialize the RODiT configuration with 'server' type
+      await instances.roditManager.initializeRoditConfig('server');
       logger.debug('RODiT configuration initialized successfully', {
-        ...initializationContext,
-        namespace
+        ...initializationContext
       });
 
       // Verify vault is accessible
-      if (!instances.roditManager.vault) {
+      if (!vault) {
         throw new Error('Vault is not available after initialization');
       }
     } catch (error) {
@@ -786,50 +779,6 @@ async function initializeServices() {
         vaultInitialized: instances.roditManager?.vaultInitialized
       });
       throw new Error(`Vault initialization failed: ${error.message}`);
-    }
-    
-    // 2.1 Load initial configuration
-    logger.debug('Loading initial configuration...', initializationContext);
-    let config;
-    try {
-      config = await instances.stateManager.getConfigOwnRodit();
-      
-      if (!config) {
-        // Try to list available keys in the vault for debugging
-        try {
-          const vaultKeys = instances.roditManager && instances.roditManager.vault 
-            ? await instances.roditManager.vault.list(`secret/data/${instances.roditManager.vaultPath}`) 
-            : 'Vault not initialized';
-          
-          logger.error('Failed to load RODiT configuration from vault', {
-            ...initializationContext,
-            availableKeys: vaultKeys,
-            vaultPath: instances.roditManager && instances.roditManager.vaultPath
-          });
-        } catch (listError) {
-          logger.error('Failed to list vault keys', {
-            ...initializationContext,
-            error: listError.message
-          });
-        }
-        throw new Error('Configuration is null or undefined');
-      }
-      
-      logger.debug('Configuration loaded successfully', {
-        ...initializationContext,
-        configExists: !!config,
-        configType: config ? typeof config : 'null'
-      });
-      
-    } catch (error) {
-      logger.error('Failed to load configuration from vault', {
-        ...initializationContext,
-        error: error.message,
-        stack: error.stack,
-        stateManagerInitialized: !!(instances && instances.stateManager),
-        vaultInitialized: (instances && instances.roditManager && instances.roditManager.vaultInitialized) || false
-      });
-      throw new Error(`Configuration loading failed: ${error.message}`);
     }
     
     // 3. Initialize other services with dependencies
