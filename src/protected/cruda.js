@@ -292,12 +292,7 @@ process.on('SIGTERM', async () => {
   }
 });
 
-module.exports = {
-  router,
-  getDatabase,
-  closeDatabase: async () => {
-    if (db) {
-      await db.close();
-    }
-  }
-};
+// Export the router and attach getDatabase as a property
+const crudaRouter = router;
+crudaRouter.getDatabase = getDatabase;
+module.exports = crudaRouter;
