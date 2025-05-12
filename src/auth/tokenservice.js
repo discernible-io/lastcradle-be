@@ -25,6 +25,7 @@ class TokenService {
     // Use singletons directly
     this.initialized = false;
     this.blockchainService = require('../blockchain/blockchainservice');
+    this.stateManager = require('../middleware/rodit').stateManager;
   }
 
   /**
@@ -1216,8 +1217,8 @@ class TokenService {
         logger.metric("jwt_thorough_validation", totalDuration, {
           result: "identity_mismatch",
           token_jti: token.jti || "unknown",
-          id_match: idMatch ? "true" : "false",
-          owner_match: ownerMatch ? "true" : "false",
+          id_match: peer_rodit.token_id === extractedSub ? "true" : "false",
+          owner_match: peer_rodit.owner_id === token.aud ? "true" : "false",
           failed_checks: failedIdentityChecks.join(","),
           peer_rodit_id: peer_rodit.token_id,
         });
@@ -1524,4 +1525,6 @@ class TokenService {
   }
 }
 
-module.exports = new TokenService();
+// Create and export a singleton instance
+const tokenService = new TokenService();
+module.exports = tokenService;

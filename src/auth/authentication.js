@@ -15,9 +15,10 @@ const { calculateCanonicalHash } = require("../utils");
 class Authentication {
   constructor() {
     // Use singletons directly
-    this.tokenService = require("./tokenservice");
-    this.blockchainService = require("../blockchain/blockchainservice");
     this.initialized = false;
+    this.stateManager = require('../middleware/rodit').stateManager;
+    this.tokenService = require('./tokenservice');
+    this.blockchainService = require('../blockchain/blockchainservice');
   }
 
   /**
@@ -1299,9 +1300,10 @@ class Authentication {
         signatureLength: bytes_ed25519_signature.length,
       });
 
-      const peer_bytes_ed25519_public_key = await this.blockchainService.nearorg_rpc_fetchpublickeybytes(
-        peer_rodit.owner_id
-      );
+      const peer_bytes_ed25519_public_key =
+        await this.blockchainService.nearorg_rpc_fetchpublickeybytes(
+          peer_rodit.owner_id
+        );
 
       logger.debug("Retrieved public key", {
         requestId,
@@ -3615,4 +3617,6 @@ class Authentication {
   }
 }
 
-module.exports = new Authentication();
+// Create and export a singleton instance
+const authentication = new Authentication();
+module.exports = authentication;
