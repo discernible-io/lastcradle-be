@@ -4,6 +4,7 @@
  */
 
 const { ulid } = require("ulid");
+const bs58 = require("bs58");
 const config = require("config");
 const logger = require("../../config/logger");
 const Authentication = require('../auth/authentication');
