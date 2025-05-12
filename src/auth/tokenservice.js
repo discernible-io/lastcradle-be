@@ -8,7 +8,7 @@ const logger = require("../../config/logger");
 const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
 const nacl = require("tweetnacl");
 const crypto = require("crypto");
-const StateManager = require("../middleware/rodit");
+const { stateManager } = require("../middleware/rodit");
 const BlockchainService = require('../blockchain/blockchainservice');
 const utils = require("../utils");
 const {
@@ -21,9 +21,41 @@ const {
  * Service for handling JWT token operations
  */
 class TokenService {
-  constructor(stateManager, blockchainService) {
-    this.stateManager = stateManager;
-    this.blockchainService = blockchainService;
+  constructor() {
+    // Use singletons directly
+    this.initialized = false;
+    this.blockchainService = require('../blockchain/blockchainservice');
+  }
+
+  /**
+   * Initialize the TokenService
+   * @returns {Promise<void>}
+   */
+  async initialize() {
+    if (this.initialized) {
+      logger.debug('TokenService already initialized');
+      return;
+    }
+
+    try {
+      logger.debug('Initializing TokenService...');
+      
+      // Initialize blockchain service if needed
+      if (this.blockchainService.initialize) {
+        await this.blockchainService.initialize();
+      }
+      
+      // Initialize any other required services or configurations
+      
+      this.initialized = true;
+      logger.info('TokenService initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize TokenService', {
+        error: error.message,
+        stack: error.stack
+      });
+      throw error;
+    }
   }
 
   /**
@@ -198,7 +230,7 @@ class TokenService {
         });
 
         try {
-          const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+          const config_own_rodit = await stateManager.getConfigOwnRodit();
           const unverifiedpayload = decodeJwt(token);
 
           // Log session information from expired token
@@ -491,7 +523,7 @@ class TokenService {
       });
 
       // Generate session ID using SessionManager
-      const session_id = sessionManager.generateSessionId(peer_rodit.token_id);
+      const session_id = stateManager.generateSessionId(peer_rodit.token_id);
 
       // Create and register session in SessionManager
       const sessionData = {
@@ -509,7 +541,7 @@ class TokenService {
 
       const sessionCreateStart = Date.now();
       try {
-        const session = sessionManager.createSession(sessionData);
+        const session = stateManager.createSession(sessionData);
         const sessionCreateDuration = Date.now() - sessionCreateStart;
 
         logger.debug("Session created in session manager", {
@@ -678,7 +710,7 @@ class TokenService {
 
       if (existingSessionId) {
         try {
-          isSessionValid = sessionManager.isSessionActive(existingSessionId);
+          isSessionValid = stateManager.isSessionActive(existingSessionId);
 
           logger.debug("Checked session status", {
             component: "JwtAuth",
@@ -741,7 +773,7 @@ class TokenService {
       }
 
       const configStart = Date.now();
-      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+      const config_own_rodit = await stateManager.getConfigOwnRodit();
       const configDuration = Date.now() - configStart;
 
       logger.debug("Retrieved configuration", {
@@ -777,11 +809,11 @@ class TokenService {
       if (session_id) {
         const sessionUpdateStart = Date.now();
         try {
-          sessionManager.updateSession(session_id, {
+          stateManager.updateSession(session_id, {
             lastAccessedAt: now,
             status: "active",
             metadata: {
-              ...sessionManager.getSession(session_id)?.metadata,
+              ...stateManager.getSession(session_id)?.metadata,
               lastRenewalType: verification_level,
               lastRenewalTime: now,
             },
@@ -1041,7 +1073,7 @@ class TokenService {
     try {
       // Fetch configuration with better timing measurements
       const configStart = performance.now();
-      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+      const config_own_rodit = await stateManager.getConfigOwnRodit();
       const configDuration = performance.now() - configStart;
 
       logger.debug("Retrieved configuration", {
@@ -1239,7 +1271,7 @@ class TokenService {
    */
   async checkAndRenewToken(payload, timestamp, requestId) {
     const startTime = Date.now();
-    const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+    const config_own_rodit = await stateManager.getConfigOwnRodit();
 
     // Parse config values ensuring they're numbers
     const LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY = parseFloat(
@@ -1492,4 +1524,4 @@ class TokenService {
   }
 }
 
-module.exports = TokenService;
+module.exports = new TokenService();

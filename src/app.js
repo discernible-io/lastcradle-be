@@ -8,11 +8,10 @@ const swaggerJsdoc = require("swagger-jsdoc");
 const {
   login_client,
   authenticate_apicall,
-} = require("./middleware/rodit");
-const {
-  roditManager,
+  initializeServices,
   stateManager,
-} = require("./middleware/rodit");  
+  roditManager
+} = require("./middleware/rodit");
 
 const options = {
   definition: {
@@ -99,33 +98,35 @@ app.use((err, req, res, next) => {
     },
     err // Pass the error object directly
   );
-  
-  res.status(500).json({ error: "Error 106: Internal Server Error" });
+
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  res.status(err.status || 500).json({
+    error: {
+      message: err.message || 'Internal Server Error',
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    }
+  });
 });
 
 // Update rate limit once obtained config
 function updateratelimit(maxrequests, maxrqwindow) {
   ratelimiter = ratelimitmw(maxrequests, maxrqwindow);
-  logger.infoWithContext("Rate limit settings updated", { 
-    maxRequests: maxrequests, 
-    windowDuration: maxrqwindow 
-  });
 }
 
 // Store server instance and db reference
 let server;
-let db;
 
 async function startServer() {
   try {
-    // Initialize vault and configuration
-    await roditManager.initializeVault();
-    await roditManager.initializeRoditConfig("server");
-
-    logger.infoWithContext("Server initialization successful", {
-      component: "vault",
-      status: "initialized"
-    });
+    logger.info("Starting server initialization...");
+    
+    // Initialize all services
+    await initializeServices();
+    
+    logger.info("Services initialized, starting HTTP server...");
 
     // Get and apply configuration
     const configObject = await stateManager.getConfigOwnRodit();
@@ -160,6 +161,19 @@ async function startServer() {
         process.exit(0);
       });
     });
+    
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+      logger.error('Unhandled Rejection at:', { promise, reason });
+      // Consider whether to exit the process here
+    });
+    
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (error) => {
+      logger.error('Uncaught Exception:', error);
+      // Consider whether to exit the process here
+    });
+    
   } catch (error) {
     logger.errorWithContext(
       "Failed to start server", 
@@ -173,90 +187,27 @@ async function startServer() {
   }
 }
 
+// Start the server
 startServer();
 
 // Handle SIGINT gracefully
 process.on("SIGINT", async () => {
-  logger.infoWithContext("Shutdown initiated", { signal: "SIGINT" });
+  logger.info("SIGINT received. Shutting down gracefully...");
   
-  if (server) {
-    server.close(() => {
-      logger.infoWithContext("HTTP server closed", { component: "http-server" });
-    });
-  }
-  
-  // Check if db exists and has a close method before calling it
-  if (db && typeof db.close === 'function') {
-    try {
-      await db.close();
-      logger.infoWithContext("Database connection closed", { component: "main-db" });
-    } catch (error) {
-      logger.errorWithContext(
-        "Error closing database", 
-        { component: "main-db" },
-        error
-      );
-    }
-  }
-  
-  // Close the CRUDA database connection
   try {
-    if (crudaprotectedRoute.closeDatabase) {
-      await crudaprotectedRoute.closeDatabase();
-      logger.infoWithContext("CRUDA database connection closed", { component: "cruda-db" });
+    // Close the server
+    if (server) {
+      await new Promise((resolve) => server.close(resolve));
     }
-  } catch (error) {
-    logger.errorWithContext(
-      "Error closing CRUDA database", 
-      { component: "cruda-db" },
-      error
-    );
-  }
-  
-  process.exit(0);
-});
-
-// Handle SIGTERM gracefully
-process.on("SIGTERM", async () => {
-  logger.infoWithContext("Shutdown initiated", { signal: "SIGTERM" });
-  
-  if (server) {
-    server.close(async () => {
-      logger.infoWithContext("HTTP server closed", { component: "http-server" });
-      
-      // Check if db exists and has a close method before calling it
-      if (db && typeof db.close === 'function') {
-        try {
-          await db.close();
-          logger.infoWithContext("Database connection closed", { component: "main-db" });
-        } catch (error) {
-          logger.errorWithContext(
-            "Error closing database", 
-            { component: "main-db" },
-            error
-          );
-        }
-      }
-      
-      // Close the CRUDA database connection
-      try {
-        if (crudaprotectedRoute.closeDatabase) {
-          await crudaprotectedRoute.closeDatabase();
-          logger.infoWithContext("CRUDA database connection closed", { component: "cruda-db" });
-        }
-      } catch (error) {
-        logger.errorWithContext(
-          "Error closing CRUDA database", 
-          { component: "cruda-db" },
-          error
-        );
-      }
-      
-      process.exit(0);
-    });
-  } else {
+    
+    // Perform any additional cleanup here
+    logger.info("Server shut down successfully");
     process.exit(0);
+  } catch (error) {
+    logger.error("Error during shutdown:", error);
+    process.exit(1);
   }
 });
 
+// Export app for testing
 module.exports = app;

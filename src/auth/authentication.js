@@ -5,24 +5,48 @@
 
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
-const sessionManager = require("./sessionmanager");
+const { stateManager, roditManager } = require("../middleware/rodit");
+const TokenService = require("./tokenservice");
+const BlockchainService = require("../blockchain/blockchainservice");
+const { CONSTANTS } = require("../utils/constants");
 const nacl = require("tweetnacl");
-const crypto = require("crypto");
-const utils = require("../utils");
-const StateManager = require("../middleware/rodit");
-const TokenService = require('../auth/tokenservice');
-const BlockchainService = require('../blockchain/blockchainservice');
-// Add these imports at the top of authentication.js
-const { calculateCanonicalHash } = require('../utils');
+const { calculateCanonicalHash } = require("../utils");
 
-/**
- * Authentication class that provides methods for handling RODiT authentication
- */
 class Authentication {
-  constructor(stateManager, tokenService, blockchainService) {
-    this.stateManager = stateManager;
-    this.tokenService = tokenService;
-    this.blockchainService = blockchainService;
+  constructor() {
+    // Use singletons directly
+    this.tokenService = require("./tokenservice");
+    this.blockchainService = require("../blockchain/blockchainservice");
+    this.initialized = false;
+  }
+
+  /**
+   * Initialize the Authentication service
+   * @returns {Promise<void>}
+   */
+  async initialize() {
+    if (this.initialized) {
+      logger.debug("Authentication service already initialized");
+      return;
+    }
+
+    try {
+      logger.debug("Initializing Authentication service...");
+
+      // Initialize dependencies
+      await this.tokenService.initialize();
+
+      // Initialize any other required services
+
+      this.initialized = true;
+      logger.info("Authentication service initialized successfully");
+    } catch (error) {
+      logger.error("Failed to initialize Authentication service", {
+        error: error.message,
+        stack: error.stack,
+      });
+      throw error;
+    }
   }
 
   /**
@@ -122,7 +146,7 @@ class Authentication {
           const reason = req.body.reason || "user_logout";
 
           // Close the session
-          sessionClosed = sessionManager.closeSession(
+          sessionClosed = stateManager.closeSession(
             decodedToken.session_id,
             reason
           );
@@ -342,7 +366,7 @@ class Authentication {
           requestId,
         });
 
-        const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+        const config_own_rodit = await stateManager.getConfigOwnRodit();
 
         if (!config_own_rodit) {
           const duration = Date.now() - startTime;
@@ -698,7 +722,7 @@ class Authentication {
 
     try {
       // Get configuration from state manager
-      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+      const config_own_rodit = await stateManager.getConfigOwnRodit();
 
       logger.debug("Retrieved configuration from state manager", {
         component: "AuthenticationService",
@@ -767,10 +791,7 @@ class Authentication {
 
       // Use stateManager's getPortalUrl method to get API endpoint
       const serviceProviderId = own_rodit.metadata.serviceprovider_id;
-      const apiendpoint = this.stateManager.getPortalUrl(
-        serviceProviderId,
-        port
-      );
+      const apiendpoint = stateManager.getPortalUrl(serviceProviderId, port);
 
       logger.info("Using portal endpoint", {
         component: "AuthenticationService",
@@ -782,7 +803,7 @@ class Authentication {
       // Prepare authentication data
       let roditid = own_rodit.token_id;
       const timestamp = Math.floor(Date.now() / 1000);
-      const timeString = await unixTimeToDateString(timestamp);
+      const timeString = await this.blockchainService.unixTimeToDateString(timestamp);
       const roditidandtimestamp = new TextEncoder().encode(
         roditid + timeString
       );
@@ -1008,7 +1029,7 @@ class Authentication {
     });
 
     try {
-      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+      const config_own_rodit = await stateManager.getConfigOwnRodit();
 
       logger.debug("Retrieved config from state manager", {
         component: "AuthenticationService",
@@ -1056,7 +1077,7 @@ class Authentication {
         timestamp,
       });
 
-      const timeString = await unixTimeToDateString(timestamp);
+      const timeString = await this.blockchainService.unixTimeToDateString(timestamp);
       const roditidandtimestamp = new TextEncoder().encode(
         roditid + timeString
       );
@@ -1464,7 +1485,7 @@ class Authentication {
 
     try {
       // Get the configuration from state manager
-      const config_own_rodit = this.stateManager.getConfigOwnRodit();
+      const config_own_rodit = await stateManager.getConfigOwnRodit();
 
       // Check if webhook configuration is available
       if (
@@ -1510,7 +1531,7 @@ class Authentication {
       }
 
       // Get the current JWT token or login to get one
-      let jwt_token = this.stateManager.getJwtToken();
+      let jwt_token = stateManager.getJwtToken();
       if (!jwt_token) {
         // If there's no token, we need to login first
         logger.debug("No JWT token available, attempting login", {
@@ -1527,7 +1548,7 @@ class Authentication {
 
           if (loginResult && loginResult.jwt_token) {
             jwt_token = loginResult.jwt_token;
-            await this.stateManager.setJwtToken(jwt_token);
+            await stateManager.setJwtToken(jwt_token);
 
             logger.info("Successfully obtained JWT token for webhook", {
               component: "WebhookSender",
@@ -1675,13 +1696,16 @@ class Authentication {
       const fetchDuration = Date.now() - fetchStartTime;
 
       // Log fetch duration metrics
-      logger.metric &&
-        logger.metric("webhook_http_request_duration_ms", fetchDuration, {
+      logger.metric(
+        "webhook_http_request_duration_ms",
+        fetchDuration,
+        {
           component: "WebhookSender",
           success: response.ok,
           status: response.status,
           event,
-        });
+        }
+      );
 
       if (!response.ok) {
         const duration = Date.now() - startTime;
@@ -1698,21 +1722,19 @@ class Authentication {
         });
 
         // Emit metrics for Grafana dashboards
-        logger.metric &&
-          logger.metric("webhook_delivery_duration_ms", duration, {
-            component: "WebhookSender",
-            success: false,
-            event,
-            error: "HTTP_ERROR",
-            status: response.status,
-          });
-        logger.metric &&
-          logger.metric("webhook_delivery_failures_total", 1, {
-            component: "WebhookSender",
-            reason: "HTTP_ERROR",
-            status: response.status,
-            event,
-          });
+        logger.metric("webhook_delivery_duration_ms", duration, {
+          component: "WebhookSender",
+          success: false,
+          event,
+          error: "HTTP_ERROR",
+          status: response.status,
+        });
+        logger.metric("webhook_delivery_failures_total", 1, {
+          component: "WebhookSender",
+          reason: "HTTP_ERROR",
+          status: response.status,
+          event,
+        });
 
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -1731,17 +1753,15 @@ class Authentication {
       });
 
       // Emit metrics for Grafana dashboards
-      logger.metric &&
-        logger.metric("webhook_delivery_duration_ms", duration, {
-          component: "WebhookSender",
-          success: true,
-          event,
-        });
-      logger.metric &&
-        logger.metric("successful_webhook_deliveries_total", 1, {
-          component: "WebhookSender",
-          event,
-        });
+      logger.metric("webhook_delivery_duration_ms", duration, {
+        component: "WebhookSender",
+        success: true,
+        event,
+      });
+      logger.metric("successful_webhook_deliveries_total", 1, {
+        component: "WebhookSender",
+        event,
+      });
 
       return {
         isValid: true,
@@ -1768,19 +1788,17 @@ class Authentication {
       });
 
       // Emit metrics for Grafana dashboards
-      logger.metric &&
-        logger.metric("webhook_delivery_duration_ms", duration, {
-          component: "WebhookSender",
-          success: false,
-          event,
-          error: error.constructor.name,
-        });
-      logger.metric &&
-        logger.metric("webhook_delivery_errors_total", 1, {
-          component: "WebhookSender",
-          error: error.constructor.name,
-          event,
-        });
+      logger.metric("webhook_delivery_duration_ms", duration, {
+        component: "WebhookSender",
+        success: false,
+        event,
+        error: error.constructor.name,
+      });
+      logger.metric("webhook_delivery_errors_total", 1, {
+        component: "WebhookSender",
+        error: error.constructor.name,
+        event,
+      });
 
       return {
         isValid: false,
@@ -2426,157 +2444,157 @@ class Authentication {
     }
   }
 
-async verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
-  const requestId = ulid();
-  const startTime = Date.now();
+  async verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
+    const requestId = ulid();
+    const startTime = Date.now();
 
-  logger.debug("Checking RODiT time validity", {
-    component: "RoditAuth",
-    method: "verify_rodit_islive",
-    requestId,
-    notAfter: peer_rodit_notafter,
-    notBefore: peer_rodit_notbefore,
-  });
-
-  function parseDate(datestring) {
-    const date = new Date(datestring);
-    return isNaN(date.getTime()) ? new Date(0) : date;
-  }
-
-  const datetimenul = new Date(0);
-  const datetimenotafter = parseDate(peer_rodit_notafter);
-  const datetimenotbefore = parseDate(peer_rodit_notbefore);
-
-  logger.debug("Parsed validity dates", {
-    requestId,
-    parsedNotAfter: datetimenotafter.toISOString(),
-    parsedNotBefore: datetimenotbefore.toISOString(),
-    isNotAfterNull: datetimenotafter.getTime() === datetimenul.getTime(),
-    isNotBeforeNull: datetimenotbefore.getTime() === datetimenul.getTime(),
-  });
-
-  try {
-    const rpcStart = Date.now();
-    const stringtimenow = await this.blockchainService.nearorg_rpc_timestamp();
-    const rpcDuration = Date.now() - rpcStart;
-
-    logger.debug("Retrieved blockchain timestamp", {
-      requestId,
-      rpcDuration,
-      blockchainTimestamp: stringtimenow,
-    });
-
-    const timestamp = parseInt(stringtimenow, 10);
-
-    if (isNaN(timestamp)) {
-      logger.error("Failed to parse blockchain timestamp", {
-        component: "RoditAuth",
-        requestId,
-        duration: Date.now() - startTime,
-        blockchainTimestamp: stringtimenow,
-      });
-
-      // Add metrics for timestamp parsing errors
-      logger.metric &&
-        logger.metric("rodit_islive_errors", 1, {
-          error_type: "timestamp_parse_error",
-          blockchain_timestamp: stringtimenow,
-        });
-
-      return false;
-    }
-
-    const datetimetimestamp = new Date(timestamp / 1000000); // Convert nanoseconds to milliseconds
-
-    logger.debug("Converted blockchain time", {
-      requestId,
-      blockchainTime: datetimetimestamp.toISOString(),
-      originalTimestamp: timestamp,
-    });
-
-    const isAfterNotBefore =
-      datetimetimestamp >= datetimenotbefore ||
-      datetimenotbefore.getTime() === datetimenul.getTime();
-
-    const isBeforeNotAfter =
-      datetimetimestamp <= datetimenotafter ||
-      datetimenotafter.getTime() === datetimenul.getTime();
-
-    const isLive = isAfterNotBefore && isBeforeNotAfter;
-
-    const totalDuration = Date.now() - startTime;
-
-    if (isLive) {
-      logger.info("RODiT is live", {
-        component: "RoditAuth",
-        method: "verify_rodit_islive",
-        requestId,
-        duration: totalDuration,
-        rpcDuration,
-        currentTime: datetimetimestamp.toISOString(),
-        notBefore: datetimenotbefore.toISOString(),
-        notAfter: datetimenotafter.toISOString(),
-        isLive: true,
-      });
-
-      // Add metrics for live tokens
-      logger.metric &&
-        logger.metric("rodit_time_checks", totalDuration, {
-          result: "live",
-        });
-
-      return true;
-    } else {
-      logger.warn("RODiT is not live - outside valid time period", {
-        component: "RoditAuth",
-        method: "verify_rodit_islive",
-        requestId,
-        duration: totalDuration,
-        rpcDuration,
-        currentTime: datetimetimestamp.toISOString(),
-        notBefore: datetimenotbefore.toISOString(),
-        notAfter: datetimenotafter.toISOString(),
-        isBeforeExpiry: isBeforeNotAfter,
-        isAfterStart: isAfterNotBefore,
-        isLive: false,
-      });
-
-      // Add metrics for expired or not-yet-valid tokens
-      logger.metric &&
-        logger.metric("rodit_time_checks", totalDuration, {
-          result: "not_live",
-          not_before_valid: isAfterNotBefore,
-          not_after_valid: isBeforeNotAfter,
-        });
-
-      return false;
-    }
-  } catch (error) {
-    const duration = Date.now() - startTime;
-
-    logger.error("Failed to check RODiT time validity", {
+    logger.debug("Checking RODiT time validity", {
       component: "RoditAuth",
       method: "verify_rodit_islive",
       requestId,
-      duration,
       notAfter: peer_rodit_notafter,
       notBefore: peer_rodit_notbefore,
-      error: {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      },
     });
 
-    // Add metrics for validation errors
-    logger.metric &&
-      logger.metric("rodit_islive_errors", 1, {
-        error_type: error.name || "Unknown",
+    function parseDate(datestring) {
+      const date = new Date(datestring);
+      return isNaN(date.getTime()) ? new Date(0) : date;
+    }
+
+    const datetimenul = new Date(0);
+    const datetimenotafter = parseDate(peer_rodit_notafter);
+    const datetimenotbefore = parseDate(peer_rodit_notbefore);
+
+    logger.debug("Parsed validity dates", {
+      requestId,
+      parsedNotAfter: datetimenotafter.toISOString(),
+      parsedNotBefore: datetimenotbefore.toISOString(),
+      isNotAfterNull: datetimenotafter.getTime() === datetimenul.getTime(),
+      isNotBeforeNull: datetimenotbefore.getTime() === datetimenul.getTime(),
+    });
+
+    try {
+      const rpcStart = Date.now();
+      const stringtimenow = await this.blockchainService.nearorg_rpc_timestamp();
+      const rpcDuration = Date.now() - rpcStart;
+
+      logger.debug("Retrieved blockchain timestamp", {
+        requestId,
+        rpcDuration,
+        blockchainTimestamp: stringtimenow,
       });
 
-    return false;
+      const timestamp = parseInt(stringtimenow, 10);
+
+      if (isNaN(timestamp)) {
+        logger.error("Failed to parse blockchain timestamp", {
+          component: "RoditAuth",
+          requestId,
+          duration: Date.now() - startTime,
+          blockchainTimestamp: stringtimenow,
+        });
+
+        // Add metrics for timestamp parsing errors
+        logger.metric &&
+          logger.metric("rodit_islive_errors", 1, {
+            error_type: "timestamp_parse_error",
+            blockchain_timestamp: stringtimenow,
+          });
+
+        return false;
+      }
+
+      const datetimetimestamp = new Date(timestamp / 1000000); // Convert nanoseconds to milliseconds
+
+      logger.debug("Converted blockchain time", {
+        requestId,
+        blockchainTime: datetimetimestamp.toISOString(),
+        originalTimestamp: timestamp,
+      });
+
+      const isAfterNotBefore =
+        datetimetimestamp >= datetimenotbefore ||
+        datetimenotbefore.getTime() === datetimenul.getTime();
+
+      const isBeforeNotAfter =
+        datetimetimestamp <= datetimenotafter ||
+        datetimenotafter.getTime() === datetimenul.getTime();
+
+      const isLive = isAfterNotBefore && isBeforeNotAfter;
+
+      const totalDuration = Date.now() - startTime;
+
+      if (isLive) {
+        logger.info("RODiT is live", {
+          component: "RoditAuth",
+          method: "verify_rodit_islive",
+          requestId,
+          duration: totalDuration,
+          rpcDuration,
+          currentTime: datetimetimestamp.toISOString(),
+          notBefore: datetimenotbefore.toISOString(),
+          notAfter: datetimenotafter.toISOString(),
+          isLive: true,
+        });
+
+        // Add metrics for live tokens
+        logger.metric &&
+          logger.metric("rodit_time_checks", totalDuration, {
+            result: "live",
+          });
+
+        return true;
+      } else {
+        logger.warn("RODiT is not live - outside valid time period", {
+          component: "RoditAuth",
+          method: "verify_rodit_islive",
+          requestId,
+          duration: totalDuration,
+          rpcDuration,
+          currentTime: datetimetimestamp.toISOString(),
+          notBefore: datetimenotbefore.toISOString(),
+          notAfter: datetimenotafter.toISOString(),
+          isBeforeExpiry: isBeforeNotAfter,
+          isAfterStart: isAfterNotBefore,
+          isLive: false,
+        });
+
+        // Add metrics for expired or not-yet-valid tokens
+        logger.metric &&
+          logger.metric("rodit_time_checks", totalDuration, {
+            result: "not_live",
+            not_before_valid: isAfterNotBefore,
+            not_after_valid: isBeforeNotAfter,
+          });
+
+        return false;
+      }
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      logger.error("Failed to check RODiT time validity", {
+        component: "RoditAuth",
+        method: "verify_rodit_islive",
+        requestId,
+        duration,
+        notAfter: peer_rodit_notafter,
+        notBefore: peer_rodit_notbefore,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        },
+      });
+
+      // Add metrics for validation errors
+      logger.metric &&
+        logger.metric("rodit_islive_errors", 1, {
+          error_type: error.name || "Unknown",
+        });
+
+      return false;
+    }
   }
-}
 
   /**
    * Verify RODiT ownership by validating signature
@@ -3597,4 +3615,4 @@ async verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
   }
 }
 
-module.exports = Authentication;
+module.exports = new Authentication();
