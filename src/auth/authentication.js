@@ -2816,7 +2816,7 @@ class Authentication {
       try {
         logger.debug("Verifying RODiT ownership", { requestId });
         const ownershipStart = Date.now();
-        ownershipVerified = await verify_rodit_ownership(
+        ownershipVerified = await this.verify_rodit_ownership(
           peerroditid,
           peertimestamp,
           peerroditid_base64url_signature,
