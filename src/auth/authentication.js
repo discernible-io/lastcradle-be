@@ -3368,6 +3368,7 @@ class Authentication {
 
       try {
         const dnsStart = Date.now();
+        const resolver = new (require('dns').promises.Resolver)();
         await resolver.resolveTxt(revokingDnsEntry);
         const dnsDuration = Date.now() - dnsStart;
         const totalDuration = Date.now() - startTime;
@@ -3510,6 +3511,7 @@ class Authentication {
 
       try {
         const dnsStart = Date.now();
+        const resolver = new (require('dns').promises.Resolver)();
         const cfgresponse = await resolver.resolveTxt(enablingdnsentry);
         const dnsDuration = Date.now() - dnsStart;
 
