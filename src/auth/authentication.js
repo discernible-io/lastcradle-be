@@ -12,6 +12,22 @@ const utils = require("../utils");
 const StateManager = require("../middleware/rodit");
 const TokenService = require('../auth/tokenservice');
 const BlockchainService = require('../blockchain/blockchainservice');
+// Add these imports at the top of authentication.js
+const { calculateCanonicalHash } = require('../utils');
+
+// Then in your class, make sure to bind these functions
+class Authentication {
+  constructor(stateManager, tokenService, blockchainService) {
+    this.stateManager = stateManager;
+    this.tokenService = tokenService;
+    this.blockchainService = blockchainService;
+    
+    // Bind the imported functions
+    this.verify_rodit_ownership = verify_rodit_ownership.bind(this);
+    this.verify_rodit_islive = verify_rodit_islive.bind(this);
+  }
+  // ... rest of your class
+}
 
 /**
  * Authentication class that provides methods for handling RODiT authentication
@@ -1235,6 +1251,129 @@ class Authentication {
     }
   }
 
+  async verify_rodit_ownership(
+    peerroditid,
+    peertimestamp,
+    peerroditid_base64url_signature,
+    peer_rodit
+  ) {
+    const requestId = ulid();
+    const startTime = Date.now();
+  
+    logger.debug("Starting RODiT ownership verification", {
+      component: "RoditAuth",
+      method: "verify_rodit_ownership",
+      requestId,
+      peerRoditId: peerroditid,
+      timestamp: peertimestamp,
+      signatureLength: peerroditid_base64url_signature?.length,
+    });
+  
+    try {
+      // DO NOT DELETE THE FOLLOWING COMMENT
+      /* Maybe for NEP413 compatibility, the following line added "NEAR" before peerroditid */
+      const timeString = await utils.unixTimeToDateString(peertimestamp);
+      const roditidandtimestamp = new TextEncoder().encode(
+        peerroditid + timeString
+      );
+  
+      logger.debug("Encoded roditid and timestamp", {
+        requestId,
+        timeString,
+        bufferLength: roditidandtimestamp.length,
+      });
+  
+      const bytes_ed25519_signature = new Uint8Array(
+        Buffer.from(peerroditid_base64url_signature, "base64url")
+      );
+  
+      logger.debug("Decoded signature", {
+        requestId,
+        signatureLength: bytes_ed25519_signature.length,
+      });
+  
+      const peer_bytes_ed25519_public_key = await this.blockchainServicenearorg_rpc_fetchpublickeybytes(
+        peer_rodit.owner_id
+      );
+  
+      logger.debug("Retrieved public key", {
+        requestId,
+        ownerId: peer_rodit.owner_id,
+        keyLength: peer_bytes_ed25519_public_key.length,
+      });
+  
+      const isaMatch = nacl.sign.detached.verify(
+        roditidandtimestamp,
+        bytes_ed25519_signature,
+        peer_bytes_ed25519_public_key
+      );
+  
+      const duration = Date.now() - startTime;
+  
+      if (isaMatch) {
+        logger.info("Peer RODiT ownership check passed", {
+          component: "RoditAuth",
+          requestId,
+          duration,
+          peerRoditId: peerroditid,
+          ownerId: peer_rodit.owner_id,
+          outcome: "success",
+        });
+  
+        // Add metric for successful verification
+        logger.metric &&
+          logger.metric("rodit_ownership_verification", duration, {
+            result: "success",
+            peer_rodit_id: peerroditid,
+          });
+  
+        return true;
+      } else {
+        logger.error("Peer RODiT ownership check failed", {
+          component: "RoditAuth",
+          requestId,
+          duration,
+          peerRoditId: peerroditid,
+          ownerId: peer_rodit.owner_id,
+          outcome: "failed",
+        });
+  
+        // Add metric for failed verification
+        logger.metric &&
+          logger.metric("rodit_ownership_verification", duration, {
+            result: "failure",
+            peer_rodit_id: peerroditid,
+          });
+  
+        throw new Error("Error 035: PeerEd25519SignatureVerificationFailure");
+      }
+    } catch (error) {
+      const duration = Date.now() - startTime;
+  
+      logger.error("RODiT ownership verification failed", {
+        component: "RoditAuth",
+        method: "verify_rodit_ownership",
+        requestId,
+        duration,
+        peerRoditId: peerroditid,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        },
+      });
+  
+      // Add metric for verification errors
+      logger.metric &&
+        logger.metric("rodit_ownership_verification_errors", 1, {
+          error_type: error.name || "Unknown",
+          peer_rodit_id: peerroditid,
+        });
+  
+      throw new Error("Error A33: " + error.message);
+    }
+  }
+
   async verify_rodit_ownership_withnep413(
     message,
     nonce,
@@ -2300,6 +2439,158 @@ class Authentication {
       };
     }
   }
+
+async verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
+  const requestId = ulid();
+  const startTime = Date.now();
+
+  logger.debug("Checking RODiT time validity", {
+    component: "RoditAuth",
+    method: "verify_rodit_islive",
+    requestId,
+    notAfter: peer_rodit_notafter,
+    notBefore: peer_rodit_notbefore,
+  });
+
+  function parseDate(datestring) {
+    const date = new Date(datestring);
+    return isNaN(date.getTime()) ? new Date(0) : date;
+  }
+
+  const datetimenul = new Date(0);
+  const datetimenotafter = parseDate(peer_rodit_notafter);
+  const datetimenotbefore = parseDate(peer_rodit_notbefore);
+
+  logger.debug("Parsed validity dates", {
+    requestId,
+    parsedNotAfter: datetimenotafter.toISOString(),
+    parsedNotBefore: datetimenotbefore.toISOString(),
+    isNotAfterNull: datetimenotafter.getTime() === datetimenul.getTime(),
+    isNotBeforeNull: datetimenotbefore.getTime() === datetimenul.getTime(),
+  });
+
+  try {
+    const rpcStart = Date.now();
+    const stringtimenow = await this.blockchainService.nearorg_rpc_timestamp();
+    const rpcDuration = Date.now() - rpcStart;
+
+    logger.debug("Retrieved blockchain timestamp", {
+      requestId,
+      rpcDuration,
+      blockchainTimestamp: stringtimenow,
+    });
+
+    const timestamp = parseInt(stringtimenow, 10);
+
+    if (isNaN(timestamp)) {
+      logger.error("Failed to parse blockchain timestamp", {
+        component: "RoditAuth",
+        requestId,
+        duration: Date.now() - startTime,
+        blockchainTimestamp: stringtimenow,
+      });
+
+      // Add metrics for timestamp parsing errors
+      logger.metric &&
+        logger.metric("rodit_islive_errors", 1, {
+          error_type: "timestamp_parse_error",
+          blockchain_timestamp: stringtimenow,
+        });
+
+      return false;
+    }
+
+    const datetimetimestamp = new Date(timestamp / 1000000); // Convert nanoseconds to milliseconds
+
+    logger.debug("Converted blockchain time", {
+      requestId,
+      blockchainTime: datetimetimestamp.toISOString(),
+      originalTimestamp: timestamp,
+    });
+
+    const isAfterNotBefore =
+      datetimetimestamp >= datetimenotbefore ||
+      datetimenotbefore.getTime() === datetimenul.getTime();
+
+    const isBeforeNotAfter =
+      datetimetimestamp <= datetimenotafter ||
+      datetimenotafter.getTime() === datetimenul.getTime();
+
+    const isLive = isAfterNotBefore && isBeforeNotAfter;
+
+    const totalDuration = Date.now() - startTime;
+
+    if (isLive) {
+      logger.info("RODiT is live", {
+        component: "RoditAuth",
+        method: "verify_rodit_islive",
+        requestId,
+        duration: totalDuration,
+        rpcDuration,
+        currentTime: datetimetimestamp.toISOString(),
+        notBefore: datetimenotbefore.toISOString(),
+        notAfter: datetimenotafter.toISOString(),
+        isLive: true,
+      });
+
+      // Add metrics for live tokens
+      logger.metric &&
+        logger.metric("rodit_time_checks", totalDuration, {
+          result: "live",
+        });
+
+      return true;
+    } else {
+      logger.warn("RODiT is not live - outside valid time period", {
+        component: "RoditAuth",
+        method: "verify_rodit_islive",
+        requestId,
+        duration: totalDuration,
+        rpcDuration,
+        currentTime: datetimetimestamp.toISOString(),
+        notBefore: datetimenotbefore.toISOString(),
+        notAfter: datetimenotafter.toISOString(),
+        isBeforeExpiry: isBeforeNotAfter,
+        isAfterStart: isAfterNotBefore,
+        isLive: false,
+      });
+
+      // Add metrics for expired or not-yet-valid tokens
+      logger.metric &&
+        logger.metric("rodit_time_checks", totalDuration, {
+          result: "not_live",
+          not_before_valid: isAfterNotBefore,
+          not_after_valid: isBeforeNotAfter,
+        });
+
+      return false;
+    }
+  } catch (error) {
+    const duration = Date.now() - startTime;
+
+    logger.error("Failed to check RODiT time validity", {
+      component: "RoditAuth",
+      method: "verify_rodit_islive",
+      requestId,
+      duration,
+      notAfter: peer_rodit_notafter,
+      notBefore: peer_rodit_notbefore,
+      error: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      },
+    });
+
+    // Add metrics for validation errors
+    logger.metric &&
+      logger.metric("rodit_islive_errors", 1, {
+        error_type: error.name || "Unknown",
+      });
+
+    return false;
+  }
+}
 
   /**
    * Verify RODiT ownership by validating signature
