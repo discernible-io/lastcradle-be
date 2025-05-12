@@ -8,6 +8,7 @@ const logger = require("../../config/logger");
 const sessionManager = require("./sessionmanager");
 const nacl = require("tweetnacl");
 const crypto = require("crypto");
+const utils = require("../utils");
 
 /**
  * Authentication class that provides methods for handling RODiT authentication

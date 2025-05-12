@@ -9,6 +9,7 @@ const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
 const nacl = require("tweetnacl");
 const crypto = require("crypto");
 const sessionManager = require("./sessionmanager");
+const utils = require("../utils");
 const {
   dateStringToUnixTime,
   unixTimeToDateString,
