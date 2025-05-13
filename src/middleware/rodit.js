@@ -10,9 +10,7 @@ const BlockchainService = require("../blockchain/blockchainservice");
 const session = require("../auth/sessionmanager");
 const validators = require("../validators");
 const utils = require("../utils");
-const {
-  initializeProductionVault,
-} = require("./vaultsetup-production");
+const { initializeProductionVault } = require("./vaultsetup-production");
 const config = require("config");
 
 /**
@@ -158,13 +156,13 @@ class RoditManager {
   async initializeVault() {
     const requestId = ulid();
     const startTime = Date.now();
-    
+
     logger.debug("Starting vault initialization", {
       component: "RoditManager",
       method: "initializeVault",
-      requestId
+      requestId,
     });
-    
+
     if (this.vaultInitialized) {
       logger.debug("Vault already initialized", {
         component: "RoditManager",
@@ -173,39 +171,39 @@ class RoditManager {
       });
       return;
     }
-    
+
     try {
-      const { 
-        initializeProductionVault, 
-        setupTokenRenewal
+      const {
+        initializeProductionVault,
+        setupTokenRenewal,
       } = require("./vaultsetup-production");
-      
+
       // Initialize the vault
       await initializeProductionVault();
-      
+
       // Set up token renewal
       await setupTokenRenewal();
-      
+
       // Set initialization flags
       this.vaultInitialized = true;
       this.vaultPath = this.config.get("VAULT_RODIT_KEYVALUE_PATH");
-      
+
       const duration = Date.now() - startTime;
       logger.info("Vault initialized successfully", {
         component: "RoditManager",
         method: "initializeVault",
         requestId,
         duration,
-        status: "success"
+        status: "success",
       });
-      
+
       // Emit metrics for Grafana dashboards
       logger.metric("vault_initialization_duration_ms", duration, {
         success: true,
-        component: "RoditManager"
+        component: "RoditManager",
       });
-      
-      return;  // No need to return anything
+
+      return; // No need to return anything
     } catch (error) {
       const duration = Date.now() - startTime;
       logger.error("Failed to initialize vault", {
@@ -217,14 +215,14 @@ class RoditManager {
         errorCode: error.code || "UNKNOWN_ERROR",
         stack: error.stack,
       });
-      
+
       // Emit metrics for Grafana dashboards
       logger.metric("vault_initialization_duration_ms", duration, {
         success: false,
         component: "RoditManager",
-        errorType: error.code || "UNKNOWN_ERROR"
+        errorType: error.code || "UNKNOWN_ERROR",
       });
-      
+
       throw error;
     }
   }
@@ -252,7 +250,7 @@ class RoditManager {
         method: "getCredentials",
         requestId,
         vaultPath: this.vaultPath,
-        vaultInitialized: this.vaultInitialized
+        vaultInitialized: this.vaultInitialized,
       });
     }
 
@@ -269,7 +267,7 @@ class RoditManager {
     try {
       // Make the accountType consistent with the type parameter
       const accountType = `account_${type}`;
-    
+
       logger.debug("Fetching credentials from vault", {
         component: "RoditManager",
         method: "getCredentials",
@@ -277,9 +275,9 @@ class RoditManager {
         credentialType: type,
         vaultPath: `${this.vaultPath}/${type}`,
       });
-      
+
       const { get_rodit_fromvault } = require("./vaultsetup-production");
-    
+
       const vaultData = await get_rodit_fromvault(
         null, // Replaced 'vault' with null since it's not used
         `${this.vaultPath}/${type}`,
@@ -769,51 +767,7 @@ async function initializeServices() {
       }
     }
 
-    // 2. Initialize RoditManager and Vault
-    logger.debug(
-      "Initializing RoditManager and Vault...",
-      initializationContext
-    );
-
-    try {
-      // First initialize the vault without namespace parameter
-      await instances.roditManager.initializeVault();
-      logger.debug("Vault initialized successfully", {
-        ...initializationContext,
-        vaultPath: instances.roditManager.vaultPath,
-        vaultInitialized: instances.roditManager.vaultInitialized,
-      });
-
-      // Then initialize the RODiT configuration with 'server' type
-      await instances.roditManager.initializeRoditConfig("server");
-      logger.debug("RODiT configuration initialized successfully", {
-        ...initializationContext,
-      });
-
-      // Verify vault is accessible
-      try {
-        const { getVault } = require("./vaultsetup-production");
-        const vault = getVault();
-        if (!vault) {
-          throw new Error("Vault is null after initialization");
-        }
-      } catch (vaultError) {
-        throw new Error(
-          `Vault not properly initialized: ${vaultError.message}`
-        );
-      }
-    } catch (error) {
-      logger.error("Failed to initialize RoditManager and Vault", {
-        ...initializationContext,
-        error: error.message,
-        stack: error.stack,
-        vaultPath: instances.roditManager?.vaultPath,
-        vaultInitialized: instances.roditManager?.vaultInitialized,
-      });
-      throw new Error(`Vault initialization failed: ${error.message}`);
-    }
-
-    // 3. Initialize other services with dependencies
+    // 2. Initialize authentication services
     logger.debug(
       "Initializing authentication services...",
       initializationContext
@@ -852,13 +806,6 @@ async function initializeServices() {
       error: error.message,
       stack: error.stack,
       stateManager: instances.stateManager ? "initialized" : "not initialized",
-      roditManager: instances.roditManager ? "initialized" : "not initialized",
-      vaultInitialized:
-        (instances.roditManager && instances.roditManager.vaultInitialized) ||
-        false,
-      configLoaded: !!(
-        instances.stateManager && instances.stateManager.getConfigOwnRodit
-      ),
       endTime: new Date().toISOString(),
       duration: `${new Date() - new Date(initializationContext.startTime)}ms`,
     };

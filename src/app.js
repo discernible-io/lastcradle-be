@@ -1,4 +1,4 @@
-const express = require("express")
+const express = require("express");
 const ratelimitmw = require("./middleware/ratelimit");
 const validatepermissions = require("./middleware/validatepermissions");
 const logger = require("../config/logger");
@@ -10,7 +10,7 @@ const {
   authenticate_apicall,
   initializeServices,
   stateManager,
-  roditManager
+  roditManager,
 } = require("./middleware/rodit");
 
 const options = {
@@ -51,13 +51,17 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Log in route - non-protected
-app.post("/login", (req, res, next) => {
-  req.logAction = "login-attempt";
-  next();
-}, async (req, res) => {
-  const config_own_rodit = await stateManager.getConfigOwnRodit();
-  return login_client(req, res, config_own_rodit);
-});
+app.post(
+  "/login",
+  (req, res, next) => {
+    req.logAction = "login-attempt";
+    next();
+  },
+  async (req, res) => {
+    const config_own_rodit = await stateManager.getConfigOwnRodit();
+    return login_client(req, res, config_own_rodit);
+  }
+);
 
 app.use((req, res, next) => {
   if (req.logAction) {
@@ -66,7 +70,7 @@ app.use((req, res, next) => {
       path: req.path,
       method: req.method,
       ip: req.ip,
-      userId: req.user ? req.user.id : "anonymous"
+      userId: req.user ? req.user.id : "anonymous",
     });
   }
   next();
@@ -81,7 +85,12 @@ const signclientRoute = require("./routes/signclient");
 app.use(loggingmw);
 
 app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
-app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaprotectedRoute);
+app.use(
+  "/api/cruda",
+  authenticate_apicall,
+  validatepermissions,
+  crudaprotectedRoute
+);
 app.use("/api", signclientRoute);
 
 // Enhanced error handling middleware
@@ -94,7 +103,7 @@ app.use((err, req, res, next) => {
       userIP: req.ip,
       userId: req.user ? req.user.id : "anonymous",
       errorCode: "106",
-      route: req.route ? req.route.path : "unknown"
+      route: req.route ? req.route.path : "unknown",
     },
     err // Pass the error object directly
   );
@@ -105,9 +114,9 @@ app.use((err, req, res, next) => {
 
   res.status(err.status || 500).json({
     error: {
-      message: err.message || 'Internal Server Error',
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-    }
+      message: err.message || "Internal Server Error",
+      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    },
   });
 });
 
@@ -122,10 +131,12 @@ let server;
 async function startServer() {
   try {
     logger.info("Starting server initialization...");
-    
+
     // Initialize all services
+    await roditManager.initializeVault();
+    await roditManager.initializeRoditConfig("server");
     await initializeServices();
-    
+
     logger.info("Services initialized, starting HTTP server...");
 
     // Get and apply configuration
@@ -149,7 +160,7 @@ async function startServer() {
       logger.infoWithContext("Server started", {
         port: port,
         env: process.env.NODE_ENV || "development",
-        protocol: "http"
+        protocol: "http",
       });
     });
 
@@ -161,25 +172,24 @@ async function startServer() {
         process.exit(0);
       });
     });
-    
+
     // Handle unhandled promise rejections
-    process.on('unhandledRejection', (reason, promise) => {
-      logger.error('Unhandled Rejection at:', { promise, reason });
+    process.on("unhandledRejection", (reason, promise) => {
+      logger.error("Unhandled Rejection at:", { promise, reason });
       // Consider whether to exit the process here
     });
-    
+
     // Handle uncaught exceptions
-    process.on('uncaughtException', (error) => {
-      logger.error('Uncaught Exception:', error);
+    process.on("uncaughtException", (error) => {
+      logger.error("Uncaught Exception:", error);
       // Consider whether to exit the process here
     });
-    
   } catch (error) {
     logger.errorWithContext(
-      "Failed to start server", 
+      "Failed to start server",
       {
         errorCode: "907",
-        component: "server-startup"
+        component: "server-startup",
       },
       error
     );
@@ -193,13 +203,13 @@ startServer();
 // Handle SIGINT gracefully
 process.on("SIGINT", async () => {
   logger.info("SIGINT received. Shutting down gracefully...");
-  
+
   try {
     // Close the server
     if (server) {
       await new Promise((resolve) => server.close(resolve));
     }
-    
+
     // Perform any additional cleanup here
     logger.info("Server shut down successfully");
     process.exit(0);
