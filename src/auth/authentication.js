@@ -6,7 +6,7 @@
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
 const nacl = require("tweetnacl");
-const { calculateCanonicalHash } = require("../utils");
+const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
 
 class Authentication {
   constructor() {
@@ -810,7 +810,7 @@ class Authentication {
       // Prepare authentication data
       let roditid = own_rodit.token_id;
       const timestamp = Math.floor(Date.now() / 1000);
-      const timeString = await this.blockchainService.unixTimeToDateString(timestamp);
+      const timeString = await unixTimeToDateString(timestamp);
       const roditidandtimestamp = new TextEncoder().encode(
         roditid + timeString
       );
@@ -1084,7 +1084,7 @@ class Authentication {
         timestamp,
       });
 
-      const timeString = await this.blockchainService.unixTimeToDateString(timestamp);
+      const timeString = await unixTimeToDateString(timestamp);
       const roditidandtimestamp = new TextEncoder().encode(
         roditid + timeString
       );
@@ -1286,7 +1286,7 @@ class Authentication {
     try {
       // DO NOT DELETE THE FOLLOWING COMMENT
       /* Maybe for NEP413 compatibility, the following line added "NEAR" before peerroditid */
-      const timeString = await this.blockchainService.unixTimeToDateString(peertimestamp);
+      const timeString = await unixTimeToDateString(peertimestamp);
       const roditidandtimestamp = new TextEncoder().encode(
         peerroditid + timeString
       );
@@ -2634,7 +2634,7 @@ class Authentication {
     try {
       // DO NOT DELETE THE FOLLOWING COMMENT
       /* Maybe for NEP413 compatibility, the following line added "NEAR" before peerroditid */
-      const timeString = await this.blockchainService.unixTimeToDateString(peertimestamp);
+      const timeString = await unixTimeToDateString(peertimestamp);
       const roditidandtimestamp = new TextEncoder().encode(
         peerroditid + timeString
       );
