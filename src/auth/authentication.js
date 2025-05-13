@@ -3620,6 +3620,62 @@ class Authentication {
       return false;
     }
   }
+
+  async authenticate_apicall(req, res, next) {
+    const requestId = ulid();
+    const startTime = Date.now();
+  
+    logger.debug("Starting API call authentication", {
+      component: "AuthenticationMiddleware",
+      method: "authenticate_apicall",
+      requestId,
+      path: req.path,
+      method: req.method,
+    });
+  
+    try {
+      // Extract token using the dedicated token extractor
+      const token = extractTokenFromHeader(req.headers.authorization);
+  
+      if (!token) {
+        logger.warn("API authentication failed - no token provided", {
+          component: "AuthenticationMiddleware",
+          method: "authenticate_apicall",
+          requestId,
+          path: req.path,
+        });
+  
+        return res.status(401).json({
+          error: {
+            code: "MISSING_TOKEN",
+            message: "No token provided",
+            requestId,
+          },
+        });
+      }
+  
+      // Add further token validation logic here if needed
+  
+      // Proceed to the next middleware or route handler
+      next();
+    } catch (error) {
+      logger.error("Error during API call authentication", {
+        component: "AuthenticationMiddleware",
+        method: "authenticate_apicall",
+        requestId,
+        error: error.message,
+        stack: error.stack,
+      });
+  
+      return res.status(500).json({
+        error: {
+          code: "AUTHENTICATION_ERROR",
+          message: "An error occurred during authentication",
+          requestId,
+        },
+      });
+    }
+  }
 }
 
 // Export the class directly (will be instantiated in rodit.js)
