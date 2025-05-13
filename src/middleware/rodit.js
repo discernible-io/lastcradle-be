@@ -171,19 +171,22 @@ class RoditManager {
         method: "initializeVault",
         requestId,
       });
-      const { vault } = require("./vaultsetup-production");
-      return vault;
+      return;
     }
     
     try {
       const { 
         initializeProductionVault, 
-        setupTokenRenewal, 
-        vault 
+        setupTokenRenewal
       } = require("./vaultsetup-production");
       
-      const vaultInstance = await initializeProductionVault();
+      // Initialize the vault
+      await initializeProductionVault();
+      
+      // Set up token renewal
       await setupTokenRenewal();
+      
+      // Set initialization flags
       this.vaultInitialized = true;
       this.vaultPath = this.config.get("VAULT_RODIT_KEYVALUE_PATH");
       
@@ -202,9 +205,27 @@ class RoditManager {
         component: "RoditManager"
       });
       
-      return vaultInstance;
+      return;  // No need to return anything
     } catch (error) {
-      // Error handling (keep as is)
+      const duration = Date.now() - startTime;
+      logger.error("Failed to initialize vault", {
+        component: "RoditManager",
+        method: "initializeVault",
+        requestId,
+        duration,
+        errorMessage: error.message,
+        errorCode: error.code || "UNKNOWN_ERROR",
+        stack: error.stack,
+      });
+      
+      // Emit metrics for Grafana dashboards
+      logger.metric("vault_initialization_duration_ms", duration, {
+        success: false,
+        component: "RoditManager",
+        errorType: error.code || "UNKNOWN_ERROR"
+      });
+      
+      throw error;
     }
   }
 
@@ -257,13 +278,13 @@ class RoditManager {
         vaultPath: `${this.vaultPath}/${type}`,
       });
       
-      const { vault, get_rodit_fromvault } = require("./vaultsetup-production");
+      const { get_rodit_fromvault } = require("./vaultsetup-production");
+    
       const vaultData = await get_rodit_fromvault(
-        vault,
+        null, // Replaced 'vault' with null since it's not used
         `${this.vaultPath}/${type}`,
         accountType
       );
-
       if (!vaultData.private_key || typeof vaultData.private_key !== "string") {
         throw new Error(`Invalid or missing private_key for ${type}`);
       }
@@ -756,10 +777,7 @@ async function initializeServices() {
 
     try {
       // First initialize the vault without namespace parameter
-      const {
-        initializeProductionVault,
-      } = require("./vaultsetup-production");
-      await initializeProductionVault();
+      await instances.roditManager.initializeVault();
       logger.debug("Vault initialized successfully", {
         ...initializationContext,
         vaultPath: instances.roditManager.vaultPath,

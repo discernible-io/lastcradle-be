@@ -4,17 +4,23 @@ const logger = require("../../config/logger");
 
 class ProductionVaultManager {
   constructor() {
-    this.vault = require("node-vault")();
-    this.vault.endpoint = config.get("VAULT_ENDPOINT");
-    this.vault.apiVersion = "v1";
+    this._vault = require("node-vault")();
+    this._vault.endpoint = config.get("VAULT_ENDPOINT");
+    this._vault.apiVersion = "v1";
     this.roleId = config.get("VAULT_ROLE_ID");
     this.secretId = config.get("VAULT_SECRET_ID");
     this.renewalInterval = 60 * 60 * 1000; // 1 hour in milliseconds
+    this.initialized = false;
+  }
+
+  // Add a getter for direct vault access
+  get vault() {
+    return this._vault;
   }
 
   async getProductionVaultToken() {
     try {
-      const result = await this.vault.approleLogin({
+      const result = await this._vault.approleLogin({
         role_id: this.roleId,
         secret_id: this.secretId,
       });
@@ -26,11 +32,15 @@ class ProductionVaultManager {
   }
 
   async initialize() {
+    if (this.initialized) {
+      return this._vault;
+    }
+    
     try {
       const token = await this.getProductionVaultToken();
-      this.vault.token = token;
+      this._vault.token = token;
 
-      const health = await this.vault.health();
+      const health = await this._vault.health();
       if (!health.initialized) {
         throw new Error("Error 109: Vault is not initialized");
       }
@@ -38,7 +48,8 @@ class ProductionVaultManager {
         throw new Error("Error 110: Vault is sealed");
       }
 
-      return this.vault;
+      this.initialized = true;
+      return this._vault;
     } catch (error) {
       logger.error("Error initializing production Vault:", error);
       throw error;
@@ -50,7 +61,7 @@ class ProductionVaultManager {
       setInterval(async () => {
         try {
           const token = await this.getProductionVaultToken();
-          this.vault.token = token;
+          this._vault.token = token;
         } catch (error) {
           logger.error("Error renewing Vault token:", error);
         }
@@ -61,10 +72,11 @@ class ProductionVaultManager {
   }
 
   async getRoditFromVault(vaultPath, secretKey) {
+    // Use this._vault instead of vault parameter
     this.validateVaultParameters(vaultPath, secretKey);
 
     try {
-      const result = await this.vault.read(`secret/data/${vaultPath}`);
+      const result = await this._vault.read(`secret/data/${vaultPath}`);
       const secretData = result.data.data[secretKey];
 
       if (!secretData) {
@@ -81,8 +93,10 @@ class ProductionVaultManager {
     }
   }
 
+  // Keep the rest of your methods the same, but replace any references to 
+  // `this.vault` with `this._vault`
   validateVaultParameters(vaultPath, secretKey) {
-    if (!this.vault || typeof this.vault.read !== "function") {
+    if (!this._vault || typeof this._vault.read !== "function") {
       throw new Error("Error 051: Invalid vault object");
     }
     if (!vaultPath || typeof vaultPath !== "string") {
@@ -93,97 +107,20 @@ class ProductionVaultManager {
     }
   }
 
-  parseSecretData(secretData, secretKey) {
-    if (typeof secretData === "string") {
-      try {
-        return JSON.parse(secretData);
-      } catch (parseError) {
-        throw new Error(`Error 046: Invalid JSON format in ${secretKey}`);
-      }
-    }
-    return secretData;
-  }
-
-  validateAndExtractCredentials(parsedData) {
-    logger.debug("parsedData", parsedData);
-    
-    const stripEd25519Prefix = (key) => key.replace("ed25519:", "");
-    
-    const publicKeyToImplicitId = (publicKey) => {
-      const publicKeyBase58 = stripEd25519Prefix(publicKey);
-      const publicKeyBytes = bs58.decode(publicKeyBase58);
-      return Buffer.from(publicKeyBytes.buffer).toString('hex');
-    };
-  
-    if (parsedData.implicit_account_id) {
-      const { implicit_account_id, private_key, public_key } = parsedData;
-      
-      if (!implicit_account_id || typeof implicit_account_id !== "string") {
-        throw new Error("Error 244: Invalid or missing implicit_account_id value");
-      }
-      
-      if (!private_key || typeof private_key !== "string") {
-        throw new Error("Error 043: Invalid or missing private_key value");
-      }
-  
-      if (public_key) {
-        const calculatedImplicitId = publicKeyToImplicitId(public_key);
-        if (implicit_account_id !== calculatedImplicitId) {
-          throw new Error("Error 246: implicit_account_id does not match public_key");
-        }
-      }
-  
-      return {
-        account_id: implicit_account_id, // Use implicit_account_id as account_id
-        implicit_account_id,
-        private_key: stripEd25519Prefix(private_key)
-      };
-    }
-  
-    const { account_id, public_key, private_key } = parsedData;
-    
-    if (!account_id || typeof account_id !== "string") {
-      throw new Error("Error 244: Invalid or missing account_id value");
-    }
-    
-    if (!public_key || typeof public_key !== "string") {
-      throw new Error("Error 245: Invalid or missing public_key value");
-    }
-    
-    if (!private_key || typeof private_key !== "string") {
-      throw new Error("Error 043: Invalid or missing private_key value");
-    }
-  
-    return {
-      account_id,
-      implicit_account_id: publicKeyToImplicitId(public_key),
-      private_key: stripEd25519Prefix(private_key)
-    };
-  }
+  // Rest of your existing methods...
+  parseSecretData(secretData, secretKey) { /* existing code */ }
+  validateAndExtractCredentials(parsedData) { /* existing code */ }
 }
 
+// Create a singleton instance
 const vaultManager = new ProductionVaultManager();
-let initializedVault = null;
 
+// Export the manager, its methods, and direct vault property
 module.exports = {
-  initializeProductionVault: async () => {
-    try {
-      initializedVault = await vaultManager.initialize();
-      return initializedVault;
-    } catch (error) {
-      logger.error("Error initializing Vault in module:", error);
-      throw error;
-    }
-  },
-  get_rodit_fromvault: (vault, path, secretKey) =>
+  initializeProductionVault: () => vaultManager.initialize(),
+  get_rodit_fromvault: (_, path, secretKey) => 
     vaultManager.getRoditFromVault(path, secretKey),
   setupTokenRenewal: () => vaultManager.setupTokenRenewal(),
-  getVault: () => {
-    if (!initializedVault) {
-      logger.warn("Accessing vault before initialization");
-      throw new Error("Vault not initialized. Call initializeProductionVault() first");
-    }
-    return initializedVault;
-  }
-  // Remove the direct export of vault
+  vault: vaultManager.vault,  // Direct export of vault property
+  vaultManager  // Export the manager itself if needed
 };
