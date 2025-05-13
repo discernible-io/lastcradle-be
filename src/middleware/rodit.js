@@ -182,7 +182,7 @@ class RoditManager {
       const vaultInstance = await initializeProductionVault();
       await setupTokenRenewal();
       this.vaultInitialized = true;
-      this.vaultPath = config.get("VAULT_RODIT_KEYVALUE_PATH");
+      this.vaultPath = this.config.get("VAULT_RODIT_KEYVALUE_PATH");
       
       const duration = Date.now() - startTime;
       logger.info("Vault initialized successfully", {
