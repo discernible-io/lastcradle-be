@@ -12,7 +12,7 @@ const validators = require("../validators");
 const utils = require("../utils");
 const {
   initializeProductionVault,
-} = require("./middleware/vaultsetup-production");
+} = require("./vaultsetup-production");
 const config = require("config");
 
 /**
@@ -785,7 +785,7 @@ async function initializeServices() {
       // First initialize the vault without namespace parameter
       const {
         initializeProductionVault,
-      } = require("./middleware/vaultsetup-production");
+      } = require("./vaultsetup-production");
       await initializeProductionVault();
       logger.debug("Vault initialized successfully", {
         ...initializationContext,
@@ -801,7 +801,7 @@ async function initializeServices() {
 
       // Verify vault is accessible
       try {
-        const { getVault } = require("./middleware/vaultsetup-production");
+        const { getVault } = require("./vaultsetup-production");
         const vault = getVault();
         if (!vault) {
           throw new Error("Vault is null after initialization");
