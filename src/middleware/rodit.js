@@ -155,7 +155,7 @@ class RoditManager {
       server: null,
       client: null,
     };
-
+    this.config = config;
     RoditManager.instance = this;
   }
 
@@ -179,7 +179,6 @@ class RoditManager {
     }
   
     try {
-      // Simplified initialization as per test suite
       const vaultInstance = await initializeProductionVault();
       await setupTokenRenewal();
       this.vaultInitialized = true;
