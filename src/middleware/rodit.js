@@ -265,7 +265,7 @@ class RoditManager {
 
       // Set initialization flags
       this.vaultInitialized = true;
-      this.vaultPath = this.config.get("VAULT_RODIT_KEYVALUE_PATH");
+      this.vaultPath = config.get("VAULT_RODIT_KEYVALUE_PATH");
 
       const duration = Date.now() - startTime;
       logger.info("Vault initialized successfully", {
