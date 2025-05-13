@@ -4,19 +4,14 @@ const logger = require("../../config/logger");
 
 class ProductionVaultManager {
   constructor() {
-    // Change #1: Initialize node-vault with options directly
-    const vaultOptions = {
-      apiVersion: "v1",
-      endpoint: config.get("VAULT_ENDPOINT")
-    };
-    this.vault = require("node-vault")(vaultOptions);
-    
+    this.vault = require("node-vault")();
+    this.vault.endpoint = config.get("VAULT_ENDPOINT");
+    this.vault.apiVersion = "v1";
     this.roleId = config.get("VAULT_ROLE_ID");
     this.secretId = config.get("VAULT_SECRET_ID");
     this.renewalInterval = 60 * 60 * 1000; // 1 hour in milliseconds
   }
 
-  // Keep all other methods exactly the same
   async getProductionVaultToken() {
     try {
       const result = await this.vault.approleLogin({
@@ -169,11 +164,10 @@ class ProductionVaultManager {
 
 const vaultManager = new ProductionVaultManager();
 
-// Change #2: Export pattern to match working implementation
 module.exports = {
   initializeProductionVault: () => vaultManager.initialize(),
   get_rodit_fromvault: (vault, path, secretKey) =>
     vaultManager.getRoditFromVault(path, secretKey),
   setupTokenRenewal: () => vaultManager.setupTokenRenewal(),
-  vault: vaultManager.vault, // Direct export of vault property
+  vault: vaultManager.vault,
 };
