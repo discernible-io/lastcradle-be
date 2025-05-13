@@ -36,7 +36,9 @@ class Authentication {
       this.blockchainService = dependencies.blockchainService;
 
       if (!this.stateManager || !this.tokenService || !this.blockchainService) {
-        throw new Error("Missing required dependencies for Authentication service");
+        throw new Error(
+          "Missing required dependencies for Authentication service"
+        );
       }
 
       // Initialize token service if needed
@@ -798,7 +800,10 @@ class Authentication {
 
       // Use stateManager's getPortalUrl method to get API endpoint
       const serviceProviderId = own_rodit.metadata.serviceprovider_id;
-      const apiendpoint = this.stateManager.getPortalUrl(serviceProviderId, port);
+      const apiendpoint = this.stateManager.getPortalUrl(
+        serviceProviderId,
+        port
+      );
 
       logger.info("Using portal endpoint", {
         component: "AuthenticationService",
@@ -1704,16 +1709,12 @@ class Authentication {
       const fetchDuration = Date.now() - fetchStartTime;
 
       // Log fetch duration metrics
-      logger.metric(
-        "webhook_http_request_duration_ms",
-        fetchDuration,
-        {
-          component: "WebhookSender",
-          success: response.ok,
-          status: response.status,
-          event,
-        }
-      );
+      logger.metric("webhook_http_request_duration_ms", fetchDuration, {
+        component: "WebhookSender",
+        success: response.ok,
+        status: response.status,
+        event,
+      });
 
       if (!response.ok) {
         const duration = Date.now() - startTime;
@@ -2249,209 +2250,6 @@ class Authentication {
     }
   }
 
-  /**
-   * Verify and get a peer RODiT using NEP-413 standard
-   *
-   * @param {string} message - NEP-413 message
-   * @param {Uint8Array} nonce - NEP-413 nonce
-   * @param {string} recipient - NEP-413 recipient
-   * @param {string} callbackUrl - NEP-413 callback URL
-   * @param {string} signature - NEP-413 signature
-   * @param {Object} config_own_rodit - Own RODiT configuration
-   * @returns {Promise<Object>} Verification result with peer RODiT
-   */
-  async verify_peerrodit_getrodit_withnep413(
-    message,
-    nonce,
-    recipient,
-    callbackUrl,
-    signature,
-    config_own_rodit
-  ) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.debug("Starting NEP-413 RODiT verification", {
-      component: "RoditAuth",
-      method: "verify_peerrodit_getrodit_withnep413",
-      requestId,
-      message,
-      nonceType: typeof nonce,
-      nonceLength: Array.isArray(nonce) ? nonce.length : nonce?.length || 0,
-      recipient,
-      hasCallback: !!callbackUrl,
-      signatureLength: signature?.length,
-    });
-
-    try {
-      logger.debug("Fetching peer RODiT", {
-        requestId,
-        message,
-      });
-
-      const tokenFetchStart = Date.now();
-      let peer_rodit =
-        await this.blockchainService.nearorg_rpc_tokenfromroditid(message);
-      const tokenFetchDuration = Date.now() - tokenFetchStart;
-
-      logger.debug("Peer RODiT retrieved", {
-        requestId,
-        tokenFetchDuration,
-        peerRoditId: peer_rodit?.token_id,
-        peerOwnerId: peer_rodit?.owner_id,
-      });
-
-      // Correctly access serviceprovider_id
-      const serviceprovider_id =
-        config_own_rodit &&
-        config_own_rodit.own_rodit &&
-        config_own_rodit.own_rodit.metadata
-          ? config_own_rodit.own_rodit.metadata.serviceprovider_id
-          : null;
-
-      if (!serviceprovider_id) {
-        logger.error("Missing serviceprovider_id in configuration", {
-          component: "RoditAuth",
-          requestId,
-          duration: Date.now() - startTime,
-        });
-
-        throw new Error("Missing serviceprovider_id in configuration");
-      }
-
-      // Execute verification steps
-      logger.debug("Starting verification checks", {
-        requestId,
-        checks: ["ownership", "match", "live", "active", "trusted"],
-      });
-
-      const verificationStart = Date.now();
-      const verification_results = await Promise.all([
-        this.verify_rodit_ownership_withnep413(
-          message,
-          nonce,
-          recipient,
-          callbackUrl,
-          signature,
-          peer_rodit
-        ),
-        this.verify_rodit_isamatch(serviceprovider_id, peer_rodit),
-        this.verify_rodit_islive(
-          peer_rodit.metadata.not_after,
-          peer_rodit.metadata.not_before
-        ),
-        this.verify_rodit_isactive(
-          peer_rodit.token_id,
-          config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
-        ),
-        this.verify_rodit_istrusted_issuingsmartcontract(
-          config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
-        ),
-      ]);
-      const verificationDuration = Date.now() - verificationStart;
-
-      const [ownershipVerified, isaMatch, isLive, isActive, isTrusted] =
-        verification_results;
-
-      logger.debug("RODiT Verification Results", {
-        requestId,
-        verificationDuration,
-        ownershipVerified,
-        isaMatch,
-        isLive,
-        isActive,
-        isTrusted,
-      });
-
-      if (
-        !ownershipVerified ||
-        !isaMatch ||
-        !isLive ||
-        !isActive ||
-        !isTrusted
-      ) {
-        const failedChecks = [];
-        if (!ownershipVerified) failedChecks.push("ownership");
-        if (!isaMatch) failedChecks.push("match");
-        if (!isLive) failedChecks.push("live");
-        if (!isActive) failedChecks.push("active");
-        if (!isTrusted) failedChecks.push("trusted");
-
-        logger.error("Peer RODiT NEP-413 verification failed", {
-          component: "RoditAuth",
-          requestId,
-          duration: Date.now() - startTime,
-          failedChecks,
-          message,
-          peerRoditId: peer_rodit?.token_id,
-        });
-
-        // Add metrics for verification failures
-        logger.metric &&
-          logger.metric("rodit_nep413_verification_failures", 1, {
-            failed_checks: failedChecks.join(","),
-            message,
-          });
-
-        throw new Error("Error 037: Peer RODiT verification failed");
-      }
-
-      const totalDuration = Date.now() - startTime;
-
-      logger.info("NEP-413 RODiT verification successful", {
-        component: "RoditAuth",
-        method: "verify_peerrodit_getrodit_withnep413",
-        requestId,
-        duration: totalDuration,
-        message,
-        peerRoditId: peer_rodit?.token_id,
-        peerOwnerId: peer_rodit?.owner_id,
-        tokenFetchDuration,
-        verificationDuration,
-      });
-
-      // Add metrics for successful verifications
-      logger.metric &&
-        logger.metric("rodit_nep413_verification", totalDuration, {
-          result: "success",
-          message,
-        });
-
-      return {
-        peer_rodit,
-        goodrodit: true,
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Error in NEP-413 RODiT verification", {
-        component: "RoditAuth",
-        method: "verify_peerrodit_getrodit_withnep413",
-        requestId,
-        duration,
-        message,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-
-      // Add metrics for verification errors
-      logger.metric &&
-        logger.metric("rodit_nep413_verification_errors", 1, {
-          error_type: error.name || "Unknown",
-          message,
-        });
-
-      return {
-        peer_rodit: null,
-        goodrodit: false,
-        error: `Error in verify_peerrodit_getrodit_withnep413: ${error.message}`,
-      };
-    }
-  }
-
   async verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
     const requestId = ulid();
     const startTime = Date.now();
@@ -2483,7 +2281,8 @@ class Authentication {
 
     try {
       const rpcStart = Date.now();
-      const stringtimenow = await this.blockchainService.nearorg_rpc_timestamp();
+      const stringtimenow =
+        await this.blockchainService.nearorg_rpc_timestamp();
       const rpcDuration = Date.now() - rpcStart;
 
       logger.debug("Retrieved blockchain timestamp", {
@@ -2603,140 +2402,6 @@ class Authentication {
       return false;
     }
   }
-
-  /**
-   * Verify RODiT ownership by validating signature
-   *
-   * @param {string} peerroditid - Peer RODiT ID
-   * @param {number} peertimestamp - Peer timestamp
-   * @param {string} peerroditid_base64url_signature - Signature of RODiT ID and timestamp
-   * @param {Object} peer_rodit - Peer RODiT object
-   * @returns {Promise<boolean>} Whether the ownership is verified
-   */
-  async verify_rodit_ownership(
-    peerroditid,
-    peertimestamp,
-    peerroditid_base64url_signature,
-    peer_rodit
-  ) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.debug("Starting RODiT ownership verification", {
-      component: "RoditAuth",
-      method: "verify_rodit_ownership",
-      requestId,
-      peerRoditId: peerroditid,
-      timestamp: peertimestamp,
-      signatureLength: peerroditid_base64url_signature?.length,
-    });
-
-    try {
-      // DO NOT DELETE THE FOLLOWING COMMENT
-      /* Maybe for NEP413 compatibility, the following line added "NEAR" before peerroditid */
-      const timeString = await unixTimeToDateString(peertimestamp);
-      const roditidandtimestamp = new TextEncoder().encode(
-        peerroditid + timeString
-      );
-
-      logger.debug("Encoded roditid and timestamp", {
-        requestId,
-        timeString,
-        bufferLength: roditidandtimestamp.length,
-      });
-
-      const bytes_ed25519_signature = new Uint8Array(
-        Buffer.from(peerroditid_base64url_signature, "base64url")
-      );
-
-      logger.debug("Decoded signature", {
-        requestId,
-        signatureLength: bytes_ed25519_signature.length,
-      });
-
-      const peer_bytes_ed25519_public_key =
-        await this.blockchainService.nearorg_rpc_fetchpublickeybytes(
-          peer_rodit.owner_id
-        );
-
-      logger.debug("Retrieved public key", {
-        requestId,
-        ownerId: peer_rodit.owner_id,
-        keyLength: peer_bytes_ed25519_public_key?.length || 0,
-      });
-
-      const isaMatch = nacl.sign.detached.verify(
-        roditidandtimestamp,
-        bytes_ed25519_signature,
-        peer_bytes_ed25519_public_key
-      );
-
-      const duration = Date.now() - startTime;
-
-      if (isaMatch) {
-        logger.info("Peer RODiT ownership check passed", {
-          component: "RoditAuth",
-          requestId,
-          duration,
-          peerRoditId: peerroditid,
-          ownerId: peer_rodit.owner_id,
-          outcome: "success",
-        });
-
-        // Add metric for successful verification
-        logger.metric &&
-          logger.metric("rodit_ownership_verification", duration, {
-            result: "success",
-            peer_rodit_id: peerroditid,
-          });
-
-        return true;
-      } else {
-        logger.error("Peer RODiT ownership check failed", {
-          component: "RoditAuth",
-          requestId,
-          duration,
-          peerRoditId: peerroditid,
-          ownerId: peer_rodit.owner_id,
-          outcome: "failed",
-        });
-
-        // Add metric for failed verification
-        logger.metric &&
-          logger.metric("rodit_ownership_verification", duration, {
-            result: "failure",
-            peer_rodit_id: peerroditid,
-          });
-
-        throw new Error("Error 035: PeerEd25519SignatureVerificationFailure");
-      }
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("RODiT ownership verification failed", {
-        component: "RoditAuth",
-        method: "verify_rodit_ownership",
-        requestId,
-        duration,
-        peerRoditId: peerroditid,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-
-      // Add metric for verification errors
-      logger.metric &&
-        logger.metric("rodit_ownership_verification_errors", 1, {
-          error_type: error.name || "Unknown",
-          peer_rodit_id: peerroditid,
-        });
-
-      throw new Error("Error A33: " + error.message);
-    }
-  }
-
   async verify_peerrodit_getrodit(
     peerroditid,
     peertimestamp,
@@ -3368,7 +3033,7 @@ class Authentication {
 
       try {
         const dnsStart = Date.now();
-        const resolver = new (require('dns').promises.Resolver)();
+        const resolver = new (require("dns").promises.Resolver)();
         await resolver.resolveTxt(revokingDnsEntry);
         const dnsDuration = Date.now() - dnsStart;
         const totalDuration = Date.now() - startTime;
@@ -3511,7 +3176,7 @@ class Authentication {
 
       try {
         const dnsStart = Date.now();
-        const resolver = new (require('dns').promises.Resolver)();
+        const resolver = new (require("dns").promises.Resolver)();
         const cfgresponse = await resolver.resolveTxt(enablingdnsentry);
         const dnsDuration = Date.now() - dnsStart;
 
@@ -3624,7 +3289,7 @@ class Authentication {
   async authenticate_apicall(req, res, next) {
     const requestId = ulid();
     const startTime = Date.now();
-  
+
     logger.debug("Starting API call authentication", {
       component: "AuthenticationMiddleware",
       method: "authenticate_apicall",
@@ -3632,11 +3297,11 @@ class Authentication {
       path: req.path,
       method: req.method,
     });
-  
+
     try {
       // Extract token using the dedicated token extractor
       const token = extractTokenFromHeader(req.headers.authorization);
-  
+
       if (!token) {
         logger.warn("API authentication failed - no token provided", {
           component: "AuthenticationMiddleware",
@@ -3644,7 +3309,7 @@ class Authentication {
           requestId,
           path: req.path,
         });
-  
+
         return res.status(401).json({
           error: {
             code: "MISSING_TOKEN",
@@ -3653,9 +3318,9 @@ class Authentication {
           },
         });
       }
-  
+
       // Add further token validation logic here if needed
-  
+
       // Proceed to the next middleware or route handler
       next();
     } catch (error) {
@@ -3666,7 +3331,7 @@ class Authentication {
         error: error.message,
         stack: error.stack,
       });
-  
+
       return res.status(500).json({
         error: {
           code: "AUTHENTICATION_ERROR",
