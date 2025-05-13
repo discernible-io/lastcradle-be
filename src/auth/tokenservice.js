@@ -8,12 +8,11 @@ const logger = require("../../config/logger");
 const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
 const nacl = require("tweetnacl");
 const crypto = require("crypto");
-const utils = require("../utils");
 const {
   dateStringToUnixTime,
-  unixTimeToDateString,
-  generateRandomNumber,
+  unixTimeToDateString
 } = require("../utils");
+const sessionManager = require('../auth/sessionmanager');
 
 /**
  * Service for handling JWT token operations
@@ -528,7 +527,7 @@ class TokenService {
       });
 
       // Generate session ID using SessionManager
-      const session_id = this.stateManager.generateSessionId(peer_rodit.token_id);
+      const session_id = sessionManager.generateSessionId(peer_rodit.token_id);
 
       // Create and register session in SessionManager
       const sessionData = {
