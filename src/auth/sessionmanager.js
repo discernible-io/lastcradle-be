@@ -11,7 +11,7 @@ const { ulid } = require('ulid');
 const logger = require("../../config/logger");
 
 class SessionManager {
-  constructor() {
+  constructor(config) {
     // Default in-memory session storage
     // In production, this could be replaced with Redis, database, etc.
     this.sessions = new Map();
