@@ -26,29 +26,57 @@ const CONSTANTS = {
   ED25519_KEY_SZ: 64,
 };
 
-const API_OPTIONS = config.get("API_OPTIONS");
-const SERVERPORT = config.get("SERVERPORT");
-const NEAR_RPC_URL = config.get("NEAR_RPC_URL");
+// Safely get configuration values with fallbacks
+const getConfig = (path, defaultValue) => {
+  try {
+    return config.get(path);
+  } catch (error) {
+    logger.warn(`Failed to get config value for ${path}, using default`, {
+      component: "ConfigLoader",
+      error: error.message,
+      defaultValue
+    });
+    return defaultValue;
+  }
+};
+
+const API_OPTIONS = getConfig("API_OPTIONS", {});
+const SERVERPORT = getConfig("SERVERPORT", 8080);
+const NEAR_RPC_URL = getConfig("NEAR_RPC_URL", "");
+const API_URL = getConfig("API_URL", "");
+const SERVER_FRONTEND_URL = getConfig("SERVER_FRONTEND_URL", "");
+const CLIENT_FRONTEND_URL = getConfig("CLIENT_FRONTEND_URL", "");
 
 /**
  * Singleton State Management Classes
  */
 class AuthStateManager {
-  constructor() {
-    if (AuthStateManager.instance) {
-      return AuthStateManager.instance;
+  // Private static instance - the only instance that will exist
+  static #instance = null;
+  
+  // Public static method to get the instance
+  static getInstance() {
+    if (!AuthStateManager.#instance) {
+      AuthStateManager.#instance = new AuthStateManager();
     }
+    return AuthStateManager.#instance;
+  }
 
-    // Separate variables for own key and peer key
+  // Private constructor to prevent external instantiation
+  constructor() {
+    // Only allow instantiation if no instance exists
+    if (AuthStateManager.#instance) {
+      return AuthStateManager.#instance;
+    }
+    
+    // Initialize properties
     this.ownBase64urlJwkPublicKey = null;
     this.peerBase64urlJwkPublicKey = null;
-
-    // Other existing properties
     this.configOwnRodit = null;
-    this.currentToken = null;
     this.jwtToken = null;
-
-    AuthStateManager.instance = this;
+    
+    // Store this instance
+    AuthStateManager.#instance = this;
   }
 
   // Methods for own public key
@@ -71,25 +99,17 @@ class AuthStateManager {
     return this.peerBase64urlJwkPublicKey;
   }
 
-  // Existing methods remain unchanged
-  async setConfigOwnRodit(config_own_rodit) {
-    this.configOwnRodit = config_own_rodit;
-    return config_own_rodit;
+  // Methods for RODiT configuration
+  async setConfigOwnRodit(config) {
+    this.configOwnRodit = config;
+    return config;
   }
 
   getConfigOwnRodit() {
     return this.configOwnRodit;
   }
 
-  async setCurrentToken(token) {
-    this.currentToken = token;
-    return token;
-  }
-
-  getCurrentToken() {
-    return this.currentToken;
-  }
-
+  // Methods for JWT token
   async setJwtToken(token) {
     this.jwtToken = token;
     return token;
@@ -99,58 +119,117 @@ class AuthStateManager {
     return this.jwtToken;
   }
 
+  // Generate portal URL from service provider ID
   getPortalUrl(serviceProviderId, port) {
-    // Extract smart contract component from serviceprovider_id
-    const components = serviceProviderId.split(";");
-    const scComponent = components
-      .find((c) => c.startsWith("sc="))
-      ?.substring(3);
-
-    if (!scComponent) {
-      throw new Error("Invalid serviceprovider_id format");
+    if (!serviceProviderId) {
+      logger.error("Invalid serviceProviderId: undefined", {
+        component: "AuthStateManager",
+        method: "getPortalUrl"
+      });
+      return null;
     }
 
-    // Extract domain parts from smart contract name
-    const scParts = scComponent.split(".");
-    if (scParts.length < 1) {
-      throw new Error("Invalid smart contract format");
+    try {
+      // Extract smart contract component from serviceprovider_id
+      const components = serviceProviderId.split(";");
+      const scComponent = components
+        .find((c) => c.startsWith("sc="))
+        ?.substring(3);
+
+      if (!scComponent) {
+        logger.error("Invalid serviceprovider_id format, missing sc= component", {
+          component: "AuthStateManager",
+          method: "getPortalUrl",
+          serviceProviderId
+        });
+        return null;
+      }
+
+      // Extract domain parts from smart contract name
+      const scParts = scComponent.split(".");
+      if (scParts.length < 1) {
+        logger.error("Invalid smart contract format", {
+          component: "AuthStateManager",
+          method: "getPortalUrl",
+          scComponent
+        });
+        return null;
+      }
+
+      // Get domain information from the first part
+      const domainPart = scParts[0];
+      const domainComponents = domainPart.split("-");
+
+      // Find domain and TLD in the components (format: 10975-cableguard-org)
+      if (domainComponents.length < 3) {
+        logger.error("Invalid domain format in smart contract", {
+          component: "AuthStateManager",
+          method: "getPortalUrl",
+          domainPart
+        });
+        return null;
+      }
+
+      const domain = domainComponents[1]; // cableguard
+      const tld = domainComponents[2]; // org
+
+      // Build and return the API endpoint
+      const url = `https://signportal.${domain}.${tld}:${port}`;
+      
+      logger.debug("Generated portal URL", {
+        component: "AuthStateManager",
+        method: "getPortalUrl",
+        serviceProviderId,
+        url
+      });
+      
+      return url;
+    } catch (error) {
+      logger.error("Error generating portal URL", {
+        component: "AuthStateManager",
+        method: "getPortalUrl",
+        serviceProviderId,
+        error: error.message,
+        stack: error.stack
+      });
+      return null;
     }
-
-    // Get domain information from the first part
-    const domainPart = scParts[0];
-    const domainComponents = domainPart.split("-");
-
-    // Find domain and TLD in the components (format: 10975-cableguard-org)
-    if (domainComponents.length < 3) {
-      throw new Error("Invalid domain format in smart contract");
-    }
-
-    const domain = domainComponents[1]; // cableguard
-    const tld = domainComponents[2]; // org
-
-    // Build and return the API endpoint
-    return `https://signportal.${domain}.${tld}:${port}`;
   }
 }
 
 class RoditManager {
-  constructor(blockchainService) {
-    if (RoditManager.instance) {
-      return RoditManager.instance;
+  // Private static instance - the only instance that will exist
+  static #instance = null;
+  
+  // Public static method to get the instance
+  static getInstance(blockchainService) {
+    if (!RoditManager.#instance) {
+      RoditManager.#instance = new RoditManager(blockchainService);
     }
+    return RoditManager.#instance;
+  }
 
-    this.stateManager = new AuthStateManager();
+  // Private constructor to prevent external instantiation
+  constructor(blockchainService) {
+    // Only allow instantiation if no instance exists
+    if (RoditManager.#instance) {
+      return RoditManager.#instance;
+    }
+    
+    // Initialize properties
+    this.stateManager = AuthStateManager.getInstance();
     this.vaultInitialized = false;
     this.vaultPath = null;
-    this.blockchainService = blockchainService; // Store blockchainService
     this.credentials = {
       portal: null,
       sanctum: null,
       server: null,
       client: null,
     };
-    this.config = config;
-    RoditManager.instance = this;
+    this.blockchainService = blockchainService;
+    
+    // Store this instance
+    RoditManager.#instance = this;
   }
 
   async initializeVault() {
@@ -722,8 +801,9 @@ instances.blockchainService = new BlockchainService({
   NEAR_RPC_URL,
 });
 
-instances.stateManager = new AuthStateManager();
-instances.roditManager = new RoditManager(instances.blockchainService);
+// Get singleton instances using the static getInstance methods
+instances.stateManager = AuthStateManager.getInstance();
+instances.roditManager = RoditManager.getInstance(instances.blockchainService);
 instances.sessionManager = session;
 
 // Import the classes
@@ -815,10 +895,28 @@ async function initializeServices() {
   }
 }
 
+// Create function wrappers that use the singleton instances
+const login_client = (req, res) => instances.authentication.login_client(req, res);
+const logout_client = (req, res) => instances.authentication.logout_client(req, res);
+const login_server = (own_rodit) => instances.authentication.login_server(own_rodit);
+const login_portal = (own_rodit, port) => instances.authentication.login_portal(own_rodit, port);
+const send_webhook = (event, data, isError, req) => instances.authentication.send_webhook(event, data, isError, req);
+const authenticate_apicall = (req, res, next) => instances.authMiddleware.authenticate_apicall(req, res, next);
+const authenticate_webhook = (req, res, next) => instances.authMiddleware.authenticate_webhook(req, res, next);
+
 // Export the instances and initialization function
 module.exports = {
   // Core instances
   ...instances,
+
+  // Function wrappers
+  login_client,
+  logout_client,
+  login_server,
+  login_portal,
+  send_webhook,
+  authenticate_apicall,
+  authenticate_webhook,
 
   // Initialization function
   initializeServices,
@@ -829,84 +927,4 @@ module.exports = {
   // Class definitions for backward compatibility
   AuthStateManager,
   RoditManager,
-
-  // Authentication functions (maintain backward compatibility)
-  login_client: (req, res) => instances.authentication.login_client(req, res),
-  logout_client: (req, res) => instances.authentication.logout_client(req, res),
-  login_server: (own_rodit) => instances.authentication.login_server(own_rodit),
-  login_portal: (own_rodit, port) =>
-    instances.authentication.login_portal(own_rodit, port),
-  login_client_withnep413: (req, res, config_own_rodit) =>
-    instances.authentication.login_client_withnep413(
-      req,
-      res,
-      config_own_rodit
-    ),
-
-  // Token functions
-  generate_jwt_token: (
-    peer_rodit,
-    peer_timestamp,
-    own_rodit,
-    own_rodit_bytes_private_key,
-    session_status
-  ) =>
-    instances.tokenService.generate_jwt_token(
-      peer_rodit,
-      peer_timestamp,
-      own_rodit,
-      own_rodit_bytes_private_key,
-      session_status
-    ),
-
-  // Middleware
-  authenticate_apicall: (req, res, next) =>
-    instances.authMiddleware.authenticate_apicall(req, res, next),
-
-  // Webhook functions
-  send_webhook: (event, data, isError, req) =>
-    instances.authentication.send_webhook(event, data, isError, req),
-  authenticate_webhook: (
-    payload,
-    signature_hex_ofpayload,
-    timestamp,
-    peer_rodit_owner_id
-  ) =>
-    instances.authentication.authenticate_webhook(
-      payload,
-      signature_hex_ofpayload,
-      timestamp,
-      peer_rodit_owner_id
-    ),
-
-  // Blockchain functions
-  nearorg_rpc_state: (id, accountId) =>
-    instances.blockchainService.nearorg_rpc_state(id, accountId),
-  nearorg_rpc_tokensfromaccountid: (id, account_id) =>
-    instances.blockchainService.nearorg_rpc_tokensfromaccountid(id, account_id),
-  nearorg_rpc_fetchpublickeybytes: (accountId) =>
-    instances.blockchainService.nearorg_rpc_fetchpublickeybytes(accountId),
-  nearorg_rpc_tokenfromroditid: (roditid) =>
-    instances.blockchainService.nearorg_rpc_tokenfromroditid(roditid),
-  nearorg_rpc_timestamp: () =>
-    instances.blockchainService.nearorg_rpc_timestamp(),
-
-  // Token service functions
-  base64url2jwk_public_key: (base64url_public_key) =>
-    instances.tokenService.base64url2jwk_public_key(base64url_public_key),
-
-  // Utility functions from utils/index.js
-  debugWithType: utils.debugWithType,
-  ensureDateIsSet: utils.ensureDateIsSet,
-  base64ToBase64Url: utils.base64ToBase64Url,
-  canonicalizeObject: utils.canonicalizeObject,
-  calculateCanonicalHash: utils.calculateCanonicalHash,
-  logServerBufferState: utils.logServerBufferState,
-  fetchWithErrorHandling: utils.fetchWithErrorHandling,
-
-  // Validation functions from validators/index.js
-  validateAndSetUrl: validators.validateAndSetUrl,
-  validateAndSetDate: validators.validateAndSetDate,
-  validateAndSetJson: validators.validateAndSetJson,
-  validateAndSetSignature: validators.validateAndSetSignature,
 };
