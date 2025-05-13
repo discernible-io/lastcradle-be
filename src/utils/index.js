@@ -321,12 +321,11 @@ function calculateCanonicalHash(variable) {
 }
 
 /**
- * Performs an HTTP fetch with comprehensive error handling and metrics
+ * Performs a fetch operation with comprehensive error handling and logging for Grafana monitoring
  *
- * @param {string} url - URL to fetch
- * @param {Object} options - Fetch options
- * @param {number} [retryCount=0] - Current retry count
- * @returns {Promise<Object>} Response data or error object
+ * @param {string} url - The URL to fetch from
+ * @param {Object} options - Fetch options including method, headers, etc.
+ * @returns {Promise<Object>} - The response data or error object
  */
 async function fetchWithErrorHandling(url, options, retryCount = 0) {
   const requestId = ulid();
@@ -346,13 +345,136 @@ async function fetchWithErrorHandling(url, options, retryCount = 0) {
   });
 
   try {
-    // Implementation continues...
-    // This function is quite large, so I'll abbreviate it here
-    // The full implementation would be included in the actual file
-    
-    return {
-      // Response data
+    // Get the current JWT token for authentication
+    const jwt_token = stateManager.getJwtToken();
+
+    // Add authorization and tracking headers
+    options.headers = {
+      ...options.headers,
+      ...(jwt_token ? { Authorization: `Bearer ${jwt_token}` } : {}),
+      "X-Request-ID": requestId,
     };
+
+    // Make the API request
+    const response = await fetch(url, options);
+    const responseTime = Date.now() - startTime;
+
+    // Check for a renewed token in response headers
+    const newToken = response.headers.get("New-Token");
+    if (newToken) {
+      try {
+        await stateManager.setJwtToken(newToken);
+        logger.debug("JWT token refreshed from header", {
+          component: "APIClient",
+          method: "fetchWithErrorHandling",
+          requestId,
+        });
+      } catch (tokenError) {
+        logger.error("Failed to update JWT token", {
+          component: "APIClient",
+          method: "fetchWithErrorHandling",
+          requestId,
+          error: tokenError.message,
+        });
+      }
+    }
+
+    // Record response time metrics
+    logger.metric("api_request_duration_milliseconds", responseTime, {
+      endpoint,
+      method: operation,
+      status: response.status,
+    });
+
+    // Handle 401 Unauthorized with retry for token expiration
+    if (response.status === 401 && retryCount < MAX_RETRIES) {
+      const responseData = await response.json();
+
+      // Only retry for expired tokens
+      if (responseData.error && responseData.error.code === "TOKEN_EXPIRED") {
+        logger.info("Token expired, attempting login refresh", {
+          component: "APIClient",
+          method: "fetchWithErrorHandling",
+          requestId,
+        });
+
+        // Try to login again to get a fresh token
+        // This implementation depends on your authentication flow
+        try {
+          const config_own_rodit = stateManager.getConfigOwnRodit();
+          if (config_own_rodit && config_own_rodit.own_rodit) {
+            const loginResult = await login_server(config_own_rodit.own_rodit);
+
+            if (loginResult && loginResult.jwt_token) {
+              // Save the new token
+              await stateManager.setJwtToken(loginResult.jwt_token);
+
+              // Retry the request with the new token
+              return fetchWithErrorHandling(url, options, retryCount + 1);
+            }
+          }
+        } catch (loginError) {
+          logger.error("Failed to refresh token through login", {
+            component: "APIClient",
+            method: "fetchWithErrorHandling",
+            requestId,
+            error: loginError.message,
+          });
+        }
+      }
+    }
+
+    // Parse response as JSON for all status codes
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (parseError) {
+      // Handle non-JSON responses
+      const text = await response.text();
+      responseData = {
+        rawResponse: text.substring(0, 100), // Only include a preview
+        parseError: parseError.message,
+      };
+    }
+
+    if (!response.ok) {
+      // Handle error responses
+      logger.error("API request failed", {
+        component: "APIClient",
+        method: "fetchWithErrorHandling",
+        requestId,
+        url: endpoint,
+        statusCode: response.status,
+        errorDetails: responseData,
+      });
+
+      // Record error metrics
+      logger.metric("api_request_errors_total", 1, {
+        endpoint,
+        method: operation,
+        status: response.status,
+      });
+
+      return {
+        error: responseData.error || "RequestFailed",
+        message:
+          responseData.message || `Request failed: ${response.statusText}`,
+        statusCode: response.status,
+        details: responseData,
+      };
+    }
+
+    // Log successful request
+    logger.info("API request completed", {
+      component: "APIClient",
+      method: "fetchWithErrorHandling",
+      requestId,
+      url: endpoint,
+      statusCode: response.status,
+      duration: responseTime,
+    });
+
+    return responseData;
   } catch (error) {
     const errorDuration = Date.now() - startTime;
 

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const logger = require("../../config/logger");
-const { authenticate_apicall } = require("../middleware/initialrodit");
+const { authenticate_apicall } = require("../middleware/rodit");
 const { ulid } = require("ulid");
 
 // Enhanced echo route with proper authentication and session management
