@@ -180,7 +180,7 @@ class RoditManager {
   
     try {
       const vaultInstance = await initializeProductionVault();
-      await setupTokenRenewal();
+      await setupTokenRenewal(vaultInstance);
       this.vaultInitialized = true;
       this.vaultPath = this.config.get("VAULT_RODIT_KEYVALUE_PATH");
       
