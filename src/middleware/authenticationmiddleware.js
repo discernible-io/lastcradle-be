@@ -137,7 +137,7 @@ class AuthenticationMiddleware {
       }
 
       // Use the token service to validate the token
-      const validationResult = await this.tokenService.validate_jwt_token(token);
+      const validationResult = await this.tokenService.validate_jwt_token_be(token);
 
       if (!validationResult.valid) {
         logger.warn("Invalid token provided", {
