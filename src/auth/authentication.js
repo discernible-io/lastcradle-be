@@ -7,7 +7,20 @@ const { ulid } = require("ulid");
 const logger = require("../../config/logger");
 const nacl = require("tweetnacl");
 const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
+const config = require("config");
 
+/**
+ * Constants and Configuration
+ */
+const CONSTANTS = {
+  SMART_CONTRACT: config.get("APISERVICEOPTIONS.scaccountid"),
+  SMART_CONTRACT_REVOKED: "10975-revoked-cableguard-org.testnet",
+  BLOCKCHAIN_NETWORK: config.get("NEAR_NETWORK_ID"),
+  RODIT_ID_SZ: 128,
+  RODIT_ID_PK_SZ: 32,
+  RODIT_ID_SIGNATURE_SZ: 64,
+  ED25519_KEY_SZ: 64,
+};
 class Authentication {
   constructor() {
     this.initialized = false;
@@ -2825,12 +2838,12 @@ class Authentication {
 
           if (
             bytes_signing_owner_id.length !==
-            this.blockchainService.CONSTANTS.RODIT_ID_PK_SZ
+            CONSTANTS.RODIT_ID_PK_SZ
           ) {
             logger.warn(`Invalid signing key length for ID ${idIndex}`, {
               requestId,
               actual: bytes_signing_owner_id.length,
-              expected: this.blockchainService.CONSTANTS.RODIT_ID_PK_SZ,
+              expected: CONSTANTS.RODIT_ID_PK_SZ,
             });
             continue; // Try the next ID
           }
@@ -2850,12 +2863,12 @@ class Authentication {
 
           if (
             signatureBytes.length !==
-            this.blockchainService.CONSTANTS.RODIT_ID_SIGNATURE_SZ
+            CONSTANTS.RODIT_ID_SIGNATURE_SZ
           ) {
             logger.warn(`Invalid signature length for ID ${idIndex}`, {
               requestId,
               actual: signatureBytes.length,
-              expected: this.blockchainService.CONSTANTS.RODIT_ID_SIGNATURE_SZ,
+              expected: CONSTANTS.RODIT_ID_SIGNATURE_SZ,
             });
             continue; // Try the next ID
           }
@@ -3125,11 +3138,11 @@ class Authentication {
       method: "this.verify_rodit_istrusted_issuingsmartcontract",
       requestId,
       url: ownsubjectuniqueidentifier_url,
-      smartContract: this.blockchainService.CONSTANTS.SMART_CONTRACT,
+      smartContract: CONSTANTS.SMART_CONTRACT,
     });
 
     try {
-      const smartcontract = this.blockchainService.CONSTANTS.SMART_CONTRACT;
+      const smartcontract = CONSTANTS.SMART_CONTRACT;
       const smartontractnonear = smartcontract.replace(".testnet", "");
       const smartcontracturl = smartontractnonear.replace("-", ".");
 

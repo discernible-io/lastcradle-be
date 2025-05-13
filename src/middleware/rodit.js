@@ -8,7 +8,6 @@ const bs58 = require("bs58");
 const logger = require("../../config/logger");
 const BlockchainService = require('../blockchain/blockchainservice');
 const session = require('../auth/sessionmanager');
-const { CONSTANTS, NEAR_RPC_URL } = require('../utils/constants');
 const validators = require('../validators');
 const utils = require('../utils');
 const {
@@ -17,8 +16,26 @@ const {
   setupTokenRenewal,
   vault,
 } = require("./vaultsetup-production");
+const config = require("config");
 
-// Copy the class definitions from initialrodit.js
+/**
+ * Constants and Configuration
+ */
+const CONSTANTS = {
+  SMART_CONTRACT: config.get("APISERVICEOPTIONS.scaccountid"),
+  SMART_CONTRACT_REVOKED: "10975-revoked-cableguard-org.testnet",
+  BLOCKCHAIN_NETWORK: config.get("NEAR_NETWORK_ID"),
+  RODIT_ID_SZ: 128,
+  RODIT_ID_PK_SZ: 32,
+  RODIT_ID_SIGNATURE_SZ: 64,
+  ED25519_KEY_SZ: 64,
+};
+
+const API_OPTIONS = config.get("API_OPTIONS");
+const SERVERPORT = config.get("SERVERPORT");
+const NEAR_RPC_URL = config.get("NEAR_RPC_URL");
+
+
 /**
  * Singleton State Management Classes
  */
@@ -61,9 +78,9 @@ class AuthStateManager {
   }
 
   // Existing methods remain unchanged
-  async setConfigOwnRodit(config) {
-    this.configOwnRodit = config;
-    return config;
+  async setConfigOwnRodit(config_own_rodit) {
+    this.configOwnRodit = config_own_rodit;
+    return config_own_rodit;
   }
 
   getConfigOwnRodit() {

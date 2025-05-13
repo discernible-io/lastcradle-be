@@ -6,17 +6,25 @@
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
 const { RODiT } = require('./models');
-const constants = require("../utils/constants");
+const config = require("config");
+
+/**
+ * Constants and Configuration
+ */
+const CONSTANTS = {
+  SMART_CONTRACT: config.get("APISERVICEOPTIONS.scaccountid"),
+  SMART_CONTRACT_REVOKED: "10975-revoked-cableguard-org.testnet",
+  BLOCKCHAIN_NETWORK: config.get("NEAR_NETWORK_ID"),
+  RODIT_ID_SZ: 128,
+  RODIT_ID_PK_SZ: 32,
+  RODIT_ID_SIGNATURE_SZ: 64,
+  ED25519_KEY_SZ: 64,
+};
 
 /**
  * Service for interacting with the blockchain network
  */
 class BlockchainService {
-  constructor() {
-    this.CONSTANTS = constants.CONSTANTS;
-    this.NEAR_RPC_URL = constants.NEAR_RPC_URL;
-  }
-
   /**
    * Fetches the current blockchain timestamp
    * 
@@ -173,12 +181,12 @@ class BlockchainService {
 
       const json_data = {
         jsonrpc: "2.0",
-        id: this.CONSTANTS.SMART_CONTRACT,
+        id: CONSTANTS.SMART_CONTRACT,
         method: "query",
         params: {
           request_type: "call_function",
           finality: "final",
-          account_id: this.CONSTANTS.SMART_CONTRACT,
+          account_id: CONSTANTS.SMART_CONTRACT,
           method_name: "rodit_token",
           args_base64: argsBase64,
         },
@@ -704,7 +712,7 @@ class BlockchainService {
       });
 
       const rodit = await this.nearorg_rpc_tokensfromaccountid(
-        this.CONSTANTS.SMART_CONTRACT,
+        CONSTANTS.SMART_CONTRACT,
         accountId
       );
 
