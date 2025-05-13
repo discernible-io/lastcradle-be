@@ -5,11 +5,10 @@
 
 const { ulid } = require("ulid");
 const bs58 = require("bs58");
-const config = require("config");
 const logger = require("../../config/logger");
 const BlockchainService = require('../blockchain/blockchainservice');
 const session = require('../auth/sessionmanager');
-const { CONSTANTS, API_OPTIONS, SERVERPORT, API_PROTOCOL, NEAR_RPC_URL, TOKEN_RENEWAL_OPTIONS } = require('../utils/constants');
+const { CONSTANTS, NEAR_RPC_URL } = require('../utils/constants');
 const validators = require('../validators');
 const utils = require('../utils');
 const {
@@ -440,12 +439,12 @@ class RoditManager {
             },
           },
           own_rodit_bytes_private_key: credentials.signing_bytes_key,
-          apiendpoint: "localhost:" + config.get("SERVERPORT"),
-          port: config.get("SERVERPORT"),
-          iso639: config.get("API_OPTIONS.ISO639"),
-          iso3166: config.get("API_OPTIONS.ISO3166"),
-          iso15924: config.get("API_OPTIONS.ISO15924"),
-          timeoptions: config.get("API_OPTIONS.TIMEOPTIONS"),
+          apiendpoint: "localhost:" + SERVERPORT,
+          port: SERVERPORT,
+          iso639: API_OPTIONS.ISO639,
+          iso3166: API_OPTIONS.ISO3166,
+          iso15924: API_OPTIONS.ISO15924,
+          timeoptions: API_OPTIONS.TIMEOPTIONS,
         };
 
         const configCopy = JSON.parse(
@@ -534,8 +533,6 @@ class RoditManager {
         step: "tokenRetrieved",
       });
 
-      const SERVERPORT = config.get("SERVERPORT");
-
       if (
         !own_rodit.metadata ||
         !own_rodit.metadata.subjectuniqueidentifier_url
@@ -579,10 +576,10 @@ class RoditManager {
         own_rodit_bytes_private_key: credentials.signing_bytes_key,
         apiendpoint,
         port: SERVERPORT,
-        iso639: config.get("API_OPTIONS.ISO639"),
-        iso3166: config.get("API_OPTIONS.ISO3166"),
-        iso15924: config.get("API_OPTIONS.ISO15924"),
-        timeoptions: config.get("API_OPTIONS.TIMEOPTIONS"),
+        iso639: API_OPTIONS.ISO639,
+        iso3166: API_OPTIONS.ISO3166,
+        iso15924: API_OPTIONS.ISO15924,
+        timeoptions: API_OPTIONS.TIMEOPTIONS,
       };
 
       const configCopy = JSON.parse(

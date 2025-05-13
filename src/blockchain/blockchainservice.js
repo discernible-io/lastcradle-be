@@ -6,14 +6,15 @@
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
 const { RODiT } = require('./models');
+const constants = require("../utils/constants");
 
 /**
  * Service for interacting with the blockchain network
  */
 class BlockchainService {
-  constructor(config) {
-    this.CONSTANTS = config.CONSTANTS;
-    this.NEAR_RPC_URL = config.NEAR_RPC_URL;
+  constructor() {
+    this.CONSTANTS = constants.CONSTANTS;
+    this.NEAR_RPC_URL = constants.NEAR_RPC_URL;
   }
 
   /**
