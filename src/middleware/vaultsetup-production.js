@@ -4,23 +4,22 @@ const logger = require("../../config/logger");
 
 class ProductionVaultManager {
   constructor() {
-    this._vault = require("node-vault")();
-    this._vault.endpoint = config.get("VAULT_ENDPOINT");
-    this._vault.apiVersion = "v1";
+    // Change #1: Initialize node-vault with options directly
+    const vaultOptions = {
+      apiVersion: "v1",
+      endpoint: config.get("VAULT_ENDPOINT")
+    };
+    this.vault = require("node-vault")(vaultOptions);
+    
     this.roleId = config.get("VAULT_ROLE_ID");
     this.secretId = config.get("VAULT_SECRET_ID");
     this.renewalInterval = 60 * 60 * 1000; // 1 hour in milliseconds
-    this.initialized = false;
   }
 
-  // Add a getter for direct vault access
-  get vault() {
-    return this._vault;
-  }
-
+  // Keep all other methods exactly the same
   async getProductionVaultToken() {
     try {
-      const result = await this._vault.approleLogin({
+      const result = await this.vault.approleLogin({
         role_id: this.roleId,
         secret_id: this.secretId,
       });
@@ -32,15 +31,11 @@ class ProductionVaultManager {
   }
 
   async initialize() {
-    if (this.initialized) {
-      return this._vault;
-    }
-    
     try {
       const token = await this.getProductionVaultToken();
-      this._vault.token = token;
+      this.vault.token = token;
 
-      const health = await this._vault.health();
+      const health = await this.vault.health();
       if (!health.initialized) {
         throw new Error("Error 109: Vault is not initialized");
       }
@@ -48,8 +43,7 @@ class ProductionVaultManager {
         throw new Error("Error 110: Vault is sealed");
       }
 
-      this.initialized = true;
-      return this._vault;
+      return this.vault;
     } catch (error) {
       logger.error("Error initializing production Vault:", error);
       throw error;
@@ -61,7 +55,7 @@ class ProductionVaultManager {
       setInterval(async () => {
         try {
           const token = await this.getProductionVaultToken();
-          this._vault.token = token;
+          this.vault.token = token;
         } catch (error) {
           logger.error("Error renewing Vault token:", error);
         }
@@ -75,7 +69,7 @@ class ProductionVaultManager {
     this.validateVaultParameters(vaultPath, secretKey);
 
     try {
-      const result = await this._vault.read(`secret/data/${vaultPath}`);
+      const result = await this.vault.read(`secret/data/${vaultPath}`);
       const secretData = result.data.data[secretKey];
 
       if (!secretData) {
@@ -93,7 +87,7 @@ class ProductionVaultManager {
   }
 
   validateVaultParameters(vaultPath, secretKey) {
-    if (!this._vault || typeof this._vault.read !== "function") {
+    if (!this.vault || typeof this.vault.read !== "function") {
       throw new Error("Error 051: Invalid vault object");
     }
     if (!vaultPath || typeof vaultPath !== "string") {
@@ -173,15 +167,13 @@ class ProductionVaultManager {
   }
 }
 
-// Create a singleton instance
 const vaultManager = new ProductionVaultManager();
 
-// Export the manager, its methods, and direct vault property
+// Change #2: Export pattern to match working implementation
 module.exports = {
   initializeProductionVault: () => vaultManager.initialize(),
-  get_rodit_fromvault: (_, path, secretKey) =>
+  get_rodit_fromvault: (vault, path, secretKey) =>
     vaultManager.getRoditFromVault(path, secretKey),
   setupTokenRenewal: () => vaultManager.setupTokenRenewal(),
-  vault: vaultManager.vault,  // Direct export of vault property
-  vaultManager  // Export the manager itself if needed
+  vault: vaultManager.vault, // Direct export of vault property
 };
