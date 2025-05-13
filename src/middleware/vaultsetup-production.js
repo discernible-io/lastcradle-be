@@ -72,7 +72,6 @@ class ProductionVaultManager {
   }
 
   async getRoditFromVault(vaultPath, secretKey) {
-    // Use this._vault instead of vault parameter
     this.validateVaultParameters(vaultPath, secretKey);
 
     try {
@@ -93,8 +92,6 @@ class ProductionVaultManager {
     }
   }
 
-  // Keep the rest of your methods the same, but replace any references to 
-  // `this.vault` with `this._vault`
   validateVaultParameters(vaultPath, secretKey) {
     if (!this._vault || typeof this._vault.read !== "function") {
       throw new Error("Error 051: Invalid vault object");
@@ -107,9 +104,73 @@ class ProductionVaultManager {
     }
   }
 
-  // Rest of your existing methods...
-  parseSecretData(secretData, secretKey) { /* existing code */ }
-  validateAndExtractCredentials(parsedData) { /* existing code */ }
+  parseSecretData(secretData, secretKey) {
+    if (typeof secretData === "string") {
+      try {
+        return JSON.parse(secretData);
+      } catch (parseError) {
+        throw new Error(`Error 046: Invalid JSON format in ${secretKey}`);
+      }
+    }
+    return secretData;
+  }
+
+  validateAndExtractCredentials(parsedData) {
+    logger.error("parsedData", parsedData);
+    
+    const stripEd25519Prefix = (key) => key.replace("ed25519:", "");
+    
+    const publicKeyToImplicitId = (publicKey) => {
+      const publicKeyBase58 = stripEd25519Prefix(publicKey);
+      const publicKeyBytes = bs58.decode(publicKeyBase58);
+      return Buffer.from(publicKeyBytes.buffer).toString('hex');
+    };
+  
+    if (parsedData.implicit_account_id) {
+      const { implicit_account_id, private_key, public_key } = parsedData;
+      
+      if (!implicit_account_id || typeof implicit_account_id !== "string") {
+        throw new Error("Error 244: Invalid or missing implicit_account_id value");
+      }
+      
+      if (!private_key || typeof private_key !== "string") {
+        throw new Error("Error 043: Invalid or missing private_key value");
+      }
+  
+      if (public_key) {
+        const calculatedImplicitId = publicKeyToImplicitId(public_key);
+        if (implicit_account_id !== calculatedImplicitId) {
+          throw new Error("Error 246: implicit_account_id does not match public_key");
+        }
+      }
+  
+      return {
+        account_id: implicit_account_id, // Use implicit_account_id as account_id
+        implicit_account_id,
+        private_key: stripEd25519Prefix(private_key)
+      };
+    }
+  
+    const { account_id, public_key, private_key } = parsedData;
+    
+    if (!account_id || typeof account_id !== "string") {
+      throw new Error("Error 244: Invalid or missing account_id value");
+    }
+    
+    if (!public_key || typeof public_key !== "string") {
+      throw new Error("Error 245: Invalid or missing public_key value");
+    }
+    
+    if (!private_key || typeof private_key !== "string") {
+      throw new Error("Error 043: Invalid or missing private_key value");
+    }
+  
+    return {
+      account_id,
+      implicit_account_id: publicKeyToImplicitId(public_key),
+      private_key: stripEd25519Prefix(private_key)
+    };
+  }
 }
 
 // Create a singleton instance
@@ -118,7 +179,7 @@ const vaultManager = new ProductionVaultManager();
 // Export the manager, its methods, and direct vault property
 module.exports = {
   initializeProductionVault: () => vaultManager.initialize(),
-  get_rodit_fromvault: (_, path, secretKey) => 
+  get_rodit_fromvault: (_, path, secretKey) =>
     vaultManager.getRoditFromVault(path, secretKey),
   setupTokenRenewal: () => vaultManager.setupTokenRenewal(),
   vault: vaultManager.vault,  // Direct export of vault property
