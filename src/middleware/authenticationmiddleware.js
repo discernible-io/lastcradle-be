@@ -23,32 +23,34 @@ class AuthenticationMiddleware {
    */
   async initialize(dependencies) {
     if (this.initialized) {
-      logger.debug('AuthenticationMiddleware already initialized');
+      logger.debug("AuthenticationMiddleware already initialized");
       return;
     }
 
     try {
-      logger.debug('Initializing AuthenticationMiddleware...');
-      
+      logger.debug("Initializing AuthenticationMiddleware...");
+
       // Set dependencies from the provided object
       this.stateManager = dependencies.stateManager;
       this.tokenService = dependencies.tokenService;
-      
+
       if (!this.stateManager || !this.tokenService) {
-        throw new Error('Missing required dependencies for AuthenticationMiddleware');
+        throw new Error(
+          "Missing required dependencies for AuthenticationMiddleware"
+        );
       }
-      
+
       // Initialize token service if needed
       if (this.tokenService.initialize) {
         await this.tokenService.initialize(dependencies);
       }
-      
+
       this.initialized = true;
-      logger.info('AuthenticationMiddleware initialized successfully');
+      logger.info("AuthenticationMiddleware initialized successfully");
     } catch (error) {
-      logger.error('Failed to initialize AuthenticationMiddleware', {
+      logger.error("Failed to initialize AuthenticationMiddleware", {
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
       });
       throw error;
     }
@@ -80,9 +82,9 @@ class AuthenticationMiddleware {
       return null;
     }
 
-    const [bearer, token] = authHeader.split(' ');
-    
-    if (bearer.toLowerCase() !== 'bearer' || !token) {
+    const [bearer, token] = authHeader.split(" ");
+
+    if (bearer.toLowerCase() !== "bearer" || !token) {
       logger.debug("Invalid authorization header format", {
         component: "TokenExtractor",
         method: "extractTokenFromHeader",
@@ -103,10 +105,9 @@ class AuthenticationMiddleware {
     return token;
   }
 
-
   /**
    * Middleware to authenticate API calls
-   * 
+   *
    * @param {Object} req - Express request object
    * @param {Object} res - Express response object
    * @param {Function} next - Next middleware function
@@ -136,8 +137,26 @@ class AuthenticationMiddleware {
         return res.status(401).json({ error: "No token provided" });
       }
 
-      // Use the token service to validate the token
-      const validationResult = await this.tokenService.validate_jwt_token_be(token);
+      // Get own RODiT configuration first
+      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+
+      if (!config_own_rodit || !config_own_rodit.own_rodit) {
+        logger.error("Server configuration not initialized", {
+          component: "AuthMiddleware",
+          method: "authenticate_apicall",
+          requestId,
+          hasConfig: !!config_own_rodit,
+        });
+        return res
+          .status(500)
+          .json({ error: "Server configuration not initialized" });
+      }
+
+      // Use the token service to validate the token WITH the own_rodit parameter
+      const validationResult = await this.tokenService.validate_jwt_token_be(
+        token,
+        config_own_rodit.own_rodit
+      );
 
       if (!validationResult.valid) {
         logger.warn("Invalid token provided", {
@@ -170,14 +189,14 @@ class AuthenticationMiddleware {
         error: error.message,
         stack: error.stack,
       });
-      
-      return res.status(500).json({ 
+
+      return res.status(500).json({
         error: "Authentication failed",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   }
 }
-
 // Export the class directly (will be instantiated in rodit.js)
 module.exports = AuthenticationMiddleware;
