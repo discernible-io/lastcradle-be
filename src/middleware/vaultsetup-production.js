@@ -105,7 +105,7 @@ class ProductionVaultManager {
   }
 
   validateAndExtractCredentials(parsedData) {
-    logger.error("parsedData", parsedData);
+    logger.debug("parsedData", parsedData);
     
     const stripEd25519Prefix = (key) => key.replace("ed25519:", "");
     
@@ -163,11 +163,27 @@ class ProductionVaultManager {
 }
 
 const vaultManager = new ProductionVaultManager();
+let initializedVault = null;
 
 module.exports = {
-  initializeProductionVault: () => vaultManager.initialize(),
+  initializeProductionVault: async () => {
+    try {
+      initializedVault = await vaultManager.initialize();
+      return initializedVault;
+    } catch (error) {
+      logger.error("Error initializing Vault in module:", error);
+      throw error;
+    }
+  },
   get_rodit_fromvault: (vault, path, secretKey) =>
     vaultManager.getRoditFromVault(path, secretKey),
   setupTokenRenewal: () => vaultManager.setupTokenRenewal(),
-  vault: vaultManager.vault,
+  getVault: () => {
+    if (!initializedVault) {
+      logger.warn("Accessing vault before initialization");
+      throw new Error("Vault not initialized. Call initializeProductionVault() first");
+    }
+    return initializedVault;
+  }
+  // Remove the direct export of vault
 };

@@ -6,16 +6,13 @@
 const { ulid } = require("ulid");
 const bs58 = require("bs58");
 const logger = require("../../config/logger");
-const BlockchainService = require('../blockchain/blockchainservice');
-const session = require('../auth/sessionmanager');
-const validators = require('../validators');
-const utils = require('../utils');
+const BlockchainService = require("../blockchain/blockchainservice");
+const session = require("../auth/sessionmanager");
+const validators = require("../validators");
+const utils = require("../utils");
 const {
   initializeProductionVault,
-  get_rodit_fromvault,
-  setupTokenRenewal,
-  vault,
-} = require("./vaultsetup-production");
+} = require("./middleware/vaultsetup-production");
 const config = require("config");
 
 /**
@@ -34,7 +31,6 @@ const CONSTANTS = {
 const API_OPTIONS = config.get("API_OPTIONS");
 const SERVERPORT = config.get("SERVERPORT");
 const NEAR_RPC_URL = config.get("NEAR_RPC_URL");
-
 
 /**
  * Singleton State Management Classes
@@ -162,47 +158,54 @@ class RoditManager {
   async initializeVault() {
     const requestId = ulid();
     const startTime = Date.now();
-  
+
     logger.debug("Starting vault initialization", {
       component: "RoditManager",
       method: "initializeVault",
-      requestId
+      requestId,
     });
-  
+
     if (this.vaultInitialized) {
       logger.debug("Vault already initialized", {
         component: "RoditManager",
         method: "initializeVault",
         requestId,
       });
-      return vault;
+      const { getVault } = require("./vaultsetup-production");
+      return getVault();
     }
-  
+
     try {
-      const vaultInstance = await initializeProductionVault();
-      await setupTokenRenewal(vaultInstance);
+      const {
+        initializeProductionVault,
+        setupTokenRenewal,
+        getVault,
+      } = require("./vaultsetup-production");
+      await initializeProductionVault();
+      await setupTokenRenewal();
+      const vaultInstance = getVault();
       this.vaultInitialized = true;
       this.vaultPath = this.config.get("VAULT_RODIT_KEYVALUE_PATH");
-      
+
       const duration = Date.now() - startTime;
       logger.info("Vault initialized successfully", {
         component: "RoditManager",
         method: "initializeVault",
         requestId,
         duration,
-        status: "success"
+        status: "success",
       });
-  
+
       // Emit metrics for Grafana dashboards
       logger.metric("vault_initialization_duration_ms", duration, {
         success: true,
-        component: "RoditManager"
+        component: "RoditManager",
       });
-  
+
       return vaultInstance;
     } catch (error) {
       const duration = Date.now() - startTime;
-  
+
       logger.error("Vault initialization failed", {
         component: "RoditManager",
         method: "initializeVault",
@@ -210,20 +213,20 @@ class RoditManager {
         duration,
         errorMessage: error.message,
         errorCode: error.code || "UNKNOWN_ERROR",
-        stack: error.stack
+        stack: error.stack,
       });
-  
+
       // Emit metrics for Grafana dashboards
       logger.metric("vault_initialization_duration_ms", duration, {
         success: false,
         component: "RoditManager",
-        errorType: error.code || "UNKNOWN_ERROR"
+        errorType: error.code || "UNKNOWN_ERROR",
       });
       logger.metric("vault_initialization_errors_total", 1, {
         errorType: error.code || "UNKNOWN_ERROR",
-        component: "RoditManager"
+        component: "RoditManager",
       });
-  
+
       throw error;
     }
   }
@@ -231,14 +234,14 @@ class RoditManager {
   async getCredentials(type) {
     const requestId = ulid();
     const startTime = Date.now();
-  
+
     logger.debug("Retrieving credentials", {
       component: "RoditManager",
       method: "getCredentials",
       requestId,
       credentialType: type,
     });
-  
+
     if (!this.vaultInitialized) {
       logger.debug("Vault not initialized, initializing now", {
         component: "RoditManager",
@@ -246,15 +249,15 @@ class RoditManager {
         requestId,
       });
       await this.initializeVault();
-      logger.debug('Vault initialized successfully', {
+      logger.debug("Vault initialized successfully", {
         component: "RoditManager",
         method: "getCredentials",
         requestId,
         vaultPath: this.vaultPath,
-        vaultInitialized: this.vaultInitialized
+        vaultInitialized: this.vaultInitialized,
       });
     }
-  
+
     if (this.credentials[type]) {
       logger.debug("Using cached credentials", {
         component: "RoditManager",
@@ -264,11 +267,11 @@ class RoditManager {
       });
       return this.credentials[type];
     }
-  
+
     try {
       // Make the accountType consistent with the type parameter
       const accountType = `account_${type}`;
-  
+
       logger.debug("Fetching credentials from vault", {
         component: "RoditManager",
         method: "getCredentials",
@@ -276,24 +279,29 @@ class RoditManager {
         credentialType: type,
         vaultPath: `${this.vaultPath}/${type}`,
       });
-  
+
+      const {
+        getVault,
+        get_rodit_fromvault,
+      } = require("./vaultsetup-production");
+      const vault = getVault();
       const vaultData = await get_rodit_fromvault(
         vault,
         `${this.vaultPath}/${type}`,
         accountType
       );
-  
+
       if (!vaultData.private_key || typeof vaultData.private_key !== "string") {
         throw new Error(`Invalid or missing private_key for ${type}`);
       }
-  
+
       const privateKeyStr = vaultData.private_key.startsWith("ed25519:")
         ? vaultData.private_key.replace("ed25519:", "")
         : vaultData.private_key;
-  
+
       vaultData.signing_bytes_key = new Uint8Array(bs58.decode(privateKeyStr));
       this.credentials[type] = vaultData;
-  
+
       const duration = Date.now() - startTime;
       logger.info("Credentials retrieved successfully", {
         component: "RoditManager",
@@ -303,18 +311,18 @@ class RoditManager {
         duration,
         accountId: vaultData.account_id, // Safe to log account ID
       });
-  
+
       // Emit metrics for Grafana dashboards
       logger.metric("credential_retrieval_duration_ms", duration, {
         success: true,
         credentialType: type,
         component: "RoditManager",
       });
-  
+
       return vaultData;
     } catch (error) {
       const duration = Date.now() - startTime;
-  
+
       logger.error("Failed to retrieve credentials", {
         component: "RoditManager",
         method: "getCredentials",
@@ -325,7 +333,7 @@ class RoditManager {
         errorCode: error.code || "UNKNOWN_ERROR",
         stack: error.stack,
       });
-  
+
       // Emit metrics for Grafana dashboards
       logger.metric("credential_retrieval_duration_ms", duration, {
         success: false,
@@ -338,7 +346,7 @@ class RoditManager {
         credentialType: type,
         component: "RoditManager",
       });
-  
+
       throw error;
     }
   }
@@ -424,10 +432,11 @@ class RoditManager {
         step: "tokenFetch",
       });
 
-      const own_rodit = await this.blockchainService.nearorg_rpc_tokensfromaccountid(
-        CONSTANTS.SMART_CONTRACT,
-        account_id
-      );
+      const own_rodit =
+        await this.blockchainService.nearorg_rpc_tokensfromaccountid(
+          CONSTANTS.SMART_CONTRACT,
+          account_id
+        );
 
       // Check if we have a real RODiT token
       if (!own_rodit || !own_rodit.token_id) {
@@ -718,7 +727,7 @@ const instances = {};
 // Create instances without circular dependencies
 instances.blockchainService = new BlockchainService({
   CONSTANTS,
-  NEAR_RPC_URL
+  NEAR_RPC_URL,
 });
 
 instances.stateManager = new AuthStateManager();
@@ -726,9 +735,9 @@ instances.roditManager = new RoditManager(instances.blockchainService);
 instances.sessionManager = session;
 
 // Import the classes
-const TokenServiceClass = require('../auth/tokenservice');
-const AuthenticationClass = require('../auth/authentication');
-const AuthenticationMiddlewareClass = require('./authenticationmiddleware');
+const TokenServiceClass = require("../auth/tokenservice");
+const AuthenticationClass = require("../auth/authentication");
+const AuthenticationMiddlewareClass = require("./authenticationmiddleware");
 
 // Create service instances
 instances.tokenService = new TokenServiceClass();
@@ -738,101 +747,132 @@ instances.authMiddleware = new AuthenticationMiddlewareClass();
 // Initialize all services in the correct order
 async function initializeServices() {
   const initializationContext = {
-    component: 'initializeServices',
-    startTime: new Date().toISOString()
+    component: "initializeServices",
+    startTime: new Date().toISOString(),
   };
 
   try {
-    logger.info('Initializing services...', initializationContext);
-    
+    logger.info("Initializing services...", initializationContext);
+
     // 1. Initialize blockchain service first
     if (instances.blockchainService.initialize) {
-      logger.debug('Initializing blockchain service...', initializationContext);
+      logger.debug("Initializing blockchain service...", initializationContext);
       try {
         await instances.blockchainService.initialize();
-        logger.debug('Blockchain service initialized successfully', initializationContext);
+        logger.debug(
+          "Blockchain service initialized successfully",
+          initializationContext
+        );
       } catch (error) {
-        logger.error('Failed to initialize blockchain service', {
+        logger.error("Failed to initialize blockchain service", {
           ...initializationContext,
           error: error.message,
-          stack: error.stack
+          stack: error.stack,
         });
-        throw new Error(`Blockchain service initialization failed: ${error.message}`);
+        throw new Error(
+          `Blockchain service initialization failed: ${error.message}`
+        );
       }
     }
-    
+
     // 2. Initialize RoditManager and Vault
-    logger.debug('Initializing RoditManager and Vault...', initializationContext);
+    logger.debug(
+      "Initializing RoditManager and Vault...",
+      initializationContext
+    );
 
     try {
       // First initialize the vault without namespace parameter
-      await instances.roditManager.initializeVault();
-      logger.debug('Vault initialized successfully', {
+      const {
+        initializeProductionVault,
+      } = require("./middleware/vaultsetup-production");
+      await initializeProductionVault();
+      logger.debug("Vault initialized successfully", {
         ...initializationContext,
         vaultPath: instances.roditManager.vaultPath,
-        vaultInitialized: instances.roditManager.vaultInitialized
+        vaultInitialized: instances.roditManager.vaultInitialized,
       });
 
       // Then initialize the RODiT configuration with 'server' type
-      await instances.roditManager.initializeRoditConfig('server');
-      logger.debug('RODiT configuration initialized successfully', {
-        ...initializationContext
+      await instances.roditManager.initializeRoditConfig("server");
+      logger.debug("RODiT configuration initialized successfully", {
+        ...initializationContext,
       });
 
       // Verify vault is accessible
-      if (!vault) {
-        throw new Error('Vault is not available after initialization');
+      try {
+        const { getVault } = require("./middleware/vaultsetup-production");
+        const vault = getVault();
+        if (!vault) {
+          throw new Error("Vault is null after initialization");
+        }
+      } catch (vaultError) {
+        throw new Error(
+          `Vault not properly initialized: ${vaultError.message}`
+        );
       }
     } catch (error) {
-      logger.error('Failed to initialize RoditManager and Vault', {
+      logger.error("Failed to initialize RoditManager and Vault", {
         ...initializationContext,
         error: error.message,
         stack: error.stack,
         vaultPath: instances.roditManager?.vaultPath,
-        vaultInitialized: instances.roditManager?.vaultInitialized
+        vaultInitialized: instances.roditManager?.vaultInitialized,
       });
       throw new Error(`Vault initialization failed: ${error.message}`);
     }
-    
+
     // 3. Initialize other services with dependencies
-    logger.debug('Initializing authentication services...', initializationContext);
+    logger.debug(
+      "Initializing authentication services...",
+      initializationContext
+    );
     try {
       await Promise.all([
         instances.authentication.initialize(instances),
         instances.tokenService.initialize(instances),
-        instances.authMiddleware.initialize(instances)
+        instances.authMiddleware.initialize(instances),
       ]);
-      logger.debug('Authentication services initialized successfully', initializationContext);
+      logger.debug(
+        "Authentication services initialized successfully",
+        initializationContext
+      );
     } catch (error) {
-      logger.error('Failed to initialize authentication services', {
+      logger.error("Failed to initialize authentication services", {
         ...initializationContext,
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
       });
-      throw new Error(`Authentication services initialization failed: ${error.message}`);
+      throw new Error(
+        `Authentication services initialization failed: ${error.message}`
+      );
     }
-    
-    logger.info('All services initialized successfully', {
+
+    logger.info("All services initialized successfully", {
       ...initializationContext,
       endTime: new Date().toISOString(),
-      duration: `${(new Date() - new Date(initializationContext.startTime))}ms`
+      duration: `${new Date() - new Date(initializationContext.startTime)}ms`,
     });
-    
+
     return true;
   } catch (error) {
     const errorContext = {
       ...initializationContext,
       error: error.message,
       stack: error.stack,
-      stateManager: instances.stateManager ? 'initialized' : 'not initialized',
-      roditManager: instances.roditManager ? 'initialized' : 'not initialized',
-      vaultInitialized: (instances.roditManager && instances.roditManager.vaultInitialized) || false,
-      configLoaded: !!(instances.stateManager && instances.stateManager.getConfigOwnRodit),
+      stateManager: instances.stateManager ? "initialized" : "not initialized",
+      roditManager: instances.roditManager ? "initialized" : "not initialized",
+      vaultInitialized:
+        (instances.roditManager && instances.roditManager.vaultInitialized) ||
+        false,
+      configLoaded: !!(
+        instances.stateManager && instances.stateManager.getConfigOwnRodit
+      ),
       endTime: new Date().toISOString(),
-      duration: `${(new Date() - new Date(initializationContext.startTime))}ms`
+      duration: `${new Date() - new Date(initializationContext.startTime)}ms`,
     };
-    
-    logger.error('Critical error during service initialization', errorContext);
+
+    logger.error("Critical error during service initialization", errorContext);
     throw error;
   }
 }
@@ -841,49 +881,80 @@ async function initializeServices() {
 module.exports = {
   // Core instances
   ...instances,
-  
+
   // Initialization function
   initializeServices,
-  
+
   // Constants
   CONSTANTS,
-  
+
   // Class definitions for backward compatibility
   AuthStateManager,
   RoditManager,
-  
+
   // Authentication functions (maintain backward compatibility)
   login_client: (req, res) => instances.authentication.login_client(req, res),
   logout_client: (req, res) => instances.authentication.logout_client(req, res),
   login_server: (own_rodit) => instances.authentication.login_server(own_rodit),
-  login_portal: (own_rodit, port) => instances.authentication.login_portal(own_rodit, port),
-  login_client_withnep413: (req, res, config_own_rodit) => 
-    instances.authentication.login_client_withnep413(req, res, config_own_rodit),
-  
+  login_portal: (own_rodit, port) =>
+    instances.authentication.login_portal(own_rodit, port),
+  login_client_withnep413: (req, res, config_own_rodit) =>
+    instances.authentication.login_client_withnep413(
+      req,
+      res,
+      config_own_rodit
+    ),
+
   // Token functions
-  generate_jwt_token: (peer_rodit, peer_timestamp, own_rodit, own_rodit_bytes_private_key, session_status) =>
-    instances.tokenService.generate_jwt_token(peer_rodit, peer_timestamp, own_rodit, own_rodit_bytes_private_key, session_status),
-  
+  generate_jwt_token: (
+    peer_rodit,
+    peer_timestamp,
+    own_rodit,
+    own_rodit_bytes_private_key,
+    session_status
+  ) =>
+    instances.tokenService.generate_jwt_token(
+      peer_rodit,
+      peer_timestamp,
+      own_rodit,
+      own_rodit_bytes_private_key,
+      session_status
+    ),
+
   // Middleware
-  authenticate_apicall: (req, res, next) => instances.authMiddleware.authenticate_apicall(req, res, next),
-  
+  authenticate_apicall: (req, res, next) =>
+    instances.authMiddleware.authenticate_apicall(req, res, next),
+
   // Webhook functions
-  send_webhook: (event, data, isError, req) => instances.authentication.send_webhook(event, data, isError, req),
-  authenticate_webhook: (payload, signature_hex_ofpayload, timestamp, peer_rodit_owner_id) =>
-    instances.authentication.authenticate_webhook(payload, signature_hex_ofpayload, timestamp, peer_rodit_owner_id),
+  send_webhook: (event, data, isError, req) =>
+    instances.authentication.send_webhook(event, data, isError, req),
+  authenticate_webhook: (
+    payload,
+    signature_hex_ofpayload,
+    timestamp,
+    peer_rodit_owner_id
+  ) =>
+    instances.authentication.authenticate_webhook(
+      payload,
+      signature_hex_ofpayload,
+      timestamp,
+      peer_rodit_owner_id
+    ),
 
   // Blockchain functions
-  nearorg_rpc_state: (id, accountId) => instances.blockchainService.nearorg_rpc_state(id, accountId),
-  nearorg_rpc_tokensfromaccountid: (id, account_id) => 
+  nearorg_rpc_state: (id, accountId) =>
+    instances.blockchainService.nearorg_rpc_state(id, accountId),
+  nearorg_rpc_tokensfromaccountid: (id, account_id) =>
     instances.blockchainService.nearorg_rpc_tokensfromaccountid(id, account_id),
   nearorg_rpc_fetchpublickeybytes: (accountId) =>
     instances.blockchainService.nearorg_rpc_fetchpublickeybytes(accountId),
   nearorg_rpc_tokenfromroditid: (roditid) =>
     instances.blockchainService.nearorg_rpc_tokenfromroditid(roditid),
-  nearorg_rpc_timestamp: () => instances.blockchainService.nearorg_rpc_timestamp(),
+  nearorg_rpc_timestamp: () =>
+    instances.blockchainService.nearorg_rpc_timestamp(),
 
   // Token service functions
-  base64url2jwk_public_key: (base64url_public_key) => 
+  base64url2jwk_public_key: (base64url_public_key) =>
     instances.tokenService.base64url2jwk_public_key(base64url_public_key),
 
   // Utility functions from utils/index.js
