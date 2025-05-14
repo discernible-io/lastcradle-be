@@ -121,79 +121,36 @@ class AuthStateManager {
 
   // Generate portal URL from service provider ID
   getPortalUrl(serviceProviderId, port) {
-    if (!serviceProviderId) {
-      logger.error("Invalid serviceProviderId: undefined", {
-        component: "AuthStateManager",
-        method: "getPortalUrl"
-      });
-      return null;
+    // Extract smart contract component from serviceprovider_id
+    const components = serviceProviderId.split(";");
+    const scComponent = components
+      .find((c) => c.startsWith("sc="))
+      ?.substring(3);
+
+    if (!scComponent) {
+      throw new Error("Invalid serviceprovider_id format");
     }
 
-    try {
-      // Extract smart contract component from serviceprovider_id
-      const components = serviceProviderId.split(";");
-      const scComponent = components
-        .find((c) => c.startsWith("sc="))
-        ?.substring(3);
-
-      if (!scComponent) {
-        logger.error("Invalid serviceprovider_id format, missing sc= component", {
-          component: "AuthStateManager",
-          method: "getPortalUrl",
-          serviceProviderId
-        });
-        return null;
-      }
-
-      // Extract domain parts from smart contract name
-      const scParts = scComponent.split(".");
-      if (scParts.length < 1) {
-        logger.error("Invalid smart contract format", {
-          component: "AuthStateManager",
-          method: "getPortalUrl",
-          scComponent
-        });
-        return null;
-      }
-
-      // Get domain information from the first part
-      const domainPart = scParts[0];
-      const domainComponents = domainPart.split("-");
-
-      // Find domain and TLD in the components (format: 10975-cableguard-org)
-      if (domainComponents.length < 3) {
-        logger.error("Invalid domain format in smart contract", {
-          component: "AuthStateManager",
-          method: "getPortalUrl",
-          domainPart
-        });
-        return null;
-      }
-
-      const domain = domainComponents[1]; // cableguard
-      const tld = domainComponents[2]; // org
-
-      // Build and return the API endpoint
-      const url = `https://signportal.${domain}.${tld}:${port}`;
-      
-      logger.debug("Generated portal URL", {
-        component: "AuthStateManager",
-        method: "getPortalUrl",
-        serviceProviderId,
-        url
-      });
-      
-      return url;
-    } catch (error) {
-      logger.error("Error generating portal URL", {
-        component: "AuthStateManager",
-        method: "getPortalUrl",
-        serviceProviderId,
-        error: error.message,
-        stack: error.stack
-      });
-      return null;
+    // Extract domain parts from smart contract name
+    const scParts = scComponent.split(".");
+    if (scParts.length < 1) {
+      throw new Error("Invalid smart contract format");
     }
+
+    // Get domain information from the first part
+    const domainPart = scParts[0];
+    const domainComponents = domainPart.split("-");
+
+    // Find domain and TLD in the components (format: 10975-cableguard-org)
+    if (domainComponents.length < 3) {
+      throw new Error("Invalid domain format in smart contract");
+    }
+
+    const domain = domainComponents[1]; // cableguard
+    const tld = domainComponents[2]; // org
+
+    // Build and return the API endpoint
+    return `https://signportal.${domain}.${tld}:${port}`;
   }
   
   /**
