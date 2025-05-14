@@ -1,4 +1,4 @@
-const express = require("express");
+const express = require("express")
 const ratelimitmw = require("./middleware/ratelimit");
 const validatepermissions = require("./middleware/validatepermissions");
 const logger = require("../config/logger");
@@ -8,10 +8,11 @@ const swaggerJsdoc = require("swagger-jsdoc");
 const {
   login_client,
   authenticate_apicall,
-  initializeServices,
-  stateManager,
-  roditManager,
 } = require("./middleware/rodit");
+const {
+  roditManager,
+  stateManager,
+} = require("./middleware/rodit");  
 
 const options = {
   definition: {
@@ -23,12 +24,12 @@ const options = {
         "This is a REST API application made with Express. It just echoes whatever string you send to it.",
       contact: {
         name: "JSONPlaceholder for the contact name",
-        url: "https://dev-api.aparejos.net:3443/home.js",
+        url: "https:// https://dev-api.aparejos.net:3443/home.js",
       },
     },
     servers: [
       {
-        url: "https://dev-api.aparejos.net:3443",
+        url: "https:// https://dev-api.aparejos.net:3443",
         description: "RODiT Development server",
       },
     ],
@@ -50,26 +51,14 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Apply rate limiting to all routes
 // app.use((req, res, next) => ratelimiter(req, res, next));
 
-// Apply logging middleware to all routes
-app.use(loggingmw);
-
-// Static routes that don't depend on initialization
-app.get("/", (req, res) => {
-  res.send("RODiT API Server");
-});
-
 // Log in route - non-protected
-app.post(
-  "/login",
-  (req, res, next) => {
-    req.logAction = "login-attempt";
-    next();
-  },
-  async (req, res) => {
-    const config_own_rodit = await stateManager.getConfigOwnRodit();
-    return login_client(req, res, config_own_rodit);
-  }
-);
+app.post("/login", (req, res, next) => {
+  req.logAction = "login-attempt";
+  next();
+}, async (req, res) => {
+  const config_own_rodit = await stateManager.getConfigOwnRodit();
+  return login_client(req, res, config_own_rodit);
+});
 
 app.use((req, res, next) => {
   if (req.logAction) {
@@ -78,7 +67,7 @@ app.use((req, res, next) => {
       path: req.path,
       method: req.method,
       ip: req.ip,
-      userId: req.user ? req.user.id : "anonymous",
+      userId: req.user ? req.user.id : "anonymous"
     });
   }
   next();
@@ -89,14 +78,11 @@ const echoprotectedRoute = require("./protected/echo");
 const crudaprotectedRoute = require("./protected/cruda");
 const signclientRoute = require("./routes/signclient");
 
-// Mount protected routes
+// Mount Logging middleware
+app.use(loggingmw);
+
 app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
-app.use(
-  "/api/cruda",
-  authenticate_apicall,
-  validatepermissions,
-  crudaprotectedRoute
-);
+app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaprotectedRoute);
 app.use("/api", signclientRoute);
 
 // Enhanced error handling middleware
@@ -109,43 +95,37 @@ app.use((err, req, res, next) => {
       userIP: req.ip,
       userId: req.user ? req.user.id : "anonymous",
       errorCode: "106",
-      route: req.route ? req.route.path : "unknown",
+      route: req.route ? req.route.path : "unknown"
     },
     err // Pass the error object directly
   );
-
-  if (res.headersSent) {
-    return next(err);
-  }
-
-  res.status(err.status || 500).json({
-    error: {
-      message: err.message || "Internal Server Error",
-      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
-    },
-  });
+  
+  res.status(500).json({ error: "Error 106: Internal Server Error" });
 });
 
 // Update rate limit once obtained config
-function updateRateLimit(maxrequests, maxrqwindow) {
+function updateratelimit(maxrequests, maxrqwindow) {
   ratelimiter = ratelimitmw(maxrequests, maxrqwindow);
+  logger.infoWithContext("Rate limit settings updated", { 
+    maxRequests: maxrequests, 
+    windowDuration: maxrqwindow 
+  });
 }
 
 // Store server instance and db reference
 let server;
+let db;
 
 async function startServer() {
   try {
-    logger.info("Starting server initialization...");
-
-    // Initialize vault and configuration first
+    // Initialize vault and configuration
     await roditManager.initializeVault();
     await roditManager.initializeRoditConfig("server");
-    
-    // Then initialize all services
-    await initializeServices();
 
-    logger.info("Services initialized, starting HTTP server...");
+    logger.infoWithContext("Server initialization successful", {
+      component: "vault",
+      status: "initialized"
+    });
 
     // Get and apply configuration
     const configObject = await stateManager.getConfigOwnRodit();
@@ -153,29 +133,22 @@ async function startServer() {
       throw new Error("Failed to initialize RODiT configuration");
     }
 
-    // Update rate limit settings
-    if (
-      configObject.own_rodit &&
-      configObject.own_rodit.metadata &&
-      configObject.own_rodit.metadata.max_requests &&
-      configObject.own_rodit.metadata.maxrq_window
-    ) {
-      const maxrequests = parseInt(configObject.own_rodit.metadata.max_requests);
-      const maxrqwindow = parseInt(configObject.own_rodit.metadata.maxrq_window);
-      updateRateLimit(maxrequests, maxrqwindow);
-      logger.info("Rate limit settings updated from configuration", {
-        maxRequests: maxrequests,
-        windowDuration: maxrqwindow
-      });
+    // Update rate limits if applicable
+    const own_rodit = configObject.own_rodit;
+    if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
+      updateratelimit(
+        own_rodit.metadata.maxrequests,
+        own_rodit.metadata.maxrqwindow
+      );
     }
 
-    // Start the server
-    const port = process.env.PORT || 8080;
+    // Start the HTTP server
+    const port = configObject.port || 8080;
     server = app.listen(port, () => {
       logger.infoWithContext("Server started", {
         port: port,
         env: process.env.NODE_ENV || "development",
-        protocol: "http",
+        protocol: "http"
       });
     });
 
@@ -187,24 +160,12 @@ async function startServer() {
         process.exit(0);
       });
     });
-
-    // Handle unhandled promise rejections
-    process.on("unhandledRejection", (reason, promise) => {
-      logger.error("Unhandled Rejection at:", { promise, reason });
-      // Consider whether to exit the process here
-    });
-
-    // Handle uncaught exceptions
-    process.on("uncaughtException", (error) => {
-      logger.error("Uncaught Exception:", error);
-      // Consider whether to exit the process here
-    });
   } catch (error) {
     logger.errorWithContext(
-      "Failed to start server",
+      "Failed to start server", 
       {
         errorCode: "907",
-        component: "server-startup",
+        component: "server-startup"
       },
       error
     );
@@ -212,27 +173,90 @@ async function startServer() {
   }
 }
 
-// Start the server
 startServer();
 
 // Handle SIGINT gracefully
 process.on("SIGINT", async () => {
-  logger.info("SIGINT received. Shutting down gracefully...");
-
-  try {
-    // Close the server
-    if (server) {
-      await new Promise((resolve) => server.close(resolve));
+  logger.infoWithContext("Shutdown initiated", { signal: "SIGINT" });
+  
+  if (server) {
+    server.close(() => {
+      logger.infoWithContext("HTTP server closed", { component: "http-server" });
+    });
+  }
+  
+  // Check if db exists and has a close method before calling it
+  if (db && typeof db.close === 'function') {
+    try {
+      await db.close();
+      logger.infoWithContext("Database connection closed", { component: "main-db" });
+    } catch (error) {
+      logger.errorWithContext(
+        "Error closing database", 
+        { component: "main-db" },
+        error
+      );
     }
-
-    // Perform any additional cleanup here
-    logger.info("Server shut down successfully");
-    process.exit(0);
+  }
+  
+  // Close the CRUDA database connection
+  try {
+    if (crudaprotectedRoute.closeDatabase) {
+      await crudaprotectedRoute.closeDatabase();
+      logger.infoWithContext("CRUDA database connection closed", { component: "cruda-db" });
+    }
   } catch (error) {
-    logger.error("Error during shutdown:", error);
-    process.exit(1);
+    logger.errorWithContext(
+      "Error closing CRUDA database", 
+      { component: "cruda-db" },
+      error
+    );
+  }
+  
+  process.exit(0);
+});
+
+// Handle SIGTERM gracefully
+process.on("SIGTERM", async () => {
+  logger.infoWithContext("Shutdown initiated", { signal: "SIGTERM" });
+  
+  if (server) {
+    server.close(async () => {
+      logger.infoWithContext("HTTP server closed", { component: "http-server" });
+      
+      // Check if db exists and has a close method before calling it
+      if (db && typeof db.close === 'function') {
+        try {
+          await db.close();
+          logger.infoWithContext("Database connection closed", { component: "main-db" });
+        } catch (error) {
+          logger.errorWithContext(
+            "Error closing database", 
+            { component: "main-db" },
+            error
+          );
+        }
+      }
+      
+      // Close the CRUDA database connection
+      try {
+        if (crudaprotectedRoute.closeDatabase) {
+          await crudaprotectedRoute.closeDatabase();
+          logger.infoWithContext("CRUDA database connection closed", { component: "cruda-db" });
+        }
+      } catch (error) {
+        logger.errorWithContext(
+          "Error closing CRUDA database", 
+          { component: "cruda-db" },
+          error
+        );
+      }
+      
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
   }
 });
 
-// Export app for testing
 module.exports = app;
