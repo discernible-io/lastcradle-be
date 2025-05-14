@@ -110,16 +110,14 @@ class AuthStateManager {
     return this.configOwnRodit;
   }
 
-  // Methods for current token
-  async setCurrentToken(token) {
-    this.currentToken = token;
+  async setSignPortalJwtToken(token) {
+    this.signportalJwtToken = token;
     return token;
   }
 
-  getCurrentToken() {
-    return this.currentToken;
+  getSignPortalJwtToken() {
+    return this.signportalJwtToken;
   }
-
   // Methods for JWT token
   async setJwtToken(token) {
     this.jwtToken = token;
