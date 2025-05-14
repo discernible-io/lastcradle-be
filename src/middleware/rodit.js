@@ -930,171 +930,144 @@ class RoditManager {
   }
 }
 
-// Create a container for our instances
-const instances = {};
-
-// Create instances without circular dependencies
-instances.blockchainService = new BlockchainService({
+// Create instances with immediate initialization (like legacyrodit.js)
+const blockchainService = new BlockchainService({
   CONSTANTS,
   NEAR_RPC_URL,
 });
 
-// Get singleton instances using the static getInstance methods
-instances.stateManager = AuthStateManager.getInstance();
-instances.roditManager = RoditManager.getInstance(instances.blockchainService);
-instances.sessionManager = session;
+// Create singleton instances directly
+const stateManager = AuthStateManager.getInstance();
+const roditManager = RoditManager.getInstance(blockchainService);
+const sessionManager = session;
 
 // Import the classes
 const TokenServiceClass = require("../auth/tokenservice");
 const AuthenticationClass = require("../auth/authentication");
 const AuthenticationMiddlewareClass = require("./authenticationmiddleware");
 
-// Create service instances
-instances.tokenService = new TokenServiceClass();
-instances.authentication = new AuthenticationClass();
-instances.authMiddleware = new AuthenticationMiddlewareClass();
+// Create service instances directly
+const tokenService = new TokenServiceClass();
+const authentication = new AuthenticationClass();
+const authMiddleware = new AuthenticationMiddlewareClass();
 
-// Initialize all services in the correct order
+// Initialize all services immediately (synchronously where possible)
+// This function is kept for backwards compatibility but most initialization happens immediately
 async function initializeServices() {
-  const initializationContext = {
-    component: "initializeServices",
-    startTime: new Date().toISOString(),
-  };
-
   try {
-    logger.info("Initializing services...", initializationContext);
-
-    // 1. Initialize blockchain service first
-    if (instances.blockchainService.initialize) {
-      logger.debug("Initializing blockchain service...", initializationContext);
-      try {
-        await instances.blockchainService.initialize();
-        logger.debug(
-          "Blockchain service initialized successfully",
-          initializationContext
-        );
-      } catch (error) {
-        logger.error("Failed to initialize blockchain service", {
-          ...initializationContext,
-          error: error.message,
-          stack: error.stack,
-        });
-        throw new Error(
-          `Blockchain service initialization failed: ${error.message}`
-        );
-      }
+    // Only initialize what absolutely needs async initialization
+    if (blockchainService.initialize) {
+      await blockchainService.initialize();
     }
-
-    // 2. Initialize authentication services
-    logger.debug(
-      "Initializing authentication services...",
-      initializationContext
-    );
-    try {
-      await instances.authentication.initialize(instances);
-      await instances.tokenService.initialize(instances);
-      await instances.authMiddleware.initialize(instances);
-      logger.debug(
-        "Authentication services initialized successfully",
-        initializationContext
-      );
-    } catch (error) {
-      logger.error("Failed to initialize authentication services", {
-        ...initializationContext,
-        error: error.message,
-        stack: error.stack,
+    
+    // These will now be simpler since instances are already created
+    if (authentication.initialize) {
+      await authentication.initialize({
+        stateManager,
+        roditManager,
+        blockchainService,
+        tokenService,
+        sessionManager
       });
-      throw new Error(
-        `Authentication services initialization failed: ${error.message}`
-      );
     }
-
-    logger.info("All services initialized successfully", {
-      ...initializationContext,
-      endTime: new Date().toISOString(),
-      duration: `${new Date() - new Date(initializationContext.startTime)}ms`,
-    });
-
+    
+    if (tokenService.initialize) {
+      await tokenService.initialize({
+        stateManager,
+        roditManager,
+        blockchainService,
+        authentication,
+        sessionManager
+      });
+    }
+    
+    if (authMiddleware.initialize) {
+      await authMiddleware.initialize({
+        stateManager,
+        roditManager,
+        blockchainService,
+        authentication,
+        tokenService,
+        sessionManager
+      });
+    }
+    
     return true;
   } catch (error) {
-    const errorContext = {
-      ...initializationContext,
+    logger.error("Critical error during service initialization", {
       error: error.message,
       stack: error.stack,
-      stateManager: instances.stateManager ? "initialized" : "not initialized",
-      endTime: new Date().toISOString(),
-      duration: `${new Date() - new Date(initializationContext.startTime)}ms`,
-    };
-
-    logger.error("Critical error during service initialization", errorContext);
+    });
     throw error;
   }
 }
 
-// Create function wrappers that use the singleton instances
-const login_client = (req, res) => instances.authentication.login_client(req, res);
-const logout_client = (req, res) => instances.authentication.logout_client(req, res);
-const login_server = (own_rodit) => instances.authentication.login_server(own_rodit);
-const login_portal = (own_rodit, port) => instances.authentication.login_portal(own_rodit, port);
-const send_webhook = (event, data, isError, req) => instances.authentication.send_webhook(event, data, isError, req);
-const authenticate_apicall = (req, res, next) => instances.authMiddleware.authenticate_apicall(req, res, next);
-const authenticate_webhook = (req, res, next) => instances.authMiddleware.authenticate_webhook(req, res, next);
+// Direct function exports (like legacyrodit.js)
+function login_client(req, res) {
+  return authentication.login_client(req, res);
+}
 
-// Export the instances and initialization function
+function logout_client(req, res) {
+  return authentication.logout_client(req, res);
+}
+
+function login_server(own_rodit) {
+  return authentication.login_server(own_rodit);
+}
+
+function login_portal(own_rodit, port) {
+  return authentication.login_portal(own_rodit, port);
+}
+
+function send_webhook(event, data, isError, req) {
+  return authentication.send_webhook(event, data, isError, req);
+}
+
+function authenticate_apicall(req, res, next) {
+  return authMiddleware.authenticate_apicall(req, res, next);
+}
+
+function authenticate_webhook(req, res, next) {
+  return authMiddleware.authenticate_webhook(req, res, next);
+}
+
+function nearorg_rpc_state(id, accountId) {
+  return blockchainService.nearorg_rpc_state(id, accountId);
+}
+
+function nearorg_rpc_tokensfromaccountid(id, account_id) {
+  return blockchainService.nearorg_rpc_tokensfromaccountid(id, account_id);
+}
+
+function fetchWithErrorHandling(url, options, retryCount) {
+  return stateManager.fetchWithErrorHandling(url, options, retryCount);
+}
+
+// Export the functions and objects directly (like legacyrodit.js)
 module.exports = {
   // Authentication functions
-  login_client: (req, res) => {
-    if (!instances.authentication) throw new Error("Authentication service not initialized");
-    return instances.authentication.login_client(req, res);
-  },
-  logout_client: (req, res) => {
-    if (!instances.authentication) throw new Error("Authentication service not initialized");
-    return instances.authentication.logout_client(req, res);
-  },
-  login_server: (own_rodit) => {
-    if (!instances.authentication) throw new Error("Authentication service not initialized");
-    return instances.authentication.login_server(own_rodit);
-  },
-  login_portal: (own_rodit, port) => {
-    if (!instances.authentication) throw new Error("Authentication service not initialized");
-    return instances.authentication.login_portal(own_rodit, port);
-  },
-  authenticate_apicall: (req, res, next) => {
-    if (!instances.authMiddleware) throw new Error("Authentication middleware not initialized");
-    return instances.authMiddleware.authenticate_apicall(req, res, next);
-  },
-  authenticate_webhook: (req, res, next) => {
-    if (!instances.authMiddleware) throw new Error("Authentication middleware not initialized");
-    return instances.authMiddleware.authenticate_webhook(req, res, next);
-  },
-  send_webhook: (event, data, isError, req) => {
-    if (!instances.authentication) throw new Error("Authentication service not initialized");
-    return instances.authentication.send_webhook(event, data, isError, req);
-  },
+  login_client,
+  logout_client,
+  login_server,
+  login_portal,
+  authenticate_apicall,
+  authenticate_webhook,
+  send_webhook,
   
   // Blockchain service functions
-  nearorg_rpc_state: (id, accountId) => {
-    if (!instances.blockchainService) throw new Error("Blockchain service not initialized");
-    return instances.blockchainService.nearorg_rpc_state(id, accountId);
-  },
-  nearorg_rpc_tokensfromaccountid: (id, account_id) => {
-    if (!instances.blockchainService) throw new Error("Blockchain service not initialized");
-    return instances.blockchainService.nearorg_rpc_tokensfromaccountid(id, account_id);
-  },
+  nearorg_rpc_state,
+  nearorg_rpc_tokensfromaccountid,
   
   // Utility functions
-  fetchWithErrorHandling: (url, options, retryCount) => {
-    if (!instances.stateManager) throw new Error("State manager not initialized");
-    return instances.stateManager.fetchWithErrorHandling(url, options, retryCount);
-  },
+  fetchWithErrorHandling,
   
   // Constants
   CONSTANTS,
   
-  // Singleton instances - these will be available after initialization
-  get stateManager() { return instances.stateManager; },
-  get roditManager() { return instances.roditManager; },
-  get sessionManager() { return instances.sessionManager; },
+  // Singleton instances
+  stateManager,
+  roditManager,
+  sessionManager,
   
   // Services
   initializeServices,
