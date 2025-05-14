@@ -17,7 +17,15 @@ async function signPortalRodit(
   mintingfeeaccount
 ) {
   const requestId = ulid();
-  
+  // Check if state manager is initialized
+  const configObject = await stateManager.getConfigOwnRodit();
+  if (!configObject) {
+    logger.errorWithContext("State manager not fully initialized", {
+      ...requestContext,
+      error: "Configuration not available"
+    });
+    throw new Error("Service not fully initialized. Please try again later.");
+  }
   // Create context objects for structured logging
   const requestContext = {
     requestId,
