@@ -1044,7 +1044,22 @@ const authenticate_webhook = (req, res, next) => instances.authMiddleware.authen
 module.exports = {
   // Authentication functions
   login_client: instances.authentication.login_client.bind(instances.authentication),
+  logout_client: instances.authentication.logout_client.bind(instances.authentication),
+  login_server: instances.authentication.login_server.bind(instances.authentication),
+  login_portal: instances.authentication.login_portal.bind(instances.authentication),
   authenticate_apicall: instances.authMiddleware.authenticate_apicall.bind(instances.authMiddleware),
+  authenticate_webhook: instances.authMiddleware.authenticate_webhook.bind(instances.authMiddleware),
+  send_webhook: instances.authentication.send_webhook.bind(instances.authentication),
+  
+  // Blockchain service functions
+  nearorg_rpc_state: instances.blockchainService.nearorg_rpc_state.bind(instances.blockchainService),
+  nearorg_rpc_tokensfromaccountid: instances.blockchainService.nearorg_rpc_tokensfromaccountid.bind(instances.blockchainService),
+  
+  // Utility functions
+  fetchWithErrorHandling: instances.stateManager.fetchWithErrorHandling.bind(instances.stateManager),
+  
+  // Constants
+  CONSTANTS,
   
   // Singleton instances
   stateManager: instances.stateManager,
@@ -1053,7 +1068,4 @@ module.exports = {
   
   // Services
   initializeServices,
-  
-  // Utility functions
-  fetchWithErrorHandling: instances.stateManager.fetchWithErrorHandling.bind(instances.stateManager),
 };
