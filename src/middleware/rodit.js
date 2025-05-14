@@ -70,9 +70,10 @@ class AuthStateManager {
     }
     
     // Initialize properties
+    this.configOwnRodit = null;
     this.ownBase64urlJwkPublicKey = null;
     this.peerBase64urlJwkPublicKey = null;
-    this.configOwnRodit = null;
+    this.currentToken = null;
     this.jwtToken = null;
     
     // Store this instance
@@ -107,6 +108,16 @@ class AuthStateManager {
 
   getConfigOwnRodit() {
     return this.configOwnRodit;
+  }
+
+  // Methods for current token
+  async setCurrentToken(token) {
+    this.currentToken = token;
+    return token;
+  }
+
+  getCurrentToken() {
+    return this.currentToken;
   }
 
   // Methods for JWT token
