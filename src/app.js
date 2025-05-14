@@ -97,7 +97,7 @@ app.use(
   validatepermissions,
   crudaprotectedRoute
 );
-app.use("/api", signclientRoute);
+// app.use("/api", signclientRoute);
 
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
