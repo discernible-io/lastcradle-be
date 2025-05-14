@@ -195,6 +195,177 @@ class AuthStateManager {
       return null;
     }
   }
+  
+  /**
+   * Performs a fetch operation with comprehensive error handling and logging for Grafana monitoring
+   *
+   * @param {string} url - The URL to fetch from
+   * @param {Object} options - Fetch options including method, headers, etc.
+   * @returns {Promise<Object>} - The response data or error object
+   */
+  async fetchWithErrorHandling(url, options, retryCount = 0) {
+    const requestId = ulid();
+    const startTime = Date.now();
+    const operation = options?.method || "GET";
+    
+    // Validate URL before proceeding
+    if (!url) {
+      const error = new Error("URL is undefined or empty");
+      logger.error("Invalid URL for API request", {
+        component: "AuthStateManager",
+        method: "fetchWithErrorHandling",
+        requestId,
+        operation,
+        error: error.message,
+      });
+      throw error;
+    }
+    
+    // Extract endpoint for logging - handle both absolute and relative URLs
+    let endpoint;
+    try {
+      // Check if it's an absolute URL
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const urlObj = new URL(url);
+        endpoint = urlObj.pathname;
+      } else {
+        // It's a relative URL, just use it as the endpoint
+        endpoint = url;
+      }
+    } catch (error) {
+      logger.warn("Failed to parse URL", {
+        component: "AuthStateManager",
+        method: "fetchWithErrorHandling",
+        requestId,
+        url,
+        error: error.message,
+      });
+      endpoint = url; // Fallback to using the raw URL for logging
+    }
+
+    logger.info("API request initiated", {
+      component: "AuthStateManager",
+      method: "fetchWithErrorHandling",
+      requestId,
+      url: endpoint,
+      operation,
+      retryCount,
+    });
+
+    try {
+      // Get the current JWT token for authentication
+      const jwt_token = this.getJwtToken();
+
+      // Add authorization and tracking headers
+      options.headers = {
+        ...options.headers,
+        ...(jwt_token ? { Authorization: `Bearer ${jwt_token}` } : {}),
+        "X-Request-ID": requestId,
+      };
+
+      // Make the API request
+      const response = await fetch(url, options);
+      const responseTime = Date.now() - startTime;
+
+      // Check for a renewed token in response headers
+      const newToken = response.headers.get("New-Token");
+      if (newToken) {
+        try {
+          await this.setJwtToken(newToken);
+          logger.debug("JWT token refreshed from header", {
+            component: "AuthStateManager",
+            method: "fetchWithErrorHandling",
+            requestId,
+          });
+        } catch (tokenError) {
+          logger.error("Failed to update JWT token", {
+            component: "AuthStateManager",
+            method: "fetchWithErrorHandling",
+            requestId,
+            error: tokenError.message,
+          });
+        }
+      }
+
+      // Log response metrics
+      logger.info("API request completed", {
+        component: "AuthStateManager",
+        method: "fetchWithErrorHandling",
+        requestId,
+        url: endpoint,
+        operation,
+        status: response.status,
+        responseTime,
+      });
+
+      // Emit metrics for Grafana dashboards
+      logger.metric("api_request_duration_ms", responseTime, {
+        endpoint,
+        operation,
+        status: response.status,
+      });
+
+      // Handle 401 Unauthorized with retry for token expiration
+      if (response.status === 401 && retryCount < 1) {
+        const responseData = await response.json();
+
+        // Only retry for expired tokens
+        if (responseData.error === "token_expired") {
+          logger.info("Token expired, refreshing and retrying", {
+            component: "AuthStateManager",
+            method: "fetchWithErrorHandling",
+            requestId,
+          });
+
+          // Refresh token logic would go here
+          // For now, just retry the request
+          return this.fetchWithErrorHandling(url, options, retryCount + 1);
+        }
+      }
+
+      // Check if response is OK (status 200-299)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const error = new Error(
+          errorData.message || `HTTP Error ${response.status}`
+        );
+        error.status = response.status;
+        error.data = errorData;
+        throw error;
+      }
+
+      // Parse and return response data
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+
+      logger.error("API request failed", {
+        component: "AuthStateManager",
+        method: "fetchWithErrorHandling",
+        requestId,
+        url: endpoint,
+        operation,
+        error: error.message,
+        stack: error.stack,
+        responseTime,
+      });
+
+      // Emit metrics for Grafana dashboards
+      logger.metric("api_request_duration_ms", responseTime, {
+        endpoint,
+        operation,
+        status: "error",
+      });
+      logger.metric("api_request_errors_total", 1, {
+        endpoint,
+        operation,
+        error: error.constructor.name,
+      });
+
+      throw error;
+    }
+  }
 }
 
 class RoditManager {
@@ -906,25 +1077,18 @@ const authenticate_webhook = (req, res, next) => instances.authMiddleware.authen
 
 // Export the instances and initialization function
 module.exports = {
-  // Core instances
-  ...instances,
-
-  // Function wrappers
-  login_client,
-  logout_client,
-  login_server,
-  login_portal,
-  send_webhook,
-  authenticate_apicall,
-  authenticate_webhook,
-
-  // Initialization function
+  // Authentication functions
+  login_client: instances.authentication.login_client.bind(instances.authentication),
+  authenticate_apicall: instances.authMiddleware.authenticate_apicall.bind(instances.authMiddleware),
+  
+  // Singleton instances
+  stateManager: instances.stateManager,
+  roditManager: instances.roditManager,
+  sessionManager: instances.sessionManager,
+  
+  // Services
   initializeServices,
-
-  // Constants
-  CONSTANTS,
-
-  // Class definitions for backward compatibility
-  AuthStateManager,
-  RoditManager,
+  
+  // Utility functions
+  fetchWithErrorHandling: instances.stateManager.fetchWithErrorHandling.bind(instances.stateManager),
 };

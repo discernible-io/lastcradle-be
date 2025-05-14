@@ -53,18 +53,6 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Apply logging middleware to all routes
 app.use(loggingmw);
 
-// Define a placeholder route for API endpoints that will be registered after initialization
-app.use("/api", (req, res, next) => {
-  if (!app.isInitialized) {
-    return res.status(503).json({
-      error: "Service is initializing",
-      message: "The API is still initializing. Please try again in a few moments.",
-      code: "SERVICE_INITIALIZING"
-    });
-  }
-  next();
-});
-
 // Static routes that don't depend on initialization
 app.get("/", (req, res) => {
   res.send("RODiT API Server");
@@ -99,6 +87,7 @@ app.use((req, res, next) => {
 // Import protected routes
 const echoprotectedRoute = require("./protected/echo");
 const crudaprotectedRoute = require("./protected/cruda");
+const signclientRoute = require("./routes/signclient");
 
 // Mount protected routes
 app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
@@ -108,6 +97,7 @@ app.use(
   validatepermissions,
   crudaprotectedRoute
 );
+app.use("/api", signclientRoute);
 
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
@@ -179,13 +169,6 @@ async function startServer() {
         protocol: "http",
       });
     });
-
-    // Register routes after initialization is complete
-    logger.info("Registering API routes...");
-    const signclientRoute = require("./routes/signclient");
-    app.use("/api", signclientRoute);
-    app.isInitialized = true;
-    logger.info("API routes registered successfully");
 
     // Graceful shutdown handling
     process.on("SIGTERM", () => {
