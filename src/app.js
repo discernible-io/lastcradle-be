@@ -23,12 +23,12 @@ const options = {
         "This is a REST API application made with Express. It just echoes whatever string you send to it.",
       contact: {
         name: "JSONPlaceholder for the contact name",
-        url: "https:// https://dev-api.aparejos.net:3443/home.js",
+        url: "https://dev-api.aparejos.net:3443/home.js",
       },
     },
     servers: [
       {
-        url: "https:// https://dev-api.aparejos.net:3443",
+        url: "https://dev-api.aparejos.net:3443",
         description: "RODiT Development server",
       },
     ],
@@ -87,7 +87,7 @@ app.use((req, res, next) => {
 // Import protected routes
 const echoprotectedRoute = require("./protected/echo");
 const crudaprotectedRoute = require("./protected/cruda");
-// const signclientRoute = require("./routes/signclient");
+const signclientRoute = require("./routes/signclient");
 
 // Mount protected routes
 app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
@@ -97,7 +97,7 @@ app.use(
   validatepermissions,
   crudaprotectedRoute
 );
-// app.use("/api", signclientRoute);
+app.use("/api", signclientRoute);
 
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
