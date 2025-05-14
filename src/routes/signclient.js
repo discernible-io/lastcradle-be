@@ -177,7 +177,7 @@ router.post("/signclient", async (req, res) => {
       // Make this configurable if needed
       const loginResult = await login_portal(config.own_rodit, portalPort);
 
-      if (!loginResult.jwt_token) {
+      if (!loginResult || !loginResult.jwt_token) {
         logger.errorWithContext("Failed to obtain JWT token", jwtContext);
         throw new Error("Failed to obtain JWT token from SignPortal");
       }
