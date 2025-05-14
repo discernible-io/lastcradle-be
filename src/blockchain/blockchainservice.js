@@ -352,7 +352,7 @@ class BlockchainService {
       method: "nearorg_rpc_state",
       requestId,
       accountId,
-      contractId: id,
+      contractId: CONSTANTS.SMART_CONTRACT,
     });
 
     try {
@@ -472,7 +472,7 @@ class BlockchainService {
       method: "nearorg_rpc_tokensfromaccountid",
       requestId,
       accountId: account_id,
-      contractId: id,
+      contractId: CONSTANTS.SMART_CONTRACT,
     });
 
     try {
