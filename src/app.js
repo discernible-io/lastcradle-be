@@ -127,7 +127,7 @@ app.use((err, req, res, next) => {
 });
 
 // Update rate limit once obtained config
-function updateratelimit(maxrequests, maxrqwindow) {
+function updateRateLimit(maxrequests, maxrqwindow) {
   ratelimiter = ratelimitmw(maxrequests, maxrqwindow);
 }
 
@@ -138,9 +138,11 @@ async function startServer() {
   try {
     logger.info("Starting server initialization...");
 
-    // Initialize all services
+    // Initialize vault and configuration first
     await roditManager.initializeVault();
     await roditManager.initializeRoditConfig("server");
+    
+    // Then initialize all services
     await initializeServices();
 
     logger.info("Services initialized, starting HTTP server...");
@@ -151,17 +153,24 @@ async function startServer() {
       throw new Error("Failed to initialize RODiT configuration");
     }
 
-    // Update rate limits if applicable
-    const own_rodit = configObject.own_rodit;
-    if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
-      updateratelimit(
-        own_rodit.metadata.maxrequests,
-        own_rodit.metadata.maxrqwindow
-      );
+    // Update rate limit settings
+    if (
+      configObject.own_rodit &&
+      configObject.own_rodit.metadata &&
+      configObject.own_rodit.metadata.max_requests &&
+      configObject.own_rodit.metadata.maxrq_window
+    ) {
+      const maxrequests = parseInt(configObject.own_rodit.metadata.max_requests);
+      const maxrqwindow = parseInt(configObject.own_rodit.metadata.maxrq_window);
+      updateRateLimit(maxrequests, maxrqwindow);
+      logger.info("Rate limit settings updated from configuration", {
+        maxRequests: maxrequests,
+        windowDuration: maxrqwindow
+      });
     }
 
-    // Start the HTTP server
-    const port = configObject.port || 8080;
+    // Start the server
+    const port = process.env.PORT || 3000;
     server = app.listen(port, () => {
       logger.infoWithContext("Server started", {
         port: port,
