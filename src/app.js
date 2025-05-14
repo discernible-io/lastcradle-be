@@ -87,7 +87,7 @@ app.use((req, res, next) => {
 // Import protected routes
 const echoprotectedRoute = require("./protected/echo");
 const crudaprotectedRoute = require("./protected/cruda");
-const signclientRoute = require("./routes/signclient");
+// const signclientRoute = require("./routes/signclient");
 
 // Mount protected routes
 app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
