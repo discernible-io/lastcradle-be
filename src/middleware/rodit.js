@@ -936,6 +936,23 @@ const blockchainService = new BlockchainService({
   NEAR_RPC_URL,
 });
 
+// Initialize blockchain service synchronously if possible
+if (blockchainService.initializeSync) {
+  try {
+    blockchainService.initializeSync();
+    logger.info("Blockchain service initialized synchronously", {
+      component: "BlockchainService",
+      status: "initialized"
+    });
+  } catch (error) {
+    logger.error("Failed to initialize blockchain service synchronously", {
+      component: "BlockchainService",
+      error: error.message,
+      stack: error.stack
+    });
+  }
+}
+
 // Create singleton instances directly
 const stateManager = AuthStateManager.getInstance();
 const roditManager = RoditManager.getInstance(blockchainService);
@@ -951,56 +968,92 @@ const tokenService = new TokenServiceClass();
 const authentication = new AuthenticationClass();
 const authMiddleware = new AuthenticationMiddlewareClass();
 
-// Initialize all services immediately (synchronously where possible)
-// This function is kept for backwards compatibility but most initialization happens immediately
-async function initializeServices() {
+// Initialize services synchronously if possible
+if (authentication.initializeSync) {
   try {
-    // Only initialize what absolutely needs async initialization
-    if (blockchainService.initialize) {
-      await blockchainService.initialize();
-    }
-    
-    // These will now be simpler since instances are already created
-    if (authentication.initialize) {
-      await authentication.initialize({
-        stateManager,
-        roditManager,
-        blockchainService,
-        tokenService,
-        sessionManager
-      });
-    }
-    
-    if (tokenService.initialize) {
-      await tokenService.initialize({
-        stateManager,
-        roditManager,
-        blockchainService,
-        authentication,
-        sessionManager
-      });
-    }
-    
-    if (authMiddleware.initialize) {
-      await authMiddleware.initialize({
-        stateManager,
-        roditManager,
-        blockchainService,
-        authentication,
-        tokenService,
-        sessionManager
-      });
-    }
-    
-    return true;
-  } catch (error) {
-    logger.error("Critical error during service initialization", {
-      error: error.message,
-      stack: error.stack,
+    authentication.initializeSync({
+      stateManager,
+      roditManager,
+      blockchainService,
+      tokenService,
+      sessionManager
     });
-    throw error;
+    logger.info("Authentication service initialized synchronously", {
+      component: "Authentication",
+      status: "initialized"
+    });
+  } catch (error) {
+    logger.error("Failed to initialize authentication service synchronously", {
+      component: "Authentication",
+      error: error.message,
+      stack: error.stack
+    });
   }
 }
+
+if (tokenService.initializeSync) {
+  try {
+    tokenService.initializeSync({
+      stateManager,
+      roditManager,
+      blockchainService,
+      authentication,
+      sessionManager
+    });
+    logger.info("Token service initialized synchronously", {
+      component: "TokenService",
+      status: "initialized"
+    });
+  } catch (error) {
+    logger.error("Failed to initialize token service synchronously", {
+      component: "TokenService",
+      error: error.message,
+      stack: error.stack
+    });
+  }
+}
+
+if (authMiddleware.initializeSync) {
+  try {
+    authMiddleware.initializeSync({
+      stateManager,
+      roditManager,
+      blockchainService,
+      authentication,
+      tokenService,
+      sessionManager
+    });
+    logger.info("Auth middleware initialized synchronously", {
+      component: "AuthMiddleware",
+      status: "initialized"
+    });
+  } catch (error) {
+    logger.error("Failed to initialize auth middleware synchronously", {
+      component: "AuthMiddleware",
+      error: error.message,
+      stack: error.stack
+    });
+  }
+}
+
+// Add debug logging for URL-related functions
+const originalFetchWithErrorHandling = stateManager.fetchWithErrorHandling;
+stateManager.fetchWithErrorHandling = function(url, options, retryCount) {
+  logger.debug("fetchWithErrorHandling called", {
+    url: url,
+    options: options ? JSON.stringify(options) : "undefined",
+    retryCount: retryCount
+  });
+  
+  if (!url) {
+    logger.error("fetchWithErrorHandling called with undefined URL", {
+      stack: new Error().stack
+    });
+    throw new Error("URL is undefined or empty");
+  }
+  
+  return originalFetchWithErrorHandling.call(this, url, options, retryCount);
+};
 
 // Direct function exports (like legacyrodit.js)
 function login_client(req, res) {
@@ -1068,7 +1121,4 @@ module.exports = {
   stateManager,
   roditManager,
   sessionManager,
-  
-  // Services
-  initializeServices,
 };
