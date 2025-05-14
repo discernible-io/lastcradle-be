@@ -1043,28 +1043,58 @@ const authenticate_webhook = (req, res, next) => instances.authMiddleware.authen
 // Export the instances and initialization function
 module.exports = {
   // Authentication functions
-  login_client: instances.authentication.login_client.bind(instances.authentication),
-  logout_client: instances.authentication.logout_client.bind(instances.authentication),
-  login_server: instances.authentication.login_server.bind(instances.authentication),
-  login_portal: instances.authentication.login_portal.bind(instances.authentication),
-  authenticate_apicall: instances.authMiddleware.authenticate_apicall.bind(instances.authMiddleware),
-  authenticate_webhook: instances.authMiddleware.authenticate_webhook.bind(instances.authMiddleware),
-  send_webhook: instances.authentication.send_webhook.bind(instances.authentication),
+  login_client: (req, res) => {
+    if (!instances.authentication) throw new Error("Authentication service not initialized");
+    return instances.authentication.login_client(req, res);
+  },
+  logout_client: (req, res) => {
+    if (!instances.authentication) throw new Error("Authentication service not initialized");
+    return instances.authentication.logout_client(req, res);
+  },
+  login_server: (own_rodit) => {
+    if (!instances.authentication) throw new Error("Authentication service not initialized");
+    return instances.authentication.login_server(own_rodit);
+  },
+  login_portal: (own_rodit, port) => {
+    if (!instances.authentication) throw new Error("Authentication service not initialized");
+    return instances.authentication.login_portal(own_rodit, port);
+  },
+  authenticate_apicall: (req, res, next) => {
+    if (!instances.authMiddleware) throw new Error("Authentication middleware not initialized");
+    return instances.authMiddleware.authenticate_apicall(req, res, next);
+  },
+  authenticate_webhook: (req, res, next) => {
+    if (!instances.authMiddleware) throw new Error("Authentication middleware not initialized");
+    return instances.authMiddleware.authenticate_webhook(req, res, next);
+  },
+  send_webhook: (event, data, isError, req) => {
+    if (!instances.authentication) throw new Error("Authentication service not initialized");
+    return instances.authentication.send_webhook(event, data, isError, req);
+  },
   
   // Blockchain service functions
-  nearorg_rpc_state: instances.blockchainService.nearorg_rpc_state.bind(instances.blockchainService),
-  nearorg_rpc_tokensfromaccountid: instances.blockchainService.nearorg_rpc_tokensfromaccountid.bind(instances.blockchainService),
+  nearorg_rpc_state: (id, accountId) => {
+    if (!instances.blockchainService) throw new Error("Blockchain service not initialized");
+    return instances.blockchainService.nearorg_rpc_state(id, accountId);
+  },
+  nearorg_rpc_tokensfromaccountid: (id, account_id) => {
+    if (!instances.blockchainService) throw new Error("Blockchain service not initialized");
+    return instances.blockchainService.nearorg_rpc_tokensfromaccountid(id, account_id);
+  },
   
   // Utility functions
-  fetchWithErrorHandling: instances.stateManager.fetchWithErrorHandling.bind(instances.stateManager),
+  fetchWithErrorHandling: (url, options, retryCount) => {
+    if (!instances.stateManager) throw new Error("State manager not initialized");
+    return instances.stateManager.fetchWithErrorHandling(url, options, retryCount);
+  },
   
   // Constants
   CONSTANTS,
   
-  // Singleton instances
-  stateManager: instances.stateManager,
-  roditManager: instances.roditManager,
-  sessionManager: instances.sessionManager,
+  // Singleton instances - these will be available after initialization
+  get stateManager() { return instances.stateManager; },
+  get roditManager() { return instances.roditManager; },
+  get sessionManager() { return instances.sessionManager; },
   
   // Services
   initializeServices,
