@@ -73,7 +73,7 @@ class AuthStateManager {
     this.configOwnRodit = null;
     this.ownBase64urlJwkPublicKey = null;
     this.peerBase64urlJwkPublicKey = null;
-    this.currentToken = null;
+    this.signportalJwtToken = null;
     this.jwtToken = null;
     
     // Store this instance
