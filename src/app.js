@@ -170,7 +170,7 @@ async function startServer() {
     }
 
     // Start the server
-    const port = process.env.PORT || 3000;
+    const port = process.env.PORT || 8080;
     server = app.listen(port, () => {
       logger.infoWithContext("Server started", {
         port: port,
