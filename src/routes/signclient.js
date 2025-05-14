@@ -35,7 +35,7 @@ async function signPortalRodit(
     port
   );
 
-  const current_jwt_token = stateManager.getJwtToken();
+  const signportalJwtToken = stateManager.getSignPortalJwtToken();
   const requestBody = {
     tamperproofedValues,
     mintingfee,
@@ -49,8 +49,8 @@ async function signPortalRodit(
     "X-Request-ID": requestId,
   };
 
-  if (current_jwt_token) {
-    headers["Authorization"] = `Bearer ${current_jwt_token}`;
+  if (signportalJwtToken) {
+    headers["Authorization"] = `Bearer ${signportalJwtToken}`;
   }
 
   // Enhanced logging with structured context
@@ -59,7 +59,7 @@ async function signPortalRodit(
     url: fetchUrl,
     headers,
     bodySize: JSON.stringify(requestBody).length,
-    hasToken: !!current_jwt_token
+    hasToken: !!signportalJwtToken
   };
   
   logger.infoWithContext("Preparing SignPortal API call", apiCallContext);
@@ -71,7 +71,7 @@ async function signPortalRodit(
   });
 
   try {
-    const result = await stateManager.fetchWithErrorHandling(fetchUrl, {
+    const result = await fetchWithErrorHandling(fetchUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),
@@ -168,10 +168,10 @@ router.post("/signclient", async (req, res) => {
     const jwtContext = {
       ...baseContext,
       portalPort,
-      hasExistingToken: !!stateManager.getJwtToken()
+      hasExistingToken: !!stateManager.getSignPortalJwtToken()
     };
     
-    if (!stateManager.getJwtToken()) {
+    if (!stateManager.getSignPortalJwtToken()) {
       logger.infoWithContext("Authenticating with SignPortal", jwtContext);
 
       // Make this configurable if needed
@@ -182,7 +182,7 @@ router.post("/signclient", async (req, res) => {
         throw new Error("Failed to obtain JWT token from SignPortal");
       }
 
-      await stateManager.setJwtToken(loginResult.jwt_token);
+      await stateManager.setSignPortalJwtToken(loginResult.jwt_token);
       logger.infoWithContext("Successfully authenticated with SignPortal", jwtContext);
     }
 
