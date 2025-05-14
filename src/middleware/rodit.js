@@ -644,7 +644,7 @@ class RoditManager {
       });
 
       const accountState = await this.blockchainService.nearorg_rpc_state(
-        CONSTANTS.SMART_CONTRACT,
+        
         account_id
       );
 
@@ -669,6 +669,7 @@ class RoditManager {
       logger.debug("Fetching RODiT tokens for account", {
         component: "RoditManager",
         method: "initializeRoditConfig",
+        constants: CONSTANTS.SMART_CONTRACT,
         requestId,
         accountId: account_id,
         step: "tokenFetch",
@@ -676,7 +677,7 @@ class RoditManager {
 
       const own_rodit =
         await this.blockchainService.nearorg_rpc_tokensfromaccountid(
-          CONSTANTS.SMART_CONTRACT,
+          
           account_id
         );
 

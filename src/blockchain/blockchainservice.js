@@ -340,11 +340,10 @@ class BlockchainService {
   /**
    * Checks account state on the blockchain
    * 
-   * @param {string} id - Smart contract ID
    * @param {string} accountId - Account ID to check
    * @returns {Promise<boolean>} Whether the account exists
    */
-  async nearorg_rpc_state(id, accountId) {
+  async nearorg_rpc_state(accountId) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -359,7 +358,7 @@ class BlockchainService {
     try {
       const jsonData = {
         jsonrpc: "2.0",
-        id: id,
+        id: CONSTANTS.SMART_CONTRACT,
         method: "query",
         params: {
           request_type: "view_account",
@@ -461,11 +460,10 @@ class BlockchainService {
   /**
    * Fetches RODiT tokens for an account
    * 
-   * @param {string} id - Smart contract ID
    * @param {string} account_id - Account ID to fetch tokens for
    * @returns {Promise<RODiT>} First RODiT token for the account
    */
-  async nearorg_rpc_tokensfromaccountid(id, account_id) {
+  async nearorg_rpc_tokensfromaccountid(account_id) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -486,7 +484,7 @@ class BlockchainService {
 
       const jsonData = {
         jsonrpc: "2.0",
-        id: id,
+        id: CONSTANTS.SMART_CONTRACT,
         method: "query",
         params: {
           request_type: "call_function",

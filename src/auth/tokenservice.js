@@ -1193,7 +1193,7 @@ class TokenService {
       const tokenFetchStart = Date.now();
       const peer_rodit =
         await this.blockchainService.nearorg_rpc_tokensfromaccountid(
-          CONSTANTS.SMART_CONTRACT,
+          
           token.aud
         );
       const tokenFetchDuration = Date.now() - tokenFetchStart;
