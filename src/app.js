@@ -6,12 +6,11 @@ const loggingmw = require("./middleware/loggingmw");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 const {
+  roditManager,
+  stateManager,
   login_client,
   authenticate_apicall,
 } = require("./middleware/rodit");
-const {
-  stateManager
-} = require("./middleware/rodit");  
 
 const options = {
   definition: {
