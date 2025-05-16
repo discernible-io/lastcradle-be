@@ -14,7 +14,7 @@ const borsh = require("borsh");
 nacl.util = require("tweetnacl-util");
 const { decodeUTF8 } = require("tweetnacl-util");
 const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
-const {generate_jwt_token} = require("../auth/tokenservice");
+const {generate_jwt_token,base64url2jwk_public_key} = require("../auth/tokenservice");
 const sessionManager = require('../auth/sessionmanager');
 const { Resolver } = require("dns").promises;
 const {
