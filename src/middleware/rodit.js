@@ -38,6 +38,13 @@ const {
   PayloadNEP413Schema,
   CONSTANTS,
 } = require("../blockchain/blockchainservice");
+const { generate_jwt_token,base64url2jwk_public_key,
+  checkandrenew_jwt_token,
+  thorough_validate_jwt_token_be,
+  brief_validate_jwt_token_be,
+  generate_jwt_token_fromtoken,
+  verify_jwt_token
+} = require("../auth/tokenservice");s
 
 const API_OPTIONS = config.get("API_OPTIONS");
 const SERVERPORT = config.get("SERVERPORT");
