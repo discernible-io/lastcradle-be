@@ -8,19 +8,9 @@ const logger = require("../../config/logger");
 const nacl = require("tweetnacl");
 const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
 const config = require("config");
+const {CONSTANTS
+} = require("../blockchain/blockchainservice");
 
-/**
- * Constants and Configuration
- */
-const CONSTANTS = {
-  SMART_CONTRACT: config.get("APISERVICEOPTIONS.scaccountid"),
-  SMART_CONTRACT_REVOKED: "10975-revoked-cableguard-org.testnet",
-  BLOCKCHAIN_NETWORK: config.get("NEAR_NETWORK_ID"),
-  RODIT_ID_SZ: 128,
-  RODIT_ID_PK_SZ: 32,
-  RODIT_ID_SIGNATURE_SZ: 64,
-  ED25519_KEY_SZ: 64,
-};
 class Authentication {
   constructor() {
     this.initialized = false;

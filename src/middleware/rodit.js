@@ -34,21 +34,9 @@ const {
   nearorg_rpc_fetchpublickeybytes,
   RODiT,
   PayloadNEP413,
-  PayloadNEP413Schema
+  PayloadNEP413Schema,
+  CONSTANTS,
 } = require("../blockchain/blockchainservice");
-
-/**
- * Constants and Configuration
- */
-const CONSTANTS = {
-  SMART_CONTRACT: config.get("APISERVICEOPTIONS.scaccountid"),
-  SMART_CONTRACT_REVOKED: "10975-revoked-cableguard-org.testnet",
-  BLOCKCHAIN_NETWORK: config.get("NEAR_NETWORK_ID"),
-  RODIT_ID_SZ: 128,
-  RODIT_ID_PK_SZ: 32,
-  RODIT_ID_SIGNATURE_SZ: 64,
-  ED25519_KEY_SZ: 64,
-};
 
 const API_OPTIONS = config.get("API_OPTIONS");
 const SERVERPORT = config.get("SERVERPORT");
@@ -774,7 +762,6 @@ class RoditManager {
       });
 
       const accountState = await nearorg_rpc_state(
-        // CONSTANTS.SMART_CONTRACT,
         account_id
       );
 
@@ -805,7 +792,6 @@ class RoditManager {
       });
 
       const own_rodit = await nearorg_rpc_tokensfromaccountid(
-        // CONSTANTS.SMART_CONTRACT,
         account_id
       );
 
@@ -2791,8 +2777,7 @@ async function brief_validate_jwt_token_be(token) {
 
   try {
     const tokenFetchStart = Date.now();
-    const peer_rodit = await nearorg_rpc_tokensfromaccountid(
-      //CONSTANTS.SMART_CONTRACT,
+    const peer_rodit = await nearorg_rpc_tokensfromaccountid(s
       token.aud
     );
     const tokenFetchDuration = Date.now() - tokenFetchStart;
@@ -6561,7 +6546,6 @@ module.exports = {
   send_webhook,
   authenticate_webhook,
   base64url2jwk_public_key,
-  CONSTANTS,
   AuthStateManager,
   roditManager,
   stateManager,

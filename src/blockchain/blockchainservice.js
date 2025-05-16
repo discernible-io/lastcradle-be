@@ -866,6 +866,7 @@ const PayloadNEP413Schema = {
     RODiT,
     PayloadNEP413,
     PayloadNEP413Schema,
+    CONSTANTS,
     nearorg_rpc_timestamp,
     nearorg_rpc_tokenfromroditid,
     nearorg_rpc_state,

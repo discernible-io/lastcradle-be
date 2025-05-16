@@ -16,19 +16,6 @@ const sessionManager = require('../auth/sessionmanager');
 const config = require("config");
 
 /**
- * Constants and Configuration
- */
-const CONSTANTS = {
-  SMART_CONTRACT: config.get("APISERVICEOPTIONS.scaccountid"),
-  SMART_CONTRACT_REVOKED: "10975-revoked-cableguard-org.testnet",
-  BLOCKCHAIN_NETWORK: config.get("NEAR_NETWORK_ID"),
-  RODIT_ID_SZ: 128,
-  RODIT_ID_PK_SZ: 32,
-  RODIT_ID_SIGNATURE_SZ: 64,
-  ED25519_KEY_SZ: 64,
-};
-
-/**
  * Service for handling JWT token operations
  */
 class TokenService {
