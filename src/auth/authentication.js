@@ -1325,7 +1325,7 @@ class Authentication {
       });
 
       const peer_bytes_ed25519_public_key =
-        await this.blockchainService.nearorg_rpc_fetchpublickeybytes(
+        await nearorg_rpc_fetchpublickeybytes(
           peer_rodit.owner_id
         );
 
@@ -2102,7 +2102,7 @@ class Authentication {
 
       const tokenFetchStart = Date.now();
       let peer_rodit =
-        await this.blockchainService.nearorg_rpc_tokenfromroditid(message);
+        await nearorg_rpc_tokenfromroditid(message);
       const tokenFetchDuration = Date.now() - tokenFetchStart;
 
       logger.debug("Peer RODiT retrieved", {
@@ -2295,7 +2295,7 @@ class Authentication {
     try {
       const rpcStart = Date.now();
       const stringtimenow =
-        await this.blockchainService.nearorg_rpc_timestamp();
+        await nearorg_rpc_timestamp();
       const rpcDuration = Date.now() - rpcStart;
 
       logger.debug("Retrieved blockchain timestamp", {
@@ -2443,7 +2443,7 @@ class Authentication {
 
       const tokenFetchStart = Date.now();
       const peer_rodit =
-        await this.blockchainService.nearorg_rpc_tokenfromroditid(peerroditid);
+        await nearorg_rpc_tokenfromroditid(peerroditid);
       const tokenFetchDuration = Date.now() - tokenFetchStart;
 
       logger.debug("Received peer RODiT from blockchain", {
@@ -2817,7 +2817,7 @@ class Authentication {
 
         const tokenFetchStart = Date.now();
         const signing_rodit =
-          await this.blockchainService.nearorg_rpc_tokenfromroditid(
+          await nearorg_rpc_tokenfromroditid(
             signing_token_id
           );
         const tokenFetchDuration = Date.now() - tokenFetchStart;

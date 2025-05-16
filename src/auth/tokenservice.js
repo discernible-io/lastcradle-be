@@ -970,7 +970,7 @@ class TokenService {
         roditId: unverifiedpayload?.rodit_id,
       });
   
-      const sp_rodit = await this.blockchainService.nearorg_rpc_tokenfromroditid(
+      const sp_rodit = await nearorg_rpc_tokenfromroditid(
         unverifiedpayload.rodit_id
       );
   
@@ -980,7 +980,7 @@ class TokenService {
         spOwnerId: sp_rodit?.owner_id,
       });
   
-      const publicKeyBytes = await this.blockchainService.nearorg_rpc_fetchpublickeybytes(
+      const publicKeyBytes = await nearorg_rpc_fetchpublickeybytes(
         sp_rodit.owner_id
       );
   
@@ -1018,7 +1018,7 @@ class TokenService {
         payload,
         requestId
       );
-      const peer_rodit = await this.blockchainService.nearorg_rpc_tokenfromroditid(payload.aud);
+      const peer_rodit = await nearorg_rpc_tokenfromroditid(payload.aud);
       const goodrodit = validationResult.isValid;
   
       logger.debug("Verified peer RODiT", {
@@ -1192,7 +1192,7 @@ class TokenService {
     try {
       const tokenFetchStart = Date.now();
       const peer_rodit =
-        await this.blockchainService.nearorg_rpc_tokensfromaccountid(
+        await nearorg_rpc_tokensfromaccountid(
           
           token.aud
         );
@@ -1330,7 +1330,7 @@ class TokenService {
       // Fetch peer RODiT with clearer logging
       const tokenFetchStart = performance.now();
       const peer_rodit =
-        await this.blockchainService.nearorg_rpc_tokenfromroditid(token.aud);
+        await nearorg_rpc_tokenfromroditid(token.aud);
       const tokenFetchDuration = performance.now() - tokenFetchStart;
 
       logger.debug("Retrieved peer RODiT from blockchain", {
