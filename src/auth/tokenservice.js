@@ -13,7 +13,6 @@ const {
   unixTimeToDateString
 } = require("../utils");
 const sessionManager = require('../auth/sessionmanager');
-const config = require("config");
 
   /**
    * Converts a base64url string to a JWK public key
@@ -1708,4 +1707,4 @@ const config = require("config");
 
 
 // Export the class directly (will be instantiated in rodit.js)
-module.exports = {generate_jwt_token};
+module.exports = {generate_jwt_token,base64url2jwk_public_key};

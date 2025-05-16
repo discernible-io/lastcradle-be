@@ -4761,7 +4761,6 @@ module.exports = {
   authenticate_apicall,
   send_webhook,
   authenticate_webhook,
-  base64url2jwk_public_key,
   AuthStateManager,
   roditManager,
   stateManager,
