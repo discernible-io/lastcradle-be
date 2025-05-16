@@ -53,7 +53,6 @@ const CONSTANTS = {
 const API_OPTIONS = config.get("API_OPTIONS");
 const SERVERPORT = config.get("SERVERPORT");
 const API_PROTOCOL = config.get("API_PROTOCOL");
-const NEAR_RPC_URL = config.get("NEAR_RPC_URL");
 const tokenrenewaloptions = API_OPTIONS.TOKENRENEWALOPTIONS;
 
 /**

@@ -20,7 +20,7 @@ const CONSTANTS = {
   ED25519_KEY_SZ: 64,
 };
 
-
+const NEAR_RPC_URL = config.get("NEAR_RPC_URL");
 /**
  * Data models for RODiT authentication
  * Copyright (c) 2024 Cableguard, Inc. All rights reserved.
