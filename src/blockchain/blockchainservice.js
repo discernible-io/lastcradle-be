@@ -562,7 +562,7 @@ const PayloadNEP413Schema = {
         params: {
           request_type: "call_function",
           finality: "final",
-          account_id: id,
+          account_id: CONSTANTS.SMART_CONTRACT,
           method_name: "rodit_tokens_for_owner",
           args_base64: Buffer.from(args).toString("base64"),
         },
