@@ -111,7 +111,7 @@ const PayloadNEP413Schema = {
       component: "BlockchainService",
       method: "nearorg_rpc_timestamp",
       requestId,
-      rpcUrl: this.NEAR_RPC_URL,
+      rpcUrl: NEAR_RPC_URL,
     });
 
     try {
@@ -125,7 +125,7 @@ const PayloadNEP413Schema = {
       };
 
       const fetchStartTime = Date.now();
-      const response = await fetch(this.NEAR_RPC_URL, {
+      const response = await fetch(NEAR_RPC_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -214,7 +214,7 @@ const PayloadNEP413Schema = {
         method: "nearorg_rpc_timestamp",
         requestId,
         duration,
-        rpcUrl: this.NEAR_RPC_URL,
+        rpcUrl: NEAR_RPC_URL,
         error: {
           message: error.message,
           stack: error.stack,
@@ -266,7 +266,7 @@ const PayloadNEP413Schema = {
       };
 
       const fetchStartTime = Date.now();
-      const response = await fetch(this.NEAR_RPC_URL, {
+      const response = await fetch(NEAR_RPC_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(json_data),
@@ -447,7 +447,7 @@ const PayloadNEP413Schema = {
         rpcMethod: "view_account",
       });
 
-      const response = await fetch(this.NEAR_RPC_URL, {
+      const response = await fetch(NEAR_RPC_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -575,7 +575,7 @@ const PayloadNEP413Schema = {
         rpcMethod: "rodit_tokens_for_owner",
       });
 
-      const response = await fetch(this.NEAR_RPC_URL, {
+      const response = await fetch(NEAR_RPC_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(jsonData),
