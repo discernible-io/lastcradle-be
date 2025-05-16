@@ -1708,4 +1708,4 @@ const config = require("config");
 
 
 // Export the class directly (will be instantiated in rodit.js)
-module.exports = TokenService;
+module.exports = {generate_jwt_token};

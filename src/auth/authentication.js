@@ -10,6 +10,7 @@ const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
 const config = require("config");
 const {CONSTANTS
 } = require("../blockchain/blockchainservice");
+const {generate_jwt_token} = require("../auth/tokenservice");
 
 class Authentication {
   constructor() {
