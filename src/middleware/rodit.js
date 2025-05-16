@@ -2777,7 +2777,7 @@ async function brief_validate_jwt_token_be(token) {
 
   try {
     const tokenFetchStart = Date.now();
-    const peer_rodit = await nearorg_rpc_tokensfromaccountid(s
+    const peer_rodit = await nearorg_rpc_tokensfromaccountid(
       token.aud
     );
     const tokenFetchDuration = Date.now() - tokenFetchStart;
