@@ -7772,6 +7772,5 @@ module.exports = {
   AuthStateManager,
   roditManager,
   stateManager,
-  logServerBufferState,
-  fetchWithErrorHandling,
+  logServerBufferState
 };

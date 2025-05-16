@@ -8,7 +8,6 @@ const {
   stateManager,
   login_portal,
   send_webhook,
-  fetchWithErrorHandling,
 } = require("../middleware/rodit");
 
 async function signPortalRodit(
@@ -71,7 +70,7 @@ async function signPortalRodit(
   });
 
   try {
-    const result = await fetchWithErrorHandling(fetchUrl, {
+    const result = await stateManager.fetchWithErrorHandling(fetchUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),
