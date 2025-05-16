@@ -1712,5 +1712,5 @@ module.exports = {generate_jwt_token,base64url2jwk_public_key,
   thorough_validate_jwt_token_be,
   brief_validate_jwt_token_be,
   generate_jwt_token_fromtoken,
-  verify_jwt_token
+  verify_jwt_token,validate_jwt_token_be
 };

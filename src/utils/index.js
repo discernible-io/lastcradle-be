@@ -311,6 +311,94 @@ function calculateCanonicalHash(variable) {
   }
 }
 
+function hex2base64url(hexString) {
+  const startTime = Date.now();
+  const requestId = ulid();
+
+  logger.debug("Converting hex to base64url", {
+    component: "Transformer",
+    method: "hex2base64url",
+    requestId,
+    hexLength: hexString.length,
+  });
+
+  try {
+    // Step 1: Convert hex to Uint8Array
+    const bytes = new Uint8Array(
+      hexString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+    );
+
+    logger.debug("Converted hex to bytes", {
+      component: "Transformer",
+      method: "hex2base64url",
+      requestId,
+      bytesLength: bytes.length,
+    });
+
+    // Step 2: Convert Uint8Array to base64
+    const base64 = btoa(String.fromCharCode.apply(null, bytes));
+
+    logger.debug("Converted bytes to base64", {
+      component: "Transformer",
+      method: "hex2base64url",
+      requestId,
+      base64Length: base64.length,
+    });
+
+    // Step 3: Convert base64 to base64url
+    const base64url = base64
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    const duration = Date.now() - startTime;
+    logger.debug("Conversion to base64url complete", {
+      component: "Transformer",
+      method: "hex2base64url",
+      requestId,
+      duration,
+      base64urlLength: base64url.length,
+    });
+
+    // Emit metrics for Grafana dashboards if operation took significant time or was on large input
+    if (duration > 20 || hexString.length > 500) {
+      logger.metric("hex_to_base64url_duration_ms", duration, {
+        component: "Transformer",
+        hexLength: hexString.length,
+      });
+    }
+
+    return base64url;
+  } catch (error) {
+    const duration = Date.now() - startTime;
+
+    logger.error("Hex to base64url conversion failed", {
+      component: "Transformer",
+      method: "hex2base64url",
+      requestId,
+      duration,
+      errorMessage: error.message,
+      stack: error.stack,
+      hexPreview:
+        hexString.substring(0, 30) + (hexString.length > 30 ? "..." : ""),
+    });
+
+    // Emit metrics for Grafana dashboards
+    logger.metric("hex_to_base64url_duration_ms", duration, {
+      component: "Transformer",
+      success: false,
+      error: error.constructor.name,
+    });
+    logger.metric("hex_to_base64url_errors_total", 1, {
+      component: "Transformer",
+      errorType: error.constructor.name,
+    });
+
+    throw error;
+  }
+}
+
+
 module.exports = {
   debugWithType,
   logServerBufferState,
@@ -321,4 +409,5 @@ module.exports = {
   base64ToBase64Url,
   canonicalizeObject,
   calculateCanonicalHash,
+  hex2base64url,
 };

@@ -7,59 +7,10 @@ const { ulid } = require("ulid");
 const logger = require("../../config/logger");
 const nacl = require("tweetnacl");
 const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
-const config = require("config");
 const {CONSTANTS
 } = require("../blockchain/blockchainservice");
 const {generate_jwt_token} = require("../auth/tokenservice");
 
-class Authentication {
-  constructor() {
-    this.initialized = false;
-    this.stateManager = null;
-    this.tokenService = null;
-    this.blockchainService = null;
-  }
-
-  /**
-   * Initialize the Authentication service with required dependencies
-   * @param {Object} dependencies - Object containing required dependencies
-   * @returns {Promise<void>}
-   */
-  async initialize(dependencies) {
-    if (this.initialized) {
-      logger.debug("Authentication service already initialized");
-      return;
-    }
-
-    try {
-      logger.debug("Initializing Authentication service...");
-
-      // Set dependencies from the provided object
-      this.stateManager = dependencies.stateManager;
-      this.tokenService = dependencies.tokenService;
-      this.blockchainService = dependencies.blockchainService;
-
-      if (!this.stateManager || !this.tokenService || !this.blockchainService) {
-        throw new Error(
-          "Missing required dependencies for Authentication service"
-        );
-      }
-
-      // Initialize token service if needed
-      if (this.tokenService.initialize) {
-        await this.tokenService.initialize(dependencies);
-      }
-
-      this.initialized = true;
-      logger.info("Authentication service initialized successfully");
-    } catch (error) {
-      logger.error("Failed to initialize Authentication service", {
-        error: error.message,
-        stack: error.stack,
-      });
-      throw error;
-    }
-  }
 
   /**
    * Handle client logout
@@ -68,7 +19,7 @@ class Authentication {
    * @param {Object} res - Express response object
    * @returns {Object} Response object
    */
-  async logout_client(req, res) {
+ async function logout_client(req, res) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -313,7 +264,7 @@ class Authentication {
    * @param {Object} res - Express response object
    * @returns {Object} Response with JWT token or error
    */
-  async login_client(req, res) {
+ async function login_client(req, res) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -553,7 +504,7 @@ class Authentication {
    * @param {Object} config_own_rodit - Own RODiT configuration
    * @returns {Object} Response with JWT token or error
    */
-  async login_client_withnep413(req, res, config_own_rodit = null) {
+ async function login_client_withnep413(req, res, config_own_rodit = null) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -721,7 +672,7 @@ class Authentication {
    * @param {Object} own_rodit - Own RODiT object
    * @returns {Promise<Object>} Login result
    */
-  async login_portal(own_rodit, port) {
+ async function login_portal(own_rodit, port) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -1033,7 +984,7 @@ class Authentication {
    * @param {Object} own_rodit - Own RODiT object
    * @returns {Promise<Object>} Login result
    */
-  async login_server(own_rodit) {
+ async function login_server(own_rodit) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -1274,7 +1225,7 @@ class Authentication {
     }
   }
 
-  async verify_rodit_ownership(
+ async function verify_rodit_ownership(
     peerroditid,
     peertimestamp,
     peerroditid_base64url_signature,
@@ -1398,7 +1349,7 @@ class Authentication {
     }
   }
 
-  async verify_rodit_ownership_withnep413(
+ async function verify_rodit_ownership_withnep413(
     message,
     nonce,
     recipient,
@@ -1486,7 +1437,7 @@ class Authentication {
    * @param {Object} req - Express request object (optional)
    * @returns {Promise<Object>} Webhook delivery result
    */
-  async send_webhook(event, data, isError = false, req = null) {
+ async function send_webhook(event, data, isError = false, req = null) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -1833,7 +1784,7 @@ class Authentication {
    * @param {string} peer_rodit_owner_id - RODiT owner ID
    * @returns {Promise<Object>} Authentication result
    */
-  async authenticate_webhook(
+ async function authenticate_webhook(
     payload,
     signature_hex_ofpayload,
     timestamp,
@@ -2047,7 +1998,7 @@ class Authentication {
    * @param {Object} own_rodit - Own RODiT object
    * @returns {Promise<Object>} Validation result
    */
-  async validate_jwt_token_be(token, own_rodit) {
+ async function validate_jwt_token_be(token, own_rodit) {
     // This would be implemented in the Authentication class
     // For now, it delegates to the TokenService
     return this.tokenService.validate_jwt_token_be(token, own_rodit);
@@ -2062,7 +2013,7 @@ class Authentication {
    * @param {Object} own_rodit - Own RODiT object
    * @returns {Promise<Object>} Verification result with peer RODiT
    */
-  async verify_peerrodit_getrodit_withnep413(
+ async function verify_peerrodit_getrodit_withnep413(
     message,
     nonce,
     recipient,
@@ -2254,7 +2205,7 @@ class Authentication {
     }
   }
 
-  async verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
+ async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -2406,7 +2357,7 @@ class Authentication {
       return false;
     }
   }
-  async verify_peerrodit_getrodit(
+ async function verify_peerrodit_getrodit(
     peerroditid,
     peertimestamp,
     peerroditid_base64url_signature,
@@ -2723,7 +2674,7 @@ class Authentication {
     }
   }
 
-  async verify_rodit_isamatch(own_service_provider_id, peer_rodit) {
+ async function verify_rodit_isamatch(own_service_provider_id, peer_rodit) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -3005,7 +2956,7 @@ class Authentication {
     }
   }
 
-  async verify_rodit_isactive(tokenId, ownsubjectuniqueidentifier_url) {
+ async function verify_rodit_isactive(tokenId, ownsubjectuniqueidentifier_url) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -3118,7 +3069,7 @@ class Authentication {
     }
   }
 
-  async verify_rodit_istrusted_issuingsmartcontract(
+ async function verify_rodit_istrusted_issuingsmartcontract(
     ownsubjectuniqueidentifier_url
   ) {
     const requestId = ulid();
@@ -3290,7 +3241,7 @@ class Authentication {
     }
   }
 
-  async authenticate_apicall(req, res, next) {
+ async function authenticate_apicall(req, res, next) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -3345,7 +3296,7 @@ class Authentication {
       });
     }
   }
-}
+
 
 // Export the class directly (will be instantiated in rodit.js)
 module.exports = Authentication;
