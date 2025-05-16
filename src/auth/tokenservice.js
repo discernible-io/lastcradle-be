@@ -15,61 +15,13 @@ const {
 const sessionManager = require('../auth/sessionmanager');
 const config = require("config");
 
-/**
- * Service for handling JWT token operations
- */
-class TokenService {
-  constructor() {
-    this.initialized = false;
-    this.blockchainService = null;
-    this.stateManager = null;
-  }
-
-  /**
-   * Initialize the TokenService with required dependencies
-   * @param {Object} dependencies - Object containing required dependencies
-   * @returns {Promise<void>}
-   */
-  async initialize(dependencies) {
-    if (this.initialized) {
-      logger.debug('TokenService already initialized');
-      return;
-    }
-
-    try {
-      logger.debug('Initializing TokenService...');
-      
-      // Set dependencies from the provided object
-      this.blockchainService = dependencies.blockchainService;
-      this.stateManager = dependencies.stateManager;
-      
-      if (!this.blockchainService || !this.stateManager) {
-        throw new Error('Missing required dependencies for TokenService');
-      }
-      
-      // Initialize blockchain service if needed
-      if (this.blockchainService.initialize) {
-        await this.blockchainService.initialize();
-      }
-      
-      this.initialized = true;
-      logger.info('TokenService initialized successfully');
-    } catch (error) {
-      logger.error('Failed to initialize TokenService', {
-        error: error.message,
-        stack: error.stack
-      });
-      throw error;
-    }
-  }
-
   /**
    * Converts a base64url string to a JWK public key
    *
    * @param {string} base64url_public_key - Base64url encoded public key
    * @returns {Promise<Object>} JWK public key object
    */
-  async base64url2jwk_public_key(base64url_public_key) {
+  async function base64url2jwk_public_key(base64url_public_key) {
     const startTime = Date.now();
     const requestId = ulid();
 
@@ -152,12 +104,12 @@ class TokenService {
    * @param {string} requestId - Request ID for tracking
    * @returns {Promise<Object>} Verification result with payload
    */
-  async verifyToken(token, jwk_public_key, timestamp, requestId) {
+  async function verify_jwt_token(token, jwk_public_key, timestamp, requestId) {
     const startTime = Date.now();
 
     logger.debug("Starting token verification", {
       component: "TokenVerifier",
-      method: "verifyToken",
+      method: "verify_jwt_token",
       requestId,
       hasTimestamp: !!timestamp,
     });
@@ -183,7 +135,7 @@ class TokenService {
 
       logger.debug("Token verified successfully", {
         component: "TokenVerifier",
-        method: "verifyToken",
+        method: "verify_jwt_token",
         requestId,
         duration,
         subject: result.payload.sub,
@@ -212,7 +164,7 @@ class TokenService {
       if (jwtError.code === "ERR_JWT_EXPIRED") {
         logger.warn("Token expired, attempting renewal", {
           component: "TokenVerifier",
-          method: "verifyToken",
+          method: "verify_jwt_token",
           requestId,
           duration,
           errorCode: jwtError.code,
@@ -249,7 +201,7 @@ class TokenService {
 
           logger.debug("Validating expired token for renewal", {
             component: "TokenVerifier",
-            method: "verifyToken",
+            method: "verify_jwt_token",
             requestId,
             subject: unverifiedpayload.sub,
             tokenId: unverifiedpayload.jti || "unknown",
@@ -266,7 +218,7 @@ class TokenService {
           if (isValid) {
             logger.info("Generating new token for expired but valid token", {
               component: "TokenVerifier",
-              method: "verifyToken",
+              method: "verify_jwt_token",
               requestId,
               subject: unverifiedpayload.sub,
               notAfter: notAfter,
@@ -285,7 +237,7 @@ class TokenService {
             const renewalDuration = Date.now() - renewalStartTime;
             logger.debug("Successfully generated renewal token", {
               component: "TokenVerifier",
-              method: "verifyToken",
+              method: "verify_jwt_token",
               requestId,
               renewalDuration,
               totalDuration: Date.now() - startTime,
@@ -315,7 +267,7 @@ class TokenService {
           const renewalDuration = Date.now() - renewalStartTime;
           logger.error("Token renewal failed - invalid token", {
             component: "TokenVerifier",
-            method: "verifyToken",
+            method: "verify_jwt_token",
             requestId,
             renewalDuration,
             totalDuration: Date.now() - startTime,
@@ -336,7 +288,7 @@ class TokenService {
         } catch (renewalError) {
           logger.error("Error during token renewal process", {
             component: "TokenVerifier",
-            method: "verifyToken",
+            method: "verify_jwt_token",
             requestId,
             duration: Date.now() - startTime,
             errorMessage: renewalError.message,
@@ -354,7 +306,7 @@ class TokenService {
         // Handle other JWT errors
         logger.error("JWT verification error", {
           component: "TokenVerifier",
-          method: "verifyToken",
+          method: "verify_jwt_token",
           requestId,
           duration,
           errorCode: jwtError.code || "UNKNOWN_ERROR",
@@ -389,7 +341,7 @@ class TokenService {
    * @param {string} session_status - Session status
    * @returns {Promise<string>} Generated JWT token
    */
-  async generate_jwt_token(
+  async function generate_jwt_token(
     peer_rodit,
     peer_timestamp,
     own_rodit,
@@ -675,7 +627,7 @@ class TokenService {
    * @param {string} verification_level - Verification level used
    * @returns {Promise<string>} New JWT token
    */
-  async generate_jwt_token_fromtoken(
+  async function generate_jwt_token_fromtoken(
     token,
     duration,
     notafter,
@@ -933,7 +885,7 @@ class TokenService {
   }
 
 
-  async validate_jwt_token_be(token, own_rodit) {
+  async function validate_jwt_token_be(token, own_rodit) {
     const requestId = ulid();
     const startTime = Date.now();
   
@@ -1107,7 +1059,7 @@ class TokenService {
         };
   
         // Check if token needs renewal
-        const { newToken } = await this.checkAndRenewToken(payload, Math.floor(Date.now() / 1000), requestId);
+        const { newToken } = await this.checkandrenew_jwt_token(payload, Math.floor(Date.now() / 1000), requestId);
   
         return { 
           payload, 
@@ -1164,7 +1116,7 @@ class TokenService {
    * @param {Object} token - Token payload
    * @returns {Promise<Object>} Validation result
    */
-  async brief_validate_jwt_token_be(token) {
+  async function brief_validate_jwt_token_be(token) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -1290,7 +1242,7 @@ class TokenService {
    * @param {string} requestId - Request ID for tracking
    * @returns {Promise<Object>} Validation result
    */
-  async thorough_validate_jwt_token_be(token, requestId) {
+  async function thorough_validate_jwt_token_be(token, requestId) {
     const startTime = performance.now(); // More precise timing measurement
 
     logger.debug("Starting thorough JWT token validation", {
@@ -1500,7 +1452,7 @@ class TokenService {
    * @param {string} requestId - Request ID for tracking
    * @returns {Promise<Object>} Renewal result with new token if renewed
    */
-  async checkAndRenewToken(payload, timestamp, requestId) {
+  async function checkandrenew_jwt_token(payload, timestamp, requestId) {
     const startTime = Date.now();
     const config_own_rodit = await this.stateManager.getConfigOwnRodit();
 
@@ -1536,7 +1488,7 @@ class TokenService {
 
     logger.debug("Checking token for proactive renewal", {
       component: "TokenRenewalService",
-      method: "checkAndRenewToken",
+      method: "checkandrenew_jwt_token",
       requestId,
       timeLeftPercent: durationLeftpct.toFixed(1),
       timeLeftSeconds: timeLeft,
@@ -1551,7 +1503,7 @@ class TokenService {
     ) {
       logger.debug("Token has sufficient lifetime remaining", {
         component: "TokenRenewalService",
-        method: "checkAndRenewToken",
+        method: "checkandrenew_jwt_token",
         requestId,
         timeLeftPercent: durationLeftpct.toFixed(1),
         renewThreshold: (
@@ -1576,7 +1528,7 @@ class TokenService {
     // Token needs renewal
     logger.info("Token eligible for proactive renewal", {
       component: "TokenRenewalService",
-      method: "checkAndRenewToken",
+      method: "checkandrenew_jwt_token",
       requestId,
       timeLeftPercent: durationLeftpct.toFixed(1),
       renewThreshold: (
@@ -1600,7 +1552,7 @@ class TokenService {
 
     logger.debug("Validation strategy decision", {
       component: "TokenRenewalService",
-      method: "checkAndRenewToken",
+      method: "checkandrenew_jwt_token",
       requestId,
       randomValue: randomNumber,
       threshold: THRESHOLD_VALIDATION_TYPE,
@@ -1624,7 +1576,7 @@ class TokenService {
       if (shouldDoFullVerification) {
         logger.debug("Performing thorough token verification", {
           component: "TokenRenewalService",
-          method: "checkAndRenewToken",
+          method: "checkandrenew_jwt_token",
           requestId,
           reason:
             randomNumber < THRESHOLD_VALIDATION_TYPE
@@ -1651,7 +1603,7 @@ class TokenService {
         // Light verification path
         logger.debug("Performing brief token verification", {
           component: "TokenRenewalService",
-          method: "checkAndRenewToken",
+          method: "checkandrenew_jwt_token",
           requestId,
           verificationLevel: "light",
         });
@@ -1686,7 +1638,7 @@ class TokenService {
 
         logger.info("Proactive token renewal successful", {
           component: "TokenRenewalService",
-          method: "checkAndRenewToken",
+          method: "checkandrenew_jwt_token",
           requestId,
           verificationType: shouldDoFullVerification ? "thorough" : "brief",
           renewalDuration,
@@ -1728,7 +1680,7 @@ class TokenService {
     } catch (error) {
       logger.error("Token renewal failed", {
         component: "TokenRenewalService",
-        method: "checkAndRenewToken",
+        method: "checkandrenew_jwt_token",
         requestId,
         error: error.message,
       });
@@ -1738,7 +1690,7 @@ class TokenService {
     const totalDuration = Date.now() - startTime;
     logger.debug("Token renewal not performed", {
       component: "TokenRenewalService",
-      method: "checkAndRenewToken",
+      method: "checkandrenew_jwt_token",
       requestId,
       totalDuration,
       sessionId: payload.session_id || "none",
@@ -1753,7 +1705,7 @@ class TokenService {
 
     return { newToken: null };
   }
-}
+
 
 // Export the class directly (will be instantiated in rodit.js)
 module.exports = TokenService;
