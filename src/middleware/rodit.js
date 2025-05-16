@@ -24,7 +24,8 @@ const {
 } = require("./vaultsetup-production");
 const BlockchainService = require("../blockchain/blockchainservice");
 const validateandset = require("../validateandset");
-const utils = require("../utils");
+const { calculateCanonicalHash, unixTimeToDateString, dateStringToUnixTime,
+} = require("../utils");
 
 /**
  * Constants and Configuration
@@ -1156,215 +1157,8 @@ const stateManager = new AuthStateManager();
 const resolver = new Resolver();
 
 /**
- * Utility Functions
- */
-async function dateStringToUnixTime(datestring) {
-  const date = new Date(datestring);
-  const unixTimeMs = date.getTime();
-  const unixTimeSec = Math.floor(unixTimeMs / 1000);
-  return unixTimeSec;
-}
-
-async function unixTimeToDateString(unixTimeSec) {
-  const unixTimeMs = unixTimeSec * 1000;
-  const date = new Date(unixTimeMs);
-  return date.toISOString();
-}
-
-function ensureDateIsSet(dateVar, defaultValue) {
-  const requestId = ulid();
-
-  if (!dateVar) {
-    logger.debug("Date variable not set, using default", {
-      component: "DateUtil",
-      method: "ensureDateIsSet",
-      requestId,
-      defaultValue,
-    });
-    return defaultValue;
-  }
-
-  logger.debug("Using provided date value", {
-    component: "DateUtil",
-    method: "ensureDateIsSet",
-    requestId,
-    providedValue: dateVar,
-  });
-
-  return dateVar;
-}
-
-/**
  * Data Transformation Functions
  */
-function base64ToBase64Url(base64) {
-  const result = base64
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-
-  logger.debug("Converting base64 to base64url", {
-    component: "Transformer",
-    method: "base64ToBase64Url",
-    inputLength: base64.length,
-    outputLength: result.length,
-  });
-
-  return result;
-}
-
-function canonicalizeObject(obj) {
-  const startTime = Date.now();
-  const requestId = ulid();
-
-  logger.debug("Starting object canonicalization", {
-    component: "Transformer",
-    method: "canonicalizeObject",
-    requestId,
-    objectType:
-      obj === null ? "null" : Array.isArray(obj) ? "array" : typeof obj,
-  });
-
-  if (typeof obj !== "object" || obj === null) {
-    logger.debug("Skipping canonicalization for non-object", {
-      component: "Transformer",
-      method: "canonicalizeObject",
-      requestId,
-      valueType: typeof obj,
-    });
-    return obj;
-  }
-
-  let result;
-  if (Array.isArray(obj)) {
-    logger.debug("Canonicalizing array", {
-      component: "Transformer",
-      method: "canonicalizeObject",
-      requestId,
-      arrayLength: obj.length,
-    });
-    result = obj.map(canonicalizeObject);
-  } else {
-    logger.debug("Canonicalizing object", {
-      component: "Transformer",
-      method: "canonicalizeObject",
-      requestId,
-      keyCount: Object.keys(obj).length,
-    });
-    result = Object.fromEntries(
-      Object.entries(obj)
-        .sort()
-        .map(([key, value]) => [key, canonicalizeObject(value)])
-    );
-  }
-
-  const duration = Date.now() - startTime;
-  logger.debug("Object canonicalization complete", {
-    component: "Transformer",
-    method: "canonicalizeObject",
-    requestId,
-    duration,
-  });
-
-  // Emit metrics for Grafana dashboards if operation took significant time
-  if (duration > 50) {
-    logger.metric("canonicalization_duration_ms", duration, {
-      component: "Transformer",
-      objectType: Array.isArray(obj) ? "array" : "object",
-      size: Array.isArray(obj) ? obj.length : Object.keys(obj).length,
-    });
-  }
-
-  return result;
-}
-
-function calculateCanonicalHash(variable) {
-  const startTime = Date.now();
-  const requestId = ulid();
-
-  logger.debug("Calculating canonical hash", {
-    component: "Transformer",
-    method: "calculateCanonicalHash",
-    requestId,
-    variableType: typeof variable,
-  });
-
-  try {
-    const canonicalObj = canonicalizeObject(variable);
-    const canonicalJson = JSON.stringify(canonicalObj);
-
-    logger.debug("Canonicalized JSON created", {
-      component: "Transformer",
-      method: "calculateCanonicalHash",
-      requestId,
-      jsonLength: canonicalJson.length,
-    });
-
-    const messageUint8 = decodeUTF8(canonicalJson);
-
-    logger.debug("Decoded to Uint8Array for hashing", {
-      component: "Transformer",
-      method: "calculateCanonicalHash",
-      requestId,
-      bytesLength: messageUint8.length,
-    });
-
-    const hashUint8 = nacl.hash(messageUint8);
-
-    logger.debug("Hash calculated", {
-      component: "Transformer",
-      method: "calculateCanonicalHash",
-      requestId,
-      hashLength: hashUint8.length,
-    });
-
-    const hexResult = Array.from(hashUint8)
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-
-    const duration = Date.now() - startTime;
-    logger.debug("Canonical hash calculation complete", {
-      component: "Transformer",
-      method: "calculateCanonicalHash",
-      requestId,
-      duration,
-      hashLength: hexResult.length,
-    });
-
-    // Emit metrics for Grafana dashboards
-    logger.metric("hash_calculation_duration_ms", duration, {
-      component: "Transformer",
-      jsonLength: canonicalJson.length,
-    });
-
-    return hexResult;
-  } catch (error) {
-    const duration = Date.now() - startTime;
-
-    logger.error("Hash calculation failed", {
-      component: "Transformer",
-      method: "calculateCanonicalHash",
-      requestId,
-      duration,
-      errorMessage: error.message,
-      stack: error.stack,
-    });
-
-    // Emit metrics for Grafana dashboards
-    logger.metric("hash_calculation_duration_ms", duration, {
-      component: "Transformer",
-      success: false,
-      error: error.constructor.name,
-    });
-    logger.metric("hash_calculation_errors_total", 1, {
-      component: "Transformer",
-      errorType: error.constructor.name,
-    });
-
-    throw error;
-  }
-}
-
 async function base64url2jwk_public_key(base64url_public_key) {
   const startTime = Date.now();
   const requestId = ulid();
@@ -7900,10 +7694,6 @@ module.exports = {
   nearorg_rpc_state,
   nearorg_rpc_tokensfromaccountid,
   base64url2jwk_public_key,
-  ensureDateIsSet,
-  base64ToBase64Url,
-  canonicalizeObject,
-  calculateCanonicalHash,
   CONSTANTS,
   AuthStateManager,
   roditManager,
