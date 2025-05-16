@@ -4,10 +4,8 @@ const router = express.Router();
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
 const {
-  roditManager,
   stateManager,
   login_portal,
-  send_webhook,
 } = require("../middleware/rodit");
 
 async function signPortalRodit(
@@ -70,7 +68,7 @@ async function signPortalRodit(
   });
 
   try {
-    const result = await stateManager.fetchWithErrorHandling(fetchUrl, {
+    const result = await stateManager.fetchPortalWithErrorHandling(fetchUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),

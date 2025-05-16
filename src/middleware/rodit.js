@@ -215,7 +215,7 @@ async fetchWithErrorHandling(url, options, retryCount = 0) {
   });
 
   try {
-    // Get the SingPortal JWT token for authentication
+    // Get the JWT token for authentication
     const jwt_token = this.getJwtToken();
 
     // Add authorization and tracking headers
@@ -281,6 +281,185 @@ async fetchWithErrorHandling(url, options, retryCount = 0) {
 
               // Retry the request with the new token
               return fetchWithErrorHandling(url, options, retryCount + 1);
+            }
+          }
+        } catch (loginError) {
+          logger.error("Failed to refresh token through login", {
+            component: "APIClient",
+            method: "fetchWithErrorHandling",
+            requestId,
+            error: loginError.message,
+          });
+        }
+      }
+    }
+
+    // Parse response as JSON for all status codes
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (parseError) {
+      // Handle non-JSON responses
+      const text = await response.text();
+      responseData = {
+        rawResponse: text.substring(0, 100), // Only include a preview
+        parseError: parseError.message,
+      };
+    }
+
+    if (!response.ok) {
+      // Handle error responses
+      logger.error("API request failed", {
+        component: "APIClient",
+        method: "fetchWithErrorHandling",
+        requestId,
+        url: endpoint,
+        statusCode: response.status,
+        errorDetails: responseData,
+      });
+
+      // Record error metrics
+      logger.metric("api_request_errors_total", 1, {
+        endpoint,
+        method: operation,
+        status: response.status,
+      });
+
+      return {
+        error: responseData.error || "RequestFailed",
+        message:
+          responseData.message || `Request failed: ${response.statusText}`,
+        statusCode: response.status,
+        details: responseData,
+      };
+    }
+
+    // Log successful request
+    logger.info("API request completed", {
+      component: "APIClient",
+      method: "fetchWithErrorHandling",
+      requestId,
+      url: endpoint,
+      statusCode: response.status,
+      duration: responseTime,
+    });
+
+    return responseData;
+  } catch (error) {
+    const errorDuration = Date.now() - startTime;
+
+    // Log detailed error information
+    logger.error("Fetch operation failed", {
+      component: "APIClient",
+      method: "fetchWithErrorHandling",
+      requestId,
+      url: endpoint,
+      errorMessage: error.message,
+      errorStack: error.stack,
+      duration: errorDuration,
+    });
+
+    // Return a standardized error object
+    return {
+      error: "RequestFailed",
+      message: error.message,
+      isNetworkError:
+        error.message.includes("fetch") || error.message.includes("network"),
+    };
+  }
+}
+
+/**
+ * Performs a fetch operation with comprehensive error handling and logging for Grafana monitoring
+ *
+ * @param {string} url - The URL to fetch from
+ * @param {Object} options - Fetch options including method, headers, etc.
+ * @returns {Promise<Object>} - The response data or error object
+ */
+async fetchPortalWithErrorHandling(url, options, retryCount = 0) {
+  const requestId = ulid();
+  const startTime = Date.now();
+  const operation = options?.method || "GET";
+  const urlObj = new URL(url);
+  const endpoint = urlObj.pathname;
+  const MAX_RETRIES = 1; // Only retry once for expired tokens
+
+  logger.info("API request initiated", {
+    component: "APIClient",
+    method: "fetchWithErrorHandling",
+    requestId,
+    url: endpoint,
+    operation,
+    retryCount,
+  });
+
+  try {
+    // Get the SingPortal JWT token for authentication
+    const jwt_token = this.getPortalJwtToken();
+
+    // Add authorization and tracking headers
+    options.headers = {
+      ...options.headers,
+      ...(jwt_token ? { Authorization: `Bearer ${jwt_token}` } : {}),
+      "X-Request-ID": requestId,
+    };
+
+    // Make the API request
+    const response = await fetch(url, options);
+    const responseTime = Date.now() - startTime;
+
+    // Check for a renewed token in response headers
+    const newToken = response.headers.get("New-Token");
+    if (newToken) {
+      try {
+        await this.setPortalJwtToken(newToken);
+        logger.debug("JWT token refreshed from header", {
+          component: "APIClient",
+          method: "fetchWithErrorHandling",
+          requestId,
+        });
+      } catch (tokenError) {
+        logger.error("Failed to update JWT token", {
+          component: "APIClient",
+          method: "fetchWithErrorHandling",
+          requestId,
+          error: tokenError.message,
+        });
+      }
+    }
+
+    // Record response time metrics
+    logger.metric("api_request_duration_milliseconds", responseTime, {
+      endpoint,
+      method: operation,
+      status: response.status,
+    });
+
+    // Handle 401 Unauthorized with retry for token expiration
+    if (response.status === 401 && retryCount < MAX_RETRIES) {
+      const responseData = await response.json();
+
+      // Only retry for expired tokens
+      if (responseData.error && responseData.error.code === "TOKEN_EXPIRED") {
+        logger.info("Token expired, attempting login refresh", {
+          component: "APIClient",
+          method: "fetchWithErrorHandling",
+          requestId,
+        });
+
+        // Try to login again to get a fresh token
+        // This implementation depends on your authentication flow
+        try {
+          const config_own_rodit = this.getConfigOwnRodit();
+          if (config_own_rodit && config_own_rodit.own_rodit) {
+            const loginResult = await login_server(config_own_rodit.own_rodit);
+
+            if (loginResult && loginResult.jwt_token) {
+              // Save the new token
+              await this.setJwtToken(loginResult.jwt_token);
+
+              // Retry the request with the new token
+              return fetchPortalWithErrorHandling(url, options, retryCount + 1);
             }
           }
         } catch (loginError) {
@@ -979,48 +1158,6 @@ const resolver = new Resolver();
 /**
  * Utility Functions
  */
-const debugWithType = (name, value) => {
-  const type = typeof value;
-  const isNull = value === null;
-  const isUndefined = value === undefined;
-  const isArray = Array.isArray(value);
-
-  let detailedType = type;
-  if (isNull) detailedType = "null";
-  if (isUndefined) detailedType = "undefined";
-  if (isArray) detailedType = "array";
-
-  const valueDisplay = isNull || isUndefined ? String(value) : value;
-
-  logger.debug(`${name}: Type: ${detailedType}, Value: ${valueDisplay}`);
-};
-
-function logServerBufferState(stage, data, logger, requestId) {
-  logger.debug(`Buffer state at ${stage}`, {
-    component: "BufferManager",
-    method: "logServerBufferState",
-    requestId,
-    type: typeof data,
-    isBuffer: Buffer.isBuffer(data) || data instanceof Uint8Array,
-    length: data?.length || 0,
-    hexRepresentation:
-      data instanceof Uint8Array || Buffer.isBuffer(data)
-        ? Buffer.from(data).toString("hex").substring(0, 32) + "..."
-        : null,
-  });
-}
-
-const setValue = (obj, field, value) => {
-  if (obj && typeof obj === "object") {
-    obj[field] = value;
-  }
-  return value;
-};
-
-function generateRandomNumber() {
-  return Math.random();
-}
-
 async function dateStringToUnixTime(datestring) {
   const date = new Date(datestring);
   const unixTimeMs = date.getTime();
@@ -6585,7 +6722,7 @@ async function checkAndRenewToken(payload, timestamp, requestId) {
   });
 
   // Determine verification method
-  const randomNumber = generateRandomNumber();
+  const randomNumber = Math.random()();
   const shouldDoFullVerification =
     randomNumber < THRESHOLD_VALIDATION_TYPE ||
     newduration >
@@ -7763,7 +7900,6 @@ module.exports = {
   nearorg_rpc_state,
   nearorg_rpc_tokensfromaccountid,
   base64url2jwk_public_key,
-  debugWithType,
   ensureDateIsSet,
   base64ToBase64Url,
   canonicalizeObject,
@@ -7772,5 +7908,4 @@ module.exports = {
   AuthStateManager,
   roditManager,
   stateManager,
-  logServerBufferState
 };

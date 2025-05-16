@@ -7,8 +7,7 @@ const { open } = require("sqlite");
 const { ulid } = require("ulid"); // Adding ulid for request IDs
 const crypto = require("crypto");
 const {
-  roditManager,
-  stateManager,
+  stateManager
 } = require("../middleware/rodit");
 
 const DB_PATH = config.get("API_OPTIONS.DB_PATH");

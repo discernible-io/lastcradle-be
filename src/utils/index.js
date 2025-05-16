@@ -71,15 +71,6 @@ const setValue = (obj, field, value) => {
 };
 
 /**
- * Generates a random number between 0 and 1
- *
- * @returns {number} Random number
- */
-function generateRandomNumber() {
-  return Math.random();
-}
-
-/**
  * Converts a date string to Unix timestamp
  *
  * @param {string} datestring - Date string in ISO format
@@ -324,7 +315,6 @@ module.exports = {
   debugWithType,
   logServerBufferState,
   setValue,
-  generateRandomNumber,
   dateStringToUnixTime,
   unixTimeToDateString,
   ensureDateIsSet,

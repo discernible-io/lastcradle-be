@@ -1599,7 +1599,7 @@ class TokenService {
     });
 
     // Determine verification method
-    const randomNumber = utils.generateRandomNumber();
+    const randomNumber = Math.random()();
     const shouldDoFullVerification =
       randomNumber < THRESHOLD_VALIDATION_TYPE ||
       newduration >
