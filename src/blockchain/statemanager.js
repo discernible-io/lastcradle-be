@@ -5,7 +5,6 @@
 
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
-const { fetch } = require("node-fetch");
 
 /**
  * Singleton class for managing authentication state
