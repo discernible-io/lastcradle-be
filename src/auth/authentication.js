@@ -9,625 +9,183 @@ const nacl = require("tweetnacl");
 const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
 const {CONSTANTS
 } = require("../blockchain/blockchainservice");
-const {generate_jwt_token} = require("../auth/tokenservice");
+const { generate_jwt_token } = require("./tokenservice");
 
 
-  /**
-   * Handle client logout
-   *
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @returns {Object} Response object
-   */
- async function logout_client(req, res) {
-    const requestId = ulid();
-    const startTime = Date.now();
+/**
+ * Authenticates a client using RODiT credentials and generates a JWT token
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} - JSON response with token or error
+ */
+async function login_client(req, res) {
+  const requestId = ulid();
+  const startTime = Date.now();
 
-    logger.info("Logout request received", {
-      component: "AuthenticationService",
-      method: "logout_client",
-      requestId,
-      path: req.path,
-      method: req.method,
-      ip: req.ip,
-      userAgent: req.get("User-Agent"),
-    });
+  logger.info("Client login request received", {
+    component: "AuthenticationService",
+    method: "login_client",
+    requestId,
+  });
 
-    try {
-      // Extract token from authorization header
-      const token =
-        req.headers.authorization &&
-        req.headers.authorization.startsWith("Bearer ")
-          ? req.headers.authorization.substring(7)
-          : null;
+  try {
+    const {
+      roditid: peer_roditid,
+      timestamp: peer_timestamp,
+      roditid_base64url_signature,
+    } = req.body;
 
-      if (!token) {
-        const duration = Date.now() - startTime;
-
-        logger.warn("Logout failed - no token provided", {
-          component: "AuthenticationService",
-          method: "logout_client",
-          requestId,
-          duration,
-          ip: req.ip,
-        });
-
-        // Emit metrics for unauthorized logout attempts
-        logger.metric &&
-          logger.metric("logout_attempts", 1, {
-            component: "AuthenticationService",
-            result: "no_token",
-          });
-
-        return res.status(401).json({
-          message: "No authentication token provided",
-          requestId,
-        });
-      }
-
-      // Decode the token to get session information
-      // We're just decoding, not verifying, since even if the token is expired
-      // we still want to be able to log the user out
-      let decodedToken;
-      try {
-        // Split the token and decode the payload (middle part)
-        const parts = token.split(".");
-        if (parts.length !== 3) {
-          throw new Error("Invalid token format");
-        }
-
-        const payload = Buffer.from(parts[1], "base64url").toString();
-        decodedToken = JSON.parse(payload);
-
-        logger.debug("Token decoded for logout", {
-          component: "AuthenticationService",
-          method: "logout_client",
-          requestId,
-          jti: decodedToken.jti,
-          hasSessionId: !!decodedToken.session_id,
-        });
-      } catch (decodeError) {
-        logger.error("Failed to decode token for logout", {
-          component: "AuthenticationService",
-          method: "logout_client",
-          requestId,
-          error: decodeError.message,
-        });
-
-        // Continue with a partial logout even if token can't be decoded
-        decodedToken = {};
-      }
-
-      // Track success for metrics
-      let logoutSuccess = false;
-      let sessionClosed = false;
-
-      // Close the session if session_id is available
-      if (decodedToken.session_id) {
-        try {
-          // Get the reason from request body or use default
-          const reason = req.body.reason || "user_logout";
-
-          // Close the session
-          sessionClosed = this.stateManager.closeSession(
-            decodedToken.session_id,
-            reason
-          );
-
-          if (sessionClosed) {
-            logger.info("Session closed successfully", {
-              component: "AuthenticationService",
-              method: "logout_client",
-              requestId,
-              sessionId: decodedToken.session_id,
-              reason,
-            });
-
-            logoutSuccess = true;
-          } else {
-            logger.warn("Session not found or already closed", {
-              component: "AuthenticationService",
-              method: "logout_client",
-              requestId,
-              sessionId: decodedToken.session_id,
-            });
-
-            // We still consider this a success from the client perspective
-            // since the session is effectively "logged out" either way
-            logoutSuccess = true;
-          }
-        } catch (sessionError) {
-          logger.error("Error closing session", {
-            component: "AuthenticationService",
-            method: "logout_client",
-            requestId,
-            sessionId: decodedToken.session_id,
-            error: sessionError.message,
-          });
-
-          // Continue with logout process even if session closing fails
-        }
-      } else {
-        logger.warn("Logout with token that has no session ID", {
-          component: "AuthenticationService",
-          method: "logout_client",
-          requestId,
-          jti: decodedToken.jti || "unknown",
-        });
-
-        // We still consider this a success since there's no session to log out from
-        logoutSuccess = true;
-      }
-
-      // Clear auth cookies if they exist
-      res.clearCookie("auth-token");
-
-      // Send webhook notification for logout if configured
-      try {
-        const webhookData = {
-          event: "user.logout",
-          session_id: decodedToken.session_id,
-          token_jti: decodedToken.jti,
-          timestamp: Math.floor(Date.now() / 1000),
-        };
-
-        // Send webhook non-blocking
-        this.send_webhook("user.logout", webhookData, false, req).catch(
-          (webhookError) => {
-            logger.error("Failed to send logout webhook", {
-              component: "AuthenticationService",
-              method: "logout_client",
-              requestId,
-              error: webhookError.message,
-            });
-          }
-        );
-      } catch (webhookError) {
-        // Log but continue, webhook failure shouldn't affect logout
-        logger.error("Error preparing logout webhook", {
-          component: "AuthenticationService",
-          method: "logout_client",
-          requestId,
-          error: webhookError.message,
-        });
-      }
-
-      const duration = Date.now() - startTime;
-      logger.info("Logout completed", {
-        component: "AuthenticationService",
-        method: "logout_client",
-        requestId,
-        duration,
-        success: logoutSuccess,
-        sessionClosed,
-        hasSessionId: !!decodedToken.session_id,
-      });
-
-      // Emit metrics for logout
-      logger.metric &&
-        logger.metric("logout_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: logoutSuccess,
-          session_closed: sessionClosed,
-        });
-
-      logger.metric &&
-        logger.metric("logout_attempts", 1, {
-          component: "AuthenticationService",
-          result: logoutSuccess ? "success" : "failure",
-          session_closed: sessionClosed,
-        });
-
-      return res.json({
-        message: "Logout successful",
-        sessionClosed,
-        requestId,
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Logout process failed", {
-        component: "AuthenticationService",
-        method: "logout_client",
-        requestId,
-        duration,
-        error: error.message,
-        stack: error.stack,
-      });
-
-      // Emit metrics for logout errors
-      logger.metric &&
-        logger.metric("logout_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: false,
-          error: error.constructor.name,
-        });
-
-      logger.metric &&
-        logger.metric("logout_errors", 1, {
-          component: "AuthenticationService",
-          error: error.constructor.name,
-        });
-
-      return res.status(500).json({
-        message: "Internal server error during logout",
-        error: error.message,
-        requestId,
-      });
-    }
-  }
-
-  /**
-   * Handle client login with RODiT credentials
-   *
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @returns {Object} Response with JWT token or error
-   */
- async function login_client(req, res) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.info("Client login request received", {
+    logger.debug("Received login credentials", {
       component: "AuthenticationService",
       method: "login_client",
       requestId,
+      roditId: peer_roditid,
+      hasTimestamp: !!peer_timestamp,
+      hasSignature: !!roditid_base64url_signature,
     });
 
-    try {
-      const {
-        roditid: peer_roditid,
-        timestamp: peer_timestamp,
-        roditid_base64url_signature,
-      } = req.body;
-
-      logger.debug("Received login credentials", {
-        component: "AuthenticationService",
-        method: "login_client",
-        requestId,
-        roditId: peer_roditid,
-        hasTimestamp: !!peer_timestamp,
-        hasSignature: !!roditid_base64url_signature,
-      });
-
-      if (!peer_roditid || !peer_timestamp || !roditid_base64url_signature) {
-        const duration = Date.now() - startTime;
-
-        logger.warn("Missing required login parameters", {
-          component: "AuthenticationService",
-          method: "login_client",
-          requestId,
-          duration,
-          missingParams: {
-            roditId: !peer_roditid,
-            timestamp: !peer_timestamp,
-            signature: !roditid_base64url_signature,
-          },
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("login_attempt_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: false,
-          error: "MISSING_PARAMETERS",
-        });
-        logger.metric("failed_login_attempts_total", 1, {
-          component: "AuthenticationService",
-          reason: "MISSING_PARAMETERS",
-        });
-
-        return res.status(400).json({
-          message: "Error 100: Missing RODiT ID, Signature or Timestamp",
-          requestId,
-        });
-      }
-
-      try {
-        logger.debug("Retrieving server configuration", {
-          component: "AuthenticationService",
-          method: "login_client",
-          requestId,
-        });
-
-        const config_own_rodit = await this.stateManager.getConfigOwnRodit();
-
-        if (!config_own_rodit) {
-          const duration = Date.now() - startTime;
-
-          logger.error("Server configuration not initialized", {
-            component: "AuthenticationService",
-            method: "login_client",
-            requestId,
-            duration,
-            errorCode: "CONFIG_NOT_INITIALIZED",
-          });
-
-          // Emit metrics for Grafana dashboards
-          logger.metric("login_attempt_duration_ms", duration, {
-            component: "AuthenticationService",
-            success: false,
-            error: "CONFIG_NOT_INITIALIZED",
-          });
-          logger.metric("failed_login_attempts_total", 1, {
-            component: "AuthenticationService",
-            reason: "CONFIG_NOT_INITIALIZED",
-          });
-
-          throw new Error("Error 0112: Server configuration not initialized");
-        }
-
-        logger.debug("Verifying peer RODiT credentials", {
-          component: "AuthenticationService",
-          method: "login_client",
-          requestId,
-          roditId: peer_roditid,
-        });
-
-        const { peer_rodit, goodrodit: isRoditValid } =
-          await this.verify_peerrodit_getrodit(
-            peer_roditid,
-            peer_timestamp,
-            roditid_base64url_signature,
-            config_own_rodit.own_rodit
-          );
-
-        if (!isRoditValid) {
-          const duration = Date.now() - startTime;
-
-          logger.warn("Invalid RODiT credentials", {
-            component: "AuthenticationService",
-            method: "login_client",
-            requestId,
-            duration,
-            roditId: peer_roditid,
-          });
-
-          // Emit metrics for Grafana dashboards
-          logger.metric("login_attempt_duration_ms", duration, {
-            component: "AuthenticationService",
-            success: false,
-            error: "INVALID_CREDENTIALS",
-          });
-          logger.metric("failed_login_attempts_total", 1, {
-            component: "AuthenticationService",
-            reason: "INVALID_CREDENTIALS",
-          });
-
-          return res.status(401).json({
-            message:
-              "Error 102: Login attempt failed: Invalid RODiT ID or Signature",
-            requestId,
-          });
-        }
-
-        logger.debug("Generating JWT token", {
-          component: "AuthenticationService",
-          method: "login_client",
-          requestId,
-          roditId: peer_rodit.token_id,
-        });
-
-        const token = await this.tokenService.generate_jwt_token(
-          peer_rodit,
-          peer_timestamp,
-          config_own_rodit.own_rodit,
-          config_own_rodit.own_rodit_bytes_private_key
-        );
-
-        const duration = Date.now() - startTime;
-        logger.info("Login successful", {
-          component: "AuthenticationService",
-          method: "login_client",
-          requestId,
-          duration,
-          roditId: peer_rodit.token_id,
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("login_attempt_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: true,
-        });
-        logger.metric("successful_logins_total", 1, {
-          component: "AuthenticationService",
-        });
-
-        return res.json({
-          token,
-          requestId,
-        });
-      } catch (error) {
-        const duration = Date.now() - startTime;
-
-        logger.error("Login authentication failed", {
-          component: "AuthenticationService",
-          method: "login_client",
-          requestId,
-          duration,
-          errorMessage: error.message,
-          errorCode: error.code || "UNKNOWN_ERROR",
-          stack: error.stack,
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("login_attempt_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: false,
-          error: error.code || "UNKNOWN_ERROR",
-        });
-        logger.metric("failed_login_attempts_total", 1, {
-          component: "AuthenticationService",
-          reason: error.code || "UNKNOWN_ERROR",
-        });
-
-        return res.status(401).json({
-          message: `Error 105: Login attempt failed: ${error.message}`,
-          requestId,
-        });
-      }
-    } catch (error) {
+    if (!peer_roditid || !peer_timestamp || !roditid_base64url_signature) {
       const duration = Date.now() - startTime;
 
-      logger.error("Internal server error during login", {
+      logger.warn("Missing required login parameters", {
         component: "AuthenticationService",
         method: "login_client",
         requestId,
         duration,
-        errorMessage: error.message,
-        errorCode: error.code || "INTERNAL_SERVER_ERROR",
-        stack: error.stack,
+        missingParams: {
+          roditId: !peer_roditid,
+          timestamp: !peer_timestamp,
+          signature: !roditid_base64url_signature,
+        },
       });
 
       // Emit metrics for Grafana dashboards
       logger.metric("login_attempt_duration_ms", duration, {
         component: "AuthenticationService",
         success: false,
-        error: "INTERNAL_SERVER_ERROR",
+        error: "MISSING_PARAMETERS",
       });
       logger.metric("failed_login_attempts_total", 1, {
         component: "AuthenticationService",
-        reason: "INTERNAL_SERVER_ERROR",
+        reason: "MISSING_PARAMETERS",
       });
 
-      return res.status(500).json({
-        message: "Internal server error during login",
+      return res.status(400).json({
+        message: "Error 100: Missing RODiT ID, Signature or Timestamp",
         requestId,
       });
     }
-  }
-
-  /**
-   * Handle client login with NEP-413 standard
-   *
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Object} config_own_rodit - Own RODiT configuration
-   * @returns {Object} Response with JWT token or error
-   */
- async function login_client_withnep413(req, res, config_own_rodit = null) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.info("NEP-413 login request received", {
-      component: "AuthenticationService",
-      method: "login_client_withnep413",
-      requestId,
-    });
 
     try {
-      const { signature, message, nonce, recipient, callbackUrl } = req.body;
-
-      logger.debug("Received NEP-413 login parameters", {
+      logger.debug("Retrieving server configuration", {
         component: "AuthenticationService",
-        method: "login_client_withnep413",
+        method: "login_client",
         requestId,
-        message,
-        recipient,
-        hasSignature: !!signature,
-        hasNonce: !!nonce,
-        hasCallbackUrl: !!callbackUrl,
       });
+
+      // Import stateManager only when needed to avoid circular dependencies
+      const { stateManager } = require("../middleware/rodit");
+      const config_own_rodit = await stateManager.getConfigOwnRodit();
 
       if (!config_own_rodit) {
         const duration = Date.now() - startTime;
 
-        logger.error("Server configuration not initialized for NEP-413 login", {
+        logger.error("Server configuration not initialized", {
           component: "AuthenticationService",
-          method: "login_client_withnep413",
+          method: "login_client",
           requestId,
           duration,
           errorCode: "CONFIG_NOT_INITIALIZED",
         });
 
         // Emit metrics for Grafana dashboards
-        logger.metric("nep413_login_duration_ms", duration, {
+        logger.metric("login_attempt_duration_ms", duration, {
           component: "AuthenticationService",
           success: false,
           error: "CONFIG_NOT_INITIALIZED",
         });
-        logger.metric("failed_nep413_logins_total", 1, {
+        logger.metric("failed_login_attempts_total", 1, {
           component: "AuthenticationService",
           reason: "CONFIG_NOT_INITIALIZED",
         });
 
-        throw new Error("Error 0114: Server configuration not initialized");
+        throw new Error("Error 0112: Server configuration not initialized");
       }
 
-      logger.debug("Verifying NEP-413 RODiT credentials", {
+      logger.debug("Verifying peer RODiT credentials", {
         component: "AuthenticationService",
-        method: "login_client_withnep413",
+        method: "login_client",
         requestId,
-        message,
+        roditId: peer_roditid,
       });
 
       const { peer_rodit, goodrodit: isRoditValid } =
-        await this.verify_peerrodit_getrodit_withnep413(
-          message,
-          nonce,
-          recipient,
-          callbackUrl,
-          signature,
-          config_own_rodit
+        await verify_peerrodit_getrodit(
+          peer_roditid,
+          peer_timestamp,
+          roditid_base64url_signature,
+          config_own_rodit.own_rodit
         );
 
       if (!isRoditValid) {
         const duration = Date.now() - startTime;
 
-        logger.warn("NEP-413 login failed - Invalid RODiT credentials", {
+        logger.warn("Invalid RODiT credentials", {
           component: "AuthenticationService",
-          method: "login_client_withnep413",
+          method: "login_client",
           requestId,
           duration,
-          message,
+          roditId: peer_roditid,
         });
 
         // Emit metrics for Grafana dashboards
-        logger.metric("nep413_login_duration_ms", duration, {
+        logger.metric("login_attempt_duration_ms", duration, {
           component: "AuthenticationService",
           success: false,
           error: "INVALID_CREDENTIALS",
         });
-        logger.metric("failed_nep413_logins_total", 1, {
+        logger.metric("failed_login_attempts_total", 1, {
           component: "AuthenticationService",
           reason: "INVALID_CREDENTIALS",
         });
 
         return res.status(401).json({
           message:
-            "Error 106: Login attempt failed: Invalid RODiT ID or Signature",
+            "Error 102: Login attempt failed: Invalid RODiT ID or Signature",
           requestId,
         });
       }
 
-      logger.debug("Generating JWT token for validated NEP-413 login", {
+      logger.debug("Generating JWT token", {
         component: "AuthenticationService",
-        method: "login_client_withnep413",
+        method: "login_client",
         requestId,
         roditId: peer_rodit.token_id,
       });
 
-      const token = await this.tokenService.generate_jwt_token(
+      const token = await generate_jwt_token(
         peer_rodit,
-        Math.floor(Date.now() / 1000),
+        peer_timestamp,
         config_own_rodit.own_rodit,
         config_own_rodit.own_rodit_bytes_private_key
       );
 
       const duration = Date.now() - startTime;
-      logger.info("NEP-413 login successful", {
+      logger.info("Login successful", {
         component: "AuthenticationService",
-        method: "login_client_withnep413",
+        method: "login_client",
         requestId,
         duration,
         roditId: peer_rodit.token_id,
       });
 
       // Emit metrics for Grafana dashboards
-      logger.metric("nep413_login_duration_ms", duration, {
+      logger.metric("login_attempt_duration_ms", duration, {
         component: "AuthenticationService",
         success: true,
       });
-      logger.metric("successful_nep413_logins_total", 1, {
+      logger.metric("successful_logins_total", 1, {
         component: "AuthenticationService",
       });
 
@@ -638,9 +196,9 @@ const {generate_jwt_token} = require("../auth/tokenservice");
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error("NEP-413 login failed", {
+      logger.error("Login authentication failed", {
         component: "AuthenticationService",
-        method: "login_client_withnep413",
+        method: "login_client",
         requestId,
         duration,
         errorMessage: error.message,
@@ -649,581 +207,40 @@ const {generate_jwt_token} = require("../auth/tokenservice");
       });
 
       // Emit metrics for Grafana dashboards
-      logger.metric("nep413_login_duration_ms", duration, {
+      logger.metric("login_attempt_duration_ms", duration, {
         component: "AuthenticationService",
         success: false,
         error: error.code || "UNKNOWN_ERROR",
       });
-      logger.metric("failed_nep413_logins_total", 1, {
+      logger.metric("failed_login_attempts_total", 1, {
         component: "AuthenticationService",
         reason: error.code || "UNKNOWN_ERROR",
       });
 
-      return res.status(500).json({
-        message: `Error 175c: Login attempt failed: ${error.message}`,
+      return res.status(401).json({
+        message: `Error 105: Login attempt failed: ${error.message}`,
         requestId,
       });
     }
-  }
-
-  /**
-   * Login the server to a RODiT portal
-   *
-   * @param {Object} own_rodit - Own RODiT object
-   * @returns {Promise<Object>} Login result
-   */
- async function login_portal(own_rodit, port) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.info("Starting portal login process", {
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    
+    logger.error("Unexpected error in login process", {
       component: "AuthenticationService",
-      method: "login_portal",
+      method: "login_client",
       requestId,
-      roditId: own_rodit?.token_id,
+      duration,
+      error: error.message,
+      stack: error.stack
     });
-
-    try {
-      // Get configuration from state manager
-      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
-
-      logger.debug("Retrieved configuration from state manager", {
-        component: "AuthenticationService",
-        method: "login_portal",
-        requestId,
-        hasConfig: !!config_own_rodit,
-        apiEndpoint: config_own_rodit?.apiendpoint,
-      });
-
-      if (!config_own_rodit) {
-        const duration = Date.now() - startTime;
-
-        logger.error("Client configuration not initialized", {
-          component: "AuthenticationService",
-          method: "login_portal",
-          requestId,
-          duration,
-          errorCode: "CONFIG_NOT_INITIALIZED",
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("portal_login_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: false,
-          error: "CONFIG_NOT_INITIALIZED",
-        });
-        logger.metric("portal_login_errors_total", 1, {
-          component: "AuthenticationService",
-          error: "CONFIG_NOT_INITIALIZED",
-        });
-
-        return {
-          error: "Client configuration not initialized",
-          requestId,
-        };
-      }
-
-      // Check RODiT metadata
-      if (!own_rodit.metadata || !own_rodit.metadata.serviceprovider_id) {
-        const duration = Date.now() - startTime;
-
-        logger.error("Missing serviceprovider_id in RODiT", {
-          component: "AuthenticationService",
-          method: "login_portal",
-          requestId,
-          duration,
-          roditId: own_rodit?.token_id,
-          hasMetadata: !!own_rodit?.metadata,
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("portal_login_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: false,
-          error: "MISSING_METADATA",
-        });
-        logger.metric("portal_login_errors_total", 1, {
-          component: "AuthenticationService",
-          error: "MISSING_METADATA",
-        });
-
-        return {
-          error: "Missing serviceprovider_id in RODiT",
-          requestId,
-        };
-      }
-
-      // Use stateManager's getPortalUrl method to get API endpoint
-      const serviceProviderId = own_rodit.metadata.serviceprovider_id;
-      const apiendpoint = this.stateManager.getPortalUrl(
-        serviceProviderId,
-        port
-      );
-
-      logger.info("Using portal endpoint", {
-        component: "AuthenticationService",
-        method: "login_portal",
-        requestId,
-        apiEndpoint: apiendpoint,
-      });
-
-      // Prepare authentication data
-      let roditid = own_rodit.token_id;
-      const timestamp = Math.floor(Date.now() / 1000);
-      const timeString = await unixTimeToDateString(timestamp);
-      const roditidandtimestamp = new TextEncoder().encode(
-        roditid + timeString
-      );
-
-      logger.debug("Generating authentication signature", {
-        component: "AuthenticationService",
-        method: "login_portal",
-        requestId,
-        roditId: roditid,
-        timestamp,
-      });
-
-      // Create signature
-      const own_rodit_bytes_signature = nacl.sign.detached(
-        roditidandtimestamp,
-        config_own_rodit.own_rodit_bytes_private_key
-      );
-      const roditid_base64url_signature = Buffer.from(
-        own_rodit_bytes_signature
-      ).toString("base64url");
-
-      // Send login request
-      const fetchUrl = `${apiendpoint}/login`;
-
-      logger.debug("Sending login request to portal", {
-        component: "AuthenticationService",
-        method: "login_portal",
-        requestId,
-        endpoint: fetchUrl,
-      });
-
-      try {
-        const response = await fetch(fetchUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            roditid,
-            timestamp,
-            roditid_base64url_signature,
-          }),
-        });
-
-        if (!response.ok) {
-          const duration = Date.now() - startTime;
-
-          logger.error("Portal login request failed", {
-            component: "AuthenticationService",
-            method: "login_portal",
-            requestId,
-            duration,
-            status: response.status,
-            statusText: response.statusText,
-            endpoint: fetchUrl,
-          });
-
-          // Emit metrics for Grafana dashboards
-          logger.metric("portal_login_duration_ms", duration, {
-            component: "AuthenticationService",
-            success: false,
-            error: "HTTP_ERROR",
-            status: response.status,
-          });
-          logger.metric("portal_login_errors_total", 1, {
-            component: "AuthenticationService",
-            error: "HTTP_ERROR",
-            status: response.status,
-          });
-
-          throw new Error(
-            `Error 040: Portal login failed with status ${response.status}`
-          );
-        }
-
-        const data = await response.json();
-        let jwt_token = data.token;
-
-        logger.debug("Received JWT token from portal, validating", {
-          component: "AuthenticationService",
-          method: "login_portal",
-          requestId,
-          hasToken: !!jwt_token,
-        });
-
-        // Validate JWT token
-        try {
-          const validationResult =
-            await this.tokenService.validate_jwt_token_be(jwt_token, own_rodit);
-          const peer_rodit = validationResult.peer_rodit;
-
-          logger.debug("JWT token validation successful", {
-            component: "AuthenticationService",
-            method: "login_portal",
-            requestId,
-            peerRoditId: peer_rodit.token_id,
-          });
-        } catch (validationError) {
-          const duration = Date.now() - startTime;
-
-          logger.error("JWT token validation failed", {
-            component: "AuthenticationService",
-            method: "login_portal",
-            requestId,
-            duration,
-            errorMessage: validationError.message,
-            stack: validationError.stack,
-          });
-
-          // Emit metrics for Grafana dashboards
-          logger.metric("portal_login_duration_ms", duration, {
-            component: "AuthenticationService",
-            success: false,
-            error: "JWT_VALIDATION_FAILED",
-          });
-          logger.metric("portal_login_errors_total", 1, {
-            component: "AuthenticationService",
-            error: "JWT_VALIDATION_FAILED",
-          });
-
-          throw new Error(
-            `Error 039: Portal server validation failed: ${validationError.message}`
-          );
-        }
-
-        const duration = Date.now() - startTime;
-        logger.info("Portal login successful", {
-          component: "AuthenticationService",
-          method: "login_portal",
-          requestId,
-          duration,
-          apiEndpoint: apiendpoint,
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("portal_login_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: true,
-        });
-        logger.metric("successful_portal_logins_total", 1, {
-          component: "AuthenticationService",
-          endpoint: apiendpoint,
-        });
-
-        return {
-          jwt_token,
-          apiendpoint,
-          requestId,
-        };
-      } catch (fetchError) {
-        const duration = Date.now() - startTime;
-
-        logger.error("Portal fetch operation failed", {
-          component: "AuthenticationService",
-          method: "login_portal",
-          requestId,
-          duration,
-          errorMessage: fetchError.message,
-          stack: fetchError.stack,
-          endpoint: fetchUrl,
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("portal_login_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: false,
-          error: "FETCH_FAILED",
-        });
-        logger.metric("portal_login_errors_total", 1, {
-          component: "AuthenticationService",
-          error: "FETCH_FAILED",
-          endpoint: fetchUrl,
-        });
-
-        throw fetchError;
-      }
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Portal login process failed", {
-        component: "AuthenticationService",
-        method: "login_portal",
-        requestId,
-        duration,
-        errorMessage: error.message,
-        stack: error.stack,
-        roditId: own_rodit?.token_id,
-      });
-
-      // Emit metrics for Grafana dashboards
-      logger.metric("portal_login_duration_ms", duration, {
-        component: "AuthenticationService",
-        success: false,
-        error: error.constructor.name,
-      });
-      logger.metric("portal_login_errors_total", 1, {
-        component: "AuthenticationService",
-        error: error.constructor.name,
-      });
-
-      return {
-        error: `Failed to login to portal: ${error.message}`,
-        requestId,
-      };
-    }
-  }
-
-  /**
-   * Login to server with RODiT credentials
-   *
-   * @param {Object} own_rodit - Own RODiT object
-   * @returns {Promise<Object>} Login result
-   */
- async function login_server(own_rodit) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.info("Starting login_server process", {
-      component: "AuthenticationService",
-      method: "login_server",
-      requestId,
-      roditId: own_rodit?.token_id,
+    
+    return res.status(500).json({
+      message: "Internal server error during login process",
+      requestId
     });
-
-    try {
-      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
-
-      logger.debug("Retrieved config from state manager", {
-        component: "AuthenticationService",
-        method: "login_server",
-        requestId,
-        hasConfig: !!config_own_rodit,
-        apiEndpoint: config_own_rodit?.apiendpoint,
-      });
-
-      if (!config_own_rodit) {
-        const duration = Date.now() - startTime;
-
-        logger.error("Client configuration not initialized", {
-          component: "AuthenticationService",
-          method: "login_server",
-          requestId,
-          duration,
-          errorCode: "CONFIG_NOT_INITIALIZED",
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("login_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: false,
-          error: "CONFIG_NOT_INITIALIZED",
-        });
-        logger.metric("login_errors_total", 1, {
-          component: "AuthenticationService",
-          error: "CONFIG_NOT_INITIALIZED",
-        });
-
-        return { error: "Error 0111: Client configuration not initialized" };
-      }
-
-      const apiendpoint = config_own_rodit.apiendpoint;
-      let roditid = own_rodit.token_id;
-      const timestamp = Math.floor(Date.now() / 1000);
-
-      logger.debug("Preparing authentication data", {
-        component: "AuthenticationService",
-        method: "login_server",
-        requestId,
-        apiEndpoint: apiendpoint,
-        roditId: roditid,
-        timestamp,
-      });
-
-      const timeString = await unixTimeToDateString(timestamp);
-      const roditidandtimestamp = new TextEncoder().encode(
-        roditid + timeString
-      );
-
-      logger.debug("Generating signature", {
-        component: "AuthenticationService",
-        method: "login_server",
-        requestId,
-        hasPrivateKey: !!config_own_rodit.own_rodit_bytes_private_key,
-      });
-
-      const own_rodit_bytes_signature = nacl.sign.detached(
-        roditidandtimestamp,
-        config_own_rodit.own_rodit_bytes_private_key
-      );
-
-      const roditid_base64url_signature = Buffer.from(
-        own_rodit_bytes_signature
-      ).toString("base64url");
-
-      logger.debug("Sending login request", {
-        component: "AuthenticationService",
-        method: "login_server",
-        requestId,
-        endpoint: apiendpoint + "/login",
-      });
-
-      const response = await fetch(apiendpoint + "/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          roditid,
-          timestamp,
-          roditid_base64url_signature,
-        }),
-      });
-
-      if (!response.ok) {
-        const duration = Date.now() - startTime;
-
-        logger.error("Login request failed", {
-          component: "AuthenticationService",
-          method: "login_server",
-          requestId,
-          duration,
-          status: response.status,
-          statusText: response.statusText,
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("login_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: false,
-          error: "HTTP_ERROR",
-          status: response.status,
-        });
-        logger.metric("login_errors_total", 1, {
-          component: "AuthenticationService",
-          error: "HTTP_ERROR",
-          status: response.status,
-        });
-
-        throw new Error("Error 040: Login failed");
-      }
-
-      const data = await response.json();
-      let jwt_token = data.token;
-
-      logger.debug("JWT token received, starting validation", {
-        component: "AuthenticationService",
-        method: "login_server",
-        requestId,
-        hasToken: !!jwt_token,
-      });
-
-      // Validate the server
-      let peer_bytes_ed25519_public_key;
-      try {
-        const validationResult = await this.tokenService.validate_jwt_token_be(
-          jwt_token,
-          own_rodit
-        );
-
-        // Assuming the correct property name is peer_rodit
-        const peer_rodit = validationResult.peer_rodit;
-
-        logger.debug("Token validation successful", {
-          component: "AuthenticationService",
-          method: "login_server",
-          requestId,
-          peerRoditId: peer_rodit.token_id,
-        });
-
-        peer_bytes_ed25519_public_key = new Uint8Array(
-          Buffer.from(peer_rodit.owner_id, "hex")
-        );
-      } catch (validationError) {
-        const duration = Date.now() - startTime;
-
-        logger.error("JWT validation failed", {
-          component: "AuthenticationService",
-          method: "login_server",
-          requestId,
-          duration,
-          errorMessage: validationError.message,
-          stack: validationError.stack,
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("login_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: false,
-          error: "JWT_VALIDATION_FAILED",
-        });
-        logger.metric("login_errors_total", 1, {
-          component: "AuthenticationService",
-          error: "JWT_VALIDATION_FAILED",
-        });
-
-        throw new Error(
-          `Error 039: Server validation failed: ${validationError.message}`
-        );
-      }
-
-      const duration = Date.now() - startTime;
-      logger.info("Login successful", {
-        component: "AuthenticationService",
-        method: "login_server",
-        requestId,
-        duration,
-        apiEndpoint: apiendpoint,
-      });
-
-      // Emit metrics for Grafana dashboards
-      logger.metric("login_duration_ms", duration, {
-        component: "AuthenticationService",
-        success: true,
-      });
-      logger.metric("successful_logins_total", 1, {
-        component: "AuthenticationService",
-        endpoint: apiendpoint,
-      });
-
-      return {
-        jwt_token,
-        apiendpoint,
-        requestId,
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Login failed", {
-        component: "AuthenticationService",
-        method: "login_server",
-        requestId,
-        duration,
-        errorMessage: error.message,
-        stack: error.stack,
-      });
-
-      // Emit metrics for Grafana dashboards
-      logger.metric("login_duration_ms", duration, {
-        component: "AuthenticationService",
-        success: false,
-        error: error.constructor.name,
-      });
-      logger.metric("login_errors_total", 1, {
-        component: "AuthenticationService",
-        error: error.constructor.name,
-      });
-
-      return {
-        error: "Failed to login to server",
-        requestId,
-      };
-    }
   }
+}
+
 
  async function verify_rodit_ownership(
     peerroditid,
@@ -1453,7 +470,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
 
     try {
       // Get the configuration from state manager
-      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+      const config_own_rodit = await stateManager.getConfigOwnRodit();
 
       // Check if webhook configuration is available
       if (
@@ -1499,7 +516,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
       }
 
       // Get the current JWT token or login to get one
-      let jwt_token = this.stateManager.getJwtToken();
+      let jwt_token = stateManager.getJwtToken();
       if (!jwt_token) {
         // If there's no token, we need to login first
         logger.debug("No JWT token available, attempting login", {
@@ -1510,13 +527,13 @@ const {generate_jwt_token} = require("../auth/tokenservice");
 
         try {
           // Login to get a token
-          const loginResult = await this.login_server(
+          const loginResult = await login_server(
             config_own_rodit.own_rodit
           );
 
           if (loginResult && loginResult.jwt_token) {
             jwt_token = loginResult.jwt_token;
-            await this.stateManager.setJwtToken(jwt_token);
+            await stateManager.setJwtToken(jwt_token);
 
             logger.info("Successfully obtained JWT token for webhook", {
               component: "WebhookSender",
@@ -2001,7 +1018,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
  async function validate_jwt_token_be(token, own_rodit) {
     // This would be implemented in the Authentication class
     // For now, it delegates to the TokenService
-    return this.tokenService.validate_jwt_token_be(token, own_rodit);
+    return validate_jwt_token_be(token, own_rodit);
   }
 
   /**
@@ -2080,7 +1097,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
 
       const verificationStart = Date.now();
       const verification_results = await Promise.all([
-        this.verify_rodit_ownership_withnep413(
+        verify_rodit_ownership_withnep413(
           message,
           nonce,
           recipient,
@@ -2088,16 +1105,16 @@ const {generate_jwt_token} = require("../auth/tokenservice");
           signature,
           peer_rodit
         ),
-        this.verify_rodit_isamatch(serviceprovider_id, peer_rodit),
-        this.verify_rodit_islive(
+        verify_rodit_isamatch(serviceprovider_id, peer_rodit),
+        verify_rodit_islive(
           peer_rodit.metadata.not_after,
           peer_rodit.metadata.not_before
         ),
-        this.verify_rodit_isactive(
+        verify_rodit_isactive(
           peer_rodit.token_id,
           config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
         ),
-        this.verify_rodit_istrusted_issuingsmartcontract(
+        verify_rodit_istrusted_issuingsmartcontract(
           config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
         ),
       ]);
@@ -2436,7 +1453,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
       try {
         logger.debug("Verifying RODiT ownership", { requestId });
         const ownershipStart = Date.now();
-        ownershipVerified = await this.verify_rodit_ownership(
+        ownershipVerified = await verify_rodit_ownership(
           peerroditid,
           peertimestamp,
           peerroditid_base64url_signature,
@@ -2464,7 +1481,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
           serviceProviderId: own_rodit.metadata.serviceprovider_id,
         });
         const matchStart = Date.now();
-        isaMatch = await this.verify_rodit_isamatch(
+        isaMatch = await verify_rodit_isamatch(
           own_rodit.metadata.serviceprovider_id,
           peer_rodit
         );
@@ -2492,7 +1509,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
         });
 
         const liveStart = Date.now();
-        isLive = await this.verify_rodit_islive(
+        isLive = await verify_rodit_islive(
           peer_rodit.metadata.not_after,
           peer_rodit.metadata.not_before
         );
@@ -2519,7 +1536,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
           url: own_rodit.metadata.subjectuniqueidentifier_url,
         });
         const activeStart = Date.now();
-        isActive = await this.verify_rodit_isactive(
+        isActive = await verify_rodit_isactive(
           peer_rodit.token_id,
           own_rodit.metadata.subjectuniqueidentifier_url
         );
@@ -2545,7 +1562,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
           url: own_rodit.metadata.subjectuniqueidentifier_url,
         });
         const trustedStart = Date.now();
-        isTrusted = await this.verify_rodit_istrusted_issuingsmartcontract(
+        isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
           own_rodit.metadata.subjectuniqueidentifier_url
         );
         verificationDetails.trustedDuration = Date.now() - trustedStart;
@@ -2680,7 +1697,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
 
     logger.debug("Starting RODiT match verification", {
       component: "RoditAuth",
-      method: "this.verify_rodit_isamatch",
+      method: "verify_rodit_isamatch",
       requestId,
       ownServiceProviderId: own_service_provider_id,
       peerRoditId: peer_rodit?.token_id,
@@ -2868,7 +1885,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
             if (i === 0) {
               logger.info("Partner login verified successfully", {
                 component: "RoditAuth",
-                method: "this.verify_rodit_isamatch",
+                method: "verify_rodit_isamatch",
                 requestId,
                 duration: totalDuration,
                 partnerVerification: true,
@@ -2877,7 +1894,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
             } else {
               logger.info("Peer login verified successfully", {
                 component: "RoditAuth",
-                method: "this.verify_rodit_isamatch",
+                method: "verify_rodit_isamatch",
                 requestId,
                 duration: totalDuration,
                 peerVerification: true,
@@ -2913,7 +1930,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
 
       logger.error("All verification attempts failed", {
         component: "RoditAuth",
-        method: "this.verify_rodit_isamatch",
+        method: "verify_rodit_isamatch",
         requestId,
         duration: totalDuration,
         ownServiceProviderId: own_service_provider_id,
@@ -2934,7 +1951,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
 
       logger.error("RODiT match verification failed", {
         component: "RoditAuth",
-        method: "this.verify_rodit_isamatch",
+        method: "verify_rodit_isamatch",
         requestId,
         duration,
         ownServiceProviderId: own_service_provider_id,
@@ -3077,7 +2094,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
 
     logger.debug("Verifying smart contract trust", {
       component: "RoditAuth",
-      method: "this.verify_rodit_istrusted_issuingsmartcontract",
+      method: "verify_rodit_istrusted_issuingsmartcontract",
       requestId,
       url: ownsubjectuniqueidentifier_url,
       smartContract: CONSTANTS.SMART_CONTRACT,
@@ -3146,7 +2163,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
 
           logger.info("Smart contract is trusted", {
             component: "RoditAuth",
-            method: "this.verify_rodit_istrusted_issuingsmartcontract",
+            method: "verify_rodit_istrusted_issuingsmartcontract",
             requestId,
             duration: totalDuration,
             dnsDuration,
@@ -3170,7 +2187,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
 
           logger.warn("Smart contract not trusted - empty DNS record", {
             component: "RoditAuth",
-            method: "this.verify_rodit_istrusted_issuingsmartcontract",
+            method: "verify_rodit_istrusted_issuingsmartcontract",
             requestId,
             duration: totalDuration,
             dnsDuration,
@@ -3194,7 +2211,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
 
         logger.warn("Smart contract not trusted - DNS lookup failed", {
           component: "RoditAuth",
-          method: "this.verify_rodit_istrusted_issuingsmartcontract",
+          method: "verify_rodit_istrusted_issuingsmartcontract",
           requestId,
           duration: totalDuration,
           smartContract: smartcontracturl,
@@ -3219,7 +2236,7 @@ const {generate_jwt_token} = require("../auth/tokenservice");
 
       logger.error("Trust verification failed", {
         component: "RoditAuth",
-        method: "this.verify_rodit_istrusted_issuingsmartcontract",
+        method: "verify_rodit_istrusted_issuingsmartcontract",
         requestId,
         duration,
         url: ownsubjectuniqueidentifier_url,
@@ -3241,62 +2258,11 @@ const {generate_jwt_token} = require("../auth/tokenservice");
     }
   }
 
- async function authenticate_apicall(req, res, next) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.debug("Starting API call authentication", {
-      component: "AuthenticationMiddleware",
-      method: "authenticate_apicall",
-      requestId,
-      path: req.path,
-      method: req.method,
-    });
-
-    try {
-      // Extract token using the dedicated token extractor
-      const token = extractTokenFromHeader(req.headers.authorization);
-
-      if (!token) {
-        logger.warn("API authentication failed - no token provided", {
-          component: "AuthenticationMiddleware",
-          method: "authenticate_apicall",
-          requestId,
-          path: req.path,
-        });
-
-        return res.status(401).json({
-          error: {
-            code: "MISSING_TOKEN",
-            message: "No token provided",
-            requestId,
-          },
-        });
-      }
-
-      // Add further token validation logic here if needed
-
-      // Proceed to the next middleware or route handler
-      next();
-    } catch (error) {
-      logger.error("Error during API call authentication", {
-        component: "AuthenticationMiddleware",
-        method: "authenticate_apicall",
-        requestId,
-        error: error.message,
-        stack: error.stack,
-      });
-
-      return res.status(500).json({
-        error: {
-          code: "AUTHENTICATION_ERROR",
-          message: "An error occurred during authentication",
-          requestId,
-        },
-      });
-    }
-  }
-
-
 // Export the class directly (will be instantiated in rodit.js)
-module.exports = Authentication;
+module.exports = {verify_rodit_istrusted_issuingsmartcontract,
+  verify_rodit_ownership,
+  verify_rodit_ownership_withnep413,
+  verify_peerrodit_getrodit,
+  verify_rodit_isactive,
+verify_rodit_isamatch,
+verify_rodit_islive,verify_peerrodit_getrodit_withnep413,login_client};

@@ -1,13 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const logger = require("../../config/logger");
-const { login_client } = require("../middleware/rodit"); // Import the authentication handler
-const {
-  stateManager
-} = require("../middleware/rodit");
+const { login_client } = require("../auth/authentication");
 
-// Handling login request - CHANGE TO POST
-router.post("/login", (req, res, next) => {
+// Handling login request
+router.post("/login", (req, res) => {
   req.logAction = "login-attempt";
   
   // Log the request with context
@@ -19,25 +16,8 @@ router.post("/login", (req, res, next) => {
     body: req.body // For debugging, but be careful with sensitive data
   });
 
-  // Pass to the login_client handler
-  next();
-}, async (req, res) => {
-  // This part should be handled by login_client middleware
-  // But as a fallback, we can implement it here
-  try {
-    const config_own_rodit = await stateManager.getConfigOwnRodit();
-    return login_client(req, res, config_own_rodit);
-  } catch (error) {
-    logger.errorWithContext("Login failed", {
-      error: error.message,
-      stack: error.stack
-    });
-    
-    return res.status(500).json({
-      message: "Internal server error during login",
-      error: error.message
-    });
-  }
+  // Pass to the login_client handler directly
+  login_client(req, res);
 });
 
 module.exports = router;
