@@ -172,9 +172,9 @@ const stateManager = require("../blockchain/statemanager");
         });
       }
 
-      // Use the structured user object from the token validation result
-      // This follows modern best practices for authentication
-      req.user = validationResult.user;
+      // IMPORTANT: Attach the raw payload to req.user to maintain exact compatibility
+      // with digital signature verification processes
+      req.user = validationResult.payload;
       
       // Store the token for potential use in the request
       req.token = token;
@@ -195,7 +195,7 @@ const stateManager = require("../blockchain/statemanager");
         component: "AuthMiddleware",
         method: "authenticate_apicall",
         requestId,
-        userId: req.user.id,
+        userId: req.user.sub, // Use sub from raw payload
         duration: Date.now() - startTime,
       });
 

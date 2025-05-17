@@ -195,6 +195,9 @@ async function login_client(req, res) {
         component: "AuthenticationService",
       });
 
+      // Set the token in the response header
+      res.setHeader('New-Token', token);
+
       return res.json({
         token,
         requestId,
