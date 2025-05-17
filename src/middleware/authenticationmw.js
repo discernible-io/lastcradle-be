@@ -98,7 +98,13 @@ const { stateManager } = require("../blockchain/statemanager");
           requestId,
           headers: req.headers,
         });
-        return res.status(401).json({ error: "No token provided" });
+        return res.status(401).json({
+          error: {
+            code: "MISSING_TOKEN",
+            message: "No token provided",
+            requestId,
+          },
+        });
       }
 
       // Get own RODiT configuration first
@@ -111,9 +117,13 @@ const { stateManager } = require("../blockchain/statemanager");
           requestId,
           hasConfig: !!config_own_rodit,
         });
-        return res
-          .status(500)
-          .json({ error: "Server configuration not initialized" });
+        return res.status(500).json({
+          error: {
+            code: "SERVER_CONFIG_ERROR",
+            message: "Server configuration not initialized",
+            requestId,
+          },
+        });
       }
 
       // Use the token service to validate the token WITH the own_rodit parameter
@@ -132,10 +142,14 @@ const { stateManager } = require("../blockchain/statemanager");
           error: validationError.message,
         });
         
-        // Return 403 for invalid tokens (not 401) to match test expectations
-        return res.status(403).json({ 
-          error: "Invalid token",
-          details: process.env.NODE_ENV === "development" ? validationError.message : undefined
+        // Return 403 for invalid tokens to match legacy implementation
+        return res.status(403).json({
+          error: {
+            code: "INVALID_TOKEN",
+            message: "Invalid token",
+            details: process.env.NODE_ENV === "development" ? validationError.message : undefined,
+            requestId,
+          },
         });
       }
 
@@ -146,8 +160,14 @@ const { stateManager } = require("../blockchain/statemanager");
           requestId,
           error: validationResult.error,
         });
-        // Return 403 for invalid tokens (not 401) to match test expectations
-        return res.status(403).json({ error: "Invalid token" });
+        // Return 403 for invalid tokens to match legacy implementation
+        return res.status(403).json({
+          error: {
+            code: "INVALID_TOKEN",
+            message: "Invalid token",
+            requestId,
+          },
+        });
       }
 
       // Attach user information to the request
@@ -184,9 +204,12 @@ const { stateManager } = require("../blockchain/statemanager");
       });
 
       return res.status(500).json({
-        error: "Authentication failed",
-        details:
-          process.env.NODE_ENV === "development" ? error.message : undefined,
+        error: {
+          code: "AUTH_ERROR",
+          message: "Authentication failed",
+          details: process.env.NODE_ENV === "development" ? error.message : undefined,
+          requestId,
+        },
       });
     }
   }
