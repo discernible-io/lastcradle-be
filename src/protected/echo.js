@@ -31,7 +31,6 @@ router.post("/echo", logActionMiddleware, (req, res) => {
   const routeContext = {
     action: req.logAction,
     messageReceived: !!inputString,
-    hasJwtToken: !!req.new_jwt_token,
     endpoint: "/echo",
     method: req.method,
     ip: req.ip,
@@ -48,15 +47,6 @@ router.post("/echo", logActionMiddleware, (req, res) => {
   
   // Create the response
   const response = { echo: inputString.toUpperCase() };
-  
-  // Handle token renewal by setting it in the response header, not the body
-  if (req.new_jwt_token) {
-    res.setHeader("New-Token", req.new_jwt_token);
-    logger.debugWithContext("Adding new JWT token to response header", {
-      ...routeContext,
-      tokenAdded: true
-    });
-  }
   
   // Log the response being sent
   logger.infoWithContext("Echo request completed successfully", {

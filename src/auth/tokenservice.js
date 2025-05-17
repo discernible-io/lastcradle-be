@@ -1085,7 +1085,7 @@ const {
         return { 
           payload, 
           peer_rodit,
-          valid: true,
+          valid: true,  // This matches what authenticate_apicall expects
           user,
           newToken
         };

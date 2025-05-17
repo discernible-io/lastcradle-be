@@ -146,7 +146,7 @@ const stateManager  = require("../blockchain/statemanager");
         return res.status(403).json({
           error: {
             code: "INVALID_TOKEN",
-            message: "Invalid token",
+            message: validationError.message || "Invalid token",
             details: process.env.NODE_ENV === "development" ? validationError.message : undefined,
             requestId,
           },
