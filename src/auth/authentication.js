@@ -305,6 +305,17 @@ async function login_client(req, res) {
         keyHex: peer_bytes_ed25519_public_key ? Buffer.from(peer_bytes_ed25519_public_key).toString('hex').substring(0, 64) + '...' : 'null',
       });
 
+      // Add more detailed debugging for verification inputs
+      logger.debug("Verification inputs", {
+        requestId,
+        messageLength: roditidandtimestamp.length,
+        signatureLength: bytes_ed25519_signature.length,
+        publicKeyLength: peer_bytes_ed25519_public_key?.length,
+        messageFirstBytes: Buffer.from(roditidandtimestamp.slice(0, 16)).toString('hex'),
+        signatureFirstBytes: Buffer.from(bytes_ed25519_signature.slice(0, 16)).toString('hex'),
+        publicKeyFirstBytes: peer_bytes_ed25519_public_key ? Buffer.from(peer_bytes_ed25519_public_key.slice(0, 16)).toString('hex') : 'null',
+      });
+
       const isaMatch = nacl.sign.detached.verify(
         roditidandtimestamp,
         bytes_ed25519_signature,
