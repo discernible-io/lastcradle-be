@@ -191,7 +191,7 @@ const {
         });
 
         try {
-          const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+          const config_own_rodit = await stateManager.getConfigOwnRodit();
           const unverifiedpayload = decodeJwt(token);
 
           // Log session information from expired token
@@ -214,7 +214,7 @@ const {
 
           const renewalStartTime = Date.now();
           const { isValid, notAfter } =
-            await this.thorough_validate_jwt_token_be(
+            await thorough_validate_jwt_token_be(
               unverifiedpayload,
               requestId
             );
@@ -230,7 +230,7 @@ const {
             });
 
             // Use full verification for expired tokens
-            const newToken = await this.generate_jwt_token_fromtoken(
+            const newToken = await generate_jwt_token_fromtoken(
               unverifiedpayload,
               config_own_rodit.own_rodit.metadata.jwt_duration,
               notAfter,
@@ -502,7 +502,7 @@ const {
 
       const sessionCreateStart = Date.now();
       try {
-        const session = this.stateManager.createSession(sessionData);
+        const session = stateManager.createSession(sessionData);
         const sessionCreateDuration = Date.now() - sessionCreateStart;
 
         logger.debug("Session created in session manager", {
@@ -671,7 +671,7 @@ const {
 
       if (existingSessionId) {
         try {
-          isSessionValid = this.stateManager.isSessionActive(existingSessionId);
+          isSessionValid = stateManager.isSessionActive(existingSessionId);
 
           logger.debug("Checked session status", {
             component: "JwtAuth",
@@ -734,7 +734,7 @@ const {
       }
 
       const configStart = Date.now();
-      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+      const config_own_rodit = await stateManager.getConfigOwnRodit();
       const configDuration = Date.now() - configStart;
 
       logger.debug("Retrieved configuration", {
@@ -770,11 +770,11 @@ const {
       if (session_id) {
         const sessionUpdateStart = Date.now();
         try {
-          this.stateManager.updateSession(session_id, {
+          stateManager.updateSession(session_id, {
             lastAccessedAt: now,
             status: "active",
             metadata: {
-              ...this.stateManager.getSession(session_id)?.metadata,
+              ...stateManager.getSession(session_id)?.metadata,
               lastRenewalType: verification_level,
               lastRenewalTime: now,
             },
@@ -935,7 +935,7 @@ const {
         keyLength: serviceprovider_base64_public_key?.length,
       });
   
-      const sp_public_key = await this.base64url2jwk_public_key(
+      const sp_public_key = await base64url2jwk_public_key(
         serviceprovider_base64_public_key
       );
   
@@ -951,13 +951,13 @@ const {
         jwtVerifyDuration: Date.now() - jwtVerifyStartTime,
       });
   
-      this.stateManager.setOwnBase64urlJwkPublicKey(serviceprovider_base64_public_key);
+      stateManager.setOwnBase64urlJwkPublicKey(serviceprovider_base64_public_key);
   
       // Here, we need to call a method from another class
       // Since we don't have direct access to the Authentication class's verify_peerrodit_getrodit method,
       // we'll use our thorough validation method instead
       const verifyStartTime = Date.now();
-      const validationResult = await this.thorough_validate_jwt_token_be(
+      const validationResult = await thorough_validate_jwt_token_be(
         payload,
         requestId
       );
@@ -1063,7 +1063,7 @@ const {
         };
   
         // Check if token needs renewal
-        const { newToken } = await this.checkandrenew_jwt_token(payload, Math.floor(Date.now() / 1000), requestId);
+        const { newToken } = await checkandrenew_jwt_token(payload, Math.floor(Date.now() / 1000), requestId);
   
         return { 
           payload, 
@@ -1260,7 +1260,7 @@ const {
     try {
       // Fetch configuration with better timing measurements
       const configStart = performance.now();
-      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+      const config_own_rodit = await stateManager.getConfigOwnRodit();
       const configDuration = performance.now() - configStart;
 
       logger.debug("Retrieved configuration", {
@@ -1458,7 +1458,7 @@ const {
    */
   async function checkandrenew_jwt_token(payload, timestamp, requestId) {
     const startTime = Date.now();
-    const config_own_rodit = await this.stateManager.getConfigOwnRodit();
+    const config_own_rodit = await stateManager.getConfigOwnRodit();
 
     // Parse config values ensuring they're numbers
     const LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY = parseFloat(
@@ -1589,7 +1589,7 @@ const {
           verificationLevel: "full",
         });
 
-        const validationResult = await this.thorough_validate_jwt_token_be(
+        const validationResult = await thorough_validate_jwt_token_be(
           payload,
           requestId
         );
@@ -1612,7 +1612,7 @@ const {
           verificationLevel: "light",
         });
 
-        const validationResult = await this.brief_validate_jwt_token_be(
+        const validationResult = await brief_validate_jwt_token_be(
           payload
         );
 
@@ -1629,7 +1629,7 @@ const {
 
       if (isValid) {
         const renewalStartTime = Date.now();
-        const newToken = await this.generate_jwt_token_fromtoken(
+        const newToken = await generate_jwt_token_fromtoken(
           payload,
           newduration,
           notAfter,
