@@ -6,9 +6,7 @@ const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
 const { ulid } = require("ulid"); // Adding ulid for request IDs
 const crypto = require("crypto");
-const {
-  stateManager
-} = require("../middleware/rodit");
+const stateManager = require("../blockchain/statemanager");
 const { send_webhook } = require("../auth/authentication");
 
 const DB_PATH = config.get("API_OPTIONS.DB_PATH");

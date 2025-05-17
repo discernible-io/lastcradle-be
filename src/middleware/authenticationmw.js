@@ -117,10 +117,27 @@ const { stateManager } = require("../blockchain/statemanager");
       }
 
       // Use the token service to validate the token WITH the own_rodit parameter
-      const validationResult = await validate_jwt_token_be(
-        token,
-        config_own_rodit.own_rodit
-      );
+      let validationResult;
+      try {
+        validationResult = await validate_jwt_token_be(
+          token,
+          config_own_rodit.own_rodit
+        );
+      } catch (validationError) {
+        // Handle specific validation errors
+        logger.warn("Token validation failed", {
+          component: "AuthMiddleware",
+          method: "authenticate_apicall",
+          requestId,
+          error: validationError.message,
+        });
+        
+        // Return 403 for invalid tokens (not 401) to match test expectations
+        return res.status(403).json({ 
+          error: "Invalid token",
+          details: process.env.NODE_ENV === "development" ? validationError.message : undefined
+        });
+      }
 
       if (!validationResult.valid) {
         logger.warn("Invalid token provided", {
@@ -129,12 +146,24 @@ const { stateManager } = require("../blockchain/statemanager");
           requestId,
           error: validationResult.error,
         });
-        return res.status(401).json({ error: "Invalid token" });
+        // Return 403 for invalid tokens (not 401) to match test expectations
+        return res.status(403).json({ error: "Invalid token" });
       }
 
       // Attach user information to the request
       req.user = validationResult.user;
       req.token = token;
+
+      // Check if a new token was generated during validation
+      if (validationResult.newToken) {
+        // Add the new token to the response headers
+        res.setHeader('New-Token', validationResult.newToken);
+        logger.debug("Added renewed token to response headers", {
+          component: "AuthMiddleware",
+          method: "authenticate_apicall",
+          requestId,
+        });
+      }
 
       logger.info("Authentication successful", {
         component: "AuthMiddleware",
