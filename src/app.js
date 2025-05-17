@@ -6,10 +6,7 @@ const loggingmw = require("./middleware/loggingmw");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 const {
-  set_rodit_config,
-  get_rodit_config,
-  generate_jwt_token,
-  verify_peerrodit_getit,
+  roditManager,
 } = require("./middleware/rodit");
 const { authenticate_apicall } = require("./middleware/authenticationmw");
 const stateManager = require("./blockchain/statemanager");
@@ -122,8 +119,8 @@ let db;
 async function startServer() {
   try {
     // Initialize vault and configuration
-    await get_rodit_config.initializeVault();
-    await get_rodit_config.initializeRoditConfig("server");
+    await roditManager.initializeVault();
+    await roditManager.initializeRoditConfig("server");
 
     logger.infoWithContext("Server initialization successful", {
       component: "vault",

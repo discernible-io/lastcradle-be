@@ -8,7 +8,7 @@ const {
   nearorg_rpc_fetchpublickeybytes,
   nearorg_rpc_timestamp,
 } = require("../blockchain/blockchainservice");
-const stateManager = require("../blockchain/statemanager");
+const stateManager = require("../statemanager");
 const {
   login_portal,
 } = require("../middleware/rodit");
