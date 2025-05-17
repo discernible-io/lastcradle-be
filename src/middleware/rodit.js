@@ -32,9 +32,6 @@ const {
   nearorg_rpc_state, 
   nearorg_rpc_tokensfromaccountid, 
   nearorg_rpc_fetchpublickeybytes,
-  RODiT,
-  PayloadNEP413,
-  PayloadNEP413Schema,
   CONSTANTS,
 } = require("../blockchain/blockchainservice");
 const { generate_jwt_token,base64url2jwk_public_key,

@@ -10,7 +10,15 @@ const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
 const {CONSTANTS
 } = require("../blockchain/blockchainservice");
 const { generate_jwt_token } = require("./tokenservice");
-
+const { 
+  nearorg_rpc_timestamp, 
+  nearorg_rpc_tokenfromroditid, 
+  nearorg_rpc_fetchpublickeybytes,
+  RODiT,
+  PayloadNEP413,
+  PayloadNEP413Schema,
+  CONSTANTS,
+} = require("../blockchain/blockchainservice");
 
 /**
  * Authenticates a client using RODiT credentials and generates a JWT token

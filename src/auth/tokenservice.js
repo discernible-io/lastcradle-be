@@ -13,6 +13,11 @@ const {
   unixTimeToDateString
 } = require("../utils");
 const sessionManager = require('../auth/sessionmanager');
+const {  
+  nearorg_rpc_tokenfromroditid, 
+  nearorg_rpc_tokensfromaccountid, 
+  nearorg_rpc_fetchpublickeybytes,
+} = require("../blockchain/blockchainservice");
 
   /**
    * Converts a base64url string to a JWK public key
