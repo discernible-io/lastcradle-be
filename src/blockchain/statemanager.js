@@ -99,43 +99,67 @@ class AuthStateManager {
   }
   
   updateSession(sessionId, updates) {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      throw new Error(`Session ${sessionId} not found`);
+    if (!this.sessions.has(sessionId)) {
+      return null;
     }
     
-    this.sessions.set(sessionId, {
+    const session = this.sessions.get(sessionId);
+    const updatedSession = {
       ...session,
-      ...updates
-    });
+      ...updates,
+      lastAccessedAt: Math.floor(Date.now() / 1000)
+    };
     
-    return this.sessions.get(sessionId);
+    this.sessions.set(sessionId, updatedSession);
+    return updatedSession;
   }
   
-  isSessionActive(sessionId) {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
+  deleteSession(sessionId) {
+    if (!this.sessions.has(sessionId)) {
       return false;
     }
     
-    return session.status === "active";
+    return this.sessions.delete(sessionId);
   }
   
-  // Portal URL helper
-  getPortalUrl(serviceProviderId, port = 443) {
-    if (!serviceProviderId) {
-      throw new Error("Service provider ID is required");
-    }
-    
-    // Format: https://{serviceProviderId}.aparejos.net:{port}
-    return `https://${serviceProviderId}.aparejos.net:${port}`;
+  getAllSessions() {
+    return Array.from(this.sessions.values());
   }
-}
+  
+  getPortalUrl(serviceProviderId, port) {
+    // Extract smart contract component from serviceprovider_id
+    const components = serviceProviderId.split(";");
+    const scComponent = components
+      .find((c) => c.startsWith("sc="))
+      ?.substring(3);
 
-// Create a singleton instance
-const stateManager = new AuthStateManager();
+    if (!scComponent) {
+      throw new Error("Invalid serviceprovider_id format");
+    }
 
-// Export the singleton
-module.exports = {
-  stateManager
+    // Extract domain parts from smart contract name
+    const scParts = scComponent.split(".");
+    if (scParts.length < 1) {
+      throw new Error("Invalid smart contract format");
+    }
+
+    // Get domain information from the first part
+    const domainPart = scParts[0];
+    const domainComponents = domainPart.split("-");
+
+    // Find domain and TLD in the components (format: 10975-cableguard-org)
+    if (domainComponents.length < 3) {
+      throw new Error("Invalid domain format in smart contract");
+    }
+
+    const domain = domainComponents[1]; // cableguard
+    const tld = domainComponents[2]; // org
+
+    // Build and return the API endpoint
+    return `https://signportal.${domain}.${tld}:${port}`;
+  }
 };
+
+// Create and export a singleton instance
+const stateManager = new AuthStateManager();
+module.exports = stateManager;
