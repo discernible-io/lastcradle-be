@@ -170,8 +170,11 @@ const stateManager  = require("../blockchain/statemanager");
         });
       }
 
-      // Attach user information to the request
+      // Attach the structured user object created in the token validation function
+      // This follows modern best practices for authentication
       req.user = validationResult.user;
+      
+      // Store the token for potential use in the request
       req.token = token;
 
       // Check if a new token was generated during validation

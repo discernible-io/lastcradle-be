@@ -1,0 +1,450 @@
+/**
+ * Test for CRUDA operations with modern authentication
+ * Copyright (c) 2024 Cableguard, Inc. All rights reserved.
+ */
+
+const { ulid } = require("ulid");
+const logger = require("../../config/logger");
+const stateManager = require("../blockchain/statemanager");
+
+// Helper function to handle fetch with proper error handling
+async function fetchWithErrorHandling(url, options) {
+  try {
+    const response = await fetch(url, options);
+    const statusCode = response.status;
+    
+    // Try to parse JSON response
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      // If response is not JSON, use text
+      const text = await response.text();
+      return { 
+        statusCode, 
+        error: statusCode >= 400 ? text : null,
+        text
+      };
+    }
+    
+    // Return error for non-2xx status codes
+    if (statusCode >= 400) {
+      return { 
+        statusCode, 
+        error: data.error?.message || data.error || "Unknown error",
+        details: data
+      };
+    }
+    
+    // Check for new token in response headers
+    const newToken = response.headers.get('New-Token');
+    if (newToken) {
+      // Store the new token for subsequent requests
+      await stateManager.setJwtToken(newToken);
+      data._newToken = true; // Flag to indicate token was renewed
+    }
+    
+    return { ...data, statusCode };
+  } catch (error) {
+    return { 
+      error: error.message, 
+      statusCode: 0,
+      networkError: true
+    };
+  }
+}
+
+// Helper function to capture test data
+function captureTestData(testName, moduleName, result, testData) {
+  result.testInfo = {
+    testName,
+    moduleName,
+    timestamp: new Date().toISOString(),
+    endpoint: testData.endpoint || "unknown",
+  };
+
+  if (!result.success) {
+    const correlationId = ulid();
+    result.testInfo.correlationId = correlationId;
+
+    // Log error using the standard format
+    logger.error(
+      `Test '${testName}' failed for endpoint ${result.testInfo.endpoint}`,
+      {
+        component: "TestRunner",
+        moduleName,
+        testName,
+        endpoint: result.testInfo.endpoint,
+        correlationId,
+        error: result.error,
+      }
+    );
+
+    logger.metric("test_failure", 1, {
+      module: moduleName,
+      test: testName,
+      endpoint: result.testInfo.endpoint,
+      correlation_id: correlationId,
+    });
+  } else {
+    // Log success at DEBUG level
+    logger.debug(
+      `Test '${testName}' passed for endpoint ${result.testInfo.endpoint}`,
+      {
+        component: "TestRunner",
+        moduleName,
+        testName,
+        endpoint: result.testInfo.endpoint,
+      }
+    );
+
+    logger.metric("test_success", 1, {
+      module: moduleName,
+      test: testName,
+      endpoint: result.testInfo.endpoint,
+    });
+  }
+
+  return result;
+}
+
+module.exports = {
+  testCrudaOperations2: async (apiEndpoint) => {
+    const moduleName = "cruda";
+    const testName = "testCrudaOperations2";
+    const correlationId = ulid();
+    const testData = { apiEndpoint };
+    testData.endpoint = `${apiEndpoint}/api/cruda`;
+
+    // Log test start
+    logger.info("Starting comprehensive CRUDA operations test", {
+      component: "TestRunner",
+      moduleName,
+      testName,
+      correlationId,
+      phase: "start",
+    });
+
+    const token = await stateManager.getJwtToken();
+    testData.hasToken = !!token;
+
+    try {
+      // Function to create headers with or without tokens
+      const getHeaders = (includeToken = true) => {
+        const headers = {
+          "Content-Type": "application/json",
+          "X-Request-ID": ulid(),
+        };
+        
+        if (includeToken && token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+        
+        return headers;
+      };
+
+      // PART 1: Authentication Testing - Try with and without token
+      logger.info("Test phase: Authentication check", {
+        component: "TestRunner",
+        moduleName,
+        testName,
+        correlationId,
+        phase: "auth_check",
+      });
+
+      // Check operation without token
+      const noTokenListResult = await fetchWithErrorHandling(
+        `${apiEndpoint}/api/cruda/list`,
+        {
+          method: "POST",
+          headers: getHeaders(false),
+          body: JSON.stringify({}),
+        }
+      );
+
+      testData.noTokenListResult = noTokenListResult;
+      const requiresAuth = !!noTokenListResult.error;
+
+      // PART 2: Basic CRUD Operations
+      logger.info("Test phase: Basic CRUD operations", {
+        component: "TestRunner",
+        moduleName,
+        testName,
+        correlationId,
+        phase: "basic_crud",
+      });
+
+      // Use for detailed timing of operations
+      const operationTimings = {};
+      
+      // CREATE operation
+      const startCreateTime = Date.now();
+      const createResult = await fetchWithErrorHandling(
+        `${apiEndpoint}/api/cruda/create`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            title: "Comprehensive Test Item",
+            content: "This is a test item for comprehensive CRUDA tests",
+          }),
+        }
+      );
+      operationTimings.create = Date.now() - startCreateTime;
+
+      testData.createResult = createResult;
+      if (createResult.error) {
+        const result = {
+          success: false,
+          error: `Create operation failed: ${createResult.error}`,
+          details: createResult,
+        };
+        return captureTestData(testName, moduleName, result, testData);
+      }
+
+      const itemId = createResult.id;
+      testData.itemId = itemId;
+
+      // READ operation
+      const startReadTime = Date.now();
+      const readResult = await fetchWithErrorHandling(
+        `${apiEndpoint}/api/cruda/read`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({ id: itemId }),
+        }
+      );
+      operationTimings.read = Date.now() - startReadTime;
+
+      testData.readResult = readResult;
+      if (readResult.error) {
+        const result = {
+          success: false,
+          error: `Read operation failed: ${readResult.error}`,
+          details: readResult,
+        };
+        return captureTestData(testName, moduleName, result, testData);
+      }
+
+      // UPDATE operation
+      const startUpdateTime = Date.now();
+      const updateResult = await fetchWithErrorHandling(
+        `${apiEndpoint}/api/cruda/update`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            id: itemId,
+            title: "Updated Test Item",
+            content: "This item has been updated during the comprehensive test",
+          }),
+        }
+      );
+      operationTimings.update = Date.now() - startUpdateTime;
+
+      testData.updateResult = updateResult;
+      if (updateResult.error) {
+        const result = {
+          success: false,
+          error: `Update operation failed: ${updateResult.error}`,
+          details: updateResult,
+        };
+        return captureTestData(testName, moduleName, result, testData);
+      }
+
+      // LIST operation
+      const startListTime = Date.now();
+      const listResult = await fetchWithErrorHandling(
+        `${apiEndpoint}/api/cruda/list`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({}),
+        }
+      );
+      operationTimings.list = Date.now() - startListTime;
+
+      testData.listResult = listResult;
+      if (listResult.error) {
+        const result = {
+          success: false,
+          error: `List operation failed: ${listResult.error}`,
+          details: listResult,
+        };
+        return captureTestData(testName, moduleName, result, testData);
+      }
+
+      // Check if our item is in the list
+      const foundInList = listResult.comments && 
+        listResult.comments.some(item => item.id === itemId);
+      testData.foundInList = foundInList;
+
+      // DELETE operation
+      const startDeleteTime = Date.now();
+      const deleteResult = await fetchWithErrorHandling(
+        `${apiEndpoint}/api/cruda/destroy`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({ id: itemId }),
+        }
+      );
+      operationTimings.delete = Date.now() - startDeleteTime;
+
+      testData.deleteResult = deleteResult;
+      if (deleteResult.error) {
+        const result = {
+          success: false,
+          error: `Delete operation failed: ${deleteResult.error}`,
+          details: deleteResult,
+        };
+        return captureTestData(testName, moduleName, result, testData);
+      }
+
+      // Verify deletion
+      const verifyListResult = await fetchWithErrorHandling(
+        `${apiEndpoint}/api/cruda/list`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({}),
+        }
+      );
+
+      // Check if item is still in the list
+      const stillInList = verifyListResult.comments && 
+        verifyListResult.comments.some(item => item.id === itemId);
+      testData.stillInList = stillInList;
+
+      // PART 3: Alternative Methods Testing
+      logger.info("Test phase: HTTP methods testing", {
+        component: "TestRunner",
+        moduleName,
+        testName,
+        correlationId,
+        phase: "method_tests",
+      });
+
+      // Test alternative HTTP methods
+      const methodResults = {};
+      
+      // Test GET method
+      const getResult = await fetchWithErrorHandling(
+        `${apiEndpoint}/api/cruda/list`,
+        {
+          method: "GET",
+          headers: getHeaders(),
+        }
+      );
+      methodResults.GET = {
+        status: getResult.statusCode || 0,
+        success: !getResult.error,
+        error: getResult.error
+      };
+
+      // Test PUT method
+      const putResult = await fetchWithErrorHandling(
+        `${apiEndpoint}/api/cruda/update`,
+        {
+          method: "PUT",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            id: "test-id", // Use a dummy ID since our item was deleted
+            title: "PUT Test",
+            content: "Testing PUT method",
+          }),
+        }
+      );
+      methodResults.PUT = {
+        status: putResult.statusCode || 0,
+        success: !putResult.error,
+        error: putResult.error
+      };
+
+      // Test DELETE method (direct method)
+      const deleteMethodResult = await fetchWithErrorHandling(
+        `${apiEndpoint}/api/cruda/destroy`,
+        {
+          method: "DELETE",
+          headers: getHeaders(),
+          body: JSON.stringify({ id: "test-id" }), // Use a dummy ID
+        }
+      );
+      methodResults.DELETE = {
+        status: deleteMethodResult.statusCode || 0,
+        success: !deleteMethodResult.error,
+        error: deleteMethodResult.error
+      };
+
+      testData.methodResults = methodResults;
+      
+      // Determine which HTTP methods are supported
+      const supportedMethods = Object.entries(methodResults)
+        .filter(([_, result]) => result.success)
+        .map(([method, _]) => method);
+      
+      testData.supportedMethods = supportedMethods;
+
+      // Log test completion
+      logger.info("Test completed", {
+        component: "TestRunner",
+        moduleName,
+        testName,
+        correlationId,
+        phase: "complete",
+        requiresAuth,
+        foundInList,
+        deletedSuccessfully: !stillInList,
+        supportedMethods,
+      });
+
+      const result = {
+        success: (!stillInList) && foundInList, // Basic success criteria
+        details: {
+          authentication: {
+            requiresAuth,
+            authTested: true,
+          },
+          operations: {
+            createSuccessful: !createResult.error,
+            readSuccessful: !readResult.error,
+            updateSuccessful: !updateResult.error,
+            listSuccessful: !listResult.error,
+            deleteSuccessful: !deleteResult.error,
+            itemId,
+            foundInList,
+            itemDeletedProperly: !stillInList,
+          },
+          performance: {
+            timings: operationTimings,
+          },
+          methods: {
+            supportedMethods,
+            methodResults,
+          }
+        },
+      };
+
+      return captureTestData(testName, moduleName, result, testData);
+    } catch (error) {
+      logger.error("Test exception", {
+        component: "TestRunner",
+        moduleName,
+        testName,
+        correlationId,
+        phase: "exception",
+        error: error.message,
+        stack: error.stack,
+      });
+
+      const result = {
+        success: false,
+        error: error.message,
+        details: { stack: error.stack },
+      };
+
+      return captureTestData(testName, moduleName, result, testData);
+    }
+  }
+};
