@@ -963,6 +963,21 @@ const {
         requestId
       );
       const peer_rodit = await nearorg_rpc_tokenfromroditid(payload.aud);
+      
+      // Check if the peer RODiT is valid (has required properties)
+      // This handles cases where security tests send invalid tokens
+      if (!peer_rodit || !peer_rodit.token_id) {
+        logger.warn("Token validation failed - Invalid or missing peer RODiT", {
+          component: "JwtAuth",
+          method: "validate_jwt_token_be",
+          requestId,
+          audience: payload.aud,
+          duration: Date.now() - startTime,
+        });
+        
+        throw new Error("Error 008: Invalid or missing peer RODiT");
+      }
+      
       const goodrodit = validationResult.isValid;
   
       logger.debug("Verified peer RODiT", {
@@ -970,7 +985,7 @@ const {
         verifyPeerDuration: Date.now() - verifyStartTime,
         goodRodit: goodrodit,
       });
-  
+
       if (goodrodit) {
         const now = Math.floor(Date.now() / 1000);
   

@@ -232,14 +232,28 @@ const PayloadNEP413Schema = {
   }
 
   /**
-   * Fetches a RODiT token by ID
+   * Fetches a RODiT token by ID from the NEAR blockchain
    * 
-   * @param {string} roditid - RODiT token ID
+   * @param {string} roditid - RODiT token ID to fetch
    * @returns {Promise<RODiT>} RODiT token object
    */
   async function nearorg_rpc_tokenfromroditid(roditid) {
     const requestId = ulid();
     const startTime = Date.now();
+
+    // Security check: Handle null, undefined, or invalid roditid
+    // This is important for security tests that intentionally send invalid tokens
+    if (!roditid) {
+      logger.warn("Attempted to fetch RODiT with null/undefined ID", {
+        component: "BlockchainService",
+        method: "nearorg_rpc_tokenfromroditid",
+        requestId,
+      });
+      
+      // Return an empty RODiT object instead of throwing an error
+      // This allows the authentication flow to continue and properly reject the invalid token
+      return new RODiT();
+    }
 
     logger.debug("Fetching RODiT token by ID", {
       component: "BlockchainService",
