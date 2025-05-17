@@ -10,9 +10,11 @@ const {
   stateManager,
 } = require("./middleware/rodit");
 const {
-  login_client,
   authenticate_apicall,
-} = require("./middleware/authentication");
+} = require("./middleware/authenticationmw");
+const { 
+  login_client,
+} = require("../auth/authentication");
 
 const options = {
   definition: {
