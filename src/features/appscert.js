@@ -17,11 +17,12 @@ const {
   authenticate_apicall,
 } = require("../middleware/authenticationmw");
 const {
-  set_rodit_config,
-  get_rodit_config,
+  verify_peerrodit_getrodit,
+} = require("../auth/authentication");
+const {
   generate_jwt_token,
-  verify_peerrodit_getit,
-} = require("../middleware/rodit");
+} = require("../auth/tokenservice");
+const stateManager = require("../blockchain/statemanager");
 
 const options = {
   definition: {
@@ -125,13 +126,13 @@ app.post(
     }
 
     try {
-      let { peer_rodit, goodrodit } = await verify_peerrodit_getit(
+      let { peer_rodit, goodrodit } = await verify_peerrodit_getrodit(
         peer_roditid,
         peer_roditid_base64url_signature
       );
 
       if (goodrodit) {
-        const config_own_rodit = await get_rodit_config();
+        const config_own_rodit = await stateManager.get_rodit_config();
         if (!config_own_rodit) {
           throw new Error("Server configuration not initialized");
         }
@@ -207,8 +208,8 @@ function updateratelimit(maxrequests, maxrqwindow) {
 // Start server
 async function startServer() {
   try {
-    await set_rodit_config(VAULT_RODIT_KEYVALUE_PATH);
-    const config_own_rodit = await get_rodit_config();
+    await stateManager.set_rodit_config(VAULT_RODIT_KEYVALUE_PATH);
+    const config_own_rodit = await stateManager.get_rodit_config();
 
     // Create key objects using Node.js crypto
     const own_rodit_keyobject_privatekey = crypto.createPrivateKey({

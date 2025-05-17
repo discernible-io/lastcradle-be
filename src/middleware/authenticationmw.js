@@ -5,15 +5,17 @@
 
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
+// Import specific functions directly to avoid circular dependencies
 const { 
-  generate_jwt_token,
-  validate_jwt_token_be 
+  validate_jwt_token_be,
+  generate_jwt_token
 } = require("../auth/tokenservice");
 const { 
   send_webhook, 
   login_client
 } = require("../auth/authentication");
-const stateManager  = require("../blockchain/statemanager");
+// Direct import from statemanager to avoid circular dependencies
+const stateManager = require("../blockchain/statemanager");
 
 /**
  * Middleware for handling authentication in routes
@@ -142,7 +144,7 @@ const stateManager  = require("../blockchain/statemanager");
           error: validationError.message,
         });
         
-        // Return 403 for invalid tokens to match legacy implementation
+        // Return 403 for invalid tokens
         return res.status(403).json({
           error: {
             code: "INVALID_TOKEN",
@@ -160,7 +162,7 @@ const stateManager  = require("../blockchain/statemanager");
           requestId,
           error: validationResult.error,
         });
-        // Return 403 for invalid tokens to match legacy implementation
+        // Return 403 for invalid tokens
         return res.status(403).json({
           error: {
             code: "INVALID_TOKEN",
@@ -170,7 +172,7 @@ const stateManager  = require("../blockchain/statemanager");
         });
       }
 
-      // Attach the structured user object created in the token validation function
+      // Use the structured user object from the token validation result
       // This follows modern best practices for authentication
       req.user = validationResult.user;
       
@@ -179,8 +181,9 @@ const stateManager  = require("../blockchain/statemanager");
 
       // Check if a new token was generated during validation
       if (validationResult.newToken) {
-        // Add the new token to the response headers
+        // Add the new token to the response headers ONLY (no cookies)
         res.setHeader('New-Token', validationResult.newToken);
+        
         logger.debug("Added renewed token to response headers", {
           component: "AuthMiddleware",
           method: "authenticate_apicall",
@@ -364,8 +367,8 @@ const stateManager  = require("../blockchain/statemanager");
         logoutSuccess = true;
       }
 
-      // Clear auth cookies if they exist
-      res.clearCookie("auth-token");
+      // Clear auth headers if they exist
+      res.removeHeader("Authorization");
 
       // Send webhook notification for logout if configured
       try {

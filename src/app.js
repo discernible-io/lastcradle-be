@@ -5,9 +5,7 @@ const logger = require("../config/logger");
 const loggingmw = require("./middleware/loggingmw");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
-const {
-  roditManager,
-} = require("./middleware/rodit");
+const { roditmanager } = require("./auth/roditmanager");
 const { authenticate_apicall } = require("./middleware/authenticationmw");
 const stateManager = require("./blockchain/statemanager");
 const { 
