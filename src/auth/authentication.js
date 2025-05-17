@@ -7,8 +7,6 @@ const { ulid } = require("ulid");
 const logger = require("../../config/logger");
 const nacl = require("tweetnacl");
 const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
-const {CONSTANTS
-} = require("../blockchain/blockchainservice");
 const { generate_jwt_token } = require("./tokenservice");
 const { 
   nearorg_rpc_timestamp, 
