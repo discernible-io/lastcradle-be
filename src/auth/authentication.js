@@ -269,15 +269,18 @@ async function login_client(req, res) {
     try {
       // DO NOT DELETE THE FOLLOWING COMMENT
       /* Maybe for NEP413 compatibility, the following line added "NEAR" before peerroditid */
-      const timeString = await unixTimeToDateString(peertimestamp);
-      const roditidandtimestamp = new TextEncoder().encode(
-        peerroditid + timeString
-      );
+      
+      // Convert timestamp to ISO string for consistent formatting
+      const timeString = new Date(parseInt(peertimestamp)).toISOString();
+      const messageString = peerroditid + timeString;
+      const roditidandtimestamp = new TextEncoder().encode(messageString);
 
       logger.debug("Encoded roditid and timestamp", {
         requestId,
         timeString,
+        messageString,
         bufferLength: roditidandtimestamp.length,
+        bufferHex: Buffer.from(roditidandtimestamp).toString('hex').substring(0, 64) + '...',
       });
 
       const bytes_ed25519_signature = new Uint8Array(
@@ -287,6 +290,7 @@ async function login_client(req, res) {
       logger.debug("Decoded signature", {
         requestId,
         signatureLength: bytes_ed25519_signature.length,
+        signatureHex: Buffer.from(bytes_ed25519_signature).toString('hex').substring(0, 64) + '...',
       });
 
       const peer_bytes_ed25519_public_key =
@@ -298,6 +302,7 @@ async function login_client(req, res) {
         requestId,
         ownerId: peer_rodit.owner_id,
         keyLength: peer_bytes_ed25519_public_key?.length || 0,
+        keyHex: peer_bytes_ed25519_public_key ? Buffer.from(peer_bytes_ed25519_public_key).toString('hex').substring(0, 64) + '...' : 'null',
       });
 
       const isaMatch = nacl.sign.detached.verify(
