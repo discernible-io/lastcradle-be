@@ -7,6 +7,9 @@ const { ulid } = require("ulid");
 const logger = require("../../config/logger");
 const {generate_jwt_token} = require("../auth/tokenservice");
 const { send_webhook } = require("../auth/authentication");
+const { 
+  login_client,
+} = require("../auth/authentication");
 
 /**
  * Middleware for handling authentication in routes
