@@ -5,6 +5,7 @@ const logger = require("../config/logger");
 const loggingmw = require("./middleware/loggingmw");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
+// Import roditManager directly as it's now exported as the singleton instance
 const roditManager = require("./auth/roditmanager");
 const { authenticate_apicall } = require("./middleware/authenticationmw");
 const stateManager = require("./blockchain/statemanager");

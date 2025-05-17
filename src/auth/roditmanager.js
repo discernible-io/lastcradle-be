@@ -597,4 +597,6 @@ class RoditManager {
 
 // Create and export a singleton instance
 const roditManager = new RoditManager();
-module.exports = { roditManager };
+
+// Export the singleton instance directly to avoid any issues with destructuring
+module.exports = roditManager;
