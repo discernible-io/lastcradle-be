@@ -18,6 +18,7 @@ const {
   nearorg_rpc_tokensfromaccountid, 
   nearorg_rpc_fetchpublickeybytes,
 } = require("../blockchain/blockchainservice");
+const { stateManager } = require("../middleware/rodit");
 
   /**
    * Converts a base64url string to a JWK public key
