@@ -962,7 +962,8 @@ const {
         payload,
         requestId
       );
-      const peer_rodit = await nearorg_rpc_tokenfromroditid(payload.aud);
+
+      const peer_rodit = await nearorg_rpc_tokenfromroditid(payload.rodit_id || payload.aud);
       
       // Check if the peer RODiT is valid (has required properties)
       // This handles cases where security tests send invalid tokens

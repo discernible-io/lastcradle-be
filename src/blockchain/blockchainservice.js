@@ -363,17 +363,31 @@ const PayloadNEP413Schema = {
 
       const decodeStartTime = Date.now();
       const resultString = new TextDecoder().decode(new Uint8Array(resultArray));
-      const parsed = JSON.parse(resultString);
+      let parsed;
+      
+      try {
+        parsed = JSON.parse(resultString);
+      } catch (error) {
+        logger.error("Failed to parse RODiT data", {
+          component: "BlockchainService",
+          requestId,
+          error: error.message,
+        });
+        return new RODiT();
+      }
+      
       const decodeDuration = Date.now() - decodeStartTime;
 
       logger.debug("RODiT data decoded", {
         requestId,
         decodeDuration,
-        hasTokenId: !!parsed.token_id,
+        hasTokenId: parsed && !!parsed.token_id,
       });
 
       const rodit = new RODiT();
-      Object.assign(rodit, parsed);
+      if (parsed) {
+        Object.assign(rodit, parsed);
+      }
 
       const totalDuration = Date.now() - startTime;
       const hasValidData = !!rodit.token_id && !!rodit.owner_id;
