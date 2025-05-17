@@ -14,7 +14,7 @@ const {
 } = require("./middleware/authenticationmw");
 const { 
   login_client,
-} = require("../auth/authentication");
+} = require("./auth/authentication");
 
 const options = {
   definition: {
