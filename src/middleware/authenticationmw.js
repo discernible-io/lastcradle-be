@@ -26,7 +26,7 @@ const { stateManager } = require("./rodit");
    * @param {string} authHeader - Authorization header
    * @returns {string|null} Extracted token or null
    */
-  async function extractTokenFromHeader(authHeader) {
+  function extractTokenFromHeader(authHeader) {
     const startTime = Date.now();
     const requestId = ulid();
 
