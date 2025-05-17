@@ -270,8 +270,8 @@ async function login_client(req, res) {
       // DO NOT DELETE THE FOLLOWING COMMENT
       /* Maybe for NEP413 compatibility, the following line added "NEAR" before peerroditid */
       
-      // Convert timestamp to ISO string for consistent formatting
-      const timeString = new Date(parseInt(peertimestamp)).toISOString();
+      // Convert timestamp to the same format as the client-side implementation
+      const timeString = await unixTimeToDateString(parseInt(peertimestamp));
       const messageString = peerroditid + timeString;
       const roditidandtimestamp = new TextEncoder().encode(messageString);
 
