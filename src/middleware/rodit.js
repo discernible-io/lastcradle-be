@@ -41,6 +41,7 @@ const { generate_jwt_token,base64url2jwk_public_key,
   checkandrenew_jwt_token,
   verify_jwt_token
 } = require("../auth/tokenservice");
+const { send_webhook } = require("../auth/authentication");
 
 const API_OPTIONS = config.get("API_OPTIONS");
 const SERVERPORT = config.get("SERVERPORT");
@@ -2419,234 +2420,6 @@ async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
   }
 }
 
-async function logout_client(req, res) {
-  const requestId = ulid();
-  const startTime = Date.now();
-
-  logger.info("Logout request received", {
-    component: "AuthenticationService",
-    method: "logout_client",
-    requestId,
-    path: req.path,
-    method: req.method,
-    ip: req.ip,
-    userAgent: req.get('User-Agent')
-  });
-
-  try {
-    // Extract token from authorization header
-    const token = extractTokenFromHeader(req.headers.authorization);
-    
-    if (!token) {
-      const duration = Date.now() - startTime;
-      
-      logger.warn("Logout failed - no token provided", {
-        component: "AuthenticationService",
-        method: "logout_client",
-        requestId,
-        duration,
-        ip: req.ip
-      });
-      
-      // Emit metrics for unauthorized logout attempts
-      logger.metric && logger.metric("logout_attempts", 1, {
-        component: "AuthenticationService",
-        result: "no_token",
-      });
-      
-      return res.status(401).json({
-        message: "No authentication token provided",
-        requestId
-      });
-    }
-    
-    // Decode the token to get session information
-    // We're just decoding, not verifying, since even if the token is expired
-    // we still want to be able to log the user out
-    let decodedToken;
-    try {
-      // Split the token and decode the payload (middle part)
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        throw new Error("Invalid token format");
-      }
-      
-      const payload = Buffer.from(parts[1], 'base64url').toString();
-      decodedToken = JSON.parse(payload);
-      
-      logger.debug("Token decoded for logout", {
-        component: "AuthenticationService",
-        method: "logout_client",
-        requestId,
-        jti: decodedToken.jti,
-        hasSessionId: !!decodedToken.session_id
-      });
-    } catch (decodeError) {
-      logger.error("Failed to decode token for logout", {
-        component: "AuthenticationService",
-        method: "logout_client",
-        requestId,
-        error: decodeError.message,
-      });
-      
-      // Continue with a partial logout even if token can't be decoded
-      decodedToken = {};
-    }
-    
-    // Track success for metrics
-    let logoutSuccess = false;
-    let sessionClosed = false;
-    
-    // Close the session if session_id is available
-    if (decodedToken.session_id) {
-      try {
-        // Get the reason from request body or use default
-        const reason = req.body.reason || 'user_logout';
-        
-        // Close the session
-        sessionClosed = sessionManager.closeSession(decodedToken.session_id, reason);
-        
-        if (sessionClosed) {
-          logger.info("Session closed successfully", {
-            component: "AuthenticationService",
-            method: "logout_client",
-            requestId,
-            sessionId: decodedToken.session_id,
-            reason
-          });
-          
-          logoutSuccess = true;
-        } else {
-          logger.warn("Session not found or already closed", {
-            component: "AuthenticationService",
-            method: "logout_client",
-            requestId,
-            sessionId: decodedToken.session_id
-          });
-          
-          // We still consider this a success from the client perspective
-          // since the session is effectively "logged out" either way
-          logoutSuccess = true;
-        }
-      } catch (sessionError) {
-        logger.error("Error closing session", {
-          component: "AuthenticationService",
-          method: "logout_client",
-          requestId,
-          sessionId: decodedToken.session_id,
-          error: sessionError.message
-        });
-        
-        // Continue with logout process even if session closing fails
-      }
-    } else {
-      logger.warn("Logout with token that has no session ID", {
-        component: "AuthenticationService",
-        method: "logout_client",
-        requestId,
-        jti: decodedToken.jti || "unknown"
-      });
-      
-      // We still consider this a success since there's no session to log out from
-      logoutSuccess = true;
-    }
-    
-    // Clear auth cookies if they exist
-    res.clearCookie('auth-token');
-    
-    // Send webhook notification for logout if configured
-    try {
-      const webhookData = {
-        event: 'user.logout',
-        session_id: decodedToken.session_id,
-        token_jti: decodedToken.jti,
-        timestamp: Math.floor(Date.now() / 1000)
-      };
-      
-      // Assuming send_webhook is imported or available in this scope
-      // This would typically be non-blocking
-      if (typeof send_webhook === 'function') {
-        send_webhook('user.logout', webhookData, false, req)
-          .catch(webhookError => {
-            logger.error("Failed to send logout webhook", {
-              component: "AuthenticationService",
-              method: "logout_client",
-              requestId,
-              error: webhookError.message
-            });
-          });
-      }
-    } catch (webhookError) {
-      // Log but continue, webhook failure shouldn't affect logout
-      logger.error("Error preparing logout webhook", {
-        component: "AuthenticationService",
-        method: "logout_client",
-        requestId,
-        error: webhookError.message
-      });
-    }
-    
-    const duration = Date.now() - startTime;
-    logger.info("Logout completed", {
-      component: "AuthenticationService",
-      method: "logout_client",
-      requestId,
-      duration,
-      success: logoutSuccess,
-      sessionClosed,
-      hasSessionId: !!decodedToken.session_id
-    });
-    
-    // Emit metrics for logout
-    logger.metric && logger.metric("logout_duration_ms", duration, {
-      component: "AuthenticationService",
-      success: logoutSuccess,
-      session_closed: sessionClosed
-    });
-    
-    logger.metric && logger.metric("logout_attempts", 1, {
-      component: "AuthenticationService",
-      result: logoutSuccess ? "success" : "failure",
-      session_closed: sessionClosed
-    });
-    
-    return res.json({
-      message: "Logout successful",
-      sessionClosed,
-      requestId
-    });
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    
-    logger.error("Logout process failed", {
-      component: "AuthenticationService",
-      method: "logout_client",
-      requestId,
-      duration,
-      error: error.message,
-      stack: error.stack
-    });
-    
-    // Emit metrics for logout errors
-    logger.metric && logger.metric("logout_duration_ms", duration, {
-      component: "AuthenticationService",
-      success: false,
-      error: error.constructor.name
-    });
-    
-    logger.metric && logger.metric("logout_errors", 1, {
-      component: "AuthenticationService",
-      error: error.constructor.name
-    });
-    
-    return res.status(500).json({
-      message: "Internal server error during logout",
-      error: error.message,
-      requestId
-    });
-  }
-}
-
 async function login_client_withnep413(req, res, config_own_rodit = null) {
   const requestId = ulid();
   const startTime = Date.now();
@@ -3956,13 +3729,11 @@ async function authenticate_apicall(req, res, next) {
 }
 
 module.exports = {
-  logout_client,
   login_server,
   login_portal,
   login_client_withnep413,
   generate_jwt_token,
   authenticate_apicall,
-  send_webhook,
   authenticate_webhook,
   AuthStateManager,
   roditManager,
