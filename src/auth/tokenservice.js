@@ -13,7 +13,7 @@ const {
   unixTimeToDateString
 } = require("../utils");
 const sessionManager = require('../auth/sessionmanager');
-const { stateManager } = require('../blockchain/statemanager');
+const stateManager = require('../blockchain/statemanager');
 const {  
   nearorg_rpc_tokenfromroditid, 
   nearorg_rpc_tokensfromaccountid, 
