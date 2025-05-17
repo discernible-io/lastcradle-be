@@ -13,7 +13,7 @@ const {
   send_webhook, 
   login_client
 } = require("../auth/authentication");
-const { stateManager } = require("../blockchain/statemanager");
+const stateManager  = require("../blockchain/statemanager");
 
 /**
  * Middleware for handling authentication in routes

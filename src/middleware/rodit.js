@@ -38,7 +38,7 @@ const { generate_jwt_token,base64url2jwk_public_key,
   checkandrenew_jwt_token,
   verify_jwt_token
 } = require("../auth/tokenservice");
-const { stateManager } = require("../blockchain/statemanager");
+const stateManager = require("../blockchain/statemanager");
 
 const API_OPTIONS = config.get("API_OPTIONS");
 const tokenrenewaloptions = API_OPTIONS.TOKENRENEWALOPTIONS;
