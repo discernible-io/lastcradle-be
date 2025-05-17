@@ -1020,19 +1020,6 @@ async function login_client(req, res) {
   }
 
   /**
-   * Validate a JWT token
-   *
-   * @param {string} token - JWT token to validate
-   * @param {Object} own_rodit - Own RODiT object
-   * @returns {Promise<Object>} Validation result
-   */
- async function validate_jwt_token_be(token, own_rodit) {
-    // This would be implemented in the Authentication class
-    // For now, it delegates to the TokenService
-    return validate_jwt_token_be(token, own_rodit);
-  }
-
-  /**
    * Verify and get a peer RODiT
    *
    * @param {string} peerroditid - Peer RODiT ID
@@ -1041,7 +1028,7 @@ async function login_client(req, res) {
    * @param {Object} own_rodit - Own RODiT object
    * @returns {Promise<Object>} Verification result with peer RODiT
    */
- async function verify_peerrodit_getrodit_withnep413(
+  async function verify_peerrodit_getrodit_withnep413(
     message,
     nonce,
     recipient,
@@ -1233,7 +1220,7 @@ async function login_client(req, res) {
     }
   }
 
- async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
+  async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -1385,7 +1372,8 @@ async function login_client(req, res) {
       return false;
     }
   }
- async function verify_peerrodit_getrodit(
+
+  async function verify_peerrodit_getrodit(
     peerroditid,
     peertimestamp,
     peerroditid_base64url_signature,
@@ -1702,7 +1690,7 @@ async function login_client(req, res) {
     }
   }
 
- async function verify_rodit_isamatch(own_service_provider_id, peer_rodit) {
+  async function verify_rodit_isamatch(own_service_provider_id, peer_rodit) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -1984,7 +1972,7 @@ async function login_client(req, res) {
     }
   }
 
- async function verify_rodit_isactive(tokenId, ownsubjectuniqueidentifier_url) {
+  async function verify_rodit_isactive(tokenId, ownsubjectuniqueidentifier_url) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -2097,7 +2085,7 @@ async function login_client(req, res) {
     }
   }
 
- async function verify_rodit_istrusted_issuingsmartcontract(
+  async function verify_rodit_istrusted_issuingsmartcontract(
     ownsubjectuniqueidentifier_url
   ) {
     const requestId = ulid();
