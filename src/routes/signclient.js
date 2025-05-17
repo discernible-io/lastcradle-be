@@ -4,7 +4,12 @@ const router = express.Router();
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
 const {
-  stateManager,
+  nearorg_rpc_tokenfromroditid,
+  nearorg_rpc_fetchpublickeybytes,
+  nearorg_rpc_timestamp,
+} = require("../blockchain/blockchainservice");
+const stateManager = require("../blockchain/statemanager");
+const {
   login_portal,
 } = require("../middleware/rodit");
 

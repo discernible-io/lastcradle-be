@@ -14,12 +14,14 @@ const crypto = require("crypto");
 const fs = require("fs");
 
 const {
+  authenticate_apicall,
+} = require("../middleware/authenticationmw");
+const {
   set_rodit_config,
   get_rodit_config,
   generate_jwt_token,
-  authenticate_apicall,
   verify_peerrodit_getit,
-} = require("./middleware/rodit");
+} = require("../middleware/rodit");
 
 const options = {
   definition: {

@@ -1,8 +1,8 @@
 // webhook-tests.js
 
 const { ulid } = require("ulid");
-const logger = require("../../config/logger");
-const { stateManager } = require("../middleware/rodit");
+const logger = require("../config/logger");
+const stateManager = require("./blockchain/statemanager");
 
 // Standardized captureTestData function aligned with successful tests
 function captureTestData(testName, moduleName, result, testData) {

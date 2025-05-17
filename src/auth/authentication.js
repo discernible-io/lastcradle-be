@@ -91,7 +91,7 @@ async function login_client(req, res) {
       });
 
       // Import stateManager only when needed to avoid circular dependencies
-      const { stateManager } = require("../middleware/rodit");
+      const stateManager = require("../blockchain/statemanager");
       const config_own_rodit = await stateManager.getConfigOwnRodit();
 
       if (!config_own_rodit) {
