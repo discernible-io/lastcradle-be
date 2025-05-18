@@ -139,6 +139,32 @@ async function login_client(req, res) {
         }
       };
 
+      // Add detailed logging of both the original and modified request
+      logger.debug("Original request body", {
+        component: "AuthenticationService",
+        method: "login_client",
+        requestId,
+        originalBodyKeys: Object.keys(req.body),
+        originalHasRoditId: !!req.body.roditid,
+        originalHasTimestamp: !!req.body.timestamp,
+        originalHasSignature: !!req.body.signature,
+        originalHasRoditSignature: !!req.body.roditid_base64url_signature,
+        extractedPeerRoditId: peer_roditid,
+        extractedPeerTimestamp: peer_timestamp,
+        extractedSignatureLength: roditid_base64url_signature?.length,
+      });
+
+      logger.debug("Modified request body", {
+        component: "AuthenticationService",
+        method: "login_client",
+        requestId,
+        modifiedBodyKeys: Object.keys(modifiedReq.body),
+        modifiedHasRoditId: !!modifiedReq.body.roditid,
+        modifiedHasTimestamp: !!modifiedReq.body.timestamp,
+        modifiedHasSignature: !!modifiedReq.body.signature,
+        modifiedHasRoditSignature: !!modifiedReq.body.roditid_base64url_signature,
+      });
+
       const result = await verify_peerrodit_getrodit(modifiedReq, res);
       const { peer_rodit, goodrodit: isRoditValid } = result;
 
