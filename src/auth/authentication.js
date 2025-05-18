@@ -287,6 +287,17 @@ async function login_client(req, res) {
         bufferHex: Buffer.from(roditidandtimestamp).toString('hex').substring(0, 64) + '...',
       });
 
+      // Check if signature is defined before proceeding
+      if (!peerroditid_base64url_signature) {
+        logger.error("Missing signature in authentication request", {
+          component: "RoditAuth",
+          method: "verify_rodit_ownership",
+          requestId,
+          peerRoditId: peerroditid,
+        });
+        throw new Error("Missing signature in authentication request");
+      }
+
       const bytes_ed25519_signature = new Uint8Array(
         Buffer.from(peerroditid_base64url_signature, "base64url")
       );
