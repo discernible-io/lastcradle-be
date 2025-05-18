@@ -2158,11 +2158,23 @@ async function login_client(req, res) {
         requestId,
         extractedDomain,
         enablingDnsEntry: enablingdnsentry,
+        smartContract: CONSTANTS.SMART_CONTRACT,
+        smartContractNonear: smartontractnonear,
+        smartContractUrl: smartcontracturl,
+        originalUrl: ownsubjectuniqueidentifier_url
       });
 
       try {
         const dnsStart = Date.now();
         const resolver = new Resolver();
+        
+        // Add debug info about resolver
+        logger.debug("DNS resolver created", {
+          requestId,
+          resolverType: resolver.constructor.name,
+          resolverMethods: Object.getOwnPropertyNames(Object.getPrototypeOf(resolver))
+        });
+        
         const cfgresponse = await resolver.resolveTxt(enablingdnsentry);
         const dnsDuration = Date.now() - dnsStart;
 
@@ -2170,6 +2182,8 @@ async function login_client(req, res) {
           requestId,
           dnsDuration,
           recordCount: cfgresponse?.length || 0,
+          dnsEntry: enablingdnsentry,
+          response: cfgresponse
         });
 
         if (cfgresponse.length > 0) {
