@@ -2131,7 +2131,8 @@ async function login_client(req, res) {
   }
 
   async function verify_rodit_istrusted_issuingsmartcontract(
-    ownsubjectuniqueidentifier_url
+    blockchain_name,
+    smart_contract_name
   ) {
     const requestId = ulid();
     const startTime = Date.now();
@@ -2140,176 +2141,119 @@ async function login_client(req, res) {
       component: "RoditAuth",
       method: "verify_rodit_istrusted_issuingsmartcontract",
       requestId,
-      url: ownsubjectuniqueidentifier_url,
-      smartContract: CONSTANTS.SMART_CONTRACT,
+      blockchainName: blockchain_name,
+      smartContractName: smart_contract_name,
+    });
+
+    // Add detailed logging for smart contract identifiers
+    logger.debug("Prepared smart contract identifiers", {
+      requestId,
+      blockchainName: blockchain_name,
+      smartContractName: smart_contract_name,
+      hasBlockchainName: !!blockchain_name,
+      hasSmartContractName: !!smart_contract_name,
     });
 
     try {
-      const smartcontract = CONSTANTS.SMART_CONTRACT;
-      const smartontractnonear = smartcontract.replace(".testnet", "");
-      const smartcontracturl = smartontractnonear.replace("-", ".");
-
-      logger.debug("Prepared smart contract identifiers", {
-        requestId,
-        originalContract: smartcontract,
-        nonearContract: smartontractnonear,
-        urlContract: smartcontracturl,
-      });
-
-      const domainRegex =
-        /(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/i;
-
-      const maindomainmatch = domainRegex.exec(ownsubjectuniqueidentifier_url);
-
-      if (!maindomainmatch) {
-        logger.error("Failed to parse domain from URL", {
-          component: "RoditAuth",
-          requestId,
-          duration: Date.now() - startTime,
-          url: ownsubjectuniqueidentifier_url,
-        });
-
-        // Add metrics for domain parsing failures
-        logger.metric &&
-          logger.metric("rodit_trust_errors", 1, {
-            error_type: "domain_parse_error",
-            url: ownsubjectuniqueidentifier_url,
-          });
-
-        throw new Error(
-          `Domain can't be parsed from URL: ${ownsubjectuniqueidentifier_url}`
-        );
-      }
-
-      const extractedDomain = maindomainmatch[1];
-      const enablingdnsentry = `${smartontractnonear}.smartcontract.${extractedDomain}`;
+      const domain = config.domain || "not-set.example.com";
+      const dnsEntry = `${smart_contract_name}.trusted.${blockchain_name}.${domain}`;
 
       logger.debug("Checking DNS trust entry", {
         requestId,
-        extractedDomain,
-        enablingDnsEntry: enablingdnsentry,
-        smartContract: CONSTANTS.SMART_CONTRACT,
-        smartContractNonear: smartontractnonear,
-        smartContractUrl: smartcontracturl,
-        originalUrl: ownsubjectuniqueidentifier_url
+        domain,
+        configDomain: config.domain,
+        dnsEntry,
+        blockchainName,
+        smartContractName,
       });
 
-      try {
-        const dnsStart = Date.now();
-        const resolver = new Resolver();
-        
-        // Add debug info about resolver
-        logger.debug("DNS resolver created", {
-          requestId,
-          resolverType: resolver.constructor.name,
-          resolverMethods: Object.getOwnPropertyNames(Object.getPrototypeOf(resolver))
-        });
-        
-        const cfgresponse = await resolver.resolveTxt(enablingdnsentry);
-        const dnsDuration = Date.now() - dnsStart;
+      const dnsStart = Date.now();
+      const resolver = new Resolver();
+      logger.debug("DNS resolver created", {
+        requestId,
+        resolverType: resolver.constructor.name,
+        resolverMethods: Object.getOwnPropertyNames(Object.getPrototypeOf(resolver))
+      });
+      const cfgresponse = await resolver.resolveTxt(dnsEntry);
+      const dnsDuration = Date.now() - dnsStart;
 
-        logger.debug("DNS response received", {
-          requestId,
-          dnsDuration,
-          recordCount: cfgresponse?.length || 0,
-          dnsEntry: enablingdnsentry,
-          response: cfgresponse
-        });
+      logger.debug("DNS response received", {
+        requestId,
+        dnsDuration,
+        recordCount: cfgresponse?.length || 0,
+        dnsEntry,
+        response: cfgresponse
+      });
 
-        if (cfgresponse.length > 0) {
-          const totalDuration = Date.now() - startTime;
-
-          logger.info("Smart contract is trusted", {
-            component: "RoditAuth",
-            method: "verify_rodit_istrusted_issuingsmartcontract",
-            requestId,
-            duration: totalDuration,
-            dnsDuration,
-            smartContract: smartcontracturl,
-            domain: extractedDomain,
-            dnsEntry: enablingdnsentry,
-            recordCount: cfgresponse.length,
-            isTrusted: true,
-          });
-
-          // Add metrics for trusted contracts
-          logger.metric &&
-            logger.metric("rodit_trust_checks", totalDuration, {
-              result: "trusted",
-              domain: extractedDomain,
-            });
-
-          return true;
-        } else {
-          const totalDuration = Date.now() - startTime;
-
-          logger.warn("Smart contract not trusted - empty DNS record", {
-            component: "RoditAuth",
-            method: "verify_rodit_istrusted_issuingsmartcontract",
-            requestId,
-            duration: totalDuration,
-            dnsDuration,
-            smartContract: smartcontracturl,
-            domain: extractedDomain,
-            dnsEntry: enablingdnsentry,
-            isTrusted: false,
-          });
-
-          // Add metrics for untrusted contracts
-          logger.metric &&
-            logger.metric("rodit_trust_checks", totalDuration, {
-              result: "empty_dns",
-              domain: extractedDomain,
-            });
-
-          return false;
-        }
-      } catch (error) {
+      if (cfgresponse.length > 0) {
         const totalDuration = Date.now() - startTime;
 
-        logger.warn("Smart contract not trusted - DNS lookup failed", {
+        logger.info("Smart contract is trusted", {
           component: "RoditAuth",
           method: "verify_rodit_istrusted_issuingsmartcontract",
           requestId,
           duration: totalDuration,
-          smartContract: smartcontracturl,
-          domain: extractedDomain,
-          dnsEntry: enablingdnsentry,
-          dnsError: error.code,
+          dnsDuration,
+          smartContract: smart_contract_name,
+          domain,
+          dnsEntry,
+          recordCount: cfgresponse.length,
+          isTrusted: true,
+        });
+
+        // Add metrics for trusted contracts
+        logger.metric &&
+          logger.metric("rodit_trust_checks", totalDuration, {
+            result: "trusted",
+            domain,
+          });
+
+        return true;
+      } else {
+        const totalDuration = Date.now() - startTime;
+
+        logger.warn("Smart contract not trusted - empty DNS record", {
+          component: "RoditAuth",
+          method: "verify_rodit_istrusted_issuingsmartcontract",
+          requestId,
+          duration: totalDuration,
+          dnsDuration,
+          smartContract: smart_contract_name,
+          domain,
+          dnsEntry,
           isTrusted: false,
         });
 
-        // Add metrics for DNS errors
+        // Add metrics for untrusted contracts
         logger.metric &&
           logger.metric("rodit_trust_checks", totalDuration, {
-            result: "dns_error",
-            domain: extractedDomain,
-            error_code: error.code,
+            result: "empty_dns",
+            domain,
           });
 
         return false;
       }
     } catch (error) {
-      const duration = Date.now() - startTime;
+      const totalDuration = Date.now() - startTime;
 
-      logger.error("Trust verification failed", {
+      logger.warn("Smart contract not trusted - DNS lookup failed", {
         component: "RoditAuth",
         method: "verify_rodit_istrusted_issuingsmartcontract",
         requestId,
-        duration,
-        url: ownsubjectuniqueidentifier_url,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
+        duration: totalDuration,
+        smartContract: smart_contract_name,
+        domain,
+        dnsEntry,
+        dnsError: error.code,
+        isTrusted: false,
       });
 
-      // Add metrics for verification errors
+      // Add metrics for DNS errors
       logger.metric &&
-        logger.metric("rodit_trust_errors", 1, {
-          error_type: error.name || "Unknown",
-          message: error.message,
+        logger.metric("rodit_trust_checks", totalDuration, {
+          result: "dns_error",
+          domain,
+          error_code: error.code,
         });
 
       return false;
