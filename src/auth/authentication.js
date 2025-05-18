@@ -1576,9 +1576,25 @@ async function login_client(req, res) {
           url: own_rodit.metadata.subjectuniqueidentifier_url,
         });
         const trustedStart = Date.now();
+        
+        // Log before calling the function
+        logger.debug("Before calling verify_rodit_istrusted_issuingsmartcontract", {
+          requestId,
+          functionName: "verify_peerrodit_getrodit"
+        });
+        
         isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
           own_rodit.metadata.subjectuniqueidentifier_url
         );
+        
+        // Log immediately after the function returns
+        logger.debug("After calling verify_rodit_istrusted_issuingsmartcontract", {
+          requestId,
+          functionName: "verify_peerrodit_getrodit",
+          isTrusted: isTrusted,
+          isTrustedType: typeof isTrusted
+        });
+        
         verificationDetails.trustedDuration = Date.now() - trustedStart;
         logger.debug("Trust verification result", {
           requestId,
@@ -1990,9 +2006,6 @@ async function login_client(req, res) {
   async function verify_rodit_isactive(tokenId, ownsubjectuniqueidentifier_url) {
     const requestId = ulid();
     const startTime = Date.now();
-
-    // WHILE DEBUGGING TEMPORARY FIX DO NOT REMOVE THIS LINE EVER WITHOUT PERMISSION
-    return true;
 
     logger.debug("Checking RODiT activity status", {
       component: "RoditAuth",
