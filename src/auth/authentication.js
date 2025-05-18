@@ -1066,7 +1066,22 @@ async function login_client(req, res) {
     // Extract parameters with descriptive names from request body
     const peerroditid = req.body?.roditid;
     const peertimestamp = req.body?.timestamp;
-    const peerroditid_base64url_signature = req.body?.signature;
+    const peerroditid_base64url_signature = req.body?.roditid_base64url_signature || req.body?.signature;
+
+    // Add detailed logging of the request body
+    logger.debug("Request body details in verify_peerrodit_getrodit", {
+      component: "RoditAuth",
+      method: "verify_peerrodit_getrodit",
+      requestId,
+      bodyKeys: req.body ? Object.keys(req.body) : [],
+      hasRoditId: !!req.body?.roditid,
+      hasTimestamp: !!req.body?.timestamp,
+      hasSignature: !!req.body?.signature,
+      hasRoditSignature: !!req.body?.roditid_base64url_signature,
+      bodyStringified: JSON.stringify(req.body).substring(0, 200) + (JSON.stringify(req.body).length > 200 ? '...' : ''),
+      signatureSource: req.body?.roditid_base64url_signature ? "roditid_base64url_signature" : (req.body?.signature ? "signature" : "missing"),
+      signatureLength: peerroditid_base64url_signature?.length,
+    });
 
     logger.debug("Starting peer RODiT verification", {
       component: "RoditAuth",
@@ -1075,6 +1090,7 @@ async function login_client(req, res) {
       peerRoditId: peerroditid,
       timestamp: peertimestamp,
       signatureLength: peerroditid_base64url_signature?.length,
+      signatureSource: req.body?.roditid_base64url_signature ? "roditid_base64url_signature" : (req.body?.signature ? "signature" : "missing"),
     });
 
     try {
