@@ -2076,7 +2076,7 @@ async function login_client(req, res) {
         return false;
       } catch (error) {
         // DNS error usually means no revocation entry found, which is good
-        const dnsDuration = Date.now() - dnsStart || 0;
+        const dnsDuration = error.code === 'ENOTFOUND' ? Date.now() - dnsStart : 0;
         const totalDuration = Date.now() - startTime;
 
         logger.debug("No revocation found for RODiT", {
