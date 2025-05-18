@@ -90,6 +90,13 @@ async function dateStringToUnixTime(datestring) {
  * @param {number|string} unixTimeSec - Unix timestamp in seconds
  * @returns {Promise<string>} Date string in ISO format
  */
+/**
+ * Converts a Unix timestamp to a date string
+ * This function is used by both the API and test suite
+ *
+ * @param {number|string} unixTimeSec - Unix timestamp in seconds
+ * @returns {Promise<string>} Date string in ISO format
+ */
 async function unixTimeToDateString(unixTimeSec) {
   try {
     // Handle undefined or null
