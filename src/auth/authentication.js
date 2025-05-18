@@ -1636,6 +1636,22 @@ async function login_client(req, res) {
         if (!isActive) failedChecks.push("active");
         if (!isTrusted) failedChecks.push("trusted");
 
+        // Log the specific verification values that are causing failure
+        logger.debug("Verification failure details", {
+          requestId,
+          failedChecks,
+          ownershipVerified: !!ownershipVerified,
+          isaMatch: !!isaMatch,
+          isLive: !!isLive,
+          isActive: !!isActive,
+          isTrusted: !!isTrusted,
+          ownershipVerifiedType: typeof ownershipVerified,
+          isaMatchType: typeof isaMatch,
+          isLiveType: typeof isLive,
+          isActiveType: typeof isActive,
+          isTrustedType: typeof isTrusted
+        });
+
         const duration = Date.now() - startTime;
         logger.error("Peer RODiT verification failed", {
           component: "RoditAuth",
@@ -1660,11 +1676,12 @@ async function login_client(req, res) {
             peer_rodit_id: peerroditid,
           });
 
-        throw new Error(
-          `Error 037: Peer RODiT verification failed on: ${failedChecks.join(
-            ", "
-          )}`
-        );
+        // Return failure with specific failed checks instead of throwing an error
+        return {
+          peer_rodit: peer_rodit,
+          goodrodit: false,
+          error: `Error 037: Peer RODiT verification failed on: ${failedChecks.join(", ")}`
+        };
       }
 
       const totalDuration = Date.now() - startTime;
