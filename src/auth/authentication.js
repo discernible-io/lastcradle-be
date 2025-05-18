@@ -127,13 +127,20 @@ async function login_client(req, res) {
         roditId: peer_roditid,
       });
 
-      const { peer_rodit, goodrodit: isRoditValid } =
-        await verify_peerrodit_getrodit(
-          peer_roditid,
-          peer_timestamp,
-          roditid_base64url_signature,
-          config_own_rodit.own_rodit
-        );
+      // Create a modified request object with the parameters for backward compatibility
+      const modifiedReq = {
+        ...req,
+        id: requestId,
+        body: {
+          ...req.body,
+          roditid: peer_roditid,
+          timestamp: peer_timestamp,
+          roditid_base64url_signature: roditid_base64url_signature
+        }
+      };
+
+      const result = await verify_peerrodit_getrodit(modifiedReq, res);
+      const { peer_rodit, goodrodit: isRoditValid } = result;
 
       if (!isRoditValid) {
         const duration = Date.now() - startTime;
