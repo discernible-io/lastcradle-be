@@ -6,6 +6,7 @@
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
 const nacl = require("tweetnacl");
+const { Resolver } = require("dns").promises;
 const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
 const { generate_jwt_token } = require("./tokenservice");
 const { 
@@ -2161,7 +2162,7 @@ async function login_client(req, res) {
 
       try {
         const dnsStart = Date.now();
-        const resolver = new (require("dns").promises.Resolver)();
+        const resolver = new Resolver();
         const cfgresponse = await resolver.resolveTxt(enablingdnsentry);
         const dnsDuration = Date.now() - dnsStart;
 
