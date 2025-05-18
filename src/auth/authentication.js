@@ -1037,33 +1037,36 @@ async function login_client(req, res) {
   /**
    * Verify and get a peer RODiT
    *
-   * @param {string} peerroditid - Peer RODiT ID
-   * @param {number} peertimestamp - Peer timestamp
-   * @param {string} peerroditid_base64url_signature - Signature of RODiT ID and timestamp
-   * @param {Object} own_rodit - Own RODiT object
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
    * @returns {Promise<Object>} Verification result with peer RODiT
    */
   async function verify_peerrodit_getrodit(req, res) {
     const requestId = req.id || ulid();
     const startTime = Date.now();
 
+    // Extract parameters with descriptive names from request body
+    const peerroditid = req.body?.roditid;
+    const peertimestamp = req.body?.timestamp;
+    const peerroditid_base64url_signature = req.body?.signature;
+
     logger.debug("Starting peer RODiT verification", {
       component: "RoditAuth",
       method: "verify_peerrodit_getrodit",
       requestId,
-      roditId: req.body?.roditid,
-      signature: req.body?.signature ? "present" : "missing",
-      timestamp: req.body?.timestamp,
+      peerRoditId: peerroditid,
+      timestamp: peertimestamp,
+      signatureLength: peerroditid_base64url_signature?.length,
     });
 
     try {
       // Get the peer RODiT from the blockchain
       logger.debug("Fetching peer RODiT from blockchain", {
         requestId,
-        roditId: req.body?.roditid,
+        peerRoditId: peerroditid,
       });
 
-      const peer_rodit = await nearorg_rpc_tokenfromroditid(req.body?.roditid);
+      const peer_rodit = await nearorg_rpc_tokenfromroditid(peerroditid);
 
       logger.debug("Received peer RODiT from blockchain", {
         requestId,
@@ -1079,7 +1082,7 @@ async function login_client(req, res) {
           component: "RoditAuth",
           requestId,
           duration: Date.now() - startTime,
-          peerRoditId: req.body?.roditid,
+          peerRoditId: peerroditid,
         });
 
         throw new Error("Failed to retrieve peer RODiT data");
@@ -1090,7 +1093,7 @@ async function login_client(req, res) {
           component: "RoditAuth",
           requestId,
           duration: Date.now() - startTime,
-          peerRoditId: req.body?.roditid,
+          peerRoditId: peerroditid,
           peerRoditOwnerId: peer_rodit.owner_id,
         });
 
@@ -1110,9 +1113,9 @@ async function login_client(req, res) {
         logger.debug("Verifying RODiT ownership", { requestId });
         const ownershipStart = Date.now();
         ownershipVerified = await verify_rodit_ownership(
-          req.body?.roditid,
-          req.body?.timestamp,
-          req.body?.signature,
+          peerroditid,
+          peertimestamp,
+          peerroditid_base64url_signature,
           peer_rodit
         );
         verificationDetails.ownershipDuration = Date.now() - ownershipStart;
@@ -1300,7 +1303,7 @@ async function login_client(req, res) {
           method: "verify_peerrodit_getrodit",
           requestId,
           duration,
-          peerRoditId: req.body?.roditid,
+          peerRoditId: peerroditid,
           failedChecks,
           verificationDetails,
         });
@@ -1309,13 +1312,13 @@ async function login_client(req, res) {
         logger.metric &&
           logger.metric("rodit_verification_failures", 1, {
             failed_checks: failedChecks.join(","),
-            peer_rodit_id: req.body?.roditid,
+            peer_rodit_id: peerroditid,
           });
 
         logger.metric &&
           logger.metric("rodit_verification", duration, {
             result: "failure",
-            peer_rodit_id: req.body?.roditid,
+            peer_rodit_id: peerroditid,
           });
 
         // Return failure with specific failed checks instead of throwing an error
@@ -1333,7 +1336,7 @@ async function login_client(req, res) {
         method: "verify_peerrodit_getrodit",
         requestId,
         duration: totalDuration,
-        peerRoditId: req.body?.roditid,
+        peerRoditId: peerroditid,
         peerOwnerId: peer_rodit.owner_id,
         verificationDetails,
       });
@@ -1342,7 +1345,7 @@ async function login_client(req, res) {
       logger.metric &&
         logger.metric("rodit_verification", totalDuration, {
           result: "success",
-          peer_rodit_id: req.body?.roditid,
+          peer_rodit_id: peerroditid,
         });
 
       return {
@@ -1357,7 +1360,7 @@ async function login_client(req, res) {
         method: "verify_peerrodit_getrodit",
         requestId,
         duration,
-        peerRoditId: req.body?.roditid,
+        peerRoditId: peerroditid,
         error: {
           message: error.message,
           stack: error.stack,
@@ -1369,7 +1372,7 @@ async function login_client(req, res) {
       logger.metric &&
         logger.metric("rodit_verification_errors", 1, {
           error_type: error.name || "Unknown",
-          peer_rodit_id: req.body?.roditid,
+          peer_rodit_id: peerroditid,
         });
 
       return {
