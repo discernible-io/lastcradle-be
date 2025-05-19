@@ -968,15 +968,13 @@ const {
   
       stateManager.setOwnBase64urlJwkPublicKey(serviceprovider_base64_public_key);
   
-      // Import the verify_peerrodit_getrodit function dynamically to avoid circular dependencies
       const { verify_peerrodit_getrodit } = require("./authentication");
       
       const verifyStartTime = Date.now();
       let { peer_rodit, goodrodit } = await verify_peerrodit_getrodit(
         unverifiedpayload.rodit_id,
         unverifiedpayload.iat,
-        unverifiedpayload.rodit_idsignature,
-        own_rodit
+        unverifiedpayload.rodit_idsignature
       );
 
       logger.debug("Verified peer RODiT", {

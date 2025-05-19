@@ -169,8 +169,7 @@ async function login_client(req, res) {
       const result = await verify_peerrodit_getrodit(
         peer_roditid,
         peer_timestamp,
-        roditid_base64url_signature,
-        config_own_rodit
+        roditid_base64url_signature
       );
       const { peer_rodit, goodrodit: isRoditValid } = result;
 
@@ -1108,8 +1107,7 @@ async function verify_rodit_ownership(
   async function verify_peerrodit_getrodit(
     peerroditid,
     peertimestamp,
-    peerroditid_base64url_signature,
-    own_rodit
+    peerroditid_base64url_signature
   ) {
     const requestId = ulid();
     const startTime = Date.now();
@@ -1172,7 +1170,7 @@ async function verify_rodit_ownership(
       }
 
       // Get configuration from state manager if not provided
-      const config_own_rodit = own_rodit || await stateManager.getConfigOwnRodit();
+      const config_own_rodit = stateManager.getConfigOwnRodit();
 
       if (!config_own_rodit) {
         logger.error("Server configuration not initialized", {
