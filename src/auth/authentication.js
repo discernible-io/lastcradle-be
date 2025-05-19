@@ -1840,6 +1840,8 @@ async function verify_rodit_ownership(
 
     // Add more detailed logging about the format
     logger.debug("Service provider ID details", {
+      component: "RoditAuth",
+      method: "verify_rodit_isamatch",
       requestId,
       ownServiceProviderId: own_service_provider_id,
       ownIdType: typeof own_service_provider_id,
