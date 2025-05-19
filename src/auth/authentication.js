@@ -1834,6 +1834,18 @@ async function verify_rodit_ownership(
       requestId,
       ownServiceProviderId: own_service_provider_id,
       peerRoditId: peer_rodit?.token_id,
+      peerRoditOwnerId: peer_rodit?.owner_id,
+      peerServiceProviderId: peer_rodit?.metadata?.serviceprovider_id,
+    });
+
+    // Add more detailed logging about the format
+    logger.debug("Service provider ID details", {
+      requestId,
+      ownServiceProviderId: own_service_provider_id,
+      ownIdType: typeof own_service_provider_id,
+      ownIdLength: own_service_provider_id?.length,
+      hasSemicolons: own_service_provider_id?.includes(';'),
+      peerServiceProviderId: peer_rodit?.metadata?.serviceprovider_id,
     });
 
     try {
@@ -1843,6 +1855,7 @@ async function verify_rodit_ownership(
         requestId,
         componentCount: own_provider_components.length,
         components: own_provider_components,
+        rawComponents: JSON.stringify(own_provider_components),
       });
 
       // Get blockchain and contract parts
@@ -1861,6 +1874,16 @@ async function verify_rodit_ownership(
           !part.startsWith("sc=")
       );
 
+      // Log all components for better debugging
+      logger.debug("Provider ID component analysis", {
+        requestId,
+        bcPart: bcPart || "missing",
+        scPart: scPart || "missing",
+        idComponents: idComponents.length > 0 ? idComponents : "missing",
+        allComponents: own_provider_components,
+        expectedFormat: "bc=<blockchain>;sc=<contract>;id=<identifier>",
+      });
+
       if (!bcPart || !scPart || idComponents.length < 1) {
         logger.error("Invalid provider ID format", {
           component: "RoditAuth",
@@ -1871,6 +1894,8 @@ async function verify_rodit_ownership(
           hasBlockchain: !!bcPart,
           hasSmartContract: !!scPart,
           idCount: idComponents.length,
+          configCheck: "Verify config_own_rodit.own_rodit.metadata.serviceprovider_id format",
+          expectedFormat: "bc=<blockchain>;sc=<contract>;id=<identifier>",
         });
 
         // Add metrics for format errors
@@ -1904,6 +1929,7 @@ async function verify_rodit_ownership(
             idIndex,
             totalIds: idComponents.length,
             signingTokenId: signing_token_id,
+            currentIdComponent: idComponents[i],
           }
         );
 
@@ -1920,10 +1946,21 @@ async function verify_rodit_ownership(
           tokenFetchDuration,
           tokenId: signing_rodit?.token_id,
           ownerId: signing_rodit?.owner_id,
+          hasSigningRodit: !!signing_rodit,
+          hasOwner: !!signing_rodit?.owner_id,
         });
 
         // Process the owner ID
         try {
+          if (!signing_rodit || !signing_rodit.owner_id) {
+            logger.warn(`Missing signing RODiT or owner ID for ID ${idIndex}`, {
+              requestId,
+              hasSigningRodit: !!signing_rodit,
+              hasOwner: !!signing_rodit?.owner_id,
+            });
+            continue; // Try the next ID
+          }
+
           const bytes_signing_owner_id = new Uint8Array(
             Buffer.from(signing_rodit.owner_id, "hex")
           );
@@ -1936,11 +1973,20 @@ async function verify_rodit_ownership(
               requestId,
               actual: bytes_signing_owner_id.length,
               expected: CONSTANTS.RODIT_ID_PK_SZ,
+              ownerIdHex: signing_rodit.owner_id.substring(0, 20) + "...",
             });
             continue; // Try the next ID
           }
 
           // Process the signature
+          if (!peer_rodit.metadata.serviceprovider_signature) {
+            logger.warn(`Missing serviceprovider_signature for ID ${idIndex}`, {
+              requestId,
+              peerRoditId: peer_rodit.token_id,
+            });
+            continue; // Try the next ID
+          }
+
           const base64urlSignature =
             peer_rodit.metadata.serviceprovider_signature;
           const base64Signature = base64urlSignature
@@ -1951,7 +1997,26 @@ async function verify_rodit_ownership(
                 ((4 - (base64urlSignature.length % 4)) % 4),
               "="
             );
-          const signatureBytes = nacl.util.decodeBase64(base64Signature);
+          
+          let signatureBytes;
+          try {
+            signatureBytes = nacl.util.decodeBase64(base64Signature);
+            
+            logger.debug("Decoded signature", {
+              requestId,
+              idIndex,
+              base64urlLength: base64urlSignature.length,
+              base64Length: base64Signature.length,
+              bytesLength: signatureBytes.length,
+            });
+          } catch (decodeError) {
+            logger.warn(`Failed to decode signature for ID ${idIndex}`, {
+              requestId,
+              error: decodeError.message,
+              base64urlSignature: base64urlSignature.substring(0, 20) + "...",
+            });
+            continue; // Try the next ID
+          }
 
           if (
             signatureBytes.length !==
@@ -1983,6 +2048,16 @@ async function verify_rodit_ownership(
               peer_rodit.metadata.subjectuniqueidentifier_url,
           };
 
+          // Log hash input fields for debugging
+          logger.debug("Hash input fields", {
+            requestId,
+            idIndex,
+            hashInputFields: Object.keys(hashInput),
+            missingFields: Object.entries(hashInput)
+              .filter(([_, value]) => value === undefined)
+              .map(([key]) => key),
+          });
+
           const hashStart = Date.now();
           const hashHex = calculateCanonicalHash(hashInput);
           const hashBytes = new Uint8Array(Buffer.from(hashHex, "hex"));
@@ -1993,6 +2068,7 @@ async function verify_rodit_ownership(
             idIndex,
             hashDuration,
             hashLength: hashBytes.length,
+            hashHexPrefix: hashHex.substring(0, 16) + "...",
           });
 
           // Verify the signature
@@ -2069,6 +2145,7 @@ async function verify_rodit_ownership(
         ownServiceProviderId: own_service_provider_id,
         peerRoditId: peer_rodit?.token_id,
         attemptCount: idComponents.length,
+        configCheck: "Verify config_own_rodit.own_rodit.metadata.serviceprovider_id format",
       });
 
       // Add metrics for failed matching
