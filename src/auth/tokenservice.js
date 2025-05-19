@@ -905,27 +905,40 @@ const {
   
     try {
       const unverifiedpayload = decodeJwt(token);
-  
+
       logger.debug("Decoded JWT payload", {
         requestId,
         iss: unverifiedpayload?.iss,
         jti: unverifiedpayload?.jti,
         exp: unverifiedpayload?.exp,
         roditId: unverifiedpayload?.rodit_id,
+        aud: unverifiedpayload?.aud,
       });
-  
-      const sp_rodit = await nearorg_rpc_tokenfromroditid(
-        unverifiedpayload.rodit_id
-      );
-  
-      logger.debug("Retrieved service provider RODiT", {
+
+      // Fetch peer RODiT using audience field (token.aud)
+      const peer_rodit = await nearorg_rpc_tokenfromroditid(unverifiedpayload.aud);
+      
+      // Check if the peer RODiT is valid (has required properties)
+      if (!peer_rodit || !peer_rodit.token_id) {
+        logger.warn("Token validation failed - Invalid or missing peer RODiT", {
+          component: "JwtAuth",
+          method: "validate_jwt_token_be",
+          requestId,
+          audience: unverifiedpayload.aud,
+          duration: Date.now() - startTime,
+        });
+        
+        throw new Error("Error 008: Invalid or missing peer RODiT");
+      }
+      
+      logger.debug("Retrieved peer RODiT", {
         requestId,
-        spRoditId: sp_rodit?.token_id,
-        spOwnerId: sp_rodit?.owner_id,
+        peerRoditId: peer_rodit?.token_id,
+        peerRoditOwnerId: peer_rodit?.owner_id,
       });
-  
+
       const publicKeyBytes = await nearorg_rpc_fetchpublickeybytes(
-        sp_rodit.owner_id
+        peer_rodit.owner_id
       );
   
       const serviceprovider_base64_public_key =
@@ -962,22 +975,6 @@ const {
         payload,
         requestId
       );
-
-      const peer_rodit = await nearorg_rpc_tokenfromroditid(payload.rodit_id || payload.aud);
-      
-      // Check if the peer RODiT is valid (has required properties)
-      // This handles cases where security tests send invalid tokens
-      if (!peer_rodit || !peer_rodit.token_id) {
-        logger.warn("Token validation failed - Invalid or missing peer RODiT", {
-          component: "JwtAuth",
-          method: "validate_jwt_token_be",
-          requestId,
-          audience: payload.aud,
-          duration: Date.now() - startTime,
-        });
-        
-        throw new Error("Error 008: Invalid or missing peer RODiT");
-      }
       
       const goodrodit = validationResult.isValid;
   
@@ -985,6 +982,7 @@ const {
         requestId,
         verifyPeerDuration: Date.now() - verifyStartTime,
         goodRodit: goodrodit,
+        peerRoditId: peer_rodit?.token_id,
       });
 
       if (goodrodit) {
