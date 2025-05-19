@@ -575,7 +575,7 @@ const stateManager = require("../blockchain/statemanager");
         roditId: peer_rodit.token_id,
       });
 
-      const token = await generate_jwt_token(
+      const token = await tokenService.generate_jwt_token(
         peer_rodit,
         Math.floor(Date.now() / 1000),
         config_own_rodit.own_rodit,
