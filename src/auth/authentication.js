@@ -1785,7 +1785,6 @@ async function verify_rodit_ownership(
 
 // Export the functions directly (following the pattern used in tokenservice.js)
 module.exports = {
-  login_client,
   verify_rodit_ownership,
   verify_rodit_ownership_withnep413,
   verify_peerrodit_getrodit,

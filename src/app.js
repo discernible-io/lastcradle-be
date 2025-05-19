@@ -11,7 +11,7 @@ const { authenticate_apicall } = require("./middleware/authenticationmw");
 const stateManager = require("./blockchain/statemanager");
 const { 
   login_client,
-} = require("./auth/authentication");
+} = require("./middleware/authenticationmw");
 
 const options = {
   definition: {

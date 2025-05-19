@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const logger = require("../../config/logger");
-const { login_client } = require("../auth/authentication");
+const { login_client } = require("../middleware/authenticationmw");
 
 // Handling login request
 router.post("/login", (req, res) => {
