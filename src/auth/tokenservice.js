@@ -534,7 +534,7 @@ const {
           peer_rodit.metadata.serviceprovider_id +
           ";sub=" +
           peer_rodit.token_id,
-        aud: peer_rodit.owner_id,
+        aud: own_rodit.owner_id,
         exp: tokenExpiration,
         nbf: notbefore,
         iat: now,
