@@ -22,6 +22,275 @@ const stateManager = require("../blockchain/statemanager");
  * Middleware for handling authentication in routes
  */
 
+/**
+ * Authenticates a client using RODiT credentials and generates a JWT token
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} - JSON response with token or error
+ */
+async function login_client(req, res) {
+  const requestId = ulid();
+  const startTime = Date.now();
+
+  logger.info("Client login request received", {
+    component: "RoditAuth",
+    method: "login_client",
+    requestId,
+  });
+
+  try {
+    const {
+      roditid: peer_roditid,
+      timestamp: peer_timestamp,
+      roditid_base64url_signature,
+    } = req.body;
+
+    logger.debug("Received login credentials", {
+      component: "RoditAuth",
+      method: "login_client",
+      requestId,
+      roditId: peer_roditid,
+      hasTimestamp: !!peer_timestamp,
+      hasSignature: !!roditid_base64url_signature,
+    });
+
+    if (!peer_roditid || !peer_timestamp || !roditid_base64url_signature) {
+      const duration = Date.now() - startTime;
+
+      logger.warn("Missing required login parameters", {
+        component: "RoditAuth",
+        method: "login_client",
+        requestId,
+        duration,
+        missingParams: {
+          roditId: !peer_roditid,
+          timestamp: !peer_timestamp,
+          signature: !roditid_base64url_signature,
+        },
+      });
+
+      // Emit metrics for Grafana dashboards
+      logger.metric("login_attempt_duration_ms", duration, {
+        component: "RoditAuth",
+        success: false,
+        error: "MISSING_PARAMETERS",
+      });
+      logger.metric("failed_login_attempts_total", 1, {
+        component: "RoditAuth",
+        reason: "MISSING_PARAMETERS",
+      });
+
+      return res.status(400).json({
+        message: "Error 100: Missing RODiT ID, Signature or Timestamp",
+        requestId,
+      });
+    }
+
+    try {
+      logger.debug("Retrieving server configuration", {
+        component: "RoditAuth",
+        method: "login_client",
+        requestId,
+      });
+
+      // Import stateManager only when needed to avoid circular dependencies
+      const stateManager = require("../blockchain/statemanager");
+      const config_own_rodit = await stateManager.getConfigOwnRodit();
+
+      if (!config_own_rodit) {
+        const duration = Date.now() - startTime;
+
+        logger.error("Server configuration not initialized", {
+          component: "RoditAuth",
+          method: "login_client",
+          requestId,
+          duration,
+          errorCode: "CONFIG_NOT_INITIALIZED",
+        });
+
+        // Emit metrics for Grafana dashboards
+        logger.metric("login_attempt_duration_ms", duration, {
+          component: "RoditAuth",
+          success: false,
+          error: "CONFIG_NOT_INITIALIZED",
+        });
+        logger.metric("failed_login_attempts_total", 1, {
+          component: "RoditAuth",
+          reason: "CONFIG_NOT_INITIALIZED",
+        });
+
+        throw new Error("Error 0112: Server configuration not initialized");
+      }
+
+      logger.debug("Verifying peer RODiT credentials", {
+        component: "RoditAuth",
+        method: "login_client",
+        requestId,
+        roditId: peer_roditid,
+      });
+
+      // Create a modified request object with the parameters for backward compatibility
+      const modifiedReq = {
+        ...req,
+        id: requestId,
+        body: {
+          ...req.body,
+          roditid: peer_roditid,
+          timestamp: peer_timestamp,
+          roditid_base64url_signature: roditid_base64url_signature
+        }
+      };
+
+      // Add detailed logging of both the original and modified request
+      logger.debug("Original request body", {
+        component: "RoditAuth",
+        method: "login_client",
+        requestId,
+        originalBodyKeys: Object.keys(req.body),
+        originalHasRoditId: !!req.body.roditid,
+        originalHasTimestamp: !!req.body.timestamp,
+        originalHasSignature: !!req.body.signature,
+        originalHasRoditSignature: !!req.body.roditid_base64url_signature,
+        extractedPeerRoditId: peer_roditid,
+        extractedPeerTimestamp: peer_timestamp,
+        extractedSignatureLength: roditid_base64url_signature?.length,
+      });
+
+      logger.debug("Modified request body", {
+        component: "RoditAuth",
+        method: "login_client",
+        requestId,
+        modifiedBodyKeys: Object.keys(modifiedReq.body),
+        modifiedHasRoditId: !!modifiedReq.body.roditid,
+        modifiedHasTimestamp: !!modifiedReq.body.timestamp,
+        modifiedHasSignature: !!modifiedReq.body.signature,
+        modifiedHasRoditSignature: !!modifiedReq.body.roditid_base64url_signature,
+      });
+
+      const result = await verify_peerrodit_getrodit(
+        peer_roditid,
+        peer_timestamp,
+        roditid_base64url_signature
+      );
+      const { peer_rodit, goodrodit: isRoditValid } = result;
+
+      if (!isRoditValid) {
+        const duration = Date.now() - startTime;
+
+        logger.warn("Invalid RODiT credentials", {
+          component: "RoditAuth",
+          method: "login_client",
+          requestId,
+          duration,
+          roditId: peer_roditid,
+        });
+
+        // Emit metrics for Grafana dashboards
+        logger.metric("login_attempt_duration_ms", duration, {
+          component: "RoditAuth",
+          success: false,
+          error: "INVALID_CREDENTIALS",
+        });
+        logger.metric("failed_login_attempts_total", 1, {
+          component: "RoditAuth",
+          reason: "INVALID_CREDENTIALS",
+        });
+
+        return res.status(401).json({
+          message:
+            "Error 102: Login attempt failed: Invalid RODiT ID or Signature",
+          requestId,
+        });
+      }
+
+      logger.debug("Generating JWT token", {
+        component: "RoditAuth",
+        method: "login_client",
+        requestId,
+        roditId: peer_rodit.token_id,
+      });
+
+      const token = await generate_jwt_token(
+        peer_rodit,
+        peer_timestamp,
+        config_own_rodit.own_rodit,
+        config_own_rodit.own_rodit_bytes_private_key
+      );
+
+      const duration = Date.now() - startTime;
+      logger.info("Login successful", {
+        component: "RoditAuth",
+        method: "login_client",
+        requestId,
+        duration,
+        roditId: peer_rodit.token_id,
+      });
+
+      // Emit metrics for Grafana dashboards
+      logger.metric("login_attempt_duration_ms", duration, {
+        component: "RoditAuth",
+        success: true,
+      });
+      logger.metric("successful_logins_total", 1, {
+        component: "RoditAuth",
+      });
+
+      // Set the token in the response header
+      res.setHeader('New-Token', token);
+
+      return res.json({
+        token,
+        requestId,
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      logger.error("Login authentication failed", {
+        component: "RoditAuth",
+        method: "login_client",
+        requestId,
+        duration,
+        errorMessage: error.message,
+        errorCode: error.code || "UNKNOWN_ERROR",
+        stack: error.stack,
+      });
+
+      // Emit metrics for Grafana dashboards
+      logger.metric("login_attempt_duration_ms", duration, {
+        component: "RoditAuth",
+        success: false,
+        error: error.code || "UNKNOWN_ERROR",
+      });
+      logger.metric("failed_login_attempts_total", 1, {
+        component: "RoditAuth",
+        reason: error.code || "UNKNOWN_ERROR",
+      });
+
+      return res.status(401).json({
+        message: `Error 105: Login attempt failed: ${error.message}`,
+        requestId,
+      });
+    }
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    
+    logger.error("Unexpected error in login process", {
+      component: "RoditAuth",
+      method: "login_client",
+      requestId,
+      duration,
+      error: error.message,
+      stack: error.stack
+    });
+    
+    return res.status(500).json({
+      message: "Internal server error during login process",
+      requestId
+    });
+  }
+}
+
 
   /**
    * Extract token from authorization header
