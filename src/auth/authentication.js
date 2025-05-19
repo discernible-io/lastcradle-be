@@ -8,7 +8,8 @@ const logger = require("../../config/logger");
 const nacl = require("tweetnacl");
 const { Resolver } = require("dns").promises;
 const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
-const tokenService = require("./tokenservice");
+// Import specific functions to avoid circular dependencies
+const { generate_jwt_token } = require("./tokenservice");
 const { 
   nearorg_rpc_timestamp, 
   nearorg_rpc_tokenfromroditid, 
@@ -204,7 +205,7 @@ async function login_client(req, res) {
         roditId: peer_rodit.token_id,
       });
 
-      const token = await tokenService.generate_jwt_token(
+      const token = await generate_jwt_token(
         peer_rodit,
         peer_timestamp,
         config_own_rodit.own_rodit,

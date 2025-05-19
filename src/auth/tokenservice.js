@@ -19,12 +19,6 @@ const {
   nearorg_rpc_tokensfromaccountid, 
   nearorg_rpc_fetchpublickeybytes,
 } = require("../blockchain/blockchainservice");
-const {
-  verify_rodit_isamatch,
-  verify_rodit_islive,
-  verify_rodit_isactive,
-  verify_rodit_istrusted_issuingsmartcontract,
-} = require("./authentication");
 
   /**
    * Converts a base64url string to a JWK public key
@@ -1368,6 +1362,7 @@ async function thorough_validate_jwt_token_be(token,requestId) {
         serviceProviderId: config_own_rodit.own_rodit.metadata.serviceprovider_id,
       });
       const matchStart = performance.now();
+      const { verify_rodit_isamatch } = require("./authentication");
       isaMatch = await verify_rodit_isamatch(
         config_own_rodit.own_rodit.metadata.serviceprovider_id,
         peer_rodit
@@ -1395,6 +1390,7 @@ async function thorough_validate_jwt_token_be(token,requestId) {
         notBefore: peer_rodit.metadata.not_before,
       });
       const liveStart = performance.now();
+      const { verify_rodit_islive } = require("./authentication");
       isLive = await verify_rodit_islive(
         peer_rodit.metadata.not_after,
         peer_rodit.metadata.not_before
@@ -1422,6 +1418,7 @@ async function thorough_validate_jwt_token_be(token,requestId) {
         url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
       });
       const activeStart = performance.now();
+      const { verify_rodit_isactive } = require("./authentication");
       isActive = await verify_rodit_isactive(
         peer_rodit.token_id,
         config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
@@ -1448,6 +1445,7 @@ async function thorough_validate_jwt_token_be(token,requestId) {
         url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
       });
       const trustedStart = performance.now();
+      const { verify_rodit_istrusted_issuingsmartcontract } = require("./authentication");
       isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
         config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
       );

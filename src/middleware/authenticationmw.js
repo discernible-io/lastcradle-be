@@ -8,7 +8,8 @@ const logger = require("../../config/logger");
 // Import specific functions directly to avoid circular dependencies
 const { 
   validate_jwt_token_be,
-  generate_jwt_token
+  generate_jwt_token,
+  tokenService
 } = require("../auth/tokenservice");
 const { 
   send_webhook, 
