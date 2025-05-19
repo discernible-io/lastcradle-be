@@ -832,7 +832,6 @@ async function verify_rodit_ownership(
    * @param {string} peerroditid - Peer RODiT ID
    * @param {number} peertimestamp - Peer timestamp
    * @param {string} peerroditid_base64url_signature - Base64URL signature
-   * @param {Object} own_rodit - Own RODiT object
    * @returns {Promise<Object>} Verification result with peer RODiT
    */
   async function verify_peerrodit_getrodit(
@@ -842,6 +841,10 @@ async function verify_rodit_ownership(
   ) {
     const requestId = ulid();
     const startTime = Date.now();
+
+    // Get own_rodit from stateManager
+    const stateManager = require("../blockchain/statemanager");
+    const own_rodit = await stateManager.getConfigOwnRodit();
 
     logger.debug("Starting peer RODiT verification", {
       component: "RoditAuth",
@@ -900,19 +903,6 @@ async function verify_rodit_ownership(
         return { peer_rodit: null, goodrodit: false };
       }
 
-      // Get configuration from state manager if not provided
-      const config_own_rodit = stateManager.getConfigOwnRodit();
-
-      if (!config_own_rodit) {
-        logger.error("Server configuration not initialized", {
-          component: "RoditAuth",
-          method: "verify_peerrodit_getrodit",
-          requestId,
-          duration: Date.now() - startTime,
-        });
-        return { peer_rodit: null, goodrodit: false };
-      }
-
       // Verify ownership
       const ownershipStart = Date.now();
       const ownershipVerified = await verify_rodit_ownership(
@@ -940,7 +930,7 @@ async function verify_rodit_ownership(
       // Verify match
       const matchStart = Date.now();
       const isaMatch = await verify_rodit_isamatch(
-        config_own_rodit.own_rodit.metadata.serviceprovider_id,
+        own_rodit.own_rodit.metadata.serviceprovider_id,
         peer_rodit
       );
       const matchDuration = Date.now() - matchStart;
@@ -985,7 +975,7 @@ async function verify_rodit_ownership(
       const activeStart = Date.now();
       const isActive = await verify_rodit_isactive(
         peer_rodit.token_id,
-        config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
+        own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
       );
       const activeDuration = Date.now() - activeStart;
 
@@ -1006,7 +996,7 @@ async function verify_rodit_ownership(
       // Verify trusted
       const trustedStart = Date.now();
       const isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
-        config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
+        own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
       );
       const trustedDuration = Date.now() - trustedStart;
 
