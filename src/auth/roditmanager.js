@@ -275,7 +275,6 @@ class RoditManager {
       });
 
       const accountState = await nearorg_rpc_state(
-        CONSTANTS.SMART_CONTRACT,
         account_id
       );
 
@@ -306,7 +305,6 @@ class RoditManager {
       });
 
       const own_rodit = await nearorg_rpc_tokensfromaccountid(
-        CONSTANTS.SMART_CONTRACT,
         account_id
       );
 
