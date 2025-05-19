@@ -1356,20 +1356,16 @@ const {
       }
 
       // Extract subject and perform final validation with better error handling
-      const subParts = token.sub.split(";sub=");
-      const extractedSub = subParts.length > 1 ? subParts[1] : "";
-
-      logger.debug("Extracted subject from token", {
+      logger.debug("Checking token identity", {
         requestId,
-        extractedSub,
-        tokenSub: token.sub,
+        tokenRoditId: token.rodit_id,
         peerRoditId: peer_rodit.token_id,
         peerRoditOwnerId: peer_rodit.owner_id,
         tokenAud: token.aud,
       });
 
       // Additional identity checks
-      const idMatch = peer_rodit.token_id === extractedSub;
+      const idMatch = peer_rodit.token_id === token.rodit_id; // Use rodit_id directly from token
       const ownerMatch = peer_rodit.owner_id === token.aud;
       const isValid = idMatch && ownerMatch;
 
@@ -1405,7 +1401,7 @@ const {
           requestId,
           duration: totalDuration,
           tokenJti: token.jti,
-          extractedSub,
+          tokenRoditId: token.rodit_id,
           peerRoditId: peer_rodit.token_id,
           tokenAud: token.aud,
           peerRoditOwnerId: peer_rodit.owner_id,
@@ -1418,7 +1414,7 @@ const {
         logger.metric("jwt_thorough_validation", totalDuration, {
           result: "identity_mismatch",
           token_jti: token.jti || "unknown",
-          id_match: peer_rodit.token_id === extractedSub ? "true" : "false",
+          id_match: peer_rodit.token_id === token.rodit_id ? "true" : "false",
           owner_match: peer_rodit.owner_id === token.aud ? "true" : "false",
           failed_checks: failedIdentityChecks.join(","),
           peer_rodit_id: peer_rodit.token_id,
