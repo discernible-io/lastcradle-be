@@ -893,10 +893,10 @@ const {
   async function validate_jwt_token_be(token, own_rodit) {
     const requestId = ulid();
     const startTime = Date.now();
-  
+
     logger.debug("Starting JWT token validation", {
       component: "JwtAuth",
-      method: "validate_jwt_token_be", 
+      method: "validate_jwt_token_be",
       requestId,
       tokenLength: token?.length,
       hasOwnRodit: !!own_rodit,
@@ -915,30 +915,31 @@ const {
         aud: unverifiedpayload?.aud,
       });
 
-      // Fetch peer RODiT using audience field (token.aud)
-      const peer_rodit = await nearorg_rpc_tokenfromroditid(unverifiedpayload.aud);
+      // Fetch service provider RODiT using rodit_id field - matching legacy implementation
+      const sp_rodit = await nearorg_rpc_tokenfromroditid(
+        unverifiedpayload.rodit_id
+      );
       
-      // Check if the peer RODiT is valid (has required properties)
-      if (!peer_rodit || !peer_rodit.token_id) {
-        logger.warn("Token validation failed - Invalid or missing peer RODiT", {
+      if (!sp_rodit || !sp_rodit.token_id) {
+        logger.warn("Token validation failed - Invalid or missing service provider RODiT", {
           component: "JwtAuth",
           method: "validate_jwt_token_be",
           requestId,
-          audience: unverifiedpayload.aud,
+          roditId: unverifiedpayload.rodit_id,
           duration: Date.now() - startTime,
         });
         
-        throw new Error("Error 008: Invalid or missing peer RODiT");
+        throw new Error("Error 008: Invalid or missing service provider RODiT");
       }
       
-      logger.debug("Retrieved peer RODiT", {
+      logger.debug("Retrieved service provider RODiT", {
         requestId,
-        peerRoditId: peer_rodit?.token_id,
-        peerRoditOwnerId: peer_rodit?.owner_id,
+        spRoditId: sp_rodit?.token_id,
+        spOwnerId: sp_rodit?.owner_id,
       });
 
       const publicKeyBytes = await nearorg_rpc_fetchpublickeybytes(
-        peer_rodit.owner_id
+        sp_rodit.owner_id
       );
   
       const serviceprovider_base64_public_key =
@@ -956,7 +957,7 @@ const {
       logger.debug("Converted to JWK public key", { requestId });
   
       const jwtVerifyStartTime = Date.now();
-      const { payload } = await jwtVerify(token, sp_public_key, {
+      const { payload, _ } = await jwtVerify(token, sp_public_key, {
         algorithms: ["EdDSA"],
       });
   
@@ -967,135 +968,135 @@ const {
   
       stateManager.setOwnBase64urlJwkPublicKey(serviceprovider_base64_public_key);
   
-      // Here, we need to call a method from another class
-      // Since we don't have direct access to the Authentication class's verify_peerrodit_getrodit method,
-      // we'll use our thorough validation method instead
-      const verifyStartTime = Date.now();
-      const validationResult = await thorough_validate_jwt_token_be(
-        payload,
-        requestId
-      );
+      // Import the verify_peerrodit_getrodit function dynamically to avoid circular dependencies
+      const { verify_peerrodit_getrodit } = require("./authentication");
       
-      const goodrodit = validationResult.isValid;
+      const verifyStartTime = Date.now();
+      let { peer_rodit, goodrodit } = await verify_peerrodit_getrodit(
+        payload.rodit_id,
+        payload.iat,
+        payload.rodit_idsignature,
+        own_rodit
+      );
   
       logger.debug("Verified peer RODiT", {
         requestId,
         verifyPeerDuration: Date.now() - verifyStartTime,
         goodRodit: goodrodit,
-        peerRoditId: peer_rodit?.token_id,
       });
-
-      if (goodrodit) {
-        const now = Math.floor(Date.now() / 1000);
   
-        // Token expiration check
-        if (payload.exp <= now) {
-          logger.warn("Token validation failed - Token expired", {
-            component: "JwtAuth",
-            requestId,
-            exp: payload.exp,
-            now,
-            difference: now - payload.exp,
-          });
-  
-          throw new Error("Error 007: Token has expired");
-        }
-  
-        // Token not-before check
-        if (payload.nbf > now) {
-          logger.warn("Token validation failed - Token not yet valid", {
-            component: "JwtAuth",
-            requestId,
-            nbf: payload.nbf,
-            now,
-            difference: payload.nbf - now,
-          });
-  
-          throw new Error("Error 006: Token is not yet valid");
-        }
-  
-        // Issuer check - use own_rodit if provided, otherwise skip this check
-        if (own_rodit && payload.iss !== own_rodit.metadata.subjectuniqueidentifier_url) {
-          logger.warn("Token validation failed - Invalid issuer", {
-            component: "JwtAuth",
-            requestId,
-            tokenIssuer: payload.iss,
-            expectedIssuer: own_rodit.metadata.subjectuniqueidentifier_url,
-          });
-  
-          throw new Error("Error 005: Invalid issuer");
-        }
-  
-        // Audience check - use own_rodit if provided, otherwise skip this check
-        if (own_rodit && payload.aud !== own_rodit.owner_id) {
-          logger.warn("Token validation failed - Invalid audience", {
-            component: "JwtAuth",
-            requestId,
-            tokenAudience: payload.aud,
-            expectedAudience: own_rodit.owner_id,
-          });
-  
-          throw new Error("Error 004: Invalid audience");
-        }
-  
-        const totalDuration = Date.now() - startTime;
-  
-        logger.info("JWT token validation successful", {
+      if (!goodrodit) {
+        logger.warn("Token validation failed - Invalid peer RODiT", {
           component: "JwtAuth",
           method: "validate_jwt_token_be",
           requestId,
-          duration: totalDuration,
-          jti: payload.jti,
           roditId: payload.rodit_id,
-        });
-  
-        // Add metric for successful validations
-        logger.metric &&
-          logger.metric("jwt_token_validation", totalDuration, {
-            result: "success",
-            rodit_id: payload.rodit_id,
-          });
-  
-        // Extract user data from payload for middleware
-        const user = {
-          id: payload.sub,
-          roditId: payload.rodit_id,
-          ownerId: payload.rodit_owner,
-          session: {
-            id: payload.session_id,
-            status: payload.session_status,
-            createdAt: payload.session_iat,
-            expiresAt: payload.session_exp
-          },
-          permissions: {
-            maxRequests: payload.rodit_maxrequests,
-            maxRequestWindow: payload.rodit_maxrqwindow,
-            permissionedRoutes: payload.rodit_permissionedroutes,
-            allowedCidr: payload.rodit_allowedcidr,
-            allowedIso3166List: payload.rodit_allowediso3166list
-          },
-          webhookUrl: payload.rodit_webhookurl
-        };
-  
-        // Check if token needs renewal
-        const { newToken } = await checkandrenew_jwt_token(payload, Math.floor(Date.now() / 1000), requestId);
-  
-        return { 
-          payload, 
-          peer_rodit,
-          valid: true,  // This matches what authenticate_apicall expects
-          user,
-          newToken
-        };
-      } else {
-        logger.warn("Token validation failed - Invalid peer RODiT", {
-          component: "JwtAuth",
-          requestId,
           duration: Date.now() - startTime,
         });
-  
-        throw new Error("Error 008: Invalid peer RODiT");
+        
+        throw new Error("Error 009: Invalid peer RODiT verification");
       }
+  
+      // Token expiration check
+      const now = Math.floor(Date.now() / 1000);
+      if (payload.exp <= now) {
+        logger.warn("Token validation failed - Token expired", {
+          component: "JwtAuth",
+          requestId,
+          exp: payload.exp,
+          now,
+          difference: now - payload.exp,
+        });
+  
+        throw new Error("Error 007: Token has expired");
+      }
+  
+      // Token not-before check
+      if (payload.nbf > now) {
+        logger.warn("Token validation failed - Token not yet valid", {
+          component: "JwtAuth",
+          requestId,
+          nbf: payload.nbf,
+          now,
+          difference: payload.nbf - now,
+        });
+  
+        throw new Error("Error 006: Token is not yet valid");
+      }
+  
+      // Issuer check - use own_rodit if provided, otherwise skip this check
+      if (own_rodit && payload.iss !== own_rodit.metadata.subjectuniqueidentifier_url) {
+        logger.warn("Token validation failed - Invalid issuer", {
+          component: "JwtAuth",
+          requestId,
+          tokenIssuer: payload.iss,
+          expectedIssuer: own_rodit.metadata.subjectuniqueidentifier_url,
+        });
+  
+        throw new Error("Error 005: Invalid issuer");
+      }
+  
+      // Audience check - use own_rodit if provided, otherwise skip this check
+      if (own_rodit && payload.aud !== own_rodit.owner_id) {
+        logger.warn("Token validation failed - Invalid audience", {
+          component: "JwtAuth",
+          requestId,
+          tokenAudience: payload.aud,
+          expectedAudience: own_rodit.owner_id,
+        });
+  
+        throw new Error("Error 004: Invalid audience");
+      }
+  
+      const totalDuration = Date.now() - startTime;
+  
+      logger.info("JWT token validation successful", {
+        component: "JwtAuth",
+        method: "validate_jwt_token_be",
+        requestId,
+        duration: totalDuration,
+        jti: payload.jti,
+        roditId: payload.rodit_id,
+      });
+  
+      // Add metric for successful validations
+      logger.metric &&
+        logger.metric("jwt_token_validation", totalDuration, {
+          result: "success",
+          rodit_id: payload.rodit_id,
+        });
+  
+      // Extract user data from payload for middleware
+      const user = {
+        id: payload.sub,
+        roditId: payload.rodit_id,
+        ownerId: payload.rodit_owner,
+        session: {
+          id: payload.session_id,
+          status: payload.session_status,
+          createdAt: payload.session_iat,
+          expiresAt: payload.session_exp
+        },
+        permissions: {
+          maxRequests: payload.rodit_maxrequests,
+          maxRequestWindow: payload.rodit_maxrqwindow,
+          permissionedRoutes: payload.rodit_permissionedroutes,
+          allowedCidr: payload.rodit_allowedcidr,
+          allowedIso3166List: payload.rodit_allowediso3166list
+        },
+        webhookUrl: payload.rodit_webhookurl
+      };
+  
+      // Check if token needs renewal
+      const { newToken } = await checkandrenew_jwt_token(payload, Math.floor(Date.now() / 1000), requestId);
+  
+      return { 
+        payload, 
+        peer_rodit,
+        valid: true,  // This matches what authenticate_apicall expects
+        user,
+        newToken
+      };
     } catch (error) {
       const duration = Date.now() - startTime;
   
