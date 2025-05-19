@@ -166,7 +166,12 @@ async function login_client(req, res) {
         modifiedHasRoditSignature: !!modifiedReq.body.roditid_base64url_signature,
       });
 
-      const result = await verify_peerrodit_getrodit(modifiedReq, res);
+      const result = await verify_peerrodit_getrodit(
+        peer_roditid,
+        peer_timestamp,
+        roditid_base64url_signature,
+        config_own_rodit
+      );
       const { peer_rodit, goodrodit: isRoditValid } = result;
 
       if (!isRoditValid) {
@@ -1094,79 +1099,54 @@ async function verify_rodit_ownership(
   /**
    * Verify and get a peer RODiT
    *
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
+   * @param {string} peerroditid - Peer RODiT ID
+   * @param {number} peertimestamp - Peer timestamp
+   * @param {string} peerroditid_base64url_signature - Base64URL signature
+   * @param {Object} own_rodit - Own RODiT object
    * @returns {Promise<Object>} Verification result with peer RODiT
    */
-  async function verify_peerrodit_getrodit(req, res) {
-    const requestId = req.id || ulid();
+  async function verify_peerrodit_getrodit(
+    peerroditid,
+    peertimestamp,
+    peerroditid_base64url_signature,
+    own_rodit
+  ) {
+    const requestId = ulid();
     const startTime = Date.now();
-    let peer_rodit = null;
-    let goodrodit = false;
-    let verificationDetails = {};
 
-    logger.info("Verifying peer RODiT", {
+    logger.debug("Starting peer RODiT verification", {
       component: "RoditAuth",
       method: "verify_peerrodit_getrodit",
       requestId,
+      peerRoditId: peerroditid,
+      timestamp: peertimestamp,
+      signatureLength: peerroditid_base64url_signature?.length,
+      hasOwnRodit: !!own_rodit,
+      ownRoditId: own_rodit?.token_id,
     });
 
     try {
-      // Extract parameters from request
-      const { roditid: peer_roditid, timestamp: peer_timestamp } = req.body;
-
-      // Get the signature from the legacy parameter name
-      const roditid_base64url_signature = req.body.roditid_base64url_signature;
-      
-      // Log which parameter was used for debugging
-      logger.debug("Signature parameter usage", {
+      logger.debug("Fetching peer RODiT from blockchain", {
         requestId,
-        hasRoditSignature: !!roditid_base64url_signature,
-        signatureLength: roditid_base64url_signature?.length,
+        peerRoditId: peerroditid,
       });
 
-      if (!peer_roditid || !peer_timestamp || !roditid_base64url_signature) {
-        logger.warn("Missing required parameters for RODiT verification", {
-          requestId,
-          missingParams: {
-            roditId: !peer_roditid,
-            timestamp: !peer_timestamp,
-            signature: !roditid_base64url_signature,
-          },
-        });
-        return { peer_rodit: null, goodrodit: false };
-      }
+      const tokenFetchStart = Date.now();
+      const peer_rodit = await nearorg_rpc_tokenfromroditid(peerroditid);
+      const tokenFetchDuration = Date.now() - tokenFetchStart;
 
-      try {
-        logger.debug("Fetching peer RODiT from blockchain", {
-          requestId,
-          peerRoditId: peer_roditid,
-        });
-
-        const tokenFetchStart = Date.now();
-        peer_rodit = await nearorg_rpc_tokenfromroditid(peer_roditid);
-        verificationDetails.retrieveDuration = Date.now() - tokenFetchStart;
-
-        logger.debug("Received peer RODiT from blockchain", {
-          requestId,
-          tokenFetchDuration: verificationDetails.retrieveDuration,
-          hasPeerRodit: !!peer_rodit,
-          peerRoditId: peer_rodit?.token_id,
-          peerRoditOwnerId: peer_rodit?.owner_id,
-          hasPeerRoditMetadata: peer_rodit && !!peer_rodit.metadata,
-          metadataKeys:
-            peer_rodit && peer_rodit.metadata
-              ? Object.keys(peer_rodit.metadata)
-              : [],
-        });
-      } catch (retrieveError) {
-        logger.error("Error retrieving peer RODiT", {
-          requestId,
-          error: retrieveError.message,
-          stack: retrieveError.stack,
-        });
-        return { peer_rodit: null, goodrodit: false };
-      }
+      logger.debug("Received peer RODiT from blockchain", {
+        requestId,
+        tokenFetchDuration,
+        hasPeerRodit: !!peer_rodit,
+        peerRoditId: peer_rodit?.token_id,
+        peerRoditOwnerId: peer_rodit?.owner_id,
+        hasPeerRoditMetadata: peer_rodit && !!peer_rodit.metadata,
+        metadataKeys:
+          peer_rodit && peer_rodit.metadata
+            ? Object.keys(peer_rodit.metadata)
+            : [],
+      });
 
       if (!peer_rodit) {
         logger.error("Failed to retrieve peer RODiT data", {
@@ -1174,7 +1154,7 @@ async function verify_rodit_ownership(
           method: "verify_peerrodit_getrodit",
           requestId,
           duration: Date.now() - startTime,
-          peerRoditId: peer_roditid,
+          peerRoditId: peerroditid,
         });
         return { peer_rodit: null, goodrodit: false };
       }
@@ -1185,15 +1165,14 @@ async function verify_rodit_ownership(
           method: "verify_peerrodit_getrodit",
           requestId,
           duration: Date.now() - startTime,
-          peerRoditId: peer_roditid,
+          peerRoditId: peerroditid,
           peerRoditOwnerId: peer_rodit.owner_id,
         });
         return { peer_rodit: null, goodrodit: false };
       }
 
-      // Import stateManager only when needed to avoid circular dependencies
-      const stateManager = require("../blockchain/statemanager");
-      const config_own_rodit = await stateManager.getConfigOwnRodit();
+      // Get configuration from state manager if not provided
+      const config_own_rodit = own_rodit || await stateManager.getConfigOwnRodit();
 
       if (!config_own_rodit) {
         logger.error("Server configuration not initialized", {
@@ -1205,234 +1184,114 @@ async function verify_rodit_ownership(
         return { peer_rodit: null, goodrodit: false };
       }
 
-      logger.debug("Starting verification checks", {
+      // Verify ownership
+      const ownershipStart = Date.now();
+      const ownershipVerified = await verify_rodit_ownership(
+        peerroditid,
+        peertimestamp,
+        peerroditid_base64url_signature,
+        peer_rodit
+      );
+      const ownershipDuration = Date.now() - ownershipStart;
+
+      logger.debug("Ownership verification completed", {
         requestId,
-        checks: ["ownership", "match", "live", "active", "trusted"],
+        ownershipDuration,
+        ownershipVerified,
       });
-
-      // Initialize verification results
-      let ownershipVerified, isaMatch, isLive, isActive, isTrusted;
-
-      try {
-        logger.debug("Verifying signature", {
-          requestId,
-          roditId: peer_roditid,
-          timestampPresent: !!peer_timestamp,
-          signatureLength: roditid_base64url_signature.length,
-        });
-        
-        const ownershipStart = Date.now();
-        ownershipVerified = await verify_rodit_ownership(
-          peer_roditid,
-          peer_timestamp,
-          roditid_base64url_signature,
-          peer_rodit
-        );
-        verificationDetails.ownershipDuration = Date.now() - ownershipStart;
-        logger.debug("Ownership verification result", {
-          requestId,
-          ownershipVerified,
-          duration: verificationDetails.ownershipDuration,
-        });
-      } catch (ownershipError) {
-        logger.error("Error during ownership verification", {
-          requestId,
-          error: ownershipError.message,
-          stack: ownershipError.stack,
-        });
-        ownershipVerified = false;
-        verificationDetails.ownershipError = ownershipError.message;
-      }
 
       if (!ownershipVerified) {
         logger.warn("Invalid signature, aborting RODiT verification", {
           requestId,
-          roditId: peer_roditid,
+          roditId: peerroditid,
         });
-        return { peer_rodit: null, goodrodit: false };
+        return { peer_rodit, goodrodit: false };
       }
 
-      try {
-        logger.debug("Verifying RODiT match", {
-          requestId,
-          serviceProviderId: config_own_rodit.own_rodit.metadata.serviceprovider_id,
-        });
-        const matchStart = Date.now();
-        isaMatch = await verify_rodit_isamatch(
-          config_own_rodit.own_rodit.metadata.serviceprovider_id,
-          peer_rodit
-        );
-        verificationDetails.matchDuration = Date.now() - matchStart;
-        logger.debug("Match verification result", {
-          requestId,
-          isaMatch,
-          duration: verificationDetails.matchDuration,
-        });
-      } catch (matchError) {
-        logger.error("Error during match verification", {
-          requestId,
-          error: matchError.message,
-          stack: matchError.stack,
-        });
-        isaMatch = false;
-        verificationDetails.matchError = matchError.message;
-      }
+      // Verify match
+      const matchStart = Date.now();
+      const isaMatch = await verify_rodit_isamatch(
+        config_own_rodit.own_rodit.metadata.serviceprovider_id,
+        peer_rodit
+      );
+      const matchDuration = Date.now() - matchStart;
+
+      logger.debug("Match verification completed", {
+        requestId,
+        matchDuration,
+        isaMatch,
+      });
 
       if (!isaMatch) {
         logger.warn("RODiT match verification failed", {
           requestId,
-          roditId: peer_roditid,
+          roditId: peerroditid,
         });
         return { peer_rodit, goodrodit: false };
       }
 
-      try {
-        logger.debug("Verifying RODiT is live", {
-          requestId,
-          notAfter: peer_rodit.metadata.not_after,
-          notBefore: peer_rodit.metadata.not_before,
-        });
+      // Verify live
+      const liveStart = Date.now();
+      const isLive = await verify_rodit_islive(
+        peer_rodit.metadata.not_after,
+        peer_rodit.metadata.not_before
+      );
+      const liveDuration = Date.now() - liveStart;
 
-        const liveStart = Date.now();
-        isLive = await verify_rodit_islive(
-          peer_rodit.metadata.not_after,
-          peer_rodit.metadata.not_before
-        );
-        verificationDetails.liveDuration = Date.now() - liveStart;
-        logger.debug("Live verification result", {
-          requestId,
-          isLive,
-          duration: verificationDetails.liveDuration,
-        });
-      } catch (liveError) {
-        logger.error("Error during live verification", {
-          requestId,
-          error: liveError.message,
-          stack: liveError.stack,
-        });
-        isLive = false;
-        verificationDetails.liveError = liveError.message;
-      }
+      logger.debug("Live verification completed", {
+        requestId,
+        liveDuration,
+        isLive,
+      });
 
       if (!isLive) {
         logger.warn("RODiT live verification failed", {
           requestId,
-          roditId: peer_roditid,
+          roditId: peerroditid,
         });
         return { peer_rodit, goodrodit: false };
       }
 
-      try {
-        logger.debug("Verifying RODiT is active", {
-          requestId,
-          tokenId: peer_rodit.token_id,
-          url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
-        });
-        const activeStart = Date.now();
-        isActive = await verify_rodit_isactive(
-          peer_rodit.token_id,
-          config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
-        );
-        verificationDetails.activeDuration = Date.now() - activeStart;
-        logger.debug("Active verification result", {
-          requestId,
-          isActive,
-          duration: verificationDetails.activeDuration,
-        });
-      } catch (activeError) {
-        logger.error("Error during active verification", {
-          requestId,
-          error: activeError.message,
-          stack: activeError.stack,
-        });
-        isActive = false;
-        verificationDetails.activeError = activeError.message;
-      }
+      // Verify active
+      const activeStart = Date.now();
+      const isActive = await verify_rodit_isactive(
+        peer_rodit.token_id,
+        config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
+      );
+      const activeDuration = Date.now() - activeStart;
+
+      logger.debug("Active verification completed", {
+        requestId,
+        activeDuration,
+        isActive,
+      });
 
       if (!isActive) {
         logger.warn("RODiT active verification failed", {
           requestId,
-          roditId: peer_roditid,
+          roditId: peerroditid,
         });
         return { peer_rodit, goodrodit: false };
       }
 
-      try {
-        logger.debug("Verifying RODiT issuing smart contract is trusted", {
-          requestId,
-          url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
-        });
-        const trustedStart = Date.now();
-        isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
-          config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
-        );
-        verificationDetails.trustedDuration = Date.now() - trustedStart;
-        logger.debug("Trust verification result", {
-          requestId,
-          isTrusted,
-          duration: verificationDetails.trustedDuration,
-        });
-      } catch (trustError) {
-        logger.error("Error during trust verification", {
-          requestId,
-          error: trustError.message,
-          stack: trustError.stack,
-        });
-        isTrusted = false;
-        verificationDetails.trustError = trustError.message;
-      }
+      // Verify trusted
+      const trustedStart = Date.now();
+      const isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
+        config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
+      );
+      const trustedDuration = Date.now() - trustedStart;
+
+      logger.debug("Trust verification completed", {
+        requestId,
+        trustedDuration,
+        isTrusted,
+      });
 
       if (!isTrusted) {
         logger.warn("RODiT trusted verification failed", {
           requestId,
-          roditId: peer_roditid,
+          roditId: peerroditid,
         });
-        return { peer_rodit, goodrodit: false };
-      }
-
-      // Log all verification results
-      logger.debug("All verification results", {
-        requestId,
-        ownershipVerified,
-        isaMatch,
-        isLive,
-        isActive,
-        isTrusted,
-        verificationDetails,
-      });
-
-      if (!ownershipVerified || !isaMatch || !isLive || !isActive || !isTrusted) {
-        const failedChecks = [];
-        if (!ownershipVerified) failedChecks.push("ownership");
-        if (!isaMatch) failedChecks.push("match");
-        if (!isLive) failedChecks.push("live");
-        if (!isActive) failedChecks.push("active");
-        if (!isTrusted) failedChecks.push("trusted");
-
-        const duration = Date.now() - startTime;
-        logger.error("Peer RODiT verification failed", {
-          component: "RoditAuth",
-          method: "verify_peerrodit_getrodit",
-          requestId,
-          duration,
-          peerRoditId: peer_roditid,
-          failedChecks,
-          verificationDetails,
-        });
-
-        // Add metrics for verification failures
-        logger.metric &&
-          logger.metric("rodit_verification_failures", 1, {
-            failed_checks: failedChecks.join(","),
-            peer_rodit_id: peer_roditid,
-          });
-
-        logger.metric &&
-          logger.metric("rodit_verification", duration, {
-            result: "failure",
-            peer_rodit_id: peer_roditid,
-          });
-
         return { peer_rodit, goodrodit: false };
       }
 
@@ -1443,17 +1302,9 @@ async function verify_rodit_ownership(
         method: "verify_peerrodit_getrodit",
         requestId,
         duration: totalDuration,
-        peerRoditId: peer_roditid,
+        peerRoditId: peerroditid,
         peerOwnerId: peer_rodit.owner_id,
-        verificationDetails,
       });
-
-      // Add metrics for successful verifications
-      logger.metric &&
-        logger.metric("rodit_verification", totalDuration, {
-          result: "success",
-          peer_rodit_id: peer_roditid,
-        });
 
       return {
         peer_rodit,
@@ -1487,1037 +1338,3 @@ async function verify_rodit_ownership(
       };
     }
   }
-
-  async function verify_peerrodit_getrodit_withnep413(
-    message,
-    nonce,
-    recipient,
-    callbackUrl,
-    signature,
-    config_own_rodit
-  ) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.debug("Starting NEP-413 RODiT verification", {
-      component: "RoditAuth",
-      method: "verify_peerrodit_getrodit_withnep413",
-      requestId,
-      message,
-      nonceType: typeof nonce,
-      nonceLength: Array.isArray(nonce) ? nonce.length : nonce?.length || 0,
-      recipient,
-      hasCallback: !!callbackUrl,
-      signatureLength: signature?.length,
-    });
-
-    try {
-      logger.debug("Fetching peer RODiT", {
-        requestId,
-        message,
-      });
-
-      const tokenFetchStart = Date.now();
-      let peer_rodit =
-        await nearorg_rpc_tokenfromroditid(
-          message
-        );
-      const tokenFetchDuration = Date.now() - tokenFetchStart;
-
-      logger.debug("Peer RODiT retrieved", {
-        requestId,
-        tokenFetchDuration,
-        peerRoditId: peer_rodit?.token_id,
-        peerOwnerId: peer_rodit?.owner_id,
-      });
-
-      // Correctly access serviceprovider_id
-      const serviceprovider_id =
-        config_own_rodit &&
-        config_own_rodit.own_rodit &&
-        config_own_rodit.own_rodit.metadata
-          ? config_own_rodit.own_rodit.metadata.serviceprovider_id
-          : null;
-
-      if (!serviceprovider_id) {
-        logger.error("Missing serviceprovider_id in configuration", {
-          component: "RoditAuth",
-          requestId,
-          duration: Date.now() - startTime,
-        });
-
-        throw new Error("Missing serviceprovider_id in configuration");
-      }
-
-      // Execute verification steps
-      logger.debug("Starting verification checks", {
-        requestId,
-        checks: ["ownership", "match", "live", "active", "trusted"],
-      });
-
-      const verificationStart = Date.now();
-      const verification_results = await Promise.all([
-        verify_rodit_ownership_withnep413(
-          message,
-          nonce,
-          recipient,
-          callbackUrl,
-          signature,
-          peer_rodit
-        ),
-        verify_rodit_isamatch(serviceprovider_id, peer_rodit),
-        verify_rodit_islive(
-          peer_rodit.metadata.not_after,
-          peer_rodit.metadata.not_before
-        ),
-        verify_rodit_isactive(
-          peer_rodit.token_id,
-          config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
-        ),
-        verify_rodit_istrusted_issuingsmartcontract(
-          config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
-        ),
-      ]);
-      const verificationDuration = Date.now() - verificationStart;
-
-      const [ownershipVerified, isaMatch, isLive, isActive, isTrusted] =
-        verification_results;
-
-      logger.debug("RODiT Verification Results", {
-        requestId,
-        verificationDuration,
-        ownershipVerified,
-        isaMatch,
-        isLive,
-        isActive,
-        isTrusted,
-      });
-
-      if (
-        !ownershipVerified ||
-        !isaMatch ||
-        !isLive ||
-        !isActive ||
-        !isTrusted
-      ) {
-        const failedChecks = [];
-        if (!ownershipVerified) failedChecks.push("ownership");
-        if (!isaMatch) failedChecks.push("match");
-        if (!isLive) failedChecks.push("live");
-        if (!isActive) failedChecks.push("active");
-        if (!isTrusted) failedChecks.push("trusted");
-
-        logger.error("Peer RODiT NEP-413 verification failed", {
-          component: "RoditAuth",
-          requestId,
-          duration: Date.now() - startTime,
-          failedChecks,
-          message,
-          peerRoditId: peer_rodit?.token_id,
-        });
-
-        // Add metrics for verification failures
-        logger.metric &&
-          logger.metric("rodit_nep413_verification_failures", 1, {
-            failed_checks: failedChecks.join(","),
-            message,
-          });
-
-        throw new Error("Error 037: Peer RODiT verification failed");
-      }
-
-      const totalDuration = Date.now() - startTime;
-
-      logger.info("NEP-413 RODiT verification successful", {
-        component: "RoditAuth",
-        method: "verify_peerrodit_getrodit_withnep413",
-        requestId,
-        duration: totalDuration,
-        message,
-        peerRoditId: peer_rodit?.token_id,
-        peerOwnerId: peer_rodit?.owner_id,
-        tokenFetchDuration,
-        verificationDuration,
-      });
-
-      // Add metrics for successful verifications
-      logger.metric &&
-        logger.metric("rodit_nep413_verification", totalDuration, {
-          result: "success",
-          message,
-        });
-
-      return {
-        peer_rodit,
-        goodrodit: true,
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Error in NEP-413 RODiT verification", {
-        component: "RoditAuth",
-        method: "verify_peerrodit_getrodit_withnep413",
-        requestId,
-        duration,
-        message,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-
-      // Add metrics for verification errors
-      logger.metric &&
-        logger.metric("rodit_nep413_verification_errors", 1, {
-          error_type: error.name || "Unknown",
-          message,
-        });
-
-      return {
-        peer_rodit: null,
-        goodrodit: false,
-        error: `Error in verify_peerrodit_getrodit_withnep413: ${error.message}`,
-      };
-    }
-  }
-
-  async function verify_rodit_istrusted_issuingsmartcontract(
-    ownsubjectuniqueidentifier_url
-  ) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.debug("Verifying smart contract trust", {
-      component: "RoditAuth",
-      method: "verify_rodit_istrusted_issuingsmartcontract",
-      requestId,
-      url: ownsubjectuniqueidentifier_url,
-      smartContract: CONSTANTS.SMART_CONTRACT,
-    });
-
-    try {
-      const smartcontract = CONSTANTS.SMART_CONTRACT;
-      const smartontractnonear = smartcontract.replace(".testnet", "");
-      const smartcontracturl = smartontractnonear.replace("-", ".");
-
-      logger.debug("Prepared smart contract identifiers", {
-        component: "RoditAuth",
-        method: "verify_rodit_istrusted_issuingsmartcontract",
-        requestId,
-        originalContract: smartcontract,
-        nonearContract: smartontractnonear,
-        urlContract: smartcontracturl,
-      });
-
-      const domainRegex =
-        /(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/i;
-
-      const maindomainmatch = domainRegex.exec(ownsubjectuniqueidentifier_url);
-
-      if (!maindomainmatch) {
-        logger.error("Failed to parse domain from URL", {
-          component: "RoditAuth",
-          method: "verify_rodit_istrusted_issuingsmartcontract",
-          requestId,
-          duration: Date.now() - startTime,
-          url: ownsubjectuniqueidentifier_url,
-        });
-
-        // Add metrics for domain parsing failures
-        logger.metric &&
-          logger.metric("rodit_trust_errors", 1, {
-            error_type: "domain_parse_error",
-            url: ownsubjectuniqueidentifier_url,
-          });
-
-        throw new Error(
-          `Domain can't be parsed from URL: ${ownsubjectuniqueidentifier_url}`
-        );
-      }
-
-      const extractedDomain = maindomainmatch[1];
-      const enablingdnsentry = `${smartontractnonear}.smartcontract.${extractedDomain}`;
-
-      logger.debug("Checking DNS trust entry", {
-        component: "RoditAuth",
-        method: "verify_rodit_istrusted_issuingsmartcontract",
-        requestId,
-        extractedDomain,
-        enablingDnsEntry: enablingdnsentry,
-      });
-
-      try {
-        const dnsStart = Date.now();
-        const resolver = new Resolver();
-        const cfgresponse = await resolver.resolveTxt(enablingdnsentry);
-        const dnsDuration = Date.now() - dnsStart;
-
-        logger.debug("DNS response received", {
-          component: "RoditAuth",
-          method: "verify_rodit_istrusted_issuingsmartcontract",
-          requestId,
-          dnsDuration,
-          recordCount: cfgresponse?.length || 0,
-          dnsEntry: enablingdnsentry,
-          response: cfgresponse
-        });
-
-        if (cfgresponse.length > 0) {
-          const totalDuration = Date.now() - startTime;
-
-          logger.info("Smart contract is trusted", {
-            component: "RoditAuth",
-            method: "verify_rodit_istrusted_issuingsmartcontract",
-            requestId,
-            duration: totalDuration,
-            dnsDuration,
-            smartContract: smartcontracturl,
-            domain: extractedDomain,
-            dnsEntry: enablingdnsentry,
-            recordCount: cfgresponse.length,
-            isTrusted: true,
-          });
-
-          // Add metrics for trusted contracts
-          logger.metric &&
-            logger.metric("rodit_trust_checks", totalDuration, {
-              result: "trusted",
-              domain: extractedDomain,
-            });
-
-          return true;
-        } else {
-          const totalDuration = Date.now() - startTime;
-
-          logger.warn("Smart contract not trusted - empty DNS record", {
-            component: "RoditAuth",
-            method: "verify_rodit_istrusted_issuingsmartcontract",
-            requestId,
-            duration: totalDuration,
-            dnsDuration,
-            smartContract: smartcontracturl,
-            domain: extractedDomain,
-            dnsEntry: enablingdnsentry,
-            isTrusted: false,
-          });
-
-          // Add metrics for untrusted contracts
-          logger.metric &&
-            logger.metric("rodit_trust_checks", totalDuration, {
-              result: "empty_dns",
-              domain: extractedDomain,
-            });
-
-          return false;
-        }
-      } catch (error) {
-        // DNS error usually means no revocation entry found, which is good
-        logger.error("Error during active verification", { 
-          requestId, 
-          error: error.message,
-          errorStack: error.stack,
-          errorName: error.name,
-          errorCode: error.code
-        });
-        
-        const dnsDuration = error.code === 'ENOTFOUND' ? Date.now() - dnsStart : 0;
-        const totalDuration = Date.now() - startTime;
-
-        logger.debug("No revocation found for RODiT", {
-          requestId,
-          dnsDuration,
-          dnsError: error.code,
-        });
-
-        logger.info("RODiT is active", {
-          component: "RoditAuth",
-          method: "verify_rodit_istrusted_issuingsmartcontract",
-          requestId,
-          duration: totalDuration,
-          dnsDuration,
-          isTrusted: true,
-        });
-
-        // Add metrics for active tokens
-        logger.metric &&
-          logger.metric("rodit_trust_checks", totalDuration, {
-            result: "active",
-          });
-
-        return true;
-      }
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Trust verification failed", {
-        component: "RoditAuth",
-        method: "verify_rodit_istrusted_issuingsmartcontract",
-        requestId,
-        duration,
-        url: ownsubjectuniqueidentifier_url,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-
-      // Add metrics for verification errors
-      logger.metric &&
-        logger.metric("rodit_trust_errors", 1, {
-          error_type: error.name || "Unknown",
-          message: error.message,
-        });
-
-      return false;
-    }
-  }
-
-  async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.debug("Checking RODiT time validity", {
-      component: "RoditAuth",
-      method: "verify_rodit_islive",
-      requestId,
-      notAfter: peer_rodit_notafter,
-      notBefore: peer_rodit_notbefore,
-    });
-
-    function parseDate(datestring) {
-      const date = new Date(datestring);
-      return isNaN(date.getTime()) ? new Date(0) : date;
-    }
-
-    const datetimenul = new Date(0);
-    const datetimenotafter = parseDate(peer_rodit_notafter);
-    const datetimenotbefore = parseDate(peer_rodit_notbefore);
-
-    logger.debug("Parsed validity dates", {
-      requestId,
-      parsedNotAfter: datetimenotafter.toISOString(),
-      parsedNotBefore: datetimenotbefore.toISOString(),
-      isNotAfterNull: datetimenotafter.getTime() === datetimenul.getTime(),
-      isNotBeforeNull: datetimenotbefore.getTime() === datetimenul.getTime(),
-    });
-
-    try {
-      const rpcStart = Date.now();
-      const stringtimenow =
-        await nearorg_rpc_timestamp();
-      const rpcDuration = Date.now() - rpcStart;
-
-      logger.debug("Retrieved blockchain timestamp", {
-        requestId,
-        rpcDuration,
-        blockchainTimestamp: stringtimenow,
-      });
-
-      const timestamp = parseInt(stringtimenow, 10);
-
-      if (isNaN(timestamp)) {
-        logger.error("Failed to parse blockchain timestamp", {
-          component: "RoditAuth",
-          method: "verify_rodit_islive",
-          requestId,
-          duration: Date.now() - startTime,
-          blockchainTimestamp: stringtimenow,
-        });
-
-        // Add metrics for timestamp parsing errors
-        logger.metric &&
-          logger.metric("rodit_islive_errors", 1, {
-            error_type: "timestamp_parse_error",
-            blockchain_timestamp: stringtimenow,
-          });
-
-        return false;
-      }
-
-      const datetimetimestamp = new Date(timestamp / 1000000); // Convert nanoseconds to milliseconds
-
-      logger.debug("Converted blockchain time", {
-        requestId,
-        blockchainTime: datetimetimestamp.toISOString(),
-        originalTimestamp: timestamp,
-      });
-
-      const isAfterNotBefore =
-        datetimetimestamp >= datetimenotbefore ||
-        datetimenotbefore.getTime() === datetimenul.getTime();
-
-      const isBeforeNotAfter =
-        datetimetimestamp <= datetimenotafter ||
-        datetimenotafter.getTime() === datetimenul.getTime();
-
-      const isLive = isAfterNotBefore && isBeforeNotAfter;
-
-      const totalDuration = Date.now() - startTime;
-
-      if (isLive) {
-        logger.info("RODiT is live", {
-          component: "RoditAuth",
-          method: "verify_rodit_islive",
-          requestId,
-          duration: totalDuration,
-          rpcDuration,
-          currentTime: datetimetimestamp.toISOString(),
-          notBefore: datetimenotbefore.toISOString(),
-          notAfter: datetimenotafter.toISOString(),
-          isLive: true,
-        });
-
-        // Add metrics for live tokens
-        logger.metric &&
-          logger.metric("rodit_time_checks", totalDuration, {
-            result: "live",
-          });
-
-        return true;
-      } else {
-        logger.warn("RODiT is not live - outside valid time period", {
-          component: "RoditAuth",
-          method: "verify_rodit_islive",
-          requestId,
-          duration: totalDuration,
-          rpcDuration,
-          currentTime: datetimetimestamp.toISOString(),
-          notBefore: datetimenotbefore.toISOString(),
-          notAfter: datetimenotafter.toISOString(),
-          isBeforeExpiry: isBeforeNotAfter,
-          isAfterStart: isAfterNotBefore,
-          isLive: false,
-        });
-
-        // Add metrics for expired or not-yet-valid tokens
-        logger.metric &&
-          logger.metric("rodit_time_checks", totalDuration, {
-            result: "not_live",
-            not_before_valid: isAfterNotBefore,
-            not_after_valid: isBeforeNotAfter,
-          });
-
-        return false;
-      }
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Failed to check RODiT time validity", {
-        component: "RoditAuth",
-        method: "verify_rodit_islive",
-        requestId,
-        duration,
-        notAfter: peer_rodit_notafter,
-        notBefore: peer_rodit_notbefore,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-
-      // Add metrics for validation errors
-      logger.metric &&
-        logger.metric("rodit_islive_errors", 1, {
-          error_type: error.name || "Unknown",
-        });
-
-      return false;
-    }
-  }
-
-  async function verify_rodit_isamatch(own_service_provider_id, peer_rodit) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.debug("Starting RODiT match verification", {
-      component: "RoditAuth",
-      method: "verify_rodit_isamatch",
-      requestId,
-      ownServiceProviderId: own_service_provider_id,
-      peerRoditId: peer_rodit?.token_id,
-      peerRoditOwnerId: peer_rodit?.owner_id,
-      peerServiceProviderId: peer_rodit?.metadata?.serviceprovider_id,
-    });
-
-    // Add more detailed logging about the format
-    logger.debug("Service provider ID details", {
-      component: "RoditAuth",
-      method: "verify_rodit_isamatch",
-      requestId,
-      ownServiceProviderId: own_service_provider_id,
-      ownIdType: typeof own_service_provider_id,
-      ownIdLength: own_service_provider_id?.length,
-      hasSemicolons: own_service_provider_id?.includes(';'),
-      peerServiceProviderId: peer_rodit?.metadata?.serviceprovider_id,
-    });
-
-    try {
-      const own_provider_components = own_service_provider_id.split(";");
-
-      logger.debug("Split provider components", {
-        requestId,
-        componentCount: own_provider_components.length,
-        components: own_provider_components,
-        rawComponents: JSON.stringify(own_provider_components),
-      });
-
-      // Get blockchain and contract parts
-      const bcPart = own_provider_components.find((part) =>
-        part.startsWith("bc=")
-      );
-      const scPart = own_provider_components.find((part) =>
-        part.startsWith("sc=")
-      );
-
-      // Find all ID components
-      const idComponents = own_provider_components.filter(
-        (part) =>
-          part.startsWith("id=") &&
-          !part.startsWith("bc=") &&
-          !part.startsWith("sc=")
-      );
-
-      // Log all components for better debugging
-      logger.debug("Provider ID component analysis", {
-        requestId,
-        bcPart: bcPart || "missing",
-        scPart: scPart || "missing",
-        idComponents: idComponents.length > 0 ? idComponents : "missing",
-        allComponents: own_provider_components,
-        expectedFormat: "bc=<blockchain>;sc=<contract>;id=<identifier>",
-      });
-
-      if (!bcPart || !scPart || idComponents.length < 1) {
-        logger.error("Invalid provider ID format", {
-          component: "RoditAuth",
-          requestId,
-          duration: Date.now() - startTime,
-          providerId: own_service_provider_id,
-          components: own_provider_components,
-          hasBlockchain: !!bcPart,
-          hasSmartContract: !!scPart,
-          idCount: idComponents.length,
-          configCheck: "Verify config_own_rodit.own_rodit.metadata.serviceprovider_id format",
-          expectedFormat: "bc=<blockchain>;sc=<contract>;id=<identifier>",
-        });
-
-        // Add metrics for format errors
-        logger.metric &&
-          logger.metric("rodit_match_format_errors", 1, {
-            error_type: "invalid_provider_id",
-            bc_part_present: !!bcPart,
-            sc_part_present: !!scPart,
-            id_count: idComponents.length,
-          });
-
-        return false;
-      }
-
-      // Construct the base prefix
-      const base_prefix = `${bcPart};${scPart}`;
-      logger.debug("Constructed base prefix", {
-        requestId,
-        basePrefix: base_prefix,
-      });
-
-      // Try verification with each ID component
-      for (let i = 0; i < idComponents.length; i++) {
-        const idIndex = i + 1;
-        const signing_token_id = `${base_prefix};${idComponents[i]}`;
-
-        logger.debug(
-          `Trying verification with ID [${idIndex}/${idComponents.length}]`,
-          {
-            requestId,
-            idIndex,
-            totalIds: idComponents.length,
-            signingTokenId: signing_token_id,
-            currentIdComponent: idComponents[i],
-          }
-        );
-
-        const tokenFetchStart = Date.now();
-        const signing_rodit =
-          await nearorg_rpc_tokenfromroditid(
-            signing_token_id
-          );
-        const tokenFetchDuration = Date.now() - tokenFetchStart;
-
-        logger.debug("Retrieved signing RODiT", {
-          requestId,
-          idIndex,
-          tokenFetchDuration,
-          tokenId: signing_rodit?.token_id,
-          ownerId: signing_rodit?.owner_id,
-          hasSigningRodit: !!signing_rodit,
-          hasOwner: !!signing_rodit?.owner_id,
-        });
-
-        // Process the owner ID
-        try {
-          if (!signing_rodit || !signing_rodit.owner_id) {
-            logger.warn(`Missing signing RODiT or owner ID for ID ${idIndex}`, {
-              requestId,
-              hasSigningRodit: !!signing_rodit,
-              hasOwner: !!signing_rodit?.owner_id,
-            });
-            continue; // Try the next ID
-          }
-
-          const bytes_signing_owner_id = new Uint8Array(
-            Buffer.from(signing_rodit.owner_id, "hex")
-          );
-
-          if (
-            bytes_signing_owner_id.length !==
-            CONSTANTS.RODIT_ID_PK_SZ
-          ) {
-            logger.warn(`Invalid signing key length for ID ${idIndex}`, {
-              requestId,
-              actual: bytes_signing_owner_id.length,
-              expected: CONSTANTS.RODIT_ID_PK_SZ,
-              ownerIdHex: signing_rodit.owner_id.substring(0, 20) + "...",
-            });
-            continue; // Try the next ID
-          }
-
-          // Process the signature
-          if (!peer_rodit.metadata.serviceprovider_signature) {
-            logger.warn(`Missing serviceprovider_signature for ID ${idIndex}`, {
-              requestId,
-              peerRoditId: peer_rodit.token_id,
-            });
-            continue; // Try the next ID
-          }
-
-          const base64urlSignature =
-            peer_rodit.metadata.serviceprovider_signature;
-          const base64Signature = base64urlSignature
-            .replace(/-/g, "+")
-            .replace(/_/g, "/")
-            .padEnd(
-              base64urlSignature.length +
-                ((4 - (base64urlSignature.length % 4)) % 4),
-              "="
-            );
-          
-          let signatureBytes;
-          try {
-            signatureBytes = nacl.util.decodeBase64(base64Signature);
-            
-            logger.debug("Decoded signature", {
-              requestId,
-              idIndex,
-              base64urlLength: base64urlSignature.length,
-              base64Length: base64Signature.length,
-              bytesLength: signatureBytes.length,
-            });
-          } catch (decodeError) {
-            logger.warn(`Failed to decode signature for ID ${idIndex}`, {
-              requestId,
-              error: decodeError.message,
-              base64urlSignature: base64urlSignature.substring(0, 20) + "...",
-            });
-            continue; // Try the next ID
-          }
-
-          if (
-            signatureBytes.length !==
-            CONSTANTS.RODIT_ID_SIGNATURE_SZ
-          ) {
-            logger.warn(`Invalid signature length for ID ${idIndex}`, {
-              requestId,
-              actual: signatureBytes.length,
-              expected: CONSTANTS.RODIT_ID_SIGNATURE_SZ,
-            });
-            continue; // Try the next ID
-          }
-
-          // Prepare the hash input
-          const hashInput = {
-            token_id: peer_rodit.token_id,
-            openapijson_url: peer_rodit.metadata.openapijson_url,
-            not_after: peer_rodit.metadata.not_after,
-            not_before: peer_rodit.metadata.not_before,
-            max_requests: peer_rodit.metadata.max_requests,
-            maxrq_window: peer_rodit.metadata.maxrq_window,
-            webhook_cidr: peer_rodit.metadata.webhook_cidr,
-            allowed_cidr: peer_rodit.metadata.allowed_cidr,
-            allowed_iso3166list: peer_rodit.metadata.allowed_iso3166list,
-            jwt_duration: peer_rodit.metadata.jwt_duration,
-            permissioned_routes: peer_rodit.metadata.permissioned_routes,
-            serviceprovider_id: peer_rodit.metadata.serviceprovider_id,
-            subjectuniqueidentifier_url:
-              peer_rodit.metadata.subjectuniqueidentifier_url,
-          };
-
-          // Log hash input fields for debugging
-          logger.debug("Hash input fields", {
-            requestId,
-            idIndex,
-            hashInputFields: Object.keys(hashInput),
-            missingFields: Object.entries(hashInput)
-              .filter(([_, value]) => value === undefined)
-              .map(([key]) => key),
-          });
-
-          const hashStart = Date.now();
-          const hashHex = calculateCanonicalHash(hashInput);
-          const hashBytes = new Uint8Array(Buffer.from(hashHex, "hex"));
-          const hashDuration = Date.now() - hashStart;
-
-          logger.debug("Calculated hash for verification", {
-            requestId,
-            idIndex,
-            hashDuration,
-            hashLength: hashBytes.length,
-            hashHexPrefix: hashHex.substring(0, 16) + "...",
-          });
-
-          // Verify the signature
-          const verifyStart = Date.now();
-          const is_valid = nacl.sign.detached.verify(
-            hashBytes,
-            signatureBytes,
-            bytes_signing_owner_id
-          );
-          const verifyDuration = Date.now() - verifyStart;
-
-          logger.debug("Signature verification result", {
-            requestId,
-            idIndex,
-            verifyDuration,
-            isValid: is_valid,
-          });
-
-          if (is_valid) {
-            const totalDuration = Date.now() - startTime;
-
-            // Log based on which ID worked
-            if (i === 0) {
-              logger.info("Partner login verified successfully", {
-                component: "RoditAuth",
-                method: "verify_rodit_isamatch",
-                requestId,
-                duration: totalDuration,
-                partnerVerification: true,
-                idIndex,
-              });
-            } else {
-              logger.info("Peer login verified successfully", {
-                component: "RoditAuth",
-                method: "verify_rodit_isamatch",
-                requestId,
-                duration: totalDuration,
-                peerVerification: true,
-                idIndex,
-              });
-            }
-
-            // Add metrics for successful matching
-            logger.metric &&
-              logger.metric("rodit_match_verification", totalDuration, {
-                result: "success",
-                id_index: idIndex,
-                verification_type: i === 0 ? "partner" : "peer",
-              });
-
-            return true;
-          }
-
-          logger.debug(`Verification with ID ${idIndex} failed`, {
-            requestId,
-          });
-        } catch (verifyError) {
-          logger.warn(`Error during verification with ID ${idIndex}`, {
-            requestId,
-            error: verifyError.message,
-            stack: verifyError.stack,
-          });
-        }
-      }
-
-      // If we get here, all verification attempts failed
-      const totalDuration = Date.now() - startTime;
-
-      logger.error("All verification attempts failed", {
-        component: "RoditAuth",
-        method: "verify_rodit_isamatch",
-        requestId,
-        duration: totalDuration,
-        ownServiceProviderId: own_service_provider_id,
-        peerRoditId: peer_rodit?.token_id,
-        attemptCount: idComponents.length,
-        configCheck: "Verify config_own_rodit.own_rodit.metadata.serviceprovider_id format",
-      });
-
-      // Add metrics for failed matching
-      logger.metric &&
-        logger.metric("rodit_match_verification", totalDuration, {
-          result: "failure",
-          attempts: idComponents.length,
-        });
-
-      return false;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("RODiT match verification failed", {
-        component: "RoditAuth",
-        method: "verify_rodit_isamatch",
-        requestId,
-        duration,
-        ownServiceProviderId: own_service_provider_id,
-        peerRoditId: peer_rodit?.token_id,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-
-      // Add metrics for verification errors
-      logger.metric &&
-        logger.metric("rodit_match_errors", 1, {
-          error_type: error.name || "Unknown",
-        });
-
-      return false;
-    }
-  }
-
-  async function verify_rodit_isactive(tokenId, ownsubjectuniqueidentifier_url) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.debug("Checking RODiT activity status", {
-      component: "RoditAuth",
-      method: "verify_rodit_isactive",
-      requestId,
-      tokenId,
-      subjectUrl: ownsubjectuniqueidentifier_url,
-    });
-
-    const domainandextensionRegex =
-      /(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/i;
-
-    const match = ownsubjectuniqueidentifier_url.match(domainandextensionRegex);
-
-    if (match) {
-      const domainandextension = match[1];
-      const revokingDnsEntry = `${tokenId}.revoked.${domainandextension}`;
-
-      logger.debug("Checking DNS revocation entry", {
-        requestId,
-        domain: domainandextension,
-        revokingDnsEntry,
-      });
-
-      let dnsStart;
-      try {
-        logger.debug("Before DNS resolution", { requestId, revokingDnsEntry });
-        dnsStart = Date.now();
-        const resolver = new Resolver();
-        logger.debug("After resolver creation", { 
-          requestId, 
-          resolverType: resolver.constructor.name 
-        });
-        await resolver.resolveTxt(revokingDnsEntry);
-        const dnsDuration = dnsStart ? Date.now() - dnsStart : 0;
-        const totalDuration = Date.now() - startTime;
-
-        logger.info("RODiT revocation found", {
-          component: "RoditAuth",
-          method: "verify_rodit_isactive",
-          requestId,
-          duration: totalDuration,
-          dnsDuration,
-          tokenId,
-          domain: domainandextension,
-          revokingDnsEntry,
-          isActive: false,
-        });
-
-        // Add metrics for revoked tokens
-        logger.metric &&
-          logger.metric("rodit_revocation_checks", totalDuration, {
-            result: "revoked",
-            token_id: tokenId,
-          });
-
-        return false;
-      } catch (error) {
-        // DNS error usually means no revocation entry found, which is good
-        logger.error("Error during active verification", { 
-          requestId, 
-          error: error.message,
-          errorStack: error.stack,
-          errorName: error.name,
-          errorCode: error.code
-        });
-        
-        const dnsDuration = error.code === 'ENOTFOUND' ? Date.now() - dnsStart : 0;
-        const totalDuration = Date.now() - startTime;
-
-        logger.debug("No revocation found for RODiT", {
-          requestId,
-          dnsDuration,
-          tokenId,
-          error: error.code,
-        });
-
-        logger.info("RODiT is active", {
-          component: "RoditAuth",
-          method: "verify_rodit_isactive",
-          requestId,
-          duration: totalDuration,
-          dnsDuration,
-          tokenId,
-          domain: domainandextension,
-          isActive: true,
-        });
-
-        // Add metrics for active tokens
-        logger.metric &&
-          logger.metric("rodit_revocation_checks", totalDuration, {
-            result: "active",
-            token_id: tokenId,
-          });
-
-        return true;
-      }
-    } else {
-      const duration = Date.now() - startTime;
-
-      logger.warn("Unable to parse domain from URL", {
-        component: "RoditAuth",
-        method: "verify_rodit_isactive",
-        requestId,
-        duration,
-        tokenId,
-        subjectUrl: ownsubjectuniqueidentifier_url,
-      });
-
-      // Add metrics for parsing errors
-      logger.metric &&
-        logger.metric("rodit_revocation_checks", duration, {
-          result: "parse_error",
-          token_id: tokenId,
-        });
-
-      // Default to allowing the token if domain parsing fails
-      return true;
-    }
-  }
-
-// Export the class directly (will be instantiated in rodit.js)
-module.exports = {verify_rodit_istrusted_issuingsmartcontract,
-  verify_rodit_ownership,
-  verify_rodit_ownership_withnep413,
-  verify_peerrodit_getrodit,
-  verify_rodit_isactive,
-verify_rodit_isamatch,
-verify_rodit_islive,verify_peerrodit_getrodit_withnep413,login_client};

@@ -973,12 +973,12 @@ const {
       
       const verifyStartTime = Date.now();
       let { peer_rodit, goodrodit } = await verify_peerrodit_getrodit(
-        payload.rodit_id,
-        payload.iat,
-        payload.rodit_idsignature,
+        unverifiedpayload.rodit_id,
+        unverifiedpayload.iat,
+        unverifiedpayload.rodit_idsignature,
         own_rodit
       );
-  
+
       logger.debug("Verified peer RODiT", {
         requestId,
         verifyPeerDuration: Date.now() - verifyStartTime,
@@ -1028,6 +1028,7 @@ const {
       if (own_rodit && payload.iss !== own_rodit.metadata.subjectuniqueidentifier_url) {
         logger.warn("Token validation failed - Invalid issuer", {
           component: "JwtAuth",
+          method: "validate_jwt_token_be",
           requestId,
           tokenIssuer: payload.iss,
           expectedIssuer: own_rodit.metadata.subjectuniqueidentifier_url,
@@ -1040,6 +1041,7 @@ const {
       if (own_rodit && payload.aud !== own_rodit.owner_id) {
         logger.warn("Token validation failed - Invalid audience", {
           component: "JwtAuth",
+          method: "validate_jwt_token_be",
           requestId,
           tokenAudience: payload.aud,
           expectedAudience: own_rodit.owner_id,
