@@ -1182,29 +1182,23 @@ async function verify_rodit_ownership(
       // Extract parameters from request
       const { roditid: peer_roditid, timestamp: peer_timestamp } = req.body;
 
-      // Check for both signature parameter names for backward compatibility
-      const signature = req.body.signature;
+      // Get the signature from the legacy parameter name
       const roditid_base64url_signature = req.body.roditid_base64url_signature;
       
-      // Use the signature from either parameter, prioritizing roditid_base64url_signature
-      const effective_signature = roditid_base64url_signature || signature;
-
       // Log which parameter was used for debugging
       logger.debug("Signature parameter usage", {
         requestId,
-        hasSignature: !!signature,
         hasRoditSignature: !!roditid_base64url_signature,
-        effectiveSignatureLength: effective_signature?.length,
-        usingRoditSignature: !!roditid_base64url_signature,
+        signatureLength: roditid_base64url_signature?.length,
       });
 
-      if (!peer_roditid || !peer_timestamp || !effective_signature) {
+      if (!peer_roditid || !peer_timestamp || !roditid_base64url_signature) {
         logger.warn("Missing required parameters for RODiT verification", {
           requestId,
           missingParams: {
             roditId: !peer_roditid,
             timestamp: !peer_timestamp,
-            signature: !effective_signature,
+            signature: !roditid_base64url_signature,
           },
         });
         return { peer_rodit: null, goodrodit: false };
@@ -1291,14 +1285,14 @@ async function verify_rodit_ownership(
           requestId,
           roditId: peer_roditid,
           timestampPresent: !!peer_timestamp,
-          signatureLength: effective_signature.length,
+          signatureLength: roditid_base64url_signature.length,
         });
         
         const ownershipStart = Date.now();
         ownershipVerified = await verify_rodit_ownership(
           peer_roditid,
           peer_timestamp,
-          effective_signature,
+          roditid_base64url_signature,
           peer_rodit
         );
         verificationDetails.ownershipDuration = Date.now() - ownershipStart;
@@ -1592,7 +1586,9 @@ async function verify_rodit_ownership(
 
       const tokenFetchStart = Date.now();
       let peer_rodit =
-        await nearorg_rpc_tokenfromroditid(message);
+        await nearorg_rpc_tokenfromroditid(
+          message
+        );
       const tokenFetchDuration = Date.now() - tokenFetchStart;
 
       logger.debug("Peer RODiT retrieved", {
@@ -1991,6 +1987,7 @@ async function verify_rodit_ownership(
       if (isNaN(timestamp)) {
         logger.error("Failed to parse blockchain timestamp", {
           component: "RoditAuth",
+          method: "verify_rodit_islive",
           requestId,
           duration: Date.now() - startTime,
           blockchainTimestamp: stringtimenow,
