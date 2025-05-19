@@ -509,7 +509,7 @@ const {
 
       const sessionCreateStart = Date.now();
       try {
-        const session = stateManager.createSession(sessionData);
+        const session = sessionManager.createSession(sessionData);
         const sessionCreateDuration = Date.now() - sessionCreateStart;
 
         logger.debug("Session created in session manager", {
