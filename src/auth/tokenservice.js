@@ -1023,7 +1023,7 @@ const {
       }
   
       // Issuer check - use own_rodit if provided, otherwise skip this check
-      if (own_rodit && payload.iss !== own_rodit.metadata.subjectuniqueidentifier_url) {
+      if (payload.iss !== own_rodit.metadata.subjectuniqueidentifier_url) {
         logger.warn("Token validation failed - Invalid issuer", {
           component: "JwtAuth",
           method: "validate_jwt_token_be",
@@ -1035,8 +1035,8 @@ const {
         throw new Error("Error 005: Invalid issuer");
       }
   
-      // Audience check - use own_rodit if provided, otherwise skip this check
-      if (own_rodit && payload.aud !== own_rodit.owner_id) {
+      // Audience check - matching legacy implementation in rodit.js
+      if (payload.aud !== own_rodit.owner_id) {
         logger.warn("Token validation failed - Invalid audience", {
           component: "JwtAuth",
           method: "validate_jwt_token_be",
