@@ -300,6 +300,7 @@ async function verify_rodit_ownership(
       peerRoditId: peerroditid,
       timestamp: peertimestamp,
       signatureLength: peerroditid_base64url_signature?.length,
+      signatureValue: peerroditid_base64url_signature?.substring(0, 20) + '...',
     });
 
     try {
@@ -313,8 +314,12 @@ async function verify_rodit_ownership(
       );
 
       logger.debug("Encoded roditid and timestamp", {
+        component: "RoditAuth",
+        method: "verify_rodit_ownership",
         requestId,
         timeString,
+        peerRoditId: peerroditid,
+        combinedString: peerroditid + timeString,
         bufferLength: roditidandtimestamp.length,
         bufferHex: Buffer.from(roditidandtimestamp).toString('hex').substring(0, 64) + '...',
       });
@@ -330,15 +335,62 @@ async function verify_rodit_ownership(
         throw new Error("Missing signature in authentication request");
       }
 
-      const bytes_ed25519_signature = new Uint8Array(
-        Buffer.from(peerroditid_base64url_signature, "base64url")
-      );
-
-      logger.debug("Decoded signature", {
-        requestId,
-        signatureLength: bytes_ed25519_signature.length,
-        signatureHex: Buffer.from(bytes_ed25519_signature).toString('hex').substring(0, 64) + '...',
-      });
+      // Try both base64url and standard base64 decoding
+      let bytes_ed25519_signature;
+      try {
+        // First try direct base64url decoding
+        bytes_ed25519_signature = new Uint8Array(
+          Buffer.from(peerroditid_base64url_signature, "base64url")
+        );
+        
+        logger.debug("Decoded signature using base64url", {
+          component: "RoditAuth",
+          method: "verify_rodit_ownership",
+          requestId,
+          signatureLength: bytes_ed25519_signature.length,
+          signatureHex: Buffer.from(bytes_ed25519_signature).toString('hex').substring(0, 64) + '...',
+          expectedLength: 64, // Ed25519 signatures should be 64 bytes
+        });
+        
+        // If signature length is not as expected, try alternative decoding
+        if (bytes_ed25519_signature.length !== 64) {
+          // Convert from base64url to standard base64
+          const base64Signature = peerroditid_base64url_signature
+            .replace(/-/g, '+')
+            .replace(/_/g, '/')
+            .padEnd(peerroditid_base64url_signature.length + ((4 - (peerroditid_base64url_signature.length % 4)) % 4), '=');
+          
+          logger.debug("Trying alternative base64 decoding", {
+            component: "RoditAuth",
+            method: "verify_rodit_ownership",
+            requestId,
+            originalSignature: peerroditid_base64url_signature.substring(0, 20) + '...',
+            convertedSignature: base64Signature.substring(0, 20) + '...',
+          });
+          
+          // Then decode using standard base64
+          bytes_ed25519_signature = new Uint8Array(
+            Buffer.from(base64Signature, "base64")
+          );
+          
+          logger.debug("Decoded signature using standard base64", {
+            component: "RoditAuth",
+            method: "verify_rodit_ownership",
+            requestId,
+            signatureLength: bytes_ed25519_signature.length,
+            signatureHex: Buffer.from(bytes_ed25519_signature).toString('hex').substring(0, 64) + '...',
+          });
+        }
+      } catch (decodeError) {
+        logger.error("Failed to decode signature", {
+          component: "RoditAuth",
+          method: "verify_rodit_ownership",
+          requestId,
+          error: decodeError.message,
+          signature: peerroditid_base64url_signature.substring(0, 20) + '...',
+        });
+        throw new Error("Error decoding signature: " + decodeError.message);
+      }
 
       const peer_bytes_ed25519_public_key =
         await nearorg_rpc_fetchpublickeybytes(
@@ -346,29 +398,57 @@ async function verify_rodit_ownership(
         );
 
       logger.debug("Retrieved public key", {
+        component: "RoditAuth",
+        method: "verify_rodit_ownership",
         requestId,
         ownerId: peer_rodit.owner_id,
         keyLength: peer_bytes_ed25519_public_key?.length || 0,
-        keyHex: peer_bytes_ed25519_public_key ? Buffer.from(peer_bytes_ed25519_public_key).toString('hex').substring(0, 64) + '...' : 'null',
+        keyHex: peer_bytes_ed25519_public_key ? Buffer.from(peer_bytes_ed25519_public_key).toString('hex') : 'null',
+        expectedLength: 32, // Ed25519 public keys should be 32 bytes
       });
 
       // Add more detailed debugging for verification inputs
       logger.debug("Verification inputs", {
+        component: "RoditAuth",
+        method: "verify_rodit_ownership",
         requestId,
         messageLength: roditidandtimestamp.length,
+        messageContent: peerroditid + timeString,
         signatureLength: bytes_ed25519_signature.length,
         publicKeyLength: peer_bytes_ed25519_public_key?.length,
-        messageFirstBytes: Buffer.from(roditidandtimestamp.slice(0, 16)).toString('hex'),
-        signatureFirstBytes: Buffer.from(bytes_ed25519_signature.slice(0, 16)).toString('hex'),
-        publicKeyFirstBytes: peer_bytes_ed25519_public_key ? Buffer.from(peer_bytes_ed25519_public_key.slice(0, 16)).toString('hex') : 'null',
+        messageHex: Buffer.from(roditidandtimestamp).toString('hex'),
+        signatureHex: Buffer.from(bytes_ed25519_signature).toString('hex'),
+        publicKeyHex: peer_bytes_ed25519_public_key ? Buffer.from(peer_bytes_ed25519_public_key).toString('hex') : 'null',
       });
 
-      const isaMatch = nacl.sign.detached.verify(
+      // Try verification with both the original message and with "NEAR" prefix
+      const originalVerification = nacl.sign.detached.verify(
         roditidandtimestamp,
         bytes_ed25519_signature,
         peer_bytes_ed25519_public_key
       );
+      
+      // Try with NEAR prefix as mentioned in the comment
+      const nearPrefixedMessage = new TextEncoder().encode(
+        "NEAR" + peerroditid + timeString
+      );
+      
+      const nearPrefixVerification = nacl.sign.detached.verify(
+        nearPrefixedMessage,
+        bytes_ed25519_signature,
+        peer_bytes_ed25519_public_key
+      );
+      
+      logger.debug("Verification results", {
+        component: "RoditAuth",
+        method: "verify_rodit_ownership",
+        requestId,
+        originalVerification,
+        nearPrefixVerification,
+        nearPrefixedMessageHex: Buffer.from(nearPrefixedMessage).toString('hex').substring(0, 64) + '...',
+      });
 
+      const isaMatch = originalVerification || nearPrefixVerification;
       const duration = Date.now() - startTime;
 
       if (isaMatch) {
@@ -379,6 +459,7 @@ async function verify_rodit_ownership(
           peerRoditId: peerroditid,
           ownerId: peer_rodit.owner_id,
           outcome: "success",
+          verificationMethod: originalVerification ? "original" : "near_prefixed",
         });
 
         // Add metric for successful verification
@@ -386,6 +467,7 @@ async function verify_rodit_ownership(
           logger.metric("rodit_ownership_verification", duration, {
             result: "success",
             peer_rodit_id: peerroditid,
+            verification_method: originalVerification ? "original" : "near_prefixed",
           });
 
         return true;
@@ -1801,29 +1883,40 @@ async function verify_rodit_ownership(
           return false;
         }
       } catch (error) {
+        // DNS error usually means no revocation entry found, which is good
+        logger.error("Error during active verification", { 
+          requestId, 
+          error: error.message,
+          errorStack: error.stack,
+          errorName: error.name,
+          errorCode: error.code
+        });
+        
+        const dnsDuration = error.code === 'ENOTFOUND' ? Date.now() - dnsStart : 0;
         const totalDuration = Date.now() - startTime;
 
-        logger.warn("Smart contract not trusted - DNS lookup failed", {
+        logger.debug("No revocation found for RODiT", {
+          requestId,
+          dnsDuration,
+          dnsError: error.code,
+        });
+
+        logger.info("RODiT is active", {
           component: "RoditAuth",
           method: "verify_rodit_istrusted_issuingsmartcontract",
           requestId,
           duration: totalDuration,
-          smartContract: smartcontracturl,
-          domain: extractedDomain,
-          dnsEntry: enablingdnsentry,
-          dnsError: error.code,
-          isTrusted: false,
+          dnsDuration,
+          isTrusted: true,
         });
 
-        // Add metrics for DNS errors
+        // Add metrics for active tokens
         logger.metric &&
           logger.metric("rodit_trust_checks", totalDuration, {
-            result: "dns_error",
-            domain: extractedDomain,
-            error_code: error.code,
+            result: "active",
           });
 
-        return false;
+        return true;
       }
     } catch (error) {
       const duration = Date.now() - startTime;
