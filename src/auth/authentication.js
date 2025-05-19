@@ -335,62 +335,18 @@ async function verify_rodit_ownership(
         throw new Error("Missing signature in authentication request");
       }
 
-      // Try both base64url and standard base64 decoding
-      let bytes_ed25519_signature;
-      try {
-        // First try direct base64url decoding
-        bytes_ed25519_signature = new Uint8Array(
-          Buffer.from(peerroditid_base64url_signature, "base64url")
-        );
-        
-        logger.debug("Decoded signature using base64url", {
-          component: "RoditAuth",
-          method: "verify_rodit_ownership",
-          requestId,
-          signatureLength: bytes_ed25519_signature.length,
-          signatureHex: Buffer.from(bytes_ed25519_signature).toString('hex').substring(0, 64) + '...',
-          expectedLength: 64, // Ed25519 signatures should be 64 bytes
-        });
-        
-        // If signature length is not as expected, try alternative decoding
-        if (bytes_ed25519_signature.length !== 64) {
-          // Convert from base64url to standard base64
-          const base64Signature = peerroditid_base64url_signature
-            .replace(/-/g, '+')
-            .replace(/_/g, '/')
-            .padEnd(peerroditid_base64url_signature.length + ((4 - (peerroditid_base64url_signature.length % 4)) % 4), '=');
-          
-          logger.debug("Trying alternative base64 decoding", {
-            component: "RoditAuth",
-            method: "verify_rodit_ownership",
-            requestId,
-            originalSignature: peerroditid_base64url_signature.substring(0, 20) + '...',
-            convertedSignature: base64Signature.substring(0, 20) + '...',
-          });
-          
-          // Then decode using standard base64
-          bytes_ed25519_signature = new Uint8Array(
-            Buffer.from(base64Signature, "base64")
-          );
-          
-          logger.debug("Decoded signature using standard base64", {
-            component: "RoditAuth",
-            method: "verify_rodit_ownership",
-            requestId,
-            signatureLength: bytes_ed25519_signature.length,
-            signatureHex: Buffer.from(bytes_ed25519_signature).toString('hex').substring(0, 64) + '...',
-          });
-        }
-      } catch (decodeError) {
-        logger.error("Failed to decode signature", {
-          component: "RoditAuth",
-          method: "verify_rodit_ownership",
-          requestId,
-          error: decodeError.message,
-          signature: peerroditid_base64url_signature.substring(0, 20) + '...',
-        });
-        throw new Error("Error decoding signature: " + decodeError.message);
-      }
+      const bytes_ed25519_signature = new Uint8Array(
+        Buffer.from(peerroditid_base64url_signature, "base64url")
+      );
+      
+      logger.debug("Decoded signature using base64url", {
+        component: "RoditAuth",
+        method: "verify_rodit_ownership",
+        requestId,
+        signatureLength: bytes_ed25519_signature.length,
+        signatureHex: Buffer.from(bytes_ed25519_signature).toString('hex').substring(0, 64) + '...',
+        expectedLength: 64, // Ed25519 signatures should be 64 bytes
+      });
 
       const peer_bytes_ed25519_public_key =
         await nearorg_rpc_fetchpublickeybytes(
@@ -421,34 +377,12 @@ async function verify_rodit_ownership(
         publicKeyHex: peer_bytes_ed25519_public_key ? Buffer.from(peer_bytes_ed25519_public_key).toString('hex') : 'null',
       });
 
-      // Try verification with both the original message and with "NEAR" prefix
-      const originalVerification = nacl.sign.detached.verify(
+      const isaMatch = nacl.sign.detached.verify(
         roditidandtimestamp,
         bytes_ed25519_signature,
         peer_bytes_ed25519_public_key
       );
       
-      // Try with NEAR prefix as mentioned in the comment
-      const nearPrefixedMessage = new TextEncoder().encode(
-        "NEAR" + peerroditid + timeString
-      );
-      
-      const nearPrefixVerification = nacl.sign.detached.verify(
-        nearPrefixedMessage,
-        bytes_ed25519_signature,
-        peer_bytes_ed25519_public_key
-      );
-      
-      logger.debug("Verification results", {
-        component: "RoditAuth",
-        method: "verify_rodit_ownership",
-        requestId,
-        originalVerification,
-        nearPrefixVerification,
-        nearPrefixedMessageHex: Buffer.from(nearPrefixedMessage).toString('hex').substring(0, 64) + '...',
-      });
-
-      const isaMatch = originalVerification || nearPrefixVerification;
       const duration = Date.now() - startTime;
 
       if (isaMatch) {
@@ -459,7 +393,6 @@ async function verify_rodit_ownership(
           peerRoditId: peerroditid,
           ownerId: peer_rodit.owner_id,
           outcome: "success",
-          verificationMethod: originalVerification ? "original" : "near_prefixed",
         });
 
         // Add metric for successful verification
@@ -467,7 +400,6 @@ async function verify_rodit_ownership(
           logger.metric("rodit_ownership_verification", duration, {
             result: "success",
             peer_rodit_id: peerroditid,
-            verification_method: originalVerification ? "original" : "near_prefixed",
           });
 
         return true;
