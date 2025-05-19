@@ -19,6 +19,12 @@ const {
   nearorg_rpc_tokensfromaccountid, 
   nearorg_rpc_fetchpublickeybytes,
 } = require("../blockchain/blockchainservice");
+const {
+  verify_rodit_isamatch,
+  verify_rodit_islive,
+  verify_rodit_isactive,
+  verify_rodit_istrusted_issuingsmartcontract,
+} = require("./authentication");
 
   /**
    * Converts a base64url string to a JWK public key
@@ -1254,196 +1260,357 @@ const {
     }
   }
 
-  /**
-   * Thoroughly validates a JWT token by verifying the associated RODiT
-   *
-   * @param {Object} token - Token payload
-   * @param {string} requestId - Request ID for tracking
-   * @returns {Promise<Object>} Validation result
-   */
-  async function thorough_validate_jwt_token_be(token, requestId) {
-    const startTime = performance.now(); // More precise timing measurement
+/**
+ * Thoroughly validates a JWT token by verifying the associated RODiT
+ * Uses a comprehensive verification process with detailed error handling and metrics
+ * NOTE: Not checking if the sessions is closed or expired yet.
+ * @param {Object} token - The JWT token to validate
+ * @returns {Object} - Validation result with isValid flag, notAfter timestamp, and optional verification details
+ */
+async function thorough_validate_jwt_token_be(token,requestId) {
+  const startTime = performance.now(); // More precise timing measurement
 
-    logger.debug("Starting thorough JWT token validation", {
-      component: "JwtAuth",
-      method: "thorough_validate_jwt_token_be",
+  logger.debug("Starting thorough JWT token validation", {
+    component: "JwtAuth",
+    method: "thorough_validate_jwt_token_be",
+    requestId,
+    tokenAud: token?.aud,
+    tokenJti: token?.jti,
+  });
+
+  try {
+    // Fetch configuration with better timing measurements
+    const configStart = performance.now();
+    const config_own_rodit = await stateManager.getConfigOwnRodit();
+    const configDuration = performance.now() - configStart;
+
+    logger.debug("Retrieved configuration", {
       requestId,
-      tokenAud: token?.aud,
-      tokenJti: token?.jti,
+      configDuration,
+      hasConfig: !!config_own_rodit,
+      ownRoditId: config_own_rodit?.own_rodit?.token_id,
     });
 
-    try {
-      // Fetch configuration with better timing measurements
-      const configStart = performance.now();
-      const config_own_rodit = await stateManager.getConfigOwnRodit();
-      const configDuration = performance.now() - configStart;
+    // Fetch peer RODiT with clearer logging
+    const tokenFetchStart = performance.now();
+    const peer_rodit = await nearorg_rpc_tokenfromroditid(token.aud);
+    const tokenFetchDuration = performance.now() - tokenFetchStart;
 
-      logger.debug("Retrieved configuration", {
+    logger.debug("Retrieved peer RODiT from blockchain", {
+      requestId,
+      tokenFetchDuration,
+      hasPeerRodit: !!peer_rodit,
+      peerRoditId: peer_rodit?.token_id,
+      peerRoditOwnerId: peer_rodit?.owner_id,
+      hasPeerRoditMetadata: peer_rodit && !!peer_rodit.metadata,
+      metadataKeys: peer_rodit && peer_rodit.metadata ? Object.keys(peer_rodit.metadata) : [],
+    });
+
+    if (!peer_rodit) {
+      logger.error("Failed to retrieve peer RODiT data", {
+        component: "JwtAuth",
         requestId,
-        configDuration,
-        hasConfig: !!config_own_rodit,
-        ownRoditId: config_own_rodit?.own_rodit?.token_id,
+        duration: performance.now() - startTime,
+        tokenAud: token?.aud,
       });
 
-      // Fetch peer RODiT with clearer logging
-      const tokenFetchStart = performance.now();
-      const peer_rodit =
-        await nearorg_rpc_tokenfromroditid(token.aud);
-      const tokenFetchDuration = performance.now() - tokenFetchStart;
-
-      logger.debug("Retrieved peer RODiT from blockchain", {
-        requestId,
-        tokenFetchDuration,
-        hasPeerRodit: !!peer_rodit,
-        peerRoditId: peer_rodit?.token_id,
-        peerRoditOwnerId: peer_rodit?.owner_id,
-        hasPeerRoditMetadata: peer_rodit && !!peer_rodit.metadata,
-        metadataKeys:
-          peer_rodit && peer_rodit.metadata
-            ? Object.keys(peer_rodit.metadata)
-            : [],
-      });
-
-      if (!peer_rodit) {
-        logger.error("Failed to retrieve peer RODiT data", {
-          component: "JwtAuth",
-          requestId,
-          duration: performance.now() - startTime,
-          tokenAud: token?.aud,
+      // Add metrics for failed token fetch
+      logger.metric &&
+        logger.metric("jwt_thorough_validation", performance.now() - startTime, {
+          result: "rodit_fetch_failed",
+          token_jti: token.jti || "unknown",
         });
 
-        // Add metrics for failed token fetch
-        logger.metric(
-          "jwt_thorough_validation",
-          performance.now() - startTime,
-          {
-            result: "rodit_fetch_failed",
-            token_jti: token.jti || "unknown",
-          }
-        );
+      return {
+        isValid: false,
+        notAfter: null,
+      };
+    }
 
-        return {
-          isValid: false,
-          notAfter: null,
-        };
-      }
-
-      if (!peer_rodit.metadata) {
-        logger.error("Peer RODiT missing metadata", {
-          component: "JwtAuth",
-          requestId,
-          duration: performance.now() - startTime,
-          tokenAud: token?.aud,
-          peerRoditId: peer_rodit.token_id,
-          peerRoditOwnerId: peer_rodit.owner_id,
-        });
-
-        // Add metrics for missing metadata
-        logger.metric(
-          "jwt_thorough_validation",
-          performance.now() - startTime,
-          {
-            result: "missing_metadata",
-            token_jti: token.jti || "unknown",
-            peer_rodit_id: peer_rodit.token_id,
-          }
-        );
-
-        return {
-          isValid: false,
-          notAfter: null,
-        };
-      }
-
-      // Extract subject and perform final validation with better error handling
-      logger.debug("Checking token identity", {
+    if (!peer_rodit.metadata) {
+      logger.error("Peer RODiT missing metadata", {
+        component: "JwtAuth",
         requestId,
-        tokenRoditId: token.rodit_id,
+        duration: performance.now() - startTime,
+        tokenAud: token?.aud,
         peerRoditId: peer_rodit.token_id,
         peerRoditOwnerId: peer_rodit.owner_id,
-        tokenAud: token.aud,
       });
 
-      // Additional identity checks
-      const idMatch = peer_rodit.token_id === token.rodit_id; // Use rodit_id directly from token
-      const ownerMatch = peer_rodit.owner_id === token.aud;
-      const isValid = idMatch && ownerMatch;
+      // Add metrics for missing metadata
+      logger.metric &&
+        logger.metric("jwt_thorough_validation", performance.now() - startTime, {
+          result: "missing_metadata",
+          token_jti: token.jti || "unknown",
+          peer_rodit_id: peer_rodit.token_id,
+        });
+
+      return {
+        isValid: false,
+        notAfter: null,
+      };
+    }
+
+    // Starting verification with more detailed logging
+    logger.debug("Starting verification checks", {
+      requestId,
+      checks: ["match", "live", "active", "trusted"],
+    });
+
+    // Initialize verification results with detailed tracking
+    let isaMatch = false, isLive = false, isActive = false, isTrusted = false;
+    let verificationDetails = {};
+    
+    // Run each verification check with proper error handling and detailed logging
+    try {
+      logger.debug("Verifying RODiT match", {
+        requestId,
+        serviceProviderId: config_own_rodit.own_rodit.metadata.serviceprovider_id,
+      });
+      const matchStart = performance.now();
+      isaMatch = await verify_rodit_isamatch(
+        config_own_rodit.own_rodit.metadata.serviceprovider_id,
+        peer_rodit
+      );
+      verificationDetails.matchDuration = performance.now() - matchStart;
+      logger.debug("Match verification result", {
+        requestId,
+        isaMatch,
+        duration: verificationDetails.matchDuration,
+      });
+    } catch (matchError) {
+      logger.error("Error during match verification", {
+        requestId,
+        error: matchError.message,
+        stack: matchError.stack,
+      });
+      isaMatch = false;
+      verificationDetails.matchError = matchError.message;
+    }
+
+    try {
+      logger.debug("Verifying RODiT is live", {
+        requestId,
+        notAfter: peer_rodit.metadata.not_after,
+        notBefore: peer_rodit.metadata.not_before,
+      });
+      const liveStart = performance.now();
+      isLive = await verify_rodit_islive(
+        peer_rodit.metadata.not_after,
+        peer_rodit.metadata.not_before
+      );
+      verificationDetails.liveDuration = performance.now() - liveStart;
+      logger.debug("Live verification result", {
+        requestId,
+        isLive,
+        duration: verificationDetails.liveDuration,
+      });
+    } catch (liveError) {
+      logger.error("Error during live verification", {
+        requestId,
+        error: liveError.message,
+        stack: liveError.stack,
+      });
+      isLive = false;
+      verificationDetails.liveError = liveError.message;
+    }
+
+    try {
+      logger.debug("Verifying RODiT is active", {
+        requestId,
+        tokenId: peer_rodit.token_id,
+        url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
+      });
+      const activeStart = performance.now();
+      isActive = await verify_rodit_isactive(
+        peer_rodit.token_id,
+        config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
+      );
+      verificationDetails.activeDuration = performance.now() - activeStart;
+      logger.debug("Active verification result", {
+        requestId,
+        isActive,
+        duration: verificationDetails.activeDuration,
+      });
+    } catch (activeError) {
+      logger.error("Error during active verification", {
+        requestId,
+        error: activeError.message,
+        stack: activeError.stack,
+      });
+      isActive = false;
+      verificationDetails.activeError = activeError.message;
+    }
+
+    try {
+      logger.debug("Verifying RODiT issuing smart contract is trusted", {
+        requestId,
+        url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
+      });
+      const trustedStart = performance.now();
+      isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
+        config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
+      );
+      verificationDetails.trustedDuration = performance.now() - trustedStart;
+      logger.debug("Trust verification result", {
+        requestId,
+        isTrusted,
+        duration: verificationDetails.trustedDuration,
+      });
+    } catch (trustError) {
+      logger.error("Error during trust verification", {
+        requestId,
+        error: trustError.message,
+        stack: trustError.stack,
+      });
+      isTrusted = false;
+      verificationDetails.trustError = trustError.message;
+    }
+    
+    // Log all verification results
+    logger.debug("All verification results", {
+      requestId,
+      isaMatch,
+      isLive,
+      isActive,
+      isTrusted,
+      verificationDetails,
+    });
+
+    if (!isaMatch || !isLive || !isActive || !isTrusted) {
+      const failedChecks = [];
+      if (!isaMatch) failedChecks.push("match");
+      if (!isLive) failedChecks.push("live");
+      if (!isActive) failedChecks.push("active");
+      if (!isTrusted) failedChecks.push("trusted");
 
       const totalDuration = performance.now() - startTime;
 
-      if (isValid) {
-        logger.info("Thorough token validation successful", {
-          component: "JwtAuth",
-          method: "thorough_validate_jwt_token_be",
-          requestId,
-          duration: totalDuration,
-          configDuration,
-          tokenFetchDuration,
-          tokenJti: token.jti,
-          peerRoditId: peer_rodit.token_id,
-          notAfter: peer_rodit.metadata.not_after,
+      logger.warn("Comprehensive RODiT verification failed", {
+        component: "JwtAuth",
+        method: "thorough_validate_jwt_token_be",
+        requestId,
+        duration: totalDuration,
+        tokenJti: token.jti,
+        failedChecks,
+        peerRoditId: peer_rodit.token_id,
+        verificationDetails,
+      });
+
+      // Add metrics for failed thorough validations with more detailed info
+      logger.metric &&
+        logger.metric("jwt_thorough_validation", totalDuration, {
+          result: "verification_failed",
+          token_jti: token.jti || "unknown",
+          failed_checks: failedChecks.join(","),
+          peer_rodit_id: peer_rodit.token_id,
         });
 
-        // Add metrics for successful thorough validations
+      return {
+        isValid: false,
+        notAfter: peer_rodit.metadata.not_after,
+        failedChecks: failedChecks,
+      };
+    }
+
+    // Extract subject and perform final validation with better error handling
+    const subParts = token.sub.split(";sub=");
+    const extractedSub = subParts.length > 1 ? subParts[1] : "";
+
+    logger.debug("Extracted subject from token", {
+      requestId,
+      extractedSub,
+      tokenSub: token.sub,
+      peerRoditId: peer_rodit.token_id,
+      peerRoditOwnerId: peer_rodit.owner_id,
+      tokenAud: token.aud,
+    });
+
+    // Additional identity checks
+    const idMatch = peer_rodit.token_id === extractedSub;
+    const ownerMatch = peer_rodit.owner_id === token.aud;
+    const isValid = idMatch && ownerMatch;
+
+    const totalDuration = performance.now() - startTime;
+
+    if (isValid) {
+      logger.info("Thorough token validation successful", {
+        component: "JwtAuth",
+        method: "thorough_validate_jwt_token_be",
+        requestId,
+        duration: totalDuration,
+        configDuration,
+        tokenFetchDuration,
+        verificationDetails,
+        tokenJti: token.jti,
+        peerRoditId: peer_rodit.token_id,
+        notAfter: peer_rodit.metadata.not_after,
+      });
+
+      // Add metrics for successful thorough validations
+      logger.metric &&
         logger.metric("jwt_thorough_validation", totalDuration, {
           result: "success",
           token_jti: token.jti || "unknown",
           peer_rodit_id: peer_rodit.token_id,
         });
-      } else {
-        const failedIdentityChecks = [];
-        if (!idMatch) failedIdentityChecks.push("token_id_mismatch");
-        if (!ownerMatch) failedIdentityChecks.push("owner_id_mismatch");
+    } else {
+      const failedIdentityChecks = [];
+      if (!idMatch) failedIdentityChecks.push("token_id_mismatch");
+      if (!ownerMatch) failedIdentityChecks.push("owner_id_mismatch");
 
-        logger.warn("Token identity verification failed", {
-          component: "JwtAuth",
-          method: "thorough_validate_jwt_token_be",
-          requestId,
-          duration: totalDuration,
-          tokenJti: token.jti,
-          tokenRoditId: token.rodit_id,
-          peerRoditId: peer_rodit.token_id,
-          tokenAud: token.aud,
-          peerRoditOwnerId: peer_rodit.owner_id,
-          idMatch,
-          ownerMatch,
-          failedIdentityChecks,
-        });
-
-        // Add metrics for identity mismatch with more details
-        logger.metric("jwt_thorough_validation", totalDuration, {
-          result: "identity_mismatch",
-          token_jti: token.jti || "unknown",
-          id_match: peer_rodit.token_id === token.rodit_id ? "true" : "false",
-          owner_match: peer_rodit.owner_id === token.aud ? "true" : "false",
-          failed_checks: failedIdentityChecks.join(","),
-          peer_rodit_id: peer_rodit.token_id,
-        });
-      }
-
-      return {
-        isValid,
-        notAfter: peer_rodit.metadata.not_after,
-      };
-    } catch (error) {
-      const duration = performance.now() - startTime;
-
-      logger.error("Thorough token validation failed with error", {
+      logger.warn("Token identity verification failed", {
         component: "JwtAuth",
         method: "thorough_validate_jwt_token_be",
         requestId,
-        duration,
-        tokenAud: token?.aud,
-        tokenJti: token?.jti,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-          code: error.code || "unknown",
-        },
+        duration: totalDuration,
+        tokenJti: token.jti,
+        extractedSub,
+        peerRoditId: peer_rodit.token_id,
+        tokenAud: token.aud,
+        peerRoditOwnerId: peer_rodit.owner_id,
+        idMatch,
+        ownerMatch,
+        failedIdentityChecks,
       });
 
-      // Add more detailed metrics for thorough validation errors
+      // Add metrics for identity mismatch with more details
+      logger.metric &&
+        logger.metric("jwt_thorough_validation", totalDuration, {
+          result: "identity_mismatch",
+          token_jti: token.jti || "unknown",
+          id_match: idMatch ? "true" : "false",
+          owner_match: ownerMatch ? "true" : "false",
+          failed_checks: failedIdentityChecks.join(","),
+          peer_rodit_id: peer_rodit.token_id,
+        });
+    }
+
+    return {
+      isValid,
+      notAfter: peer_rodit.metadata.not_after,
+      verificationDetails,
+    };
+  } catch (error) {
+    const duration = performance.now() - startTime;
+
+    logger.error("Thorough token validation failed with error", {
+      component: "JwtAuth",
+      method: "thorough_validate_jwt_token_be",
+      requestId,
+      duration,
+      tokenAud: token?.aud,
+      tokenJti: token?.jti,
+      error: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        code: error.code || 'unknown',
+      },
+    });
+
+    // Add more detailed metrics for thorough validation errors
+    logger.metric &&
       logger.metric("jwt_thorough_validation", duration, {
         result: "error",
         error_type: error.name || "Unknown",
@@ -1451,13 +1618,13 @@ const {
         token_jti: token?.jti || "unknown",
       });
 
-      return {
-        isValid: false,
-        notAfter: null,
-        error: error.message,
-      };
-    }
+    return {
+      isValid: false,
+      notAfter: null,
+      error: error.message,
+    };
   }
+}
 
   /**
    * Check if a token needs renewal and renew if necessary
