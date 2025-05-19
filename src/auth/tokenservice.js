@@ -1262,14 +1262,14 @@ const {
  * @param {Object} token - The JWT token to validate
  * @returns {Object} - Validation result with isValid flag, notAfter timestamp, and optional verification details
  */
-async function thorough_validate_jwt_token_be(token,requestId) {
+async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
   const startTime = performance.now(); // More precise timing measurement
 
   logger.debug("Starting thorough JWT token validation", {
     component: "JwtAuth",
     method: "thorough_validate_jwt_token_be",
     requestId,
-    tokenAud: token?.aud,
+    tokenRoditId: token?.rodit_id,
     tokenJti: token?.jti,
   });
 
@@ -1288,7 +1288,7 @@ async function thorough_validate_jwt_token_be(token,requestId) {
 
     // Fetch peer RODiT with clearer logging
     const tokenFetchStart = performance.now();
-    const peer_rodit = await nearorg_rpc_tokenfromroditid(token.aud);
+    const peer_rodit = await nearorg_rpc_tokenfromroditid(token.rodit_id);
     const tokenFetchDuration = performance.now() - tokenFetchStart;
 
     logger.debug("Retrieved peer RODiT from blockchain", {
@@ -1306,7 +1306,7 @@ async function thorough_validate_jwt_token_be(token,requestId) {
         component: "JwtAuth",
         requestId,
         duration: performance.now() - startTime,
-        tokenAud: token?.aud,
+        tokenRoditId: token?.rodit_id,
       });
 
       // Add metrics for failed token fetch
@@ -1327,7 +1327,7 @@ async function thorough_validate_jwt_token_be(token,requestId) {
         component: "JwtAuth",
         requestId,
         duration: performance.now() - startTime,
-        tokenAud: token?.aud,
+        tokenRoditId: token?.rodit_id,
         peerRoditId: peer_rodit.token_id,
         peerRoditOwnerId: peer_rodit.owner_id,
       });
@@ -1350,169 +1350,179 @@ async function thorough_validate_jwt_token_be(token,requestId) {
     logger.debug("Starting verification checks", {
       requestId,
       checks: ["match", "live", "active", "trusted"],
+      serviceProviderId: config_own_rodit.own_rodit.metadata.serviceprovider_id,
     });
 
-    // Initialize verification results with detailed tracking
-    let isaMatch = false, isLive = false, isActive = false, isTrusted = false;
-    let verificationDetails = {};
-    
-    // Run each verification check with proper error handling and detailed logging
-    try {
-      logger.debug("Verifying RODiT match", {
-        requestId,
-        serviceProviderId: config_own_rodit.own_rodit.metadata.serviceprovider_id,
-      });
-      const matchStart = performance.now();
-      const { verify_rodit_isamatch } = require("./authentication");
-      isaMatch = await verify_rodit_isamatch(
-        config_own_rodit.own_rodit.metadata.serviceprovider_id,
-        peer_rodit
-      );
-      verificationDetails.matchDuration = performance.now() - matchStart;
-      logger.debug("Match verification result", {
-        requestId,
-        isaMatch,
-        duration: verificationDetails.matchDuration,
-      });
-    } catch (matchError) {
-      logger.error("Error during match verification", {
-        requestId,
-        error: matchError.message,
-        stack: matchError.stack,
-      });
-      isaMatch = false;
-      verificationDetails.matchError = matchError.message;
-    }
+    // Import verification functions dynamically to avoid circular dependencies
+    const { 
+      verify_rodit_isamatch,
+      verify_rodit_islive,
+      verify_rodit_isactive,
+      verify_rodit_istrusted_issuingsmartcontract
+    } = require("./authentication");
 
-    try {
-      logger.debug("Verifying RODiT is live", {
-        requestId,
-        notAfter: peer_rodit.metadata.not_after,
-        notBefore: peer_rodit.metadata.not_before,
-      });
-      const liveStart = performance.now();
-      const { verify_rodit_islive } = require("./authentication");
-      isLive = await verify_rodit_islive(
-        peer_rodit.metadata.not_after,
-        peer_rodit.metadata.not_before
-      );
-      verificationDetails.liveDuration = performance.now() - liveStart;
-      logger.debug("Live verification result", {
-        requestId,
-        isLive,
-        duration: verificationDetails.liveDuration,
-      });
-    } catch (liveError) {
-      logger.error("Error during live verification", {
-        requestId,
-        error: liveError.message,
-        stack: liveError.stack,
-      });
-      isLive = false;
-      verificationDetails.liveError = liveError.message;
-    }
+    // Perform match verification
+    const matchStart = performance.now();
+    const isaMatch = await verify_rodit_isamatch(
+      config_own_rodit.own_rodit.metadata.serviceprovider_id,
+      peer_rodit
+    );
+    const matchDuration = performance.now() - matchStart;
 
-    try {
-      logger.debug("Verifying RODiT is active", {
-        requestId,
-        tokenId: peer_rodit.token_id,
-        url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
-      });
-      const activeStart = performance.now();
-      const { verify_rodit_isactive } = require("./authentication");
-      isActive = await verify_rodit_isactive(
-        peer_rodit.token_id,
-        config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
-      );
-      verificationDetails.activeDuration = performance.now() - activeStart;
-      logger.debug("Active verification result", {
-        requestId,
-        isActive,
-        duration: verificationDetails.activeDuration,
-      });
-    } catch (activeError) {
-      logger.error("Error during active verification", {
-        requestId,
-        error: activeError.message,
-        stack: activeError.stack,
-      });
-      isActive = false;
-      verificationDetails.activeError = activeError.message;
-    }
-
-    try {
-      logger.debug("Verifying RODiT issuing smart contract is trusted", {
-        requestId,
-        url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
-      });
-      const trustedStart = performance.now();
-      const { verify_rodit_istrusted_issuingsmartcontract } = require("./authentication");
-      isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
-        config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
-      );
-      verificationDetails.trustedDuration = performance.now() - trustedStart;
-      logger.debug("Trust verification result", {
-        requestId,
-        isTrusted,
-        duration: verificationDetails.trustedDuration,
-      });
-    } catch (trustError) {
-      logger.error("Error during trust verification", {
-        requestId,
-        error: trustError.message,
-        stack: trustError.stack,
-      });
-      isTrusted = false;
-      verificationDetails.trustError = trustError.message;
-    }
-    
-    // Log all verification results
-    logger.debug("All verification results", {
+    logger.debug("Match verification completed", {
       requestId,
+      matchDuration,
       isaMatch,
-      isLive,
-      isActive,
-      isTrusted,
-      verificationDetails,
+      serviceProviderId: config_own_rodit.own_rodit.metadata.serviceprovider_id,
+      peerServiceProviderId: peer_rodit.metadata.serviceprovider_id,
     });
 
-    if (!isaMatch || !isLive || !isActive || !isTrusted) {
-      const failedChecks = [];
-      if (!isaMatch) failedChecks.push("match");
-      if (!isLive) failedChecks.push("live");
-      if (!isActive) failedChecks.push("active");
-      if (!isTrusted) failedChecks.push("trusted");
-
-      const totalDuration = performance.now() - startTime;
-
-      logger.warn("Comprehensive RODiT verification failed", {
+    if (!isaMatch) {
+      logger.warn("RODiT match verification failed", {
         component: "JwtAuth",
         method: "thorough_validate_jwt_token_be",
         requestId,
-        duration: totalDuration,
-        tokenJti: token.jti,
-        failedChecks,
-        peerRoditId: peer_rodit.token_id,
-        verificationDetails,
+        duration: performance.now() - startTime,
+        serviceProviderId: config_own_rodit.own_rodit.metadata.serviceprovider_id,
+        peerServiceProviderId: peer_rodit.metadata.serviceprovider_id,
       });
 
-      // Add metrics for failed thorough validations with more detailed info
+      // Add metrics for failed match verification
       logger.metric &&
-        logger.metric("jwt_thorough_validation", totalDuration, {
-          result: "verification_failed",
+        logger.metric("jwt_thorough_validation", performance.now() - startTime, {
+          result: "match_failed",
           token_jti: token.jti || "unknown",
-          failed_checks: failedChecks.join(","),
           peer_rodit_id: peer_rodit.token_id,
         });
 
       return {
         isValid: false,
-        notAfter: peer_rodit.metadata.not_after,
-        failedChecks: failedChecks,
+        notAfter: null,
+        error: "RODiT match verification failed",
       };
     }
 
-    // Extract subject and perform final validation with better error handling
+    // Perform live verification
+    const liveStart = performance.now();
+    const isLive = await verify_rodit_islive(
+      peer_rodit.metadata.not_after,
+      peer_rodit.metadata.not_before
+    );
+    const liveDuration = performance.now() - liveStart;
+
+    logger.debug("Live verification completed", {
+      requestId,
+      liveDuration,
+      isLive,
+      notAfter: peer_rodit.metadata.not_after,
+      notBefore: peer_rodit.metadata.not_before,
+    });
+
+    if (!isLive) {
+      logger.warn("RODiT live verification failed", {
+        component: "JwtAuth",
+        method: "thorough_validate_jwt_token_be",
+        requestId,
+        duration: performance.now() - startTime,
+        notAfter: peer_rodit.metadata.not_after,
+        notBefore: peer_rodit.metadata.not_before,
+      });
+
+      // Add metrics for failed live verification
+      logger.metric &&
+        logger.metric("jwt_thorough_validation", performance.now() - startTime, {
+          result: "live_failed",
+          token_jti: token.jti || "unknown",
+          peer_rodit_id: peer_rodit.token_id,
+        });
+
+      return {
+        isValid: false,
+        notAfter: null,
+        error: "RODiT live verification failed",
+      };
+    }
+
+    // Perform active verification
+    const activeStart = performance.now();
+    const isActive = await verify_rodit_isactive(
+      peer_rodit.token_id,
+      config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
+    );
+    const activeDuration = performance.now() - activeStart;
+
+    logger.debug("Active verification completed", {
+      requestId,
+      activeDuration,
+      isActive,
+      tokenId: peer_rodit.token_id,
+      url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
+    });
+
+    if (!isActive) {
+      logger.warn("RODiT active verification failed", {
+        component: "JwtAuth",
+        method: "thorough_validate_jwt_token_be",
+        requestId,
+        duration: performance.now() - startTime,
+        tokenId: peer_rodit.token_id,
+        url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
+      });
+
+      // Add metrics for failed active verification
+      logger.metric &&
+        logger.metric("jwt_thorough_validation", performance.now() - startTime, {
+          result: "active_failed",
+          token_jti: token.jti || "unknown",
+          peer_rodit_id: peer_rodit.token_id,
+        });
+
+      return {
+        isValid: false,
+        notAfter: null,
+        error: "RODiT active verification failed",
+      };
+    }
+
+    // Perform trusted verification
+    const trustedStart = performance.now();
+    const isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
+      config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
+    );
+    const trustedDuration = performance.now() - trustedStart;
+
+    logger.debug("Trust verification completed", {
+      requestId,
+      trustedDuration,
+      isTrusted,
+      url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
+    });
+
+    if (!isTrusted) {
+      logger.warn("RODiT trust verification failed", {
+        component: "JwtAuth",
+        method: "thorough_validate_jwt_token_be",
+        requestId,
+        duration: performance.now() - startTime,
+        url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
+      });
+
+      // Add metrics for failed trust verification
+      logger.metric &&
+        logger.metric("jwt_thorough_validation", performance.now() - startTime, {
+          result: "trust_failed",
+          token_jti: token.jti || "unknown",
+          peer_rodit_id: peer_rodit.token_id,
+        });
+
+      return {
+        isValid: false,
+        notAfter: null,
+        error: "RODiT trust verification failed",
+      };
+    }
+
+    // Extract subject and perform final validation
     const subParts = token.sub.split(";sub=");
     const extractedSub = subParts.length > 1 ? subParts[1] : "";
 
@@ -1538,9 +1548,6 @@ async function thorough_validate_jwt_token_be(token,requestId) {
         method: "thorough_validate_jwt_token_be",
         requestId,
         duration: totalDuration,
-        configDuration,
-        tokenFetchDuration,
-        verificationDetails,
         tokenJti: token.jti,
         peerRoditId: peer_rodit.token_id,
         notAfter: peer_rodit.metadata.not_after,
@@ -1588,7 +1595,6 @@ async function thorough_validate_jwt_token_be(token,requestId) {
     return {
       isValid,
       notAfter: peer_rodit.metadata.not_after,
-      verificationDetails,
     };
   } catch (error) {
     const duration = performance.now() - startTime;
@@ -1598,7 +1604,7 @@ async function thorough_validate_jwt_token_be(token,requestId) {
       method: "thorough_validate_jwt_token_be",
       requestId,
       duration,
-      tokenAud: token?.aud,
+      tokenRoditId: token?.rodit_id,
       tokenJti: token?.jti,
       error: {
         message: error.message,
