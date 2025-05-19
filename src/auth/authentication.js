@@ -2212,16 +2212,17 @@ async function verify_rodit_ownership(
         revokingDnsEntry,
       });
 
+      let dnsStart;
       try {
         logger.debug("Before DNS resolution", { requestId, revokingDnsEntry });
-        const dnsStart = Date.now();
+        dnsStart = Date.now();
         const resolver = new Resolver();
         logger.debug("After resolver creation", { 
           requestId, 
           resolverType: resolver.constructor.name 
         });
         await resolver.resolveTxt(revokingDnsEntry);
-        const dnsDuration = Date.now() - dnsStart;
+        const dnsDuration = dnsStart ? Date.now() - dnsStart : 0;
         const totalDuration = Date.now() - startTime;
 
         logger.info("RODiT revocation found", {
