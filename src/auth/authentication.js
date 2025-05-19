@@ -31,7 +31,7 @@ async function login_client(req, res) {
   const startTime = Date.now();
 
   logger.info("Client login request received", {
-    component: "AuthenticationService",
+    component: "RoditAuth",
     method: "login_client",
     requestId,
   });
@@ -44,7 +44,7 @@ async function login_client(req, res) {
     } = req.body;
 
     logger.debug("Received login credentials", {
-      component: "AuthenticationService",
+      component: "RoditAuth",
       method: "login_client",
       requestId,
       roditId: peer_roditid,
@@ -56,7 +56,7 @@ async function login_client(req, res) {
       const duration = Date.now() - startTime;
 
       logger.warn("Missing required login parameters", {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         method: "login_client",
         requestId,
         duration,
@@ -69,12 +69,12 @@ async function login_client(req, res) {
 
       // Emit metrics for Grafana dashboards
       logger.metric("login_attempt_duration_ms", duration, {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         success: false,
         error: "MISSING_PARAMETERS",
       });
       logger.metric("failed_login_attempts_total", 1, {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         reason: "MISSING_PARAMETERS",
       });
 
@@ -86,7 +86,7 @@ async function login_client(req, res) {
 
     try {
       logger.debug("Retrieving server configuration", {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         method: "login_client",
         requestId,
       });
@@ -99,7 +99,7 @@ async function login_client(req, res) {
         const duration = Date.now() - startTime;
 
         logger.error("Server configuration not initialized", {
-          component: "AuthenticationService",
+          component: "RoditAuth",
           method: "login_client",
           requestId,
           duration,
@@ -108,12 +108,12 @@ async function login_client(req, res) {
 
         // Emit metrics for Grafana dashboards
         logger.metric("login_attempt_duration_ms", duration, {
-          component: "AuthenticationService",
+          component: "RoditAuth",
           success: false,
           error: "CONFIG_NOT_INITIALIZED",
         });
         logger.metric("failed_login_attempts_total", 1, {
-          component: "AuthenticationService",
+          component: "RoditAuth",
           reason: "CONFIG_NOT_INITIALIZED",
         });
 
@@ -121,7 +121,7 @@ async function login_client(req, res) {
       }
 
       logger.debug("Verifying peer RODiT credentials", {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         method: "login_client",
         requestId,
         roditId: peer_roditid,
@@ -141,7 +141,7 @@ async function login_client(req, res) {
 
       // Add detailed logging of both the original and modified request
       logger.debug("Original request body", {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         method: "login_client",
         requestId,
         originalBodyKeys: Object.keys(req.body),
@@ -155,7 +155,7 @@ async function login_client(req, res) {
       });
 
       logger.debug("Modified request body", {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         method: "login_client",
         requestId,
         modifiedBodyKeys: Object.keys(modifiedReq.body),
@@ -172,7 +172,7 @@ async function login_client(req, res) {
         const duration = Date.now() - startTime;
 
         logger.warn("Invalid RODiT credentials", {
-          component: "AuthenticationService",
+          component: "RoditAuth",
           method: "login_client",
           requestId,
           duration,
@@ -181,12 +181,12 @@ async function login_client(req, res) {
 
         // Emit metrics for Grafana dashboards
         logger.metric("login_attempt_duration_ms", duration, {
-          component: "AuthenticationService",
+          component: "RoditAuth",
           success: false,
           error: "INVALID_CREDENTIALS",
         });
         logger.metric("failed_login_attempts_total", 1, {
-          component: "AuthenticationService",
+          component: "RoditAuth",
           reason: "INVALID_CREDENTIALS",
         });
 
@@ -198,7 +198,7 @@ async function login_client(req, res) {
       }
 
       logger.debug("Generating JWT token", {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         method: "login_client",
         requestId,
         roditId: peer_rodit.token_id,
@@ -213,7 +213,7 @@ async function login_client(req, res) {
 
       const duration = Date.now() - startTime;
       logger.info("Login successful", {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         method: "login_client",
         requestId,
         duration,
@@ -222,11 +222,11 @@ async function login_client(req, res) {
 
       // Emit metrics for Grafana dashboards
       logger.metric("login_attempt_duration_ms", duration, {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         success: true,
       });
       logger.metric("successful_logins_total", 1, {
-        component: "AuthenticationService",
+        component: "RoditAuth",
       });
 
       // Set the token in the response header
@@ -240,7 +240,7 @@ async function login_client(req, res) {
       const duration = Date.now() - startTime;
 
       logger.error("Login authentication failed", {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         method: "login_client",
         requestId,
         duration,
@@ -251,12 +251,12 @@ async function login_client(req, res) {
 
       // Emit metrics for Grafana dashboards
       logger.metric("login_attempt_duration_ms", duration, {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         success: false,
         error: error.code || "UNKNOWN_ERROR",
       });
       logger.metric("failed_login_attempts_total", 1, {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         reason: error.code || "UNKNOWN_ERROR",
       });
 
@@ -269,7 +269,7 @@ async function login_client(req, res) {
     const duration = Date.now() - startTime;
     
     logger.error("Unexpected error in login process", {
-      component: "AuthenticationService",
+      component: "RoditAuth",
       method: "login_client",
       requestId,
       duration,
@@ -528,7 +528,7 @@ async function verify_rodit_ownership(
     const startTime = Date.now();
 
     logger.debug("Starting webhook delivery", {
-      component: "WebhookSender",
+      component: "RoditAuth",
       method: "send_webhook",
       requestId,
       event,
@@ -549,7 +549,7 @@ async function verify_rodit_ownership(
         const duration = Date.now() - startTime;
 
         logger.warn("Webhook configuration missing", {
-          component: "WebhookSender",
+          component: "RoditAuth",
           method: "send_webhook",
           requestId,
           duration,
@@ -561,14 +561,14 @@ async function verify_rodit_ownership(
         // Emit metrics for Grafana dashboards
         logger.metric &&
           logger.metric("webhook_delivery_duration_ms", duration, {
-            component: "WebhookSender",
+            component: "RoditAuth",
             success: false,
             event,
             error: "WEBHOOK_CONFIG_ERROR",
           });
         logger.metric &&
           logger.metric("webhook_delivery_failures_total", 1, {
-            component: "WebhookSender",
+            component: "RoditAuth",
             reason: "CONFIG_MISSING",
             event,
           });
@@ -588,7 +588,7 @@ async function verify_rodit_ownership(
       if (!jwt_token) {
         // If there's no token, we need to login first
         logger.debug("No JWT token available, attempting login", {
-          component: "WebhookSender",
+          component: "RoditAuth",
           method: "send_webhook",
           requestId,
         });
@@ -604,13 +604,13 @@ async function verify_rodit_ownership(
             await stateManager.setJwtToken(jwt_token);
 
             logger.info("Successfully obtained JWT token for webhook", {
-              component: "WebhookSender",
+              component: "RoditAuth",
               method: "send_webhook",
               requestId,
             });
           } else {
             logger.error("Failed to obtain JWT token for webhook", {
-              component: "WebhookSender",
+              component: "RoditAuth",
               method: "send_webhook",
               requestId,
               loginResult,
@@ -621,7 +621,7 @@ async function verify_rodit_ownership(
           }
         } catch (loginError) {
           logger.error("Error during login for webhook token", {
-            component: "WebhookSender",
+            component: "RoditAuth",
             method: "send_webhook",
             requestId,
             error: loginError.message,
@@ -641,7 +641,7 @@ async function verify_rodit_ownership(
         // Use the webhook URL from the peer's JWT token
         webhookUrl = req.user.rodit_webhookurl;
         logger.debug("Using webhook URL from peer JWT token", {
-          component: "WebhookSender",
+          component: "RoditAuth",
           method: "send_webhook",
           requestId,
           webhookSource: "peer_jwt",
@@ -651,7 +651,7 @@ async function verify_rodit_ownership(
         // Fallback to config
         webhookUrl = config_own_rodit.own_rodit.metadata.webhook_url;
         logger.debug("Using webhook URL from own RODiT config", {
-          component: "WebhookSender",
+          component: "RoditAuth",
           method: "send_webhook",
           requestId,
           webhookSource: "own_config",
@@ -667,7 +667,7 @@ async function verify_rodit_ownership(
       const formattedWebhookUrl = `https://${webhookUrl}/webhook`;
 
       logger.debug("Webhook URL details", {
-        component: "WebhookSender",
+        component: "RoditAuth",
         method: "send_webhook",
         requestId,
         rawWebhookUrl: webhookUrl,
@@ -684,7 +684,7 @@ async function verify_rodit_ownership(
       });
 
       logger.debug("Preparing webhook payload", {
-        component: "WebhookSender",
+        component: "RoditAuth",
         method: "send_webhook",
         requestId,
         payloadSize: payload.length,
@@ -698,7 +698,7 @@ async function verify_rodit_ownership(
         .digest();
 
       logger.debug("Creating signature", {
-        component: "WebhookSender",
+        component: "RoditAuth",
         method: "send_webhook",
         requestId,
         hasPrivateKey: !!config_own_rodit.own_rodit_bytes_private_key,
@@ -719,14 +719,14 @@ async function verify_rodit_ownership(
       // Log signature generation metrics
       logger.metric &&
         logger.metric("signature_generation_duration_ms", signatureDuration, {
-          component: "WebhookSender",
+          component: "RoditAuth",
         });
 
       const signature_hex_ofpayload =
         Buffer.from(signature_ofpayload).toString("hex");
 
       logger.debug("Sending webhook request", {
-        component: "WebhookSender",
+        component: "RoditAuth",
         method: "send_webhook",
         requestId,
         webhookUrl: formattedWebhookUrl,
@@ -750,7 +750,7 @@ async function verify_rodit_ownership(
 
       // Log fetch duration metrics
       logger.metric("webhook_http_request_duration_ms", fetchDuration, {
-        component: "WebhookSender",
+        component: "RoditAuth",
         success: response.ok,
         status: response.status,
         event,
@@ -760,7 +760,7 @@ async function verify_rodit_ownership(
         const duration = Date.now() - startTime;
 
         logger.error("Webhook delivery failed", {
-          component: "WebhookSender",
+          component: "RoditAuth",
           method: "send_webhook",
           requestId,
           duration,
@@ -772,14 +772,14 @@ async function verify_rodit_ownership(
 
         // Emit metrics for Grafana dashboards
         logger.metric("webhook_delivery_duration_ms", duration, {
-          component: "WebhookSender",
+          component: "RoditAuth",
           success: false,
           event,
           error: "HTTP_ERROR",
           status: response.status,
         });
         logger.metric("webhook_delivery_failures_total", 1, {
-          component: "WebhookSender",
+          component: "RoditAuth",
           reason: "HTTP_ERROR",
           status: response.status,
           event,
@@ -792,7 +792,7 @@ async function verify_rodit_ownership(
 
       const duration = Date.now() - startTime;
       logger.info("Webhook delivered successfully", {
-        component: "WebhookSender",
+        component: "RoditAuth",
         method: "send_webhook",
         requestId,
         duration,
@@ -803,12 +803,12 @@ async function verify_rodit_ownership(
 
       // Emit metrics for Grafana dashboards
       logger.metric("webhook_delivery_duration_ms", duration, {
-        component: "WebhookSender",
+        component: "RoditAuth",
         success: true,
         event,
       });
       logger.metric("successful_webhook_deliveries_total", 1, {
-        component: "WebhookSender",
+        component: "RoditAuth",
         event,
       });
 
@@ -822,7 +822,7 @@ async function verify_rodit_ownership(
       const duration = Date.now() - startTime;
 
       logger.error("Webhook send failed", {
-        component: "WebhookSender",
+        component: "RoditAuth",
         method: "send_webhook",
         requestId,
         duration,
@@ -838,13 +838,13 @@ async function verify_rodit_ownership(
 
       // Emit metrics for Grafana dashboards
       logger.metric("webhook_delivery_duration_ms", duration, {
-        component: "WebhookSender",
+        component: "RoditAuth",
         success: false,
         event,
         error: error.constructor.name,
       });
       logger.metric("webhook_delivery_errors_total", 1, {
-        component: "WebhookSender",
+        component: "RoditAuth",
         error: error.constructor.name,
         event,
       });
@@ -879,7 +879,7 @@ async function verify_rodit_ownership(
     const startTime = Date.now();
 
     logger.debug("Starting webhook authentication", {
-      component: "WebhookAuthenticator",
+      component: "RoditAuth",
       method: "authenticate_webhook",
       requestId,
       hasPayload: !!payload,
@@ -898,7 +898,7 @@ async function verify_rodit_ownership(
         const duration = Date.now() - startTime;
 
         logger.warn("Webhook authentication failed - timestamp too old", {
-          component: "WebhookAuthenticator",
+          component: "RoditAuth",
           method: "authenticate_webhook",
           requestId,
           duration,
@@ -908,12 +908,12 @@ async function verify_rodit_ownership(
 
         // Emit metrics for Grafana dashboards
         logger.metric("webhook_authentication_duration_ms", duration, {
-          component: "WebhookAuthenticator",
+          component: "RoditAuth",
           success: false,
           reason: "TIMESTAMP_EXPIRED",
         });
         logger.metric("webhook_authentication_failures_total", 1, {
-          component: "WebhookAuthenticator",
+          component: "RoditAuth",
           reason: "TIMESTAMP_EXPIRED",
         });
 
@@ -928,7 +928,7 @@ async function verify_rodit_ownership(
       }
 
       logger.debug("Calculating payload hash for verification", {
-        component: "WebhookAuthenticator",
+        component: "RoditAuth",
         method: "authenticate_webhook",
         requestId,
         payloadSize: payload.length,
@@ -941,7 +941,7 @@ async function verify_rodit_ownership(
         .digest();
 
       logger.debug("Converting signature to buffer", {
-        component: "WebhookAuthenticator",
+        component: "RoditAuth",
         method: "authenticate_webhook",
         requestId,
         signatureLength: signature_hex_ofpayload.length,
@@ -954,7 +954,7 @@ async function verify_rodit_ownership(
       );
 
       logger.debug("Creating public key for verification", {
-        component: "WebhookAuthenticator",
+        component: "RoditAuth",
         method: "authenticate_webhook",
         requestId,
         ownerIdLength: peer_rodit_owner_id.length,
@@ -979,7 +979,7 @@ async function verify_rodit_ownership(
         "signature_verification_duration_ms",
         verificationDuration,
         {
-          component: "WebhookAuthenticator",
+          component: "RoditAuth",
           success: isValid,
         }
       );
@@ -988,7 +988,7 @@ async function verify_rodit_ownership(
         const duration = Date.now() - startTime;
 
         logger.warn("Webhook authentication failed - invalid signature", {
-          component: "WebhookAuthenticator",
+          component: "RoditAuth",
           method: "authenticate_webhook",
           requestId,
           duration,
@@ -997,12 +997,12 @@ async function verify_rodit_ownership(
 
         // Emit metrics for Grafana dashboards
         logger.metric("webhook_authentication_duration_ms", duration, {
-          component: "WebhookAuthenticator",
+          component: "RoditAuth",
           success: false,
           reason: "INVALID_SIGNATURE",
         });
         logger.metric("webhook_authentication_failures_total", 1, {
-          component: "WebhookAuthenticator",
+          component: "RoditAuth",
           reason: "INVALID_SIGNATURE",
         });
 
@@ -1018,7 +1018,7 @@ async function verify_rodit_ownership(
 
       const duration = Date.now() - startTime;
       logger.info("Webhook authentication successful", {
-        component: "WebhookAuthenticator",
+        component: "RoditAuth",
         method: "authenticate_webhook",
         requestId,
         duration,
@@ -1027,11 +1027,11 @@ async function verify_rodit_ownership(
 
       // Emit metrics for Grafana dashboards
       logger.metric("webhook_authentication_duration_ms", duration, {
-        component: "WebhookAuthenticator",
+        component: "RoditAuth",
         success: true,
       });
       logger.metric("successful_webhook_authentications_total", 1, {
-        component: "WebhookAuthenticator",
+        component: "RoditAuth",
       });
 
       return {
@@ -1044,7 +1044,7 @@ async function verify_rodit_ownership(
       const duration = Date.now() - startTime;
 
       logger.error("Webhook authentication error", {
-        component: "WebhookAuthenticator",
+        component: "RoditAuth",
         method: "authenticate_webhook",
         requestId,
         duration,
@@ -1055,12 +1055,12 @@ async function verify_rodit_ownership(
 
       // Emit metrics for Grafana dashboards
       logger.metric("webhook_authentication_duration_ms", duration, {
-        component: "WebhookAuthenticator",
+        component: "RoditAuth",
         success: false,
         error: error.code || "UNKNOWN_ERROR",
       });
       logger.metric("webhook_authentication_errors_total", 1, {
-        component: "WebhookAuthenticator",
+        component: "RoditAuth",
         error: error.constructor.name,
       });
 
@@ -1091,7 +1091,7 @@ async function verify_rodit_ownership(
     let verificationDetails = {};
 
     logger.info("Verifying peer RODiT", {
-      component: "AuthenticationService",
+      component: "RoditAuth",
       method: "verify_peerrodit_getrodit",
       requestId,
     });
@@ -1161,7 +1161,7 @@ async function verify_rodit_ownership(
 
       if (!peer_rodit) {
         logger.error("Failed to retrieve peer RODiT data", {
-          component: "AuthenticationService",
+          component: "RoditAuth",
           method: "verify_peerrodit_getrodit",
           requestId,
           duration: Date.now() - startTime,
@@ -1172,7 +1172,7 @@ async function verify_rodit_ownership(
 
       if (!peer_rodit.metadata) {
         logger.error("Peer RODiT missing metadata", {
-          component: "AuthenticationService",
+          component: "RoditAuth",
           method: "verify_peerrodit_getrodit",
           requestId,
           duration: Date.now() - startTime,
@@ -1188,7 +1188,7 @@ async function verify_rodit_ownership(
 
       if (!config_own_rodit) {
         logger.error("Server configuration not initialized", {
-          component: "AuthenticationService",
+          component: "RoditAuth",
           method: "verify_peerrodit_getrodit",
           requestId,
           duration: Date.now() - startTime,
@@ -1402,7 +1402,7 @@ async function verify_rodit_ownership(
 
         const duration = Date.now() - startTime;
         logger.error("Peer RODiT verification failed", {
-          component: "AuthenticationService",
+          component: "RoditAuth",
           method: "verify_peerrodit_getrodit",
           requestId,
           duration,
@@ -1430,7 +1430,7 @@ async function verify_rodit_ownership(
       const totalDuration = Date.now() - startTime;
 
       logger.info("Peer RODiT verification successful", {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         method: "verify_peerrodit_getrodit",
         requestId,
         duration: totalDuration,
@@ -1454,7 +1454,7 @@ async function verify_rodit_ownership(
       const duration = Date.now() - startTime;
 
       logger.error("Error in verify_peerrodit_getrodit", {
-        component: "AuthenticationService",
+        component: "RoditAuth",
         method: "verify_peerrodit_getrodit",
         requestId,
         duration,
