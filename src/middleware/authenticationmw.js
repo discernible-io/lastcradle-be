@@ -12,8 +12,7 @@ const {
   tokenService
 } = require("../auth/tokenservice");
 const { 
-  send_webhook, 
-  login_client
+  send_webhook
 } = require("../auth/authentication");
 // Direct import from statemanager to avoid circular dependencies
 const stateManager = require("../blockchain/statemanager");
