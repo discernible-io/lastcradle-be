@@ -1338,3 +1338,17 @@ async function verify_rodit_ownership(
       };
     }
   }
+
+// Export the functions directly (following the pattern used in tokenservice.js)
+module.exports = {
+  login_client,
+  verify_rodit_ownership,
+  verify_rodit_ownership_withnep413,
+  verify_peerrodit_getrodit,
+  verify_rodit_isactive,
+  verify_rodit_isamatch,
+  verify_rodit_islive,
+  verify_rodit_istrusted_issuingsmartcontract,
+  authenticate_webhook,
+  send_webhook
+};
