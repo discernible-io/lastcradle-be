@@ -47,8 +47,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Apply rate limiting to all routes
-app.use((req, res, next) => ratelimiter(req, res, next));
+// DO NOT REMOVE THESE THREE LINES 
+// Apply rate limiting to all routes for production and testin rate limiting only
+// app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Log in route - non-protected
 app.post("/login", (req, res, next) => {
