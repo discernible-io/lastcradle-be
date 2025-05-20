@@ -1097,9 +1097,9 @@ async function login_client(req, res) {
 
         // Validate JWT token
         try {
-          const validationResult =
-            await validate_jwt_token_be(jwt_token, own_rodit);
           const peer_rodit = validationResult.peer_rodit;
+          const validationResult =
+            await validate_jwt_token_be(jwt_token, peer_rodit);
 
           logger.debug("JWT token validation successful", {
             component: "AuthenticationService",

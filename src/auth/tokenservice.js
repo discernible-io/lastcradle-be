@@ -890,7 +890,7 @@ const {
   }
 
 
-  async function validate_jwt_token_be(token, own_rodit) {
+  async function validate_jwt_token_be(token, rodit) {
     const requestId = ulid();
     const startTime = Date.now();
 
@@ -899,10 +899,10 @@ const {
       method: "validate_jwt_token_be",
       requestId,
       tokenLength: token?.length,
-      hasOwnRodit: !!own_rodit,
-      ownRoditId: own_rodit?.token_id,
+      hasOwnRodit: !!rodit,
+      ownRoditId: rodit?.token_id,
     });
-  
+
     try {
       const unverifiedpayload = decodeJwt(token);
 
@@ -915,7 +915,6 @@ const {
         aud: unverifiedpayload?.aud,
       });
 
-      // Fetch service provider RODiT using rodit_id field - matching legacy implementation
       const sp_rodit = await nearorg_rpc_tokenfromroditid(
         unverifiedpayload.rodit_id
       );
@@ -1022,29 +1021,27 @@ const {
         throw new Error("Error 006: Token is not yet valid");
       }
   
-      // Issuer check - use own_rodit if provided, otherwise skip this check
-      if (payload.iss !== own_rodit.metadata.subjectuniqueidentifier_url) {
+      // Issuer check
+      if (payload.iss !== rodit.metadata.subjectuniqueidentifier_url) {
         logger.warn("Token validation failed - Invalid issuer", {
           component: "JwtAuth",
           method: "validate_jwt_token_be",
           requestId,
           tokenIssuer: payload.iss,
-          expectedIssuer: own_rodit.metadata.subjectuniqueidentifier_url,
+          expectedIssuer: rodit.metadata.subjectuniqueidentifier_url,
         });
-  
         throw new Error("Error 005: Invalid issuer");
       }
-  
-      // Audience check - matching legacy implementation in rodit.js
-      if (payload.aud !== own_rodit.owner_id) {
+      
+      if (payload.aud !== rodit.owner_id) {
         logger.warn("Token validation failed - Invalid audience", {
           component: "JwtAuth",
           method: "validate_jwt_token_be",
           requestId,
           tokenAudience: payload.aud,
-          expectedAudience: own_rodit.owner_id,
+          expectedAudience: rodit.owner_id,
         });
-  
+
         throw new Error("Error 004: Invalid audience");
       }
   
@@ -1796,7 +1793,7 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
         });
 
         const validationResult = await brief_validate_jwt_token_be(
-          payload
+          payload, 
         );
 
         isValid = validationResult.isValid;

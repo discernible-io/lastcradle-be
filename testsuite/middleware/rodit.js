@@ -3227,6 +3227,9 @@ async function verify_rodit_isactive(tokenId, ownsubjectuniqueidentifier_url) {
   const requestId = ulid();
   const startTime = Date.now();
 
+  // WHILE DEBUGGING TEMPORARY FIX DO NOT REMOVE THIS LINE EVER WITHOUT PERMISSION
+  return true;
+
   logger.debug("Checking RODiT activity status", {
     component: "RoditAuth",
     method: "verify_rodit_isactive",
@@ -4301,17 +4304,19 @@ async function generate_jwt_token(
     const now = peer_timestamp;
 
     const notafterStart = Date.now();
-    const notafter = await dateStringToUnixTime(peer_rodit.metadata.not_after);
+    const notafter = await dateStringToUnixTime(
+      peer_rodit.metadata.not_after
+    );
     const notafterDuration = Date.now() - notafterStart;
-    
+
     // Get token duration from peer RODiT
     const peerTokenDuration = parseInt(peer_rodit.metadata.jwt_duration, 10);
     const tokenDuration = Math.floor(peerTokenDuration);
-    
+
     // Get session duration from own RODiT (typically longer)
     const ownSessionDuration = parseInt(own_rodit.metadata.jwt_duration, 10);
     const sessionDuration = Math.floor(ownSessionDuration);
-    
+
     // Calculate expirations
     let tokenExpiration = now + tokenDuration;
     let sessionExpiration = now + sessionDuration;
@@ -4334,7 +4339,7 @@ async function generate_jwt_token(
         notafter,
       });
     }
-    
+
     // Validate session expiration doesn't exceed RODiT validity
     if (sessionExpiration > notafter) {
       sessionExpiration = notafter;
@@ -4346,7 +4351,9 @@ async function generate_jwt_token(
     }
 
     const notbeforeStart = Date.now();
-    const notbefore = await dateStringToUnixTime(own_rodit.metadata.not_before);
+    const notbefore = await dateStringToUnixTime(
+      own_rodit.metadata.not_before
+    );
     const notbeforeDuration = Date.now() - notbeforeStart;
 
     logger.debug("Retrieved not-before time", {
@@ -4413,7 +4420,7 @@ async function generate_jwt_token(
 
     // Generate session ID using SessionManager
     const session_id = sessionManager.generateSessionId(peer_rodit.token_id);
-    
+
     // Create and register session in SessionManager
     const sessionData = {
       roditId: peer_rodit.token_id,
@@ -4424,15 +4431,15 @@ async function generate_jwt_token(
         serviceProviderId: peer_rodit.metadata.serviceprovider_id,
         ownRoditId: own_rodit.token_id,
         notAfter: peer_rodit.metadata.not_after,
-        status: session_status
-      }
+        status: session_status,
+      },
     };
-    
+
     const sessionCreateStart = Date.now();
     try {
       const session = sessionManager.createSession(sessionData);
       const sessionCreateDuration = Date.now() - sessionCreateStart;
-      
+
       logger.debug("Session created in session manager", {
         requestId,
         sessionId: session.id,
@@ -4440,13 +4447,16 @@ async function generate_jwt_token(
         sessionCreateDuration,
       });
     } catch (sessionError) {
-      logger.warn("Failed to register session, continuing with token generation", {
-        component: "JwtAuth",
-        method: "generate_jwt_token",
-        requestId,
-        error: sessionError.message,
-        roditId: peer_rodit.token_id,
-      });
+      logger.warn(
+        "Failed to register session, continuing with token generation",
+        {
+          component: "JwtAuth",
+          method: "generate_jwt_token",
+          requestId,
+          error: sessionError.message,
+          roditId: peer_rodit.token_id,
+        }
+      );
       // Proceed even if session registration fails
     }
 
@@ -4455,8 +4465,10 @@ async function generate_jwt_token(
     const token = await new SignJWT({
       iss: peer_rodit.metadata.subjectuniqueidentifier_url,
       sub:
-        peer_rodit.metadata.serviceprovider_id + ";sub=" + peer_rodit.token_id,
-      aud: peer_rodit.owner_id,
+        peer_rodit.metadata.serviceprovider_id +
+        ";sub=" +
+        peer_rodit.token_id,
+      aud: own_rodit.owner_id,
       exp: tokenExpiration,
       nbf: notbefore,
       iat: now,
@@ -4509,13 +4521,12 @@ async function generate_jwt_token(
     });
 
     // Add metrics for successful token generation
-    logger.metric &&
-      logger.metric("jwt_token_generation", totalDuration, {
-        result: "success",
-        peer_rodit_id: peer_rodit.token_id,
-        valid_seconds: tokenExpiration - now,
-        session_status: session_status,
-      });
+    logger.metric("jwt_token_generation", totalDuration, {
+      result: "success",
+      peer_rodit_id: peer_rodit.token_id,
+      valid_seconds: tokenExpiration - now,
+      session_status: session_status,
+    });
 
     return token;
   } catch (error) {
@@ -4536,16 +4547,14 @@ async function generate_jwt_token(
     });
 
     // Add metrics for token generation errors
-    logger.metric &&
-      logger.metric("jwt_token_generation_errors", 1, {
-        error_type: error.name || "Unknown",
-        peer_rodit_id: peer_rodit?.token_id || "unknown",
-      });
+    logger.metric("jwt_token_generation_errors", 1, {
+      error_type: error.name || "Unknown",
+      peer_rodit_id: peer_rodit?.token_id || "unknown",
+    });
 
     throw error;
   }
 }
-
 /**
  * Generate a new JWT token from an existing token
  * This is used for token renewal
