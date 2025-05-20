@@ -18,7 +18,7 @@ class ProductionVaultManager {
         role_id: this.roleId,
         secret_id: this.secretId,
       });
-      return result.auth.client_token;
+      return result.auth.server_token;
     } catch (error) {
       logger.error("Error authenticating with Vault:", error);
       throw new Error("Error 108: Vault authentication failed");
