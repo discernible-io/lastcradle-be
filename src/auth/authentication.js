@@ -10,6 +10,7 @@ const { Resolver } = require("dns").promises;
 const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
 // Import specific functions to avoid circular dependencies
 const { generate_jwt_token } = require("./tokenservice");
+const stateManager = require("../blockchain/statemanager");
 const { 
   nearorg_rpc_timestamp, 
   nearorg_rpc_tokenfromroditid, 
@@ -843,7 +844,6 @@ async function verify_rodit_ownership(
     const startTime = Date.now();
 
     // Get own_rodit from stateManager
-    const stateManager = require("../blockchain/statemanager");
     const own_rodit = await stateManager.getConfigOwnRodit();
 
     logger.debug("Starting peer RODiT verification", {
