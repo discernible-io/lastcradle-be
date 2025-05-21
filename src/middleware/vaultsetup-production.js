@@ -2,6 +2,12 @@ const config = require("config");
 const bs58 = require("bs58");
 const logger = require("../../config/logger");
 
+logger.debug("Loading vaultsetup-production.js module", {
+  component: "ModuleLoader",
+  module: "vaultsetup-production.js",
+  loadedAt: new Date().toISOString()
+});
+
 class ProductionVaultManager {
   constructor() {
     this.vault = require("node-vault")();
@@ -64,7 +70,7 @@ class ProductionVaultManager {
     this.validateVaultParameters(vaultPath, secretKey);
 
     try {
-      logger.debug("Attempting to read from Vault", {
+      logger.debug("¬", {
         path: `secret/data/${vaultPath}`,
         secretKey,
         endpoint: this.vault.endpoint,

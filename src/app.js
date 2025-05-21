@@ -41,7 +41,13 @@ let ratelimiter = ratelimitmw(100, 15);
 
 const swaggerSpec = swaggerJsdoc(options);
 const app = express();
-
+// Near the top of app.js
+logger.info("Server starting", {
+  component: "AppLifecycle",
+  startTime: new Date().toISOString(),
+  nodeEnv: process.env.NODE_ENV,
+  pid: process.pid
+});
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

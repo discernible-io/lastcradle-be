@@ -22,15 +22,39 @@ const {
 } = require("../blockchain/blockchainservice");
 const stateManager = require("../blockchain/statemanager");
 
+
+logger.debug("Loading roditmanager.js module", {
+  component: "ModuleLoader",
+  module: "roditmanager.js",
+  loadedAt: new Date().toISOString()
+});
 /**
  * RoditManager class
  * Singleton class for managing RODiT configurations and credentials
  */
 class RoditManager {
   constructor() {
+    const instanceId = ulid();
+
+    logger.debug("RoditManager constructor called", {
+      component: "RoditManager",
+      instanceId,
+      hasExistingInstance: !!RoditManager.instance,
+      existingInstanceId: RoditManager.instance ? RoditManager.instance._instanceId : null
+    });
     if (RoditManager.instance) {
+      logger.debug("Returning existing RoditManager instance", {
+        component: "RoditManager",
+        instanceId: RoditManager.instance._instanceId
+      });
       return RoditManager.instance;
     }
+
+    this._instanceId = instanceId; // Store the instance ID
+    logger.debug("Creating new RoditManager instance", {
+      component: "RoditManager",
+      instanceId: this._instanceId
+    });
 
     this.stateManager = stateManager;
     this.vaultInitialized = false;
@@ -45,47 +69,86 @@ class RoditManager {
     RoditManager.instance = this;
   }
 
-  async initializeVault() {
-    const requestId = ulid();
-    const startTime = Date.now();
+async initializeVault() {
+  const requestId = ulid();
+  const startTime = Date.now();
 
-    logger.debug("Starting vault initialization", {
+  logger.debug("Starting vault initialization", {
+    component: "RoditManager",
+    method: "initializeVault",
+    requestId,
+    instanceId: this._instanceId,
+    vaultInitialized: this.vaultInitialized
+  });
+
+  if (this.vaultInitialized) {
+    logger.debug("Vault already initialized", {
       component: "RoditManager",
       method: "initializeVault",
       requestId,
+      instanceId: this._instanceId
+    });
+    return vault;
+  }
+
+  try {
+    logger.debug("Calling initializeProductionVault", {
+      component: "RoditManager",
+      method: "initializeVault",
+      requestId,
+      instanceId: this._instanceId
+    });
+    
+    const vaultInstance = await initializeProductionVault();
+    
+    logger.debug("initializeProductionVault returned", {
+      component: "RoditManager",
+      method: "initializeVault",
+      requestId,
+      instanceId: this._instanceId,
+      hasVaultInstance: !!vaultInstance,
+      hasToken: !!(vaultInstance && vaultInstance.token)
+    });
+    
+    logger.debug("Setting up token renewal", {
+      component: "RoditManager",
+      method: "initializeVault",
+      requestId,
+      instanceId: this._instanceId
+    });
+    
+    await setupTokenRenewal(vaultInstance);
+    
+    logger.debug("Token renewal setup complete", {
+      component: "RoditManager",
+      method: "initializeVault",
+      requestId,
+      instanceId: this._instanceId
+    });
+    
+    this.vaultInitialized = true;
+    this.vaultPath = config.get("VAULT_RODIT_KEYVALUE_PATH");
+
+    logger.debug("Vault initialization flags set", {
+      component: "RoditManager",
+      method: "initializeVault",
+      requestId,
+      instanceId: this._instanceId,
+      vaultInitialized: this.vaultInitialized,
+      vaultPath: this.vaultPath
     });
 
-    if (this.vaultInitialized) {
-      logger.debug("Vault already initialized", {
-        component: "RoditManager",
-        method: "initializeVault",
-        requestId,
-      });
-      return vault;
-    }
+    const duration = Date.now() - startTime;
+    logger.info("Vault initialized successfully", {
+      component: "RoditManager",
+      method: "initializeVault",
+      requestId,
+      instanceId: this._instanceId,
+      duration,
+      status: "success"
+    });
 
-    try {
-      const vaultInstance = await initializeProductionVault();
-      await setupTokenRenewal(vaultInstance);
-      this.vaultInitialized = true;
-      this.vaultPath = config.get("VAULT_RODIT_KEYVALUE_PATH");
-
-      const duration = Date.now() - startTime;
-      logger.info("Vault initialized successfully", {
-        component: "RoditManager",
-        method: "initializeVault",
-        requestId,
-        duration,
-        status: "success",
-      });
-
-      // Emit metrics for Grafana dashboards
-      logger.metric("vault_initialization_duration_ms", duration, {
-        success: true,
-        component: "RoditManager",
-      });
-
-      return vaultInstance;
+    return vaultInstance;
     } catch (error) {
       const duration = Date.now() - startTime;
 
