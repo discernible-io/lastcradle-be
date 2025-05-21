@@ -5,6 +5,7 @@
 
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
+const nacl = require("tweetnacl");
 // Import specific functions directly to avoid circular dependencies
 const { 
   validate_jwt_token_be,
@@ -17,6 +18,7 @@ const {
 } = require("../auth/authentication");
 // Direct import from statemanager to avoid circular dependencies
 const stateManager = require("../blockchain/statemanager");
+const { unixTimeToDateString } = require("../utils");
 
 /**
  * Middleware for handling authentication in routes
@@ -1363,14 +1365,13 @@ async function login_client(req, res) {
 
       // Validate the server
       let peer_bytes_ed25519_public_key;
+      // Assuming the correct property name is peer_rodit
+      const peer_rodit = validationResult.peer_rodit;
       try {
         const validationResult = await validate_jwt_token_be(
           jwt_token,
-          own_rodit
+          peer_rodit
         );
-
-        // Assuming the correct property name is peer_rodit
-        const peer_rodit = validationResult.peer_rodit;
 
         logger.debug("Token validation successful", {
           component: "AuthenticationService",
