@@ -64,6 +64,12 @@ class ProductionVaultManager {
     this.validateVaultParameters(vaultPath, secretKey);
 
     try {
+      logger.debug("Attempting to read from Vault", {
+        path: `secret/data/${vaultPath}`,
+        secretKey,
+        endpoint: this.vault.endpoint,
+        hasToken: !!this.vault.token,
+      });
       const result = await this.vault.read(`secret/data/${vaultPath}`);
       const secretData = result.data.data[secretKey];
 
@@ -76,7 +82,13 @@ class ProductionVaultManager {
       const parsedData = this.parseSecretData(secretData, secretKey);
       return this.validateAndExtractCredentials(parsedData);
     } catch (error) {
-      logger.error("Error retrieving Rodit config from Vault:", error);
+      logger.error("Error retrieving Rodit config from Vault:", {
+        path: `secret/data/${vaultPath}`,
+        secretKey,
+        errorMessage: error.message,
+        errorDetails: error.response?.data || error.response || "No details available",
+        statusCode: error.response?.statusCode,
+      });
       throw error;
     }
   }
