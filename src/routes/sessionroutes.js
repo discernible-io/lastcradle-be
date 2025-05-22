@@ -129,16 +129,34 @@ router.get('/', authenticate_apicall, validatepermissions, (req, res) => {
 });
 
 /**
- * DELETE /api/sessions/:sessionId - Terminate a specific session
+ * POST /api/sessions/close - Terminate a specific session
  * 
  * Admin route - Force terminate a specific session
  * Protected: Requires authentication and permissions
+ * 
+ * Request body should contain:
+ * - sessionId: ID of the session to terminate
+ * - reason: (optional) Reason for termination
  */
-router.delete('/:sessionId', authenticate_apicall, validatepermissions, (req, res) => {
+router.post('/close', authenticate_apicall, validatepermissions, (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
-  const { sessionId } = req.params;
+  const { sessionId } = req.body;
   const reason = req.body.reason || 'admin_termination';
+  
+  if (!sessionId) {
+    logger.warn("Session termination missing sessionId", {
+      component: "SessionRoutes",
+      method: "terminateSession",
+      requestId,
+      duration: Date.now() - startTime
+    });
+    
+    return res.status(400).json({
+      error: "Missing required parameter: sessionId",
+      requestId
+    });
+  }
   
   try {
     logger.info("Session termination requested", {
