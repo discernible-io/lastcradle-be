@@ -24,6 +24,7 @@ const {
 // Direct import from statemanager to avoid circular dependencies
 const stateManager = require("../blockchain/statemanager");
 const { unixTimeToDateString } = require("../utils");
+const sessionManager = require("../auth/sessionmanager");
 
 /**
  * Middleware for handling authentication in routes
@@ -385,6 +386,27 @@ async function login_client(req, res) {
           },
         });
       }
+      
+      // Check if token has been invalidated
+      if (sessionManager.isTokenInvalidated(token)) {
+        const invalidationInfo = sessionManager.getTokenInvalidationInfo(token);
+        
+        logger.warn("Attempt to use invalidated token", {
+          component: "AuthMiddleware",
+          method: "authenticate_apicall",
+          requestId,
+          invalidationInfo,
+        });
+        
+        return res.status(401).json({
+          error: {
+            code: "INVALIDATED_TOKEN",
+            message: "Token has been invalidated",
+            reason: invalidationInfo?.reason || "user_logout",
+            requestId,
+          },
+        });
+      }
 
       // Get own RODiT configuration first
       const config_own_rodit = await stateManager.getConfigOwnRodit();
@@ -593,11 +615,17 @@ async function login_client(req, res) {
           // Get the reason from request body or use default
           const reason = req.body.reason || "user_logout";
 
-          // Close the session
-          sessionClosed = stateManager.closeSession(
+          // Close the session and invalidate the token
+          sessionClosed = sessionManager.closeSession(
             decodedToken.session_id,
-            reason
+            reason,
+            token // Pass the token to be invalidated
           );
+          
+          // If session closing failed, still try to invalidate the token directly
+          if (!sessionClosed) {
+            sessionManager.invalidateToken(token, reason, decodedToken.session_id);
+          }
 
           if (sessionClosed) {
             logger.info("Session closed successfully", {
