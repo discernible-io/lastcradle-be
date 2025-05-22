@@ -63,6 +63,25 @@ app.post("/login", (req, res) => {
   res.redirect(307, '/api/sessions/login');
 });
 
+// New simplified login route
+app.post("/api/login", (req, res) => {
+  const { login_client } = require('./middleware/authenticationmw');
+  const requestId = ulid();
+  req.logAction = "login-attempt";
+  
+  logger.info("Login request received (simplified endpoint)", {
+    component: "API",
+    method: "login",
+    requestId,
+    path: req.path,
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+  
+  // Use the same login_client function as the session routes
+  login_client(req, res);
+});
+
 // Legacy logout route - redirects to centralized session management
 // Protected with authentication to ensure only logged-in users can logout
 app.post("/logout", authenticate_apicall, (req, res) => {
