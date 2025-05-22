@@ -1,7 +1,8 @@
 /**
  * sessionRoutes.js - API routes for session management
  * 
- * This module provides Express routes for administrative session management.
+ * This module provides Express routes for session management including
+ * login, logout, and administrative session operations.
  * 
  * Copyright (c) 2024 Cableguard, Inc. All rights reserved.
  */
@@ -10,245 +11,248 @@ const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
 const sessionManager = require('../auth/sessionmanager');
-const { authenticate_apicall } = require('../../middleware/authenticationmw');
+const { authenticate_apicall, login_client, logout_client } = require('../middleware/authenticationmw');
+const validatepermissions = require('../middleware/validatepermissions');
 const logger = require('../../config/logger');
 const { runManualCleanup } = require('../features/sessioncleanup');
+
+/**
+ * POST /api/sessions/login - Create a new session (login)
+ * 
+ * Handles client authentication and session creation
+ */
+router.post('/login', (req, res) => {
+  const requestId = ulid();
+  const startTime = Date.now();
+  
+  req.logAction = "login-attempt";
+  
+  logger.info("Login request received", {
+    component: "SessionRoutes",
+    method: "createSession",
+    requestId,
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+  
+  // Delegate to the existing login_client function
+  login_client(req, res);
+});
+
+/**
+ * POST /api/sessions/logout - End a session (logout)
+ * 
+ * Handles client session termination
+ * Protected: Requires authentication
+ */
+router.post('/logout', authenticate_apicall, (req, res) => {
+  const requestId = ulid();
+  const startTime = Date.now();
+  
+  req.logAction = "logout-attempt";
+  
+  logger.info("Logout request received", {
+    component: "SessionRoutes",
+    method: "terminateSession",
+    requestId,
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+    userId: req.user ? req.user.id : "unknown",
+    userAgent: req.get('User-Agent')
+  });
+  
+  // Delegate to the existing logout_client function
+  logout_client(req, res);
+});
 
 /**
  * GET /api/sessions - Get all sessions
  * 
  * Admin route - Get information about all active sessions
+ * Protected: Requires authentication and permissions
  */
-router.get('/', authenticate_apicall, (req, res) => {
+router.get('/', authenticate_apicall, validatepermissions, (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   
   try {
     // Gather all sessions
     const sessions = [];
-    for (const session of sessionManager.sessions.values()) {
-      // Clone session object and strip any sensitive data
-      const safeSession = { ...session };
-      delete safeSession.metadata?.privateData;
-      
-      sessions.push(safeSession);
+    
+    for (const [sessionId, session] of sessionManager.sessions.entries()) {
+      // Don't include closed or expired sessions
+      if (session.status === 'active') {
+        sessions.push({
+          id: sessionId,
+          roditId: session.roditId,
+          ownerId: session.ownerId,
+          createdAt: new Date(session.createdAt * 1000).toISOString(),
+          expiresAt: new Date(session.expiresAt * 1000).toISOString(),
+          lastAccessedAt: new Date(session.lastAccessedAt * 1000).toISOString(),
+          status: session.status
+        });
+      }
     }
     
-    const duration = Date.now() - startTime;
-    logger.info('Session list retrieved', {
-      component: 'SessionRoutes',
-      method: 'listSessions',
+    logger.info("Session list retrieved", {
+      component: "SessionRoutes",
+      method: "listSessions",
       requestId,
-      duration,
-      sessionCount: sessions.length
+      sessionCount: sessions.length,
+      duration: Date.now() - startTime
     });
     
-    return res.json({
+    res.json({
       sessions,
       count: sessions.length,
-      activeCount: sessionManager.getActiveSessionCount()
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
-    const duration = Date.now() - startTime;
-    
-    logger.error('Failed to retrieve sessions', {
-      component: 'SessionRoutes',
-      method: 'listSessions',
+    logger.error("Failed to retrieve sessions", {
+      component: "SessionRoutes",
+      method: "listSessions",
       requestId,
-      duration,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
+      duration: Date.now() - startTime
     });
     
-    return res.status(500).json({
-      error: 'Failed to retrieve sessions',
-      message: error.message
-    });
-  }
-});
-
-/**
- * GET /api/sessions/:id - Get session details
- * 
- * Admin route - Get detailed information about a specific session
- */
-router.get('/:id', authenticate_apicall, (req, res) => {
-  const requestId = ulid();
-  const startTime = Date.now();
-  const sessionId = req.params.id;
-  
-  try {
-    const session = sessionManager.getSession(sessionId);
-    
-    if (!session) {
-      const duration = Date.now() - startTime;
-      
-      logger.warn('Session not found', {
-        component: 'SessionRoutes',
-        method: 'getSession',
-        requestId,
-        duration,
-        sessionId
-      });
-      
-      return res.status(404).json({
-        error: 'Session not found',
-        sessionId
-      });
-    }
-    
-    // Clone session object and strip any sensitive data
-    const safeSession = { ...session };
-    delete safeSession.metadata?.privateData;
-    
-    const duration = Date.now() - startTime;
-    logger.info('Session details retrieved', {
-      component: 'SessionRoutes',
-      method: 'getSession',
-      requestId,
-      duration,
-      sessionId
-    });
-    
-    return res.json(safeSession);
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    
-    logger.error('Failed to retrieve session details', {
-      component: 'SessionRoutes',
-      method: 'getSession',
-      requestId,
-      duration,
-      sessionId,
-      error: error.message,
-      stack: error.stack
-    });
-    
-    return res.status(500).json({
-      error: 'Failed to retrieve session details',
+    res.status(500).json({
+      error: "Failed to retrieve sessions",
       message: error.message,
-      sessionId
+      requestId
     });
   }
 });
 
 /**
- * DELETE /api/sessions/:id - Close a session
+ * DELETE /api/sessions/:sessionId - Terminate a specific session
  * 
- * Admin route - Force close a specific session
+ * Admin route - Force terminate a specific session
+ * Protected: Requires authentication and permissions
  */
-router.delete('/:id', authenticate_apicall, (req, res) => {
+router.delete('/:sessionId', authenticate_apicall, validatepermissions, (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
-  const sessionId = req.params.id;
-  const reason = req.body.reason || 'admin_terminated';
+  const { sessionId } = req.params;
+  const reason = req.body.reason || 'admin_termination';
   
   try {
-    const success = sessionManager.closeSession(sessionId, reason);
-    
-    if (!success) {
-      const duration = Date.now() - startTime;
-      
-      logger.warn('Failed to close session - not found', {
-        component: 'SessionRoutes',
-        method: 'closeSession',
-        requestId,
-        duration,
-        sessionId,
-        reason
-      });
-      
-      return res.status(404).json({
-        error: 'Session not found',
-        sessionId
-      });
-    }
-    
-    const duration = Date.now() - startTime;
-    logger.info('Session closed', {
-      component: 'SessionRoutes',
-      method: 'closeSession',
+    logger.info("Session termination requested", {
+      component: "SessionRoutes",
+      method: "terminateSession",
       requestId,
-      duration,
-      sessionId,
-      reason
-    });
-    
-    // Emit metrics for admin session closures
-    logger.metric && logger.metric('admin_session_closures', 1, {
-      component: 'SessionRoutes',
-      reason
-    });
-    
-    return res.json({
-      message: 'Session closed successfully',
-      sessionId,
-      reason
-    });
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    
-    logger.error('Failed to close session', {
-      component: 'SessionRoutes',
-      method: 'closeSession',
-      requestId,
-      duration,
       sessionId,
       reason,
-      error: error.message,
-      stack: error.stack
+      adminUser: req.user.id
     });
     
-    return res.status(500).json({
-      error: 'Failed to close session',
+    const sessionClosed = sessionManager.closeSession(sessionId, reason);
+    
+    if (sessionClosed) {
+      logger.info("Session terminated successfully", {
+        component: "SessionRoutes",
+        method: "terminateSession",
+        requestId,
+        sessionId,
+        reason,
+        duration: Date.now() - startTime
+      });
+      
+      res.json({
+        message: "Session terminated successfully",
+        sessionId,
+        reason,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      logger.warn("Session not found or already terminated", {
+        component: "SessionRoutes",
+        method: "terminateSession",
+        requestId,
+        sessionId,
+        reason,
+        duration: Date.now() - startTime
+      });
+      
+      res.status(404).json({
+        error: "Session not found or already terminated",
+        sessionId,
+        requestId
+      });
+    }
+  } catch (error) {
+    logger.error("Failed to terminate session", {
+      component: "SessionRoutes",
+      method: "terminateSession",
+      requestId,
+      sessionId,
+      error: error.message,
+      stack: error.stack,
+      duration: Date.now() - startTime
+    });
+    
+    res.status(500).json({
+      error: "Failed to terminate session",
       message: error.message,
-      sessionId
+      sessionId,
+      requestId
     });
   }
 });
 
 /**
- * POST /api/sessions/cleanup - Run a manual session cleanup
+ * POST /api/sessions/cleanup - Run manual session cleanup
  * 
  * Admin route - Force cleanup of expired sessions
+ * Protected: Requires authentication and permissions
  */
-router.post('/cleanup', authenticate_apicall, async (req, res) => {
+router.post('/cleanup', authenticate_apicall, validatepermissions, (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   
   try {
-    const removedCount = await runManualCleanup();
-    
-    const duration = Date.now() - startTime;
-    logger.info('Manual session cleanup completed', {
-      component: 'SessionRoutes',
-      method: 'manualCleanup',
+    logger.info("Manual session cleanup requested", {
+      component: "SessionRoutes",
+      method: "cleanupSessions",
       requestId,
-      duration,
-      removedCount,
-      remainingSessions: sessionManager.getActiveSessionCount()
+      adminUser: req.user.id
     });
     
-    return res.json({
-      message: 'Session cleanup completed',
-      removedCount,
-      remainingSessions: sessionManager.getActiveSessionCount()
+    const result = runManualCleanup();
+    
+    logger.info("Manual session cleanup completed", {
+      component: "SessionRoutes",
+      method: "cleanupSessions",
+      requestId,
+      removedCount: result.removedCount,
+      remainingCount: result.remainingCount,
+      duration: Date.now() - startTime
+    });
+    
+    res.json({
+      message: "Session cleanup completed",
+      removedCount: result.removedCount,
+      remainingCount: result.remainingCount,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
-    const duration = Date.now() - startTime;
-    
-    logger.error('Manual session cleanup failed', {
-      component: 'SessionRoutes',
-      method: 'manualCleanup',
+    logger.error("Failed to run session cleanup", {
+      component: "SessionRoutes",
+      method: "cleanupSessions",
       requestId,
-      duration,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
+      duration: Date.now() - startTime
     });
     
-    return res.status(500).json({
-      error: 'Failed to run session cleanup',
-      message: error.message
+    res.status(500).json({
+      error: "Failed to run session cleanup",
+      message: error.message,
+      requestId
     });
   }
 });

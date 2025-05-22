@@ -9,9 +9,6 @@ const swaggerJsdoc = require("swagger-jsdoc");
 const roditManager = require("./auth/roditmanager");
 const { authenticate_apicall } = require("./middleware/authenticationmw");
 const stateManager = require("./blockchain/statemanager");
-const { 
-  login_client,
-} = require("./middleware/authenticationmw");
 
 const options = {
   definition: {
@@ -57,13 +54,20 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Apply rate limiting to all routes for production and testin rate limiting only
 // app.use((req, res, next) => ratelimiter(req, res, next));
 
-// Log in route - non-protected
-app.post("/login", (req, res, next) => {
+// Import session routes for centralized session management
+const sessionRoutes = require("./routes/sessionroutes");
+
+// Legacy login route - redirects to centralized session management
+app.post("/login", (req, res) => {
   req.logAction = "login-attempt";
-  next();
-}, async (req, res) => {
-  const config_own_rodit = await stateManager.getConfigOwnRodit();
-  return login_client(req, res, config_own_rodit);
+  res.redirect(307, '/api/sessions/login');
+});
+
+// Legacy logout route - redirects to centralized session management
+// Protected with authentication to ensure only logged-in users can logout
+app.post("/logout", authenticate_apicall, (req, res) => {
+  req.logAction = "logout-attempt";
+  res.redirect(307, '/api/sessions/logout');
 });
 
 app.use((req, res, next) => {
@@ -86,6 +90,9 @@ const signclientRoute = require("./routes/signclient");
 
 // Mount Logging middleware
 app.use(loggingmw);
+
+// Mount session routes
+app.use("/api/sessions", sessionRoutes);
 
 app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
 app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaprotectedRoute);
