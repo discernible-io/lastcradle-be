@@ -53,16 +53,87 @@ class ProductionVaultManager {
 
   async setupTokenRenewal() {
     try {
+      // Get token info to determine TTL
+      const tokenInfo = await this.vault.tokenLookupSelf();
+      const ttlSeconds = tokenInfo.data.ttl;
+      
+      // Calculate renewal time (renew at 80% of TTL)
+      const renewalTimeMs = (ttlSeconds * 0.8) * 1000;
+      
+      logger.info("Setting up token renewal", {
+        component: "VaultManager",
+        ttlSeconds,
+        renewalIntervalMs: renewalTimeMs || this.renewalInterval,
+        nextRenewalAt: new Date(Date.now() + (renewalTimeMs || this.renewalInterval)).toISOString()
+      });
+      
+      // Use calculated renewal time or fall back to default
+      const interval = renewalTimeMs || this.renewalInterval;
+      
+      setInterval(async () => {
+        try {
+          logger.debug("Attempting to renew Vault token", {
+            component: "VaultManager",
+            method: "tokenRenewal"
+          });
+          
+          // Use proper token renewal instead of re-authenticating
+          const renewResponse = await this.vault.tokenRenew();
+          
+          logger.info("Successfully renewed Vault token", {
+            component: "VaultManager",
+            method: "tokenRenewal",
+            newTtl: renewResponse.auth?.lease_duration || "unknown"
+          });
+        } catch (error) {
+          logger.error("Error renewing Vault token, attempting re-authentication", {
+            component: "VaultManager",
+            method: "tokenRenewal",
+            errorMessage: error.message
+          });
+          
+          try {
+            // Fall back to re-authentication if renewal fails
+            const token = await this.getProductionVaultToken();
+            this.vault.token = token;
+            
+            logger.info("Successfully re-authenticated with Vault", {
+              component: "VaultManager",
+              method: "tokenRenewal"
+            });
+          } catch (reAuthError) {
+            logger.error("Failed to re-authenticate with Vault", {
+              component: "VaultManager",
+              method: "tokenRenewal",
+              errorMessage: reAuthError.message
+            });
+          }
+        }
+      }, interval);
+    } catch (error) {
+      logger.error("Error setting up token renewal", {
+        component: "VaultManager",
+        errorMessage: error.message
+      });
+      
+      // Fall back to default renewal interval if we can't get token info
       setInterval(async () => {
         try {
           const token = await this.getProductionVaultToken();
           this.vault.token = token;
-        } catch (error) {
-          logger.error("Error renewing Vault token:", error);
+          
+          logger.info("Successfully refreshed Vault token", {
+            component: "VaultManager",
+            method: "tokenRenewal"
+          });
+        } catch (refreshError) {
+          logger.error("Error refreshing Vault token", {
+            component: "VaultManager",
+            method: "tokenRenewal",
+            errorMessage: refreshError.message
+          });
         }
       }, this.renewalInterval);
-    } catch (error) {
-      logger.error("Error setting up token renewal:", error);
     }
   }
 
