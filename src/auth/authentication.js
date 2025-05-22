@@ -334,65 +334,98 @@ async function verify_rodit_ownership(
         };
       }
 
-      // Get the current JWT token from state manager
-      let jwt_token = stateManager.getJwtToken();
-      if (!jwt_token) {
-        logger.error("No JWT token available for webhook delivery", {
-          component: "RoditAuth",
-          method: "send_webhook",
-          requestId,
-        });
-        
-        return {
-          isValid: false,
-          error: {
-            code: "WEBHOOK_AUTH_ERROR",
-            message: "No JWT token available for webhook authentication",
-            requestId,
-          },
-        };
-      }
-
-      // Determine which webhook URL to use
+      // Determine webhook URL from request or config
       let webhookUrl;
       
-      try {
-        // Try to extract webhook URL from the JWT token payload
-        const tokenParts = jwt_token.split('.');
-        if (tokenParts.length === 3) {
-          const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-          
-          // Check for webhook URL in the token payload
-          if (payload && payload.rodit_webhookurl) {
-            webhookUrl = payload.rodit_webhookurl;
-            logger.debug("Using webhook URL from JWT token payload", {
-              component: "RoditAuth",
-              method: "send_webhook",
-              requestId,
-              webhookSource: "jwt_payload",
-              webhookUrl,
-            });
-          }
-        }
-      } catch (tokenError) {
-        logger.warn("Error extracting webhook URL from JWT token", {
+      // Check if request object is available and has user with webhook URL
+      if (req && req.user && req.user.rodit_webhookurl) {
+        // Use the webhook URL from the peer's JWT token
+        webhookUrl = req.user.rodit_webhookurl;
+        logger.debug("Using webhook URL from peer JWT token", {
           component: "RoditAuth",
           method: "send_webhook",
           requestId,
-          error: tokenError.message,
+          webhookSource: "peer_jwt",
+          webhookUrl,
         });
-      }
-      
-      // If no webhook URL in token, fall back to config
-      if (!webhookUrl) {
+      } else {
+        // Fallback to config
         webhookUrl = config_own_rodit.own_rodit.metadata.webhook_url;
-        logger.debug("Using webhook URL from own RODiT config (fallback)", {
+        logger.debug("Using webhook URL from own RODiT config", {
           component: "RoditAuth",
           method: "send_webhook",
           requestId,
           webhookSource: "own_config",
           webhookUrl,
         });
+      }
+
+      // Generate a fresh JWT token for the webhook target
+      let jwt_token;
+      try {
+        // Import login_client from authenticationmw
+        const { login_client } = require("../middleware/authenticationmw");
+        
+        // Create a mock request object with the webhook URL as the target
+        const mockReq = {
+          body: {
+            targeturl: webhookUrl
+          }
+        };
+        
+        // Create a mock response object to capture the token
+        const mockRes = {
+          locals: {},
+          status: () => mockRes,
+          json: () => mockRes
+        };
+        
+        // Call login_client to get a token specifically for this webhook target
+        await login_client(mockReq, mockRes, () => {});
+        
+        // If login was successful, we should have a token in mockRes.locals
+        if (mockRes.locals && mockRes.locals.jwt_token) {
+          jwt_token = mockRes.locals.jwt_token;
+          logger.debug("Generated fresh JWT token for webhook target", {
+            component: "RoditAuth",
+            method: "send_webhook",
+            requestId,
+            targetUrl: webhookUrl
+          });
+        } else {
+          logger.error("Failed to generate JWT token for webhook", {
+            component: "RoditAuth",
+            method: "send_webhook",
+            requestId,
+            targetUrl: webhookUrl
+          });
+          
+          return {
+            isValid: false,
+            error: {
+              code: "WEBHOOK_AUTH_ERROR",
+              message: "Could not generate authentication token for webhook",
+              requestId,
+            },
+          };
+        }
+      } catch (loginError) {
+        logger.error("Error generating JWT token for webhook", {
+          component: "RoditAuth",
+          method: "send_webhook",
+          requestId,
+          error: loginError.message,
+          stack: loginError.stack
+        });
+        
+        return {
+          isValid: false,
+          error: {
+            code: "WEBHOOK_AUTH_ERROR",
+            message: `Failed to authenticate for webhook: ${loginError.message}`,
+            requestId,
+          },
+        };
       }
 
       // Ensure the URL has the correct format
@@ -478,7 +511,7 @@ async function verify_rodit_ownership(
           "X-Signature": signature_hex_ofpayload,
           "X-Timestamp": timestamp.toString(),
           "X-Request-ID": requestId,
-          Authorization: `Bearer ${jwt_token}`, // Include JWT token here
+          Authorization: `Bearer ${jwt_token}`, // Include the fresh JWT token
         },
         body: payload,
       });
