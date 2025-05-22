@@ -645,12 +645,9 @@ async function login_client(req, res) {
             
             // Generate a final token with very short expiration (1 minute)
             // This token is just for status communication, not for authentication
-            finalToken = await tokenService.generate_jwt_token_fromtoken(
+            finalToken = await tokenService.generate_session_termination_token(
               decodedToken,
-              60, // 1 minute duration
-              new Date(Date.now() + 60000).toISOString(), // notafter
-              Math.floor(Date.now() / 1000), // current timestamp
-              "closed" // session status indicating this is a closed session
+              60 // 1 minute duration
             );
             
             logger.info("Generated final token with closed status", {
