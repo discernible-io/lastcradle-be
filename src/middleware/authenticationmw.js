@@ -1507,4 +1507,4 @@ async function login_client(req, res) {
 
 
 // Export the class directly (will be instantiated in rodit.js)
-module.exports = {authenticate_apicall,login_server,login_portal,login_client,login_client_withnep413};
+module.exports = {authenticate_apicall,login_server,login_portal,login_client,login_client_withnep413,logout_client};
