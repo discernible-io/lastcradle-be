@@ -263,7 +263,26 @@ async initializeVault() {
         accountType
       );
 
-      if (!vaultData.private_key || typeof vaultData.private_key !== "string") {
+      // Add detailed logging about the vault data received
+      logger.debug("Vault data received", {
+        component: "RoditManager",
+        method: "getCredentials",
+        requestId,
+        credentialType: type,
+        hasVaultData: !!vaultData,
+        dataKeys: vaultData ? Object.keys(vaultData) : [],
+        hasPrivateKey: vaultData && !!vaultData.private_key
+      });
+
+      // Safely check for private_key before using it
+      if (vaultData && (!vaultData.private_key || typeof vaultData.private_key !== "string")) {
+        logger.warn("Invalid private key format", {
+          component: "RoditManager",
+          method: "getCredentials",
+          requestId,
+          credentialType: type,
+          privateKeyType: vaultData ? typeof vaultData.private_key : 'undefined'
+        });
         throw new Error(`Invalid or missing private_key for ${type}`);
       }
 
