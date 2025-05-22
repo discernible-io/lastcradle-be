@@ -611,7 +611,7 @@ async function login_client(req, res) {
           });
 
           // Then close the session
-          const sessionResult = sessionManager.closeSession(
+          sessionClosed = sessionManager.closeSession(
             decodedToken.session_id,
             reason,
             null // Don't pass token here since we've already invalidated it
@@ -621,19 +621,18 @@ async function login_client(req, res) {
             component: "AuthenticationService",
             method: "logout_client",
             requestId,
-            sessionResult
+            sessionClosed
           });
           
           // Update tracking variables for metrics and response
-          sessionClosed = sessionResult.sessionClosed;
-          logoutSuccess = tokenInvalidated || sessionResult.sessionClosed;
+          logoutSuccess = tokenInvalidated || sessionClosed;
           
           // Determine the overall session status
-          if (tokenInvalidated && sessionResult.sessionClosed) {
+          if (tokenInvalidated && sessionClosed) {
             sessionStatus = "closed_complete";
           } else if (tokenInvalidated) {
             sessionStatus = "closed_token_only";
-          } else if (sessionResult.sessionClosed) {
+          } else if (sessionClosed) {
             sessionStatus = "closed_session_only";
           } else {
             sessionStatus = "close_failed";
