@@ -600,7 +600,7 @@ async function login_client(req, res) {
           const reason = req.body.reason || "user_logout";
 
           // Always invalidate the token directly first
-          const tokenInvalidated = sessionManager.invalidateToken(token, reason, decodedToken.session_id);
+          tokenInvalidated = sessionManager.invalidateToken(token, reason, decodedToken.session_id);
           
           logger.info("Token invalidation result", {
             component: "AuthenticationService",
