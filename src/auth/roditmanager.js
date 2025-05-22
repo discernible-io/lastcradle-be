@@ -127,7 +127,44 @@ async initializeVault() {
     });
     
     this.vaultInitialized = true;
-    this.vaultPath = config.get("VAULT_RODIT_KEYVALUE_PATH");
+    
+    try {
+      // Check if config is available and has the required path
+      if (config && typeof config.get === 'function') {
+        this.vaultPath = config.get("VAULT_RODIT_KEYVALUE_PATH");
+        logger.debug("Retrieved vault path from config", {
+          component: "RoditManager",
+          method: "initializeVault",
+          requestId,
+          vaultPath: this.vaultPath
+        });
+      } else {
+        const error = new Error("Config object is not properly initialized");
+        logger.error("Vault initialization failed - configuration error", {
+          component: "RoditManager",
+          method: "initializeVault",
+          requestId,
+          errorMessage: error.message,
+          errorCode: "CONFIG_INITIALIZATION_ERROR"
+        });
+        throw error;
+      }
+    } catch (configError) {
+      // Reset the vaultInitialized flag since initialization failed
+      this.vaultInitialized = false;
+      
+      logger.error("Vault initialization failed - configuration error", {
+        component: "RoditManager",
+        method: "initializeVault",
+        requestId,
+        errorMessage: configError.message,
+        errorCode: "CONFIG_ACCESS_ERROR",
+        stack: configError.stack
+      });
+      
+      // Rethrow the error to prevent continuing with invalid configuration
+      throw configError;
+    }
 
     logger.debug("Vault initialization flags set", {
       component: "RoditManager",
