@@ -334,74 +334,59 @@ async function verify_rodit_ownership(
         };
       }
 
-      // Get the current JWT token or login to get one
+      // Get the current JWT token from state manager
       let jwt_token = stateManager.getJwtToken();
       if (!jwt_token) {
-        // If there's no token, we need to login first
-        logger.debug("No JWT token available, attempting login", {
+        logger.error("No JWT token available for webhook delivery", {
           component: "RoditAuth",
           method: "send_webhook",
           requestId,
         });
-
-        try {
-          // Login to get a token
-          const loginResult = await login_server(
-            config_own_rodit.own_rodit
-          );
-
-          if (loginResult && loginResult.jwt_token) {
-            jwt_token = loginResult.jwt_token;
-            await stateManager.setJwtToken(jwt_token);
-
-            logger.info("Successfully obtained JWT token for webhook", {
-              component: "RoditAuth",
-              method: "send_webhook",
-              requestId,
-            });
-          } else {
-            logger.error("Failed to obtain JWT token for webhook", {
-              component: "RoditAuth",
-              method: "send_webhook",
-              requestId,
-              loginResult,
-            });
-            throw new Error(
-              "Could not obtain authentication token for webhook"
-            );
-          }
-        } catch (loginError) {
-          logger.error("Error during login for webhook token", {
-            component: "RoditAuth",
-            method: "send_webhook",
+        
+        return {
+          isValid: false,
+          error: {
+            code: "WEBHOOK_AUTH_ERROR",
+            message: "No JWT token available for webhook authentication",
             requestId,
-            error: loginError.message,
-            stack: loginError.stack,
-          });
-          throw new Error(
-            `Failed to authenticate for webhook: ${loginError.message}`
-          );
-        }
+          },
+        };
       }
 
       // Determine which webhook URL to use
       let webhookUrl;
-
-      // Check if request object is available and has user JWT payload
-      if (req && req.user && req.user.rodit_webhookurl) {
-        // Use the webhook URL from the peer's JWT token
-        webhookUrl = req.user.rodit_webhookurl;
-        logger.debug("Using webhook URL from peer JWT token", {
+      
+      try {
+        // Try to extract webhook URL from the JWT token payload
+        const tokenParts = jwt_token.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+          
+          // Check for webhook URL in the token payload
+          if (payload && payload.rodit_webhookurl) {
+            webhookUrl = payload.rodit_webhookurl;
+            logger.debug("Using webhook URL from JWT token payload", {
+              component: "RoditAuth",
+              method: "send_webhook",
+              requestId,
+              webhookSource: "jwt_payload",
+              webhookUrl,
+            });
+          }
+        }
+      } catch (tokenError) {
+        logger.warn("Error extracting webhook URL from JWT token", {
           component: "RoditAuth",
           method: "send_webhook",
           requestId,
-          webhookSource: "peer_jwt",
-          webhookUrl,
+          error: tokenError.message,
         });
-      } else {
-        // Fallback to config
+      }
+      
+      // If no webhook URL in token, fall back to config
+      if (!webhookUrl) {
         webhookUrl = config_own_rodit.own_rodit.metadata.webhook_url;
-        logger.debug("Using webhook URL from own RODiT config", {
+        logger.debug("Using webhook URL from own RODiT config (fallback)", {
           component: "RoditAuth",
           method: "send_webhook",
           requestId,
@@ -412,10 +397,10 @@ async function verify_rodit_ownership(
 
       // Ensure the URL has the correct format
       // First remove any existing protocol
-      webhookUrl = webhookUrl.replace(/^(https?:\/\/)/, "");
+      const cleanWebhookUrl = webhookUrl.replace(/^(https?:\/\/)/, "");
 
       // Then add https:// protocol
-      const formattedWebhookUrl = `https://${webhookUrl}/webhook`;
+      const formattedWebhookUrl = `https://${cleanWebhookUrl}/webhook`;
 
       logger.debug("Webhook URL details", {
         component: "RoditAuth",
