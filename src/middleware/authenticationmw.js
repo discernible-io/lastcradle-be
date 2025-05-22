@@ -699,36 +699,6 @@ async function login_client(req, res) {
         res.set("New-Token", finalToken);
       }
 
-      // Send webhook notification for logout if configured
-      try {
-        const webhookData = {
-          event: "user.logout",
-          session_id: decodedToken.session_id,
-          token_jti: decodedToken.jti,
-          timestamp: Math.floor(Date.now() / 1000),
-        };
-
-        // Send webhook non-blocking
-        send_webhook("user.logout", webhookData, false, req).catch(
-          (webhookError) => {
-            logger.error("Failed to send logout webhook", {
-              component: "AuthenticationService",
-              method: "logout_client",
-              requestId,
-              error: webhookError.message,
-            });
-          }
-        );
-      } catch (webhookError) {
-        // Log but continue, webhook failure shouldn't affect logout
-        logger.error("Error preparing logout webhook", {
-          component: "AuthenticationService",
-          method: "logout_client",
-          requestId,
-          error: webhookError.message,
-        });
-      }
-
       const duration = Date.now() - startTime;
       logger.info("Logout completed", {
         component: "AuthenticationService",
