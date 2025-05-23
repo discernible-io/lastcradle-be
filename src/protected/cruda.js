@@ -8,7 +8,6 @@ const { ulid } = require("ulid"); // Adding ulid for request IDs
 const crypto = require("crypto");
 const stateManager = require("../blockchain/statemanager");
 const { send_webhook } = require("../auth/authentication");
-const fetch = require("node-fetch"); // Required for webhook tests
 
 const DB_PATH = config.get("API_OPTIONS.DB_PATH");
 
