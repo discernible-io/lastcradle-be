@@ -10,7 +10,7 @@ const crypto = require("crypto");
 const { Resolver } = require("dns").promises;
 const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
 // Import specific functions to avoid circular dependencies
-const { generate_jwt_token } = require("./tokenservice");
+const { generate_jwt_token } = require("../auth/tokenservice");
 const stateManager = require("../blockchain/statemanager");
 const { 
   nearorg_rpc_timestamp, 
