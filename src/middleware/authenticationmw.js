@@ -14,7 +14,6 @@ const {
   tokenService
 } = require("../auth/tokenservice");
 const { 
-  send_webhook,
   verify_peerrodit_getrodit,
   verify_peerrodit_getrodit_withnep413,
 } = require("../auth/authentication");

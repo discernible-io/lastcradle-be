@@ -8,6 +8,7 @@ const { ulid } = require("ulid"); // Adding ulid for request IDs
 const crypto = require("crypto");
 const stateManager = require("../blockchain/statemanager");
 const { send_webhook } = require("../auth/authentication");
+const fetch = require("node-fetch"); // Required for webhook tests
 
 const DB_PATH = config.get("API_OPTIONS.DB_PATH");
 
@@ -35,17 +36,6 @@ const initializeDatabase = async () => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT,
       content TEXT
-    )`);
-
-    // Create webhook_tests table to track webhook test results
-    await db.run(`CREATE TABLE IF NOT EXISTS webhook_tests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      correlation_id TEXT,
-      event_type TEXT,
-      payload TEXT,
-      success BOOLEAN,
-      timestamp TEXT,
-      error_message TEXT
     )`);
 
     logger.infoWithContext("SQLite database initialized successfully", dbContext);
@@ -754,171 +744,7 @@ router.post(
   }
 );
 
-// Test webhook connectivity directly
-router.post(
-  "/webhook-test",
-  async (req, res) => {
-    const requestId = req.headers['x-request-id'] || ulid();
-    
-    const testContext = {
-      operation: "webhook_direct_test",
-      requestId,
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      userId: req.user ? req.user.id : "anonymous"
-    };
-    
-    logger.infoWithContext("Processing direct webhook test request", testContext);
-    
-    try {
-      // Get webhook URL configuration
-      const config = await stateManager.getConfigOwnRodit();
-      if (!config || !config.own_rodit || !config.own_rodit.metadata || !config.own_rodit.metadata.webhook_url) {
-        logger.warnWithContext(
-          "No webhook URL configured", 
-          {
-            ...testContext,
-            status: "no_webhook_url"
-          }
-        );
-        
-        return res.status(400).json({
-          success: false,
-          error: "No webhook URL configured in system"
-        });
-      }
-      
-      // Create test payload
-      const testPayload = {
-        event: "webhook_connectivity_test",
-        timestamp: new Date().toISOString(),
-        test_id: requestId,
-        origin: "direct_test",
-        data: {
-          message: "This is a webhook connectivity test"
-        }
-      };
-      
-      // Send a test webhook - pass the request object
-      const webhookResult = await logAndSendWebhook("webhook_test", testPayload, false, true, req);
-      
-      // Record the test in the database
-      try {
-        await db.run(
-          `INSERT INTO webhook_tests (correlation_id, event_type, payload, success, timestamp, error_message) 
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [
-            requestId,
-            "webhook_test",
-            JSON.stringify(testPayload),
-            webhookResult.isValid ? 1 : 0,
-            new Date().toISOString(),
-            webhookResult.error ? webhookResult.error.message || JSON.stringify(webhookResult.error) : null
-          ]
-        );
-        
-        logger.infoWithContext("Direct webhook test recorded in database", {
-          ...testContext,
-          status: "database_record_created"
-        });
-      } catch (dbError) {
-        logger.errorWithContext(
-          "Failed to record webhook test in database", 
-          {
-            ...testContext,
-            status: "database_error"
-          },
-          dbError
-        );
-      }
-      
-      // Use a clean webhook URL for display (don't show duplicated https://)
-      const displayWebhookUrl = config.own_rodit.metadata.webhook_url.replace(/^(https?:\/\/)/, "");
-      
-      res.json({
-        success: webhookResult.isValid,
-        webhookUrl: displayWebhookUrl,
-        correlation_id: requestId,
-        timestamp: new Date().toISOString(),
-        error: webhookResult.error ? webhookResult.error.message : null
-      });
-    } catch (error) {
-      logger.errorWithContext(
-        "Error in direct webhook test", 
-        testContext,
-        error
-      );
-      
-      res.status(500).json({
-        success: false,
-        error: "Failed to execute webhook test: " + error.message
-      });
-    }
-  }
-);
-
-// Get webhook test results
-router.get(
-  "/webhook-test-results",
-  async (req, res) => {
-    const limit = parseInt(req.query.limit) || 20;
-    
-    const requestId = req.headers['x-request-id'] || ulid();
-    
-    const testContext = {
-      operation: "get_webhook_test_results",
-      requestId,
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      userId: req.user ? req.user.id : "anonymous",
-      limit
-    };
-    
-    logger.infoWithContext("Retrieving webhook test results", testContext);
-    
-    try {
-      const results = await db.all(
-        `SELECT * FROM webhook_tests ORDER BY timestamp DESC LIMIT ?`, 
-        [limit]
-      );
-      
-      // Parse JSON payloads
-      const formattedResults = results.map(result => ({
-        ...result,
-        payload: result.payload ? JSON.parse(result.payload) : null,
-        success: !!result.success  // Convert to boolean
-      }));
-      
-      logger.infoWithContext(
-        "Retrieved webhook test results", 
-        {
-          ...testContext,
-          status: "success",
-          count: results.length
-        }
-      );
-      
-      res.json({
-        success: true,
-        results: formattedResults,
-        count: formattedResults.length
-      });
-    } catch (error) {
-      logger.errorWithContext(
-        "Error retrieving webhook test results", 
-        testContext,
-        error
-      );
-      
-      res.status(500).json({
-        success: false,
-        error: "Failed to retrieve webhook test results: " + error.message
-      });
-    }
-  }
-);
+// Webhook endpoints removed as they are not needed for the authentication system
 
 // Export functions to allow proper cleanup in app.js
 router.closeDatabase = async () => {
@@ -944,6 +770,8 @@ router.closeDatabase = async () => {
     }
   }
 };
+
+// Webhook test functions removed as they are not needed for the authentication system
 
 // Export the database getter
 router.getDatabase = getDatabase;
