@@ -1,1762 +1,778 @@
-/**
- * Authentication service for RODiT authentication
- * Copyright (c) 2024 Cableguard, Inc. All rights reserved.
- */
-
-const { ulid } = require("ulid");
+const express = require("express");
+const router = express.Router();
 const logger = require("../../config/logger");
-const nacl = require("tweetnacl");
+const config = require("config");
+const sqlite3 = require("sqlite3").verbose();
+const { open } = require("sqlite");
+const { ulid } = require("ulid"); // Adding ulid for request IDs
 const crypto = require("crypto");
-const { Resolver } = require("dns").promises;
-const { calculateCanonicalHash, unixTimeToDateString } = require("../utils");
-// Import specific functions to avoid circular dependencies
-const { generate_jwt_token } = require("../auth/tokenservice");
 const stateManager = require("../blockchain/statemanager");
-const { 
-  nearorg_rpc_timestamp, 
-  nearorg_rpc_tokenfromroditid, 
-  nearorg_rpc_fetchpublickeybytes,
-  RODiT,
-  PayloadNEP413,
-  PayloadNEP413Schema,
-  CONSTANTS,
-} = require("../blockchain/blockchainservice");
+const { send_webhook } = require("../auth/authentication");
 
-async function verify_rodit_ownership(
-    peerroditid,
-    peertimestamp,
-    peerroditid_base64url_signature,
-    peer_rodit
-  ) {
-    const requestId = ulid();
-    const startTime = Date.now();
+const DB_PATH = config.get("API_OPTIONS.DB_PATH");
 
-    logger.debug("Starting RODiT ownership verification", {
-      component: "RoditAuth",
-      method: "verify_rodit_ownership",
-      requestId,
-      peerRoditId: peerroditid,
-      timestamp: peertimestamp,
-      signatureLength: peerroditid_base64url_signature?.length,
-      signatureValue: peerroditid_base64url_signature?.substring(0, 20) + '...',
+// Database connection
+let db;
+
+// Initialize database and export a function that can be awaited by app.js
+const initializeDatabase = async () => {
+  try {
+    // Create context for database initialization
+    const dbContext = {
+      operation: "db_initialization",
+      dbPath: DB_PATH,
+      module: "cruda_router"
+    };
+
+    // Initialize SQLite database
+    db = await open({
+      filename: DB_PATH,
+      driver: sqlite3.Database,
     });
 
-    try {
-      // DO NOT DELETE THE FOLLOWING COMMENT
-      /* Maybe for NEP413 compatibility, the following line added "NEAR" before peerroditid */
-      
-      // Match legacy implementation exactly
-      const timeString = await unixTimeToDateString(peertimestamp);
-      const roditidandtimestamp = new TextEncoder().encode(
-        peerroditid + timeString
-      );
+    // Create comments table if it doesn't exist
+    await db.run(`CREATE TABLE IF NOT EXISTS comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT,
+      content TEXT
+    )`);
 
-      logger.debug("Encoded roditid and timestamp", {
-        component: "AuthServices",
-        method: "verify_rodit_ownership",
-        requestId,
-        timeString,
-        peerRoditId: peerroditid,
-        combinedString: peerroditid + timeString,
-        bufferLength: roditidandtimestamp.length,
-        bufferHex: Buffer.from(roditidandtimestamp).toString('hex').substring(0, 64) + '...',
-      });
+    logger.infoWithContext("SQLite database initialized successfully", dbContext);
+    return db;
+  } catch (error) {
+    const errorContext = {
+      operation: "db_initialization",
+      dbPath: DB_PATH,
+      module: "cruda_router"
+    };
+    logger.errorWithContext("Error initializing SQLite database", errorContext, error);
+    throw error;
+  }
+};
 
-      // Check if signature is defined before proceeding
-      if (!peerroditid_base64url_signature) {
-        logger.error("Missing signature in authentication request", {
-          component: "AuthServices",
-          method: "verify_rodit_ownership",
-          requestId,
-          peerRoditId: peerroditid,
-        });
-        throw new Error("Missing signature in authentication request");
-      }
+// Expose the database connection for proper cleanup in app.js
+const getDatabase = () => db;
 
-      const bytes_ed25519_signature = new Uint8Array(
-        Buffer.from(peerroditid_base64url_signature, "base64url")
-      );
-      
-      logger.debug("Decoded signature using base64url", {
-        component: "AuthServices",
-        method: "verify_rodit_ownership",
-        requestId,
-        signatureLength: bytes_ed25519_signature.length,
-        signatureHex: Buffer.from(bytes_ed25519_signature).toString('hex').substring(0, 64) + '...',
-        expectedLength: 64, // Ed25519 signatures should be 64 bytes
-      });
+// Log events with structured context
+const logEvent = (event, data, isError = false) => {
+  const context = {
+    event,
+    dataType: typeof data,
+    dataSize: JSON.stringify(data).length,
+    hasData: !!data
+  };
 
-      const peer_bytes_ed25519_public_key =
-        await nearorg_rpc_fetchpublickeybytes(
-          peer_rodit.owner_id
+  if (isError) {
+    logger.errorWithContext(`Database event: ${event}`, context, data.error || new Error(event));
+  } else {
+    logger.infoWithContext(`Database event: ${event}`, context);
+  }
+  
+  // Log detailed data at debug level
+  logger.debugWithContext(`Event data detail`, {
+    ...context,
+    data
+  });
+};
+
+// Enhanced function that logs, sends webhook, and tracks test results
+const logAndSendWebhook = async (event, data, isError = false, isTest = false, req = null) => {
+  const requestId = data.test_id || ulid();
+  const webhookContext = {
+    event,
+    requestId,
+    isError,
+    isTest,
+    dataType: typeof data,
+    operation: "webhook"
+  };
+
+  try {
+    // Log the webhook attempt
+    logger.infoWithContext("Sending webhook", {
+      ...webhookContext,
+      status: "attempt",
+      eventType: event
+    });
+
+    // Use the imported send_webhook function from the rodit middleware
+    // This avoids duplicating the complex logic for webhook generation
+    const result = await send_webhook(event, data, isError, req);
+
+    // Save test results if this is a test
+    if (isTest && db) {
+      try {
+        await db.run(
+          `INSERT INTO webhook_tests (correlation_id, event_type, payload, success, timestamp, error_message) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            requestId,
+            event,
+            JSON.stringify(data),
+            result.isValid ? 1 : 0,
+            new Date().toISOString(),
+            result.error ? result.error.message || JSON.stringify(result.error) : null
+          ]
         );
 
-      logger.debug("Retrieved public key", {
-        component: "AuthServices",
-        method: "verify_rodit_ownership",
-        requestId,
-        ownerId: peer_rodit.owner_id,
-        keyLength: peer_bytes_ed25519_public_key?.length || 0,
-        keyHex: peer_bytes_ed25519_public_key ? Buffer.from(peer_bytes_ed25519_public_key).toString('hex') : 'null',
-        expectedLength: 32, // Ed25519 public keys should be 32 bytes
-      });
+        logger.infoWithContext("Webhook test result recorded", {
+          ...webhookContext,
+          status: result.isValid ? "success" : "failure",
+          databaseRecorded: true
+        });
+      } catch (dbError) {
+        logger.errorWithContext(
+          "Failed to record webhook test result", 
+          {
+            ...webhookContext,
+            status: "database_error"
+          },
+          dbError
+        );
+      }
+    }
 
-      // Add more detailed debugging for verification inputs
-      logger.debug("Verification inputs", {
-        component: "AuthServices",
-        method: "verify_rodit_ownership",
-        requestId,
-        messageLength: roditidandtimestamp.length,
-        messageContent: peerroditid + timeString,
-        signatureLength: bytes_ed25519_signature.length,
-        publicKeyLength: peer_bytes_ed25519_public_key?.length,
-        messageHex: Buffer.from(roditidandtimestamp).toString('hex'),
-        signatureHex: Buffer.from(bytes_ed25519_signature).toString('hex'),
-        publicKeyHex: peer_bytes_ed25519_public_key ? Buffer.from(peer_bytes_ed25519_public_key).toString('hex') : 'null',
+    if (result.isValid) {
+      logger.infoWithContext("Webhook sent successfully", {
+        ...webhookContext,
+        status: "success"
       });
+    } else {
+      logger.errorWithContext(
+        "Webhook send failed", 
+        {
+          ...webhookContext,
+          status: "failed",
+          errorMessage: result.error?.message
+        },
+        result.error
+      );
+    }
 
-      const isaMatch = nacl.sign.detached.verify(
-        roditidandtimestamp,
-        bytes_ed25519_signature,
-        peer_bytes_ed25519_public_key
+    // Log the event locally
+    logEvent(event, data, isError);
+    
+    return { ...result, requestId };
+  } catch (error) {
+    logger.errorWithContext(
+      "Exception occurred while sending webhook", 
+      {
+        ...webhookContext,
+        status: "exception"
+      }, 
+      error
+    );
+    
+    // Still log the event locally
+    logEvent(event, data, isError);
+
+    // Save test failure if this is a test
+    if (isTest && db) {
+      try {
+        await db.run(
+          `INSERT INTO webhook_tests (correlation_id, event_type, payload, success, timestamp, error_message) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            requestId,
+            event,
+            JSON.stringify(data),
+            0,
+            new Date().toISOString(),
+            error.message || JSON.stringify(error)
+          ]
+        );
+      } catch (dbError) {
+        logger.errorWithContext(
+          "Failed to record webhook test failure", 
+          {
+            ...webhookContext,
+            status: "database_error"
+          },
+          dbError
+        );
+      }
+    }
+    
+    return { isValid: false, error, requestId };
+  }
+};
+
+// Initialize the database when this module is loaded
+initializeDatabase()
+  .then(() => {
+    logger.infoWithContext("CRUDA Router database initialized successfully", {
+      module: "cruda_router",
+      status: "ready"
+    });
+  })
+  .catch((error) => {
+    logger.errorWithContext(
+      "Failed to initialize database", 
+      {
+        module: "cruda_router",
+        status: "failed"
+      },
+      error
+    );
+    // Don't exit the process - let app.js handle errors
+  });
+
+// Middleware to check if the comment exists
+const itemExists = async (req, res, next) => {
+  const id = parseInt(req.body.id);
+  const requestId = req.headers['x-request-id'] || ulid();
+  
+  const itemContext = {
+    operation: "item_exists_check",
+    requestId,
+    itemId: id,
+    method: req.method,
+    path: req.path,
+    ip: req.ip
+  };
+  
+  logger.debugWithContext("Checking if item exists", itemContext);
+  
+  try {
+    const comment = await db.get("SELECT * FROM comments WHERE id = ?", id);
+    if (!comment) {
+      const errorMessage = `Comment not found: ${id}`;
+      
+      logger.warnWithContext(
+        "Comment not found", 
+        {
+          ...itemContext,
+          status: "not_found"
+        }
       );
       
-      const duration = Date.now() - startTime;
-
-      if (isaMatch) {
-        logger.info("Peer RODiT ownership check successful", {
-          component: "AuthServices",
-          requestId,
-          duration,
-          peerRoditId: peerroditid,
-          ownerId: peer_rodit.owner_id,
-          outcome: "success",
-        });
-
-        // Add metric for successful verification
-        logger.metric &&
-          logger.metric("rodit_ownership_verification", duration, {
-            result: "success",
-            peer_rodit_id: peerroditid,
-          });
-
-        return true;
-      } else {
-        logger.error("Peer RODiT ownership check failed", {
-          component: "AuthServices",
-          requestId,
-          duration,
-          peerRoditId: peerroditid,
-          ownerId: peer_rodit.owner_id,
-          outcome: "failed",
-        });
-
-        // Add metric for failed verification
-        logger.metric &&
-          logger.metric("rodit_ownership_verification", duration, {
-            result: "failure",
-            peer_rodit_id: peerroditid,
-          });
-
-        throw new Error("Error 035: PeerEd25519SignatureVerificationFailure");
+      // Determine if this is part of a test
+      const isTest = req.headers['x-webhook-test'] === 'true';
+      
+      // Pass the request object to logAndSendWebhook
+      await logAndSendWebhook("comment_not_found", { 
+        id, 
+        error: errorMessage,
+        test_id: isTest ? requestId : undefined
+      }, true, isTest, req);
+      
+      return res.status(404).json({ error: errorMessage });
+    }
+    
+    logger.debugWithContext(
+      "Comment found", 
+      {
+        ...itemContext,
+        status: "found",
+        commentTitle: comment.title
       }
+    );
+    
+    req.comment = comment;
+    req.requestId = requestId;
+    next();
+  } catch (error) {
+    logger.errorWithContext(
+      "Error checking if item exists", 
+      itemContext,
+      error
+    );
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// CREATE - Add a new comment
+router.post(
+  "/create",
+  (req, res, next) => {
+    req.logAction = "create_item";
+    req.requestId = req.headers['x-request-id'] || ulid();
+    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
+    next();
+  },
+  async (req, res) => {
+    const { title, content } = req.body;
+    
+    // Create context for create operation
+    const createContext = {
+      operation: "create_comment",
+      requestId: req.requestId,
+      action: req.logAction,
+      hasTitle: !!title,
+      hasContent: !!content,
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      isTest: req.isWebhookTest
+    };
+    
+    logger.infoWithContext("Processing create comment request", createContext);
+    
+    if (!title || !content) {
+      const errorMessage = "Invalid create request: missing title or content";
+      
+      logger.warnWithContext(
+        "Invalid create request", 
+        {
+          ...createContext,
+          validation: "failed",
+          missingTitle: !title,
+          missingContent: !content
+        }
+      );
+      
+      // Pass the request object to logAndSendWebhook
+      await logAndSendWebhook("create_comment_error", { 
+        error: errorMessage,
+        test_id: req.isWebhookTest ? req.requestId : undefined
+      }, true, req.isWebhookTest, req);
+      
+      return res.status(400).json({ error: errorMessage });
+    }
+    
+    try {
+      const result = await db.run(
+        "INSERT INTO comments (title, content) VALUES (?, ?)",
+        [title, content]
+      );
+      
+      const newItem = {
+        id: result.lastID,
+        title,
+        content,
+      };
+      
+      // Add test_id for webhook tracking if this is a test
+      if (req.isWebhookTest) {
+        newItem.test_id = req.requestId;
+      }
+      
+      logger.infoWithContext(
+        "Comment created successfully", 
+        {
+          ...createContext,
+          status: "success",
+          commentId: result.lastID,
+          titleLength: title.length,
+          contentLength: content.length
+        }
+      );
+      
+      // Send the webhook with additional test flag and pass the request object
+      const webhookResult = await logAndSendWebhook("comment_created", newItem, false, req.isWebhookTest, req);
+      
+      const response = { ...newItem };
+      
+      // If this is a test, include webhook result info
+      if (req.isWebhookTest) {
+        response.webhook_result = {
+          success: webhookResult.isValid,
+          correlation_id: webhookResult.requestId,
+          error: webhookResult.error ? webhookResult.error.message : null
+        };
+      }
+      
+      if (req.new_jwt_token) {
+        response.new_jwt_token = req.new_jwt_token;
+        logger.debugWithContext(
+          "Added JWT token to response", 
+          {
+            ...createContext,
+            tokenAdded: true
+          }
+        );
+      }
+      
+      res.status(201).json(response);
     } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("RODiT ownership verification failed", {
-        component: "AuthServices",
-        method: "verify_rodit_ownership",
-        requestId,
-        duration,
-        peerRoditId: peerroditid,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-
-      // Add metric for verification errors
-      logger.metric &&
-        logger.metric("rodit_ownership_verification_errors", 1, {
-          error_type: error.name || "Unknown",
-          peer_rodit_id: peerroditid,
-        });
-
-      throw new Error("Error A33: " + error.message);
+      logger.errorWithContext(
+        "Error creating comment", 
+        createContext,
+        error
+      );
+      res.status(500).json({ error: "Internal server error" });
     }
   }
+);
 
- async function verify_rodit_ownership_withnep413(
-    message,
-    nonce,
-    recipient,
-    callbackUrl,
-    signature,
-    peer_rodit
-  ) {
+// READ - Read all comments
+router.post(
+  "/list",
+  (req, res, next) => {
+    req.logAction = "read_all_items";
+    req.requestId = req.headers['x-request-id'] || ulid();
+    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
+    next();
+  },
+  async (req, res) => {
+    // Create context for list operation
+    const listContext = {
+      operation: "list_comments",
+      requestId: req.requestId,
+      action: req.logAction,
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      isTest: req.isWebhookTest
+    };
+    
+    logger.infoWithContext("Processing list comments request", listContext);
+    
     try {
-      logger.debug("Starting NEP-413 signature verification");
-
-      // Ensure nonce is correctly formatted
-      let nonceArray;
-      if (typeof nonce === "string") {
-        // Handle base64url encoded nonce
-        nonceArray = new Uint8Array(Buffer.from(nonce, "base64url"));
-      } else if (Array.isArray(nonce)) {
-        nonceArray = new Uint8Array(nonce);
-      } else if (typeof nonce === "object" && nonce !== null) {
-        nonceArray = new Uint8Array(Object.values(nonce));
-      } else {
-        throw new Error(`Invalid nonce format: ${typeof nonce}`);
+      const comments = await db.all("SELECT * FROM comments");
+      const itemCount = comments.length;
+      
+      logger.infoWithContext(
+        "Comments retrieved successfully", 
+        {
+          ...listContext,
+          status: "success",
+          count: itemCount
+        }
+      );
+      
+      // Send webhook with test flag if needed and pass the request object
+      const webhookPayload = { 
+        count: itemCount,
+        test_id: req.isWebhookTest ? req.requestId : undefined
+      };
+      
+      const webhookResult = await logAndSendWebhook("comments_listed", webhookPayload, false, req.isWebhookTest, req);
+      
+      const response = { comments };
+      
+      // If this is a test, include webhook result info
+      if (req.isWebhookTest) {
+        response.webhook_result = {
+          success: webhookResult.isValid,
+          correlation_id: webhookResult.requestId,
+          error: webhookResult.error ? webhookResult.error.message : null
+        };
       }
-
-      if (nonceArray.length !== 32) {
-        logger.error(`Invalid nonce length: ${nonceArray.length}`);
-        throw new Error(
-          `Invalid nonce length: ${nonceArray.length}, expected 32`
+      
+      if (req.new_jwt_token) {
+        response.new_jwt_token = req.new_jwt_token;
+        logger.debugWithContext(
+          "Added JWT token to response", 
+          {
+            ...listContext,
+            tokenAdded: true
+          }
         );
       }
-
-      const payload = new PayloadNEP413({
-        tag: 2147484061,
-        message,
-        nonce: nonceArray,
-        recipient,
-        callbackUrl,
-      });
-
-      const serializedPayload = borsh.serialize(PayloadNEP413Schema, payload);
-      const payloadHash = crypto
-        .createHash("sha256")
-        .update(serializedPayload)
-        .digest();
-
-      // Convert base64url signature to standard base64
-      const standardBase64 = signature
-        .replace(/-/g, "+")
-        .replace(/_/g, "/")
-        .padEnd(signature.length + ((4 - (signature.length % 4)) % 4), "=");
-      const signatureBytes = nacl.util.decodeBase64(standardBase64);
-
-      // Get public key bytes
-      const publicKeyBytes = await nearorg_rpc_fetchpublickeybytes(
-        peer_rodit.owner_id
-      );
-
-      // Perform verification
-      const isaMatch = nacl.sign.detached.verify(
-        payloadHash,
-        signatureBytes,
-        publicKeyBytes
-      );
-
-      if (isaMatch) {
-        logger.info("Peer RODiT possession check successful");
-        return true;
-      } else {
-        logger.error("Peer RODiT possession check failed");
-        throw new Error("PeerEd25519SignatureVerificationFailure");
-      }
+      
+      res.json(response);
     } catch (error) {
-      logger.error(
-        `Error in this.verify_rodit_ownership_withnep413: ${error.message}`
+      logger.errorWithContext(
+        "Error listing comments", 
+        listContext,
+        error
+      );
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+// READ - Read a specific comment
+router.post(
+  "/read",
+  (req, res, next) => {
+    req.requestId = req.headers['x-request-id'] || ulid();
+    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
+    next();
+  },
+  itemExists,
+  (req, res, next) => {
+    req.logAction = "read_item";
+    next();
+  },
+  async (req, res) => {
+    // Create context for read operation
+    const readContext = {
+      operation: "read_comment",
+      requestId: req.requestId,
+      action: req.logAction,
+      commentId: req.comment.id,
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      isTest: req.isWebhookTest
+    };
+    
+    logger.infoWithContext("Processing read comment request", readContext);
+    
+    // Add test_id for webhook tracking if this is a test
+    const commentData = { ...req.comment };
+    if (req.isWebhookTest) {
+      commentData.test_id = req.requestId;
+    }
+    
+    // Send the webhook with test flag if needed and pass the request object
+    const webhookResult = await logAndSendWebhook("comment_read", commentData, false, req.isWebhookTest, req);
+    
+    logger.infoWithContext(
+      "Comment retrieved successfully", 
+      {
+        ...readContext,
+        status: "success",
+        commentTitle: req.comment.title,
+        webhookSent: webhookResult.isValid
+      }
+    );
+    
+    const response = { ...req.comment };
+    
+    // If this is a test, include webhook result info
+    if (req.isWebhookTest) {
+      response.webhook_result = {
+        success: webhookResult.isValid,
+        correlation_id: webhookResult.requestId,
+        error: webhookResult.error ? webhookResult.error.message : null
+      };
+    }
+    
+    if (req.new_jwt_token) {
+      response.new_jwt_token = req.new_jwt_token;
+      logger.debugWithContext(
+        "Added JWT token to response", 
+        {
+          ...readContext,
+          tokenAdded: true
+        }
+      );
+    }
+    
+    res.json(response);
+  }
+);
+
+// UPDATE - Update a comment
+router.post(
+  "/update",
+  (req, res, next) => {
+    req.requestId = req.headers['x-request-id'] || ulid();
+    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
+    next();
+  },
+  itemExists,
+  (req, res, next) => {
+    req.logAction = "update_item";
+    next();
+  },
+  async (req, res) => {
+    const { id, title, content } = req.body;
+    const oldComment = { ...req.comment };
+    
+    // Create context for update operation
+    const updateContext = {
+      operation: "update_comment",
+      requestId: req.requestId,
+      action: req.logAction,
+      commentId: id,
+      titleUpdated: title !== undefined,
+      contentUpdated: content !== undefined,
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      isTest: req.isWebhookTest
+    };
+    
+    logger.infoWithContext("Processing update comment request", updateContext);
+    
+    try {
+      await db.run(
+        "UPDATE comments SET title = COALESCE(?, title), content = COALESCE(?, content) WHERE id = ?",
+        [title, content, id]
+      );
+      
+      const updatedComment = await db.get(
+        "SELECT * FROM comments WHERE id = ?",
+        id
+      );
+      
+      logger.infoWithContext(
+        "Comment updated successfully", 
+        {
+          ...updateContext,
+          status: "success",
+          oldTitleLength: oldComment.title.length,
+          newTitleLength: updatedComment.title.length,
+          oldContentLength: oldComment.content.length,
+          newContentLength: updatedComment.content.length
+        }
+      );
+      
+      // Prepare webhook payload
+      const webhookPayload = {
+        id: updatedComment.id,
+        oldTitle: oldComment.title,
+        newTitle: updatedComment.title,
+        oldContent: oldComment.content,
+        newContent: updatedComment.content,
+      };
+      
+      // Add test_id for webhook tracking if this is a test
+      if (req.isWebhookTest) {
+        webhookPayload.test_id = req.requestId;
+      }
+      
+      // Send the webhook with test flag if needed and pass the request object
+      const webhookResult = await logAndSendWebhook("comment_updated", webhookPayload, false, req.isWebhookTest, req);
+      
+      const response = { ...updatedComment };
+      
+      // If this is a test, include webhook result info
+      if (req.isWebhookTest) {
+        response.webhook_result = {
+          success: webhookResult.isValid,
+          correlation_id: webhookResult.requestId,
+          error: webhookResult.error ? webhookResult.error.message : null
+        };
+      }
+      
+      if (req.new_jwt_token) {
+        response.new_jwt_token = req.new_jwt_token;
+        logger.debugWithContext(
+          "Added JWT token to response", 
+          {
+            ...updateContext,
+            tokenAdded: true
+          }
+        );
+      }
+      
+      res.json(response);
+    } catch (error) {
+      logger.errorWithContext(
+        "Error updating comment", 
+        updateContext,
+        error
+      );
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+// DESTROY - Destroy a comment
+router.post(
+  "/destroy",
+  (req, res, next) => {
+    req.requestId = req.headers['x-request-id'] || ulid();
+    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
+    next();
+  },
+  itemExists,
+  (req, res, next) => {
+    req.logAction = "destroy_item";
+    next();
+  },
+  async (req, res) => {
+    const { id } = req.body;
+    
+    // Create context for destroy operation
+    const destroyContext = {
+      operation: "destroy_comment",
+      requestId: req.requestId,
+      action: req.logAction,
+      commentId: id,
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      isTest: req.isWebhookTest
+    };
+    
+    logger.infoWithContext("Processing destroy comment request", destroyContext);
+    
+    try {
+      const deletedComment = { ...req.comment };
+      await db.run("DELETE FROM comments WHERE id = ?", id);
+      
+      logger.infoWithContext(
+        "Comment destroyed successfully", 
+        {
+          ...destroyContext,
+          status: "success",
+          commentTitle: deletedComment.title
+        }
+      );
+      
+      // Add test_id for webhook tracking if this is a test
+      if (req.isWebhookTest) {
+        deletedComment.test_id = req.requestId;
+      }
+      
+      // Send the webhook with test flag if needed and pass the request object
+      const webhookResult = await logAndSendWebhook("comment_destroyed", deletedComment, false, req.isWebhookTest, req);
+      
+     // DESTROY - Destroy a comment (continued)
+      // In the previous section, we ended at this point
+      const response = {
+        message: "Comment successfully deleted",
+        deletedComment,
+      };
+      
+      // If this is a test, include webhook result info
+      if (req.isWebhookTest) {
+        response.webhook_result = {
+          success: webhookResult.isValid,
+          correlation_id: webhookResult.requestId,
+          error: webhookResult.error ? webhookResult.error.message : null
+        };
+      }
+      
+      if (req.new_jwt_token) {
+        response.new_jwt_token = req.new_jwt_token;
+        logger.debugWithContext(
+          "Added JWT token to response", 
+          {
+            ...destroyContext,
+            tokenAdded: true
+          }
+        );
+      }
+      
+      res.status(200).json(response);
+    } catch (error) {
+      logger.errorWithContext(
+        "Error destroying comment", 
+        destroyContext,
+        error
+      );
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+// Webhook endpoints removed as they are not needed for the authentication system
+
+// Export functions to allow proper cleanup in app.js
+router.closeDatabase = async () => {
+  if (db) {
+    try {
+      await db.close();
+      logger.infoWithContext("Database connection closed", {
+        operation: "db_close",
+        module: "cruda_router",
+        status: "success"
+      });
+    } catch (error) {
+      logger.errorWithContext(
+        "Error closing database", 
+        {
+          operation: "db_close",
+          module: "cruda_router",
+          status: "failed"
+        },
+        error
       );
       throw error;
     }
   }
-
-  /**
-   * Send a webhook notification
-   *
-   * @param {string} event - Event name
-   * @param {Object} data - Event data
-   * @param {boolean} isError - Whether this is an error event
-   * @param {Object} req - Express request object (optional)
-   * @returns {Promise<Object>} Webhook delivery result
-   */
- async function send_webhook(event, data, isError = false, req = null) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.debug("Starting webhook delivery", {
-      component: "RoditAuth",
-      method: "send_webhook",
-      requestId,
-      event,
-      isError,
-      dataSize:
-        typeof data === "object" ? JSON.stringify(data).length : "unknown",
-    });
-
-    try {
-      // Get the configuration from state manager
-      const config_own_rodit = await stateManager.getConfigOwnRodit();
-      
-      // Check if webhook configuration is available
-      if (
-        !config_own_rodit ||
-        !config_own_rodit.own_rodit.metadata.webhook_url
-      ) {
-        const duration = Date.now() - startTime;
-
-        logger.warn("Webhook configuration missing", {
-          component: "AuthServices",
-          method: "send_webhook",
-          requestId,
-          duration,
-          hasConfig: !!config_own_rodit,
-          hasOwnRodit: !!config_own_rodit?.own_rodit,
-          hasMetadata: !!config_own_rodit?.own_rodit?.metadata,
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric &&
-          logger.metric("webhook_delivery_duration_ms", duration, {
-            component: "AuthServices",
-            success: false,
-            event,
-            error: "WEBHOOK_CONFIG_ERROR",
-          });
-        logger.metric &&
-          logger.metric("webhook_delivery_failures_total", 1, {
-            component: "AuthServices",
-            reason: "CONFIG_MISSING",
-            event,
-          });
-
-        return {
-          isValid: false,
-          error: {
-            code: "WEBHOOK_CONFIG_ERROR",
-            message: "Webhook URL not available in Rodit configuration",
-            requestId,
-          },
-        };
-      }
-
-      // Determine webhook URL from request or config
-      let webhookUrl;
-      
-      // Check if request object is available and has user with webhook URL
-      if (req && req.user && req.user.rodit_webhookurl) {
-        // Use the webhook URL from the peer's JWT token
-        webhookUrl = req.user.rodit_webhookurl;
-        logger.debug("Using webhook URL from peer JWT token", {
-          component: "AuthServices",
-          method: "send_webhook",
-          requestId,
-          webhookSource: "peer_jwt",
-          webhookUrl,
-        });
-      } else {
-        // Fallback to config
-        webhookUrl = config_own_rodit.own_rodit.metadata.webhook_url;
-        logger.debug("Using webhook URL from own RODiT config", {
-          component: "AuthServices",
-          method: "send_webhook",
-          requestId,
-          webhookSource: "own_config",
-          webhookUrl,
-        });
-      }
-
-      // First remove any existing protocol
-      const cleanWebhookUrl = webhookUrl.replace(/^(https?:\/\/)/, "");
-
-      // Then add https:// protocol
-      const formattedWebhookUrl = `https://${cleanWebhookUrl}/webhook`;
-
-      logger.debug("Webhook URL details", {
-        component: "AuthServices",
-        method: "send_webhook",
-        requestId,
-        rawWebhookUrl: webhookUrl,
-        formattedWebhookUrl,
-      });
-
-      const timestamp = Date.now();
-      
-      // Ensure data is serializable before stringifying
-      let sanitizedData;
-      try {
-        // Test if data can be properly serialized
-        if (typeof data === 'object' && data !== null) {
-          // Create a deep copy to avoid modifying the original data
-          sanitizedData = JSON.parse(JSON.stringify(data));
-        } else {
-          sanitizedData = data;
-        }
-      } catch (serializeError) {
-        // If data can't be serialized, create a simplified version
-        logger.warn("Data serialization failed, creating simplified version", {
-          component: "AuthServices",
-          method: "send_webhook",
-          requestId,
-          error: serializeError.message
-        });
-        
-        // Create a simplified version with basic properties
-        sanitizedData = {
-          type: typeof data,
-          summary: "Data could not be serialized to JSON",
-          error: serializeError.message
-        };
-      }
-      
-      // Create the payload with sanitized data
-      const payload = JSON.stringify({
-        event,
-        data: sanitizedData,
-        isError,
-        timestamp,
-        requestId,
-      }, null, 0); // Use null, 0 to ensure compact JSON without special characters
-
-      logger.debug("Preparing webhook payload", {
-        component: "AuthServices",
-        method: "send_webhook",
-        requestId,
-        payloadSize: payload.length,
-        event,
-      });
-
-      // Generate payload hash
-      const sha256_ofpayload = crypto
-        .createHash("sha256")
-        .update(payload)
-        .digest();
-
-      logger.debug("Creating signature", {
-        component: "AuthServices",
-        method: "send_webhook",
-        requestId,
-        hasPrivateKey: !!config_own_rodit.own_rodit_bytes_private_key,
-      });
-
-      // Convert private key and generate signature
-      const own_rodit_private_key = new Uint8Array(
-        config_own_rodit.own_rodit_bytes_private_key
-      );
-
-      const signatureStartTime = Date.now();
-      const signature_ofpayload = nacl.sign.detached(
-        sha256_ofpayload,
-        own_rodit_private_key
-      );
-      const signatureDuration = Date.now() - signatureStartTime;
-
-      // Log signature generation metrics
-      logger.metric &&
-        logger.metric("signature_generation_duration_ms", signatureDuration, {
-          component: "AuthServices",
-        });
-
-      const signature_hex_ofpayload =
-        Buffer.from(signature_ofpayload).toString("hex");
-
-      logger.debug("Sending webhook request", {
-        component: "AuthServices",
-        method: "send_webhook",
-        requestId,
-        webhookUrl: formattedWebhookUrl,
-        event,
-      });
-
-      // Send webhook request WITH the JWT token
-      const fetchStartTime = Date.now();
-      const response = await fetch(formattedWebhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Signature": signature_hex_ofpayload,
-          "X-Timestamp": timestamp.toString(),
-          "X-Request-ID": requestId
-        },
-        body: payload,
-      });
-      const fetchDuration = Date.now() - fetchStartTime;
-
-      // Log fetch duration metrics
-      logger.metric("webhook_http_request_duration_ms", fetchDuration, {
-        component: "AuthServices",
-        success: response.ok,
-        status: response.status,
-        event,
-      });
-
-      if (!response.ok) {
-        const duration = Date.now() - startTime;
-
-        logger.error("Webhook delivery failed", {
-          component: "AuthServices",
-          method: "send_webhook",
-          requestId,
-          duration,
-          status: response.status,
-          statusText: response.statusText,
-          webhookUrl: formattedWebhookUrl,
-          event,
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("webhook_delivery_duration_ms", duration, {
-          component: "AuthServices",
-          success: false,
-          event,
-          error: "HTTP_ERROR",
-          status: response.status,
-        });
-        logger.metric("webhook_delivery_failures_total", 1, {
-          component: "AuthServices",
-          reason: "HTTP_ERROR",
-          status: response.status,
-          event,
-        });
-
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      await response.text();
-
-      const duration = Date.now() - startTime;
-      logger.info("Webhook delivered successfully", {
-        component: "AuthServices",
-        method: "send_webhook",
-        requestId,
-        duration,
-        event,
-        webhookUrl: formattedWebhookUrl,
-        status: response.status,
-      });
-
-      // Emit metrics for Grafana dashboards
-      logger.metric("webhook_delivery_duration_ms", duration, {
-        component: "AuthServices",
-        success: true,
-        event,
-      });
-      logger.metric("successful_webhook_deliveries_total", 1, {
-        component: "AuthServices",
-        event,
-      });
-
-      return {
-        isValid: true,
-        message: "Webhook sent successfully",
-        requestId,
-        duration,
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Webhook send failed", {
-        component: "AuthServices",
-        method: "send_webhook",
-        requestId,
-        duration,
-        event,
-        errorMessage: error.message,
-        errorCode: error.code || "UNKNOWN_ERROR",
-        stack: error.stack,
-        isError,
-        isTest: data && data.test_id ? true : false,
-        operation: "webhook",
-        status: "failed",
-      });
-
-      // Emit metrics for Grafana dashboards
-      logger.metric("webhook_delivery_duration_ms", duration, {
-        component: "AuthServices",
-        success: false,
-        event,
-        error: error.constructor.name,
-      });
-      logger.metric("webhook_delivery_errors_total", 1, {
-        component: "AuthServices",
-        error: error.constructor.name,
-        event,
-      });
-
-      return {
-        isValid: false,
-        error: {
-          code: "WEBHOOK_SEND_ERROR",
-          message: `Failed to send webhook: ${error.message}`,
-          requestId,
-        },
-      };
-    }
-  }
-
-  /**
-   * Authenticate a webhook request
-   *
-   * @param {string} payload - Webhook payload
-   * @param {string} signature_hex_ofpayload - Signature of payload
-   * @param {number} timestamp - Request timestamp
-   * @param {Uint8Array} server_public_key - Server's public key from RODiT
-   * @returns {Promise<Object>} Authentication result
-   */
-  async function authenticate_webhook(
-    payload,
-    signature_hex_ofpayload,
-    timestamp,
-    server_public_key
-  ) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    logger.debug("Starting webhook authentication", {
-      component: "AuthServices",
-      method: "authenticate_webhook",
-      requestId,
-      hasPayload: !!payload,
-      hasSignature: !!signature_hex_ofpayload,
-      hasTimestamp: !!timestamp,
-      hasServerPublicKey: !!server_public_key,
-      serverKeyLength: server_public_key?.length,
-    });
-
-    try {
-      const currentTime = Date.now();
-      const parsedTimestamp = parseInt(timestamp);
-      const timeThreshold = 5 * 60 * 1000; // 5 minutes
-
-      // Check if timestamp is too old
-      if (currentTime - parsedTimestamp > timeThreshold) {
-        const duration = Date.now() - startTime;
-
-        logger.warn("Webhook authentication failed - timestamp too old", {
-          component: "AuthServices",
-          method: "authenticate_webhook",
-          requestId,
-          duration,
-          timestampAge: (currentTime - parsedTimestamp) / 1000,
-          threshold: timeThreshold / 1000,
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("webhook_authentication_duration_ms", duration, {
-          component: "AuthServices",
-          success: false,
-          reason: "TIMESTAMP_EXPIRED",
-        });
-        logger.metric("webhook_authentication_failures_total", 1, {
-          component: "AuthServices",
-          reason: "TIMESTAMP_EXPIRED",
-        });
-
-        return {
-          isValid: false,
-          error: {
-            code: "TIMESTAMP_EXPIRED",
-            message: "Webhook timestamp is too old",
-            requestId,
-          },
-        };
-      }
-
-      logger.debug("Calculating payload hash for verification", {
-        component: "AuthServices",
-        method: "authenticate_webhook",
-        requestId,
-        payloadSize: payload.length,
-      });
-
-      // Calculate hash of payload
-      const sha256_ofpayload = crypto
-        .createHash("sha256")
-        .update(payload)
-        .digest();
-
-      logger.debug("Converting signature to buffer", {
-        component: "AuthServices",
-        method: "authenticate_webhook",
-        requestId,
-        signatureLength: signature_hex_ofpayload.length,
-      });
-
-      // Convert signature to buffer
-      const buffer_signature_ofpayload = Buffer.from(
-        signature_hex_ofpayload,
-        "hex"
-      );
-
-      logger.debug("Using server public key for verification", {
-        component: "AuthServices",
-        method: "authenticate_webhook",
-        requestId,
-        serverKeyLength: server_public_key.length,
-        serverKeyHex: Buffer.from(server_public_key).toString('hex').substring(0, 16) + '...',
-      });
-
-      // Verify signature using the server's public key
-      const verificationStartTime = Date.now();
-      const isValid = nacl.sign.detached.verify(
-        sha256_ofpayload,
-        buffer_signature_ofpayload,
-        server_public_key
-      );
-      const verificationDuration = Date.now() - verificationStartTime;
-
-      // Log verification metrics
-      logger.metric(
-        "signature_verification_duration_ms",
-        verificationDuration,
-        {
-          component: "AuthServices",
-          success: isValid,
-        }
-      );
-
-      if (!isValid) {
-        const duration = Date.now() - startTime;
-
-        logger.warn("Webhook authentication failed - invalid signature", {
-          component: "AuthServices",
-          method: "authenticate_webhook",
-          requestId,
-          duration,
-          verificationDuration,
-        });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("webhook_authentication_duration_ms", duration, {
-          component: "AuthServices",
-          success: false,
-          reason: "INVALID_SIGNATURE",
-        });
-        logger.metric("webhook_authentication_failures_total", 1, {
-          component: "AuthServices",
-          reason: "INVALID_SIGNATURE",
-        });
-
-        return {
-          isValid: false,
-          error: {
-            code: "INVALID_SIGNATURE",
-            message: "Invalid webhook signature",
-            requestId,
-          },
-        };
-      }
-
-      const duration = Date.now() - startTime;
-      logger.info("Webhook authentication successful", {
-        component: "AuthServices",
-        method: "authenticate_webhook",
-        requestId,
-        duration,
-        verificationDuration,
-      });
-
-      // Emit metrics for Grafana dashboards
-      logger.metric("webhook_authentication_duration_ms", duration, {
-        component: "AuthServices",
-        success: true,
-      });
-      logger.metric("successful_webhook_authentications_total", 1, {
-        component: "AuthServices",
-      });
-
-      return {
-        isValid: true,
-        message: "Webhook authentication successful",
-        requestId,
-        duration,
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Webhook authentication error", {
-        component: "AuthServices",
-        method: "authenticate_webhook",
-        requestId,
-        duration,
-        errorMessage: error.message,
-        errorCode: error.code || "UNKNOWN_ERROR",
-        stack: error.stack,
-      });
-
-      // Emit metrics for Grafana dashboards
-      logger.metric("webhook_authentication_duration_ms", duration, {
-        component: "AuthServices",
-        success: false,
-        error: error.code || "UNKNOWN_ERROR",
-      });
-      logger.metric("webhook_authentication_errors_total", 1, {
-        component: "AuthServices",
-        error: error.constructor.name,
-      });
-
-      return {
-        isValid: false,
-        error: {
-          code: "AUTHENTICATION_ERROR",
-          message: "An unexpected error occurred during webhook authentication",
-          details: error.message,
-          requestId,
-        },
-      };
-    }
-  }
-
-  /**
-   * Verify and get a peer RODiT
-   *
-   * @param {string} peerroditid - Peer RODiT ID
-   * @param {number} peertimestamp - Peer timestamp
-   * @param {string} peerroditid_base64url_signature - Base64URL signature
-   * @returns {Promise<Object>} Verification result with peer RODiT
-   */
-  async function verify_peerrodit_getrodit(
-    peerroditid,
-    peertimestamp,
-    peerroditid_base64url_signature
-  ) {
-    const requestId = ulid();
-    const startTime = Date.now();
-
-    // Get own_rodit from stateManager
-    const own_rodit = await stateManager.getConfigOwnRodit();
-
-    logger.debug("Starting peer RODiT verification", {
-      component: "RoditAuth",
-      method: "verify_peerrodit_getrodit",
-      requestId,
-      peerRoditId: peerroditid,
-      timestamp: peertimestamp,
-      signatureLength: peerroditid_base64url_signature?.length,
-      hasOwnRodit: !!own_rodit,
-      ownRoditId: own_rodit?.token_id,
-    });
-
-    try {
-      logger.debug("Fetching peer RODiT from blockchain", {
-        requestId,
-        peerRoditId: peerroditid,
-      });
-
-      const tokenFetchStart = Date.now();
-      const peer_rodit = await nearorg_rpc_tokenfromroditid(peerroditid);
-      const tokenFetchDuration = Date.now() - tokenFetchStart;
-
-      logger.debug("Received peer RODiT from blockchain", {
-        requestId,
-        tokenFetchDuration,
-        hasPeerRodit: !!peer_rodit,
-        peerRoditId: peer_rodit?.token_id,
-        peerRoditOwnerId: peer_rodit?.owner_id,
-        hasPeerRoditMetadata: peer_rodit && !!peer_rodit.metadata,
-        metadataKeys:
-          peer_rodit && peer_rodit.metadata
-            ? Object.keys(peer_rodit.metadata)
-            : [],
-      });
-
-      if (!peer_rodit) {
-        logger.error("Failed to retrieve peer RODiT data", {
-          component: "AuthServices",
-          method: "verify_peerrodit_getrodit",
-          requestId,
-          duration: Date.now() - startTime,
-          peerRoditId: peerroditid,
-        });
-        return { peer_rodit: null, goodrodit: false };
-      }
-
-      if (!peer_rodit.metadata) {
-        logger.error("Peer RODiT missing metadata", {
-          component: "AuthServices",
-          method: "verify_peerrodit_getrodit",
-          requestId,
-          duration: Date.now() - startTime,
-          peerRoditId: peerroditid,
-          peerRoditOwnerId: peer_rodit.owner_id,
-        });
-        return { peer_rodit: null, goodrodit: false };
-      }
-
-      // Verify ownership
-      const ownershipStart = Date.now();
-      const ownershipVerified = await verify_rodit_ownership(
-        peerroditid,
-        peertimestamp,
-        peerroditid_base64url_signature,
-        peer_rodit
-      );
-      const ownershipDuration = Date.now() - ownershipStart;
-
-      logger.debug("Ownership verification completed", {
-        requestId,
-        ownershipDuration,
-        ownershipVerified,
-      });
-
-      if (!ownershipVerified) {
-        logger.warn("Invalid signature, aborting RODiT verification", {
-          requestId,
-          roditId: peerroditid,
-        });
-        return { peer_rodit, goodrodit: false };
-      }
-
-      // Verify match
-      const matchStart = Date.now();
-      const isaMatch = await verify_rodit_isamatch(
-        own_rodit.own_rodit.metadata.serviceprovider_id,
-        peer_rodit
-      );
-      const matchDuration = Date.now() - matchStart;
-
-      logger.debug("Match verification completed", {
-        requestId,
-        matchDuration,
-        isaMatch,
-      });
-
-      if (!isaMatch) {
-        logger.warn("RODiT match verification failed", {
-          requestId,
-          roditId: peerroditid,
-        });
-        return { peer_rodit, goodrodit: false };
-      }
-
-      // Verify live
-      const liveStart = Date.now();
-      const isLive = await verify_rodit_islive(
-        peer_rodit.metadata.not_after,
-        peer_rodit.metadata.not_before
-      );
-      const liveDuration = Date.now() - liveStart;
-
-      logger.debug("Live verification completed", {
-        requestId,
-        liveDuration,
-        isLive,
-      });
-
-      if (!isLive) {
-        logger.warn("RODiT live verification failed", {
-          requestId,
-          roditId: peerroditid,
-        });
-        return { peer_rodit, goodrodit: false };
-      }
-
-      // Verify active
-      const activeStart = Date.now();
-      const isActive = await verify_rodit_isactive(
-        peer_rodit.token_id,
-        own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
-      );
-      const activeDuration = Date.now() - activeStart;
-
-      logger.debug("Active verification completed", {
-        requestId,
-        activeDuration,
-        isActive,
-      });
-
-      if (!isActive) {
-        logger.warn("RODiT active verification failed", {
-          requestId,
-          roditId: peerroditid,
-        });
-        return { peer_rodit, goodrodit: false };
-      }
-
-      // Verify trusted
-      const trustedStart = Date.now();
-      const isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
-        own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
-      );
-      const trustedDuration = Date.now() - trustedStart;
-
-      logger.debug("Trust verification completed", {
-        requestId,
-        trustedDuration,
-        isTrusted,
-      });
-
-      if (!isTrusted) {
-        logger.warn("RODiT trusted verification failed", {
-          requestId,
-          roditId: peerroditid,
-        });
-        return { peer_rodit, goodrodit: false };
-      }
-
-      const totalDuration = Date.now() - startTime;
-
-      logger.info("Peer RODiT verification successful", {
-        component: "AuthServices",
-        method: "verify_peerrodit_getrodit",
-        requestId,
-        duration: totalDuration,
-        peerRoditId: peerroditid,
-        peerOwnerId: peer_rodit.owner_id,
-      });
-
-      return {
-        peer_rodit,
-        goodrodit: true,
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Error in verify_peerrodit_getrodit", {
-        component: "AuthServices",
-        method: "verify_peerrodit_getrodit",
-        requestId,
-        duration,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-
-      // Add metrics for verification errors
-      logger.metric &&
-        logger.metric("rodit_verification_errors", 1, {
-          error_type: error.name || "Unknown",
-        });
-
-      return {
-        peer_rodit: null,
-        goodrodit: false,
-        error: `Error in verify_peerrodit_getrodit: ${error.message}`,
-      };
-    }
-  }
-
-  async function verify_rodit_islive(peer_rodit_notafter, peer_rodit_notbefore) {
-    const requestId = ulid();
-    const startTime = Date.now();
-  
-    logger.debug("Checking RODiT time validity", {
-      component: "RoditAuth",
-      method: "verify_rodit_islive",
-      requestId,
-      notAfter: peer_rodit_notafter,
-      notBefore: peer_rodit_notbefore,
-    });
-  
-    function parseDate(datestring) {
-      const date = new Date(datestring);
-      return isNaN(date.getTime()) ? new Date(0) : date;
-    }
-  
-    const datetimenul = new Date(0);
-    const datetimenotafter = parseDate(peer_rodit_notafter);
-    const datetimenotbefore = parseDate(peer_rodit_notbefore);
-  
-    logger.debug("Parsed validity dates", {
-      requestId,
-      parsedNotAfter: datetimenotafter.toISOString(),
-      parsedNotBefore: datetimenotbefore.toISOString(),
-      isNotAfterNull: datetimenotafter.getTime() === datetimenul.getTime(),
-      isNotBeforeNull: datetimenotbefore.getTime() === datetimenul.getTime(),
-    });
-  
-    try {
-      const rpcStart = Date.now();
-      const stringtimenow = await nearorg_rpc_timestamp();
-      const rpcDuration = Date.now() - rpcStart;
-  
-      logger.debug("Retrieved blockchain timestamp", {
-        requestId,
-        rpcDuration,
-        blockchainTimestamp: stringtimenow,
-      });
-  
-      const timestamp = parseInt(stringtimenow, 10);
-  
-      if (isNaN(timestamp)) {
-        logger.error("Failed to parse blockchain timestamp", {
-          component: "AuthServices",
-          requestId,
-          duration: Date.now() - startTime,
-          blockchainTimestamp: stringtimenow,
-        });
-  
-        // Add metrics for timestamp parsing errors
-        logger.metric &&
-          logger.metric("rodit_islive_errors", 1, {
-            error_type: "timestamp_parse_error",
-            blockchain_timestamp: stringtimenow,
-          });
-  
-        return false;
-      }
-  
-      const datetimetimestamp = new Date(timestamp / 1000000); // Convert nanoseconds to milliseconds
-  
-      logger.debug("Converted blockchain time", {
-        requestId,
-        blockchainTime: datetimetimestamp.toISOString(),
-        originalTimestamp: timestamp,
-      });
-  
-      const isAfterNotBefore =
-        datetimetimestamp >= datetimenotbefore ||
-        datetimenotbefore.getTime() === datetimenul.getTime();
-  
-      const isBeforeNotAfter =
-        datetimetimestamp <= datetimenotafter ||
-        datetimenotafter.getTime() === datetimenul.getTime();
-  
-      const isLive = isAfterNotBefore && isBeforeNotAfter;
-  
-      const totalDuration = Date.now() - startTime;
-  
-      if (isLive) {
-        logger.info("RODiT is live", {
-          component: "AuthServices",
-          method: "verify_rodit_islive",
-          requestId,
-          duration: totalDuration,
-          rpcDuration,
-          currentTime: datetimetimestamp.toISOString(),
-          notBefore: datetimenotbefore.toISOString(),
-          notAfter: datetimenotafter.toISOString(),
-          isLive: true,
-        });
-  
-        // Add metrics for live tokens
-        logger.metric &&
-          logger.metric("rodit_time_checks", totalDuration, {
-            result: "live",
-          });
-  
-        return true;
-      } else {
-        logger.warn("RODiT is not live - outside valid time period", {
-          component: "AuthServices",
-          method: "verify_rodit_islive",
-          requestId,
-          duration: totalDuration,
-          rpcDuration,
-          currentTime: datetimetimestamp.toISOString(),
-          notBefore: datetimenotbefore.toISOString(),
-          notAfter: datetimenotafter.toISOString(),
-          isBeforeExpiry: isBeforeNotAfter,
-          isAfterStart: isAfterNotBefore,
-          isLive: false,
-        });
-  
-        // Add metrics for expired or not-yet-valid tokens
-        logger.metric &&
-          logger.metric("rodit_time_checks", totalDuration, {
-            result: "not_live",
-            not_before_valid: isAfterNotBefore,
-            not_after_valid: isBeforeNotAfter,
-          });
-  
-        return false;
-      }
-    } catch (error) {
-      const duration = Date.now() - startTime;
-  
-      logger.error("Failed to check RODiT time validity", {
-        component: "AuthServices",
-        method: "verify_rodit_islive",
-        requestId,
-        duration,
-        notAfter: peer_rodit_notafter,
-        notBefore: peer_rodit_notbefore,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-  
-      // Add metrics for validation errors
-      logger.metric &&
-        logger.metric("rodit_islive_errors", 1, {
-          error_type: error.name || "Unknown",
-        });
-  
-      return false;
-    }
-  }
-
-  async function verify_rodit_isactive(tokenId, ownsubjectuniqueidentifier_url) {
-    const requestId = ulid();
-    const startTime = Date.now();
-  
-    // WHILE DEBUGGING TEMPORARY FIX DO NOT REMOVE THIS LINE EVER WITHOUT PERMISSION
-    return true;
-  
-    logger.debug("Checking RODiT activity status", {
-      component: "RoditAuth",
-      method: "verify_rodit_isactive",
-      requestId,
-      tokenId,
-      subjectUrl: ownsubjectuniqueidentifier_url,
-    });
-  
-    const domainandextensionRegex =
-      /(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/i;
-  
-    const match = ownsubjectuniqueidentifier_url.match(domainandextensionRegex);
-  
-    if (match) {
-      const domainandextension = match[1];
-      const revokingDnsEntry = `${tokenId}.revoked.${domainandextension}`;
-  
-      logger.debug("Checking DNS revocation entry", {
-        requestId,
-        domain: domainandextension,
-        revokingDnsEntry,
-      });
-  
-      try {
-        const dnsStart = Date.now();
-        const resolver = new Resolver();
-        await resolver.resolveTxt(revokingDnsEntry);
-        const dnsDuration = Date.now() - dnsStart;
-        const totalDuration = Date.now() - startTime;
-  
-        logger.info("RODiT revocation found", {
-          component: "AuthServices",
-          method: "verify_rodit_isactive",
-          requestId,
-          duration: totalDuration,
-          dnsDuration,
-          tokenId,
-          domain: domainandextension,
-          revokingDnsEntry,
-          isActive: false,
-        });
-  
-        // Add metrics for revoked tokens
-        logger.metric &&
-          logger.metric("rodit_revocation_checks", totalDuration, {
-            result: "revoked",
-            token_id: tokenId,
-          });
-  
-        return false;
-      } catch (error) {
-        // DNS error usually means no revocation entry found, which is good
-        const dnsDuration = Date.now() - dnsStart || 0;
-        const totalDuration = Date.now() - startTime;
-  
-        logger.debug("No revocation found for RODiT", {
-          requestId,
-          dnsDuration,
-          tokenId,
-          error: error.code,
-        });
-  
-        logger.info("RODiT is active", {
-          component: "AuthServices",
-          method: "verify_rodit_isactive",
-          requestId,
-          duration: totalDuration,
-          dnsDuration,
-          tokenId,
-          domain: domainandextension,
-          isActive: true,
-        });
-  
-        // Add metrics for active tokens
-        logger.metric &&
-          logger.metric("rodit_revocation_checks", totalDuration, {
-            result: "active",
-            token_id: tokenId,
-          });
-  
-        return true;
-      }
-    } else {
-      const duration = Date.now() - startTime;
-  
-      logger.warn("Unable to parse domain from URL", {
-        component: "AuthServices",
-        method: "verify_rodit_isactive",
-        requestId,
-        duration,
-        tokenId,
-        subjectUrl: ownsubjectuniqueidentifier_url,
-      });
-  
-      // Add metrics for parsing errors
-      logger.metric &&
-        logger.metric("rodit_revocation_checks", duration, {
-          result: "parse_error",
-          token_id: tokenId,
-        });
-  
-      // Default to allowing the token if domain parsing fails
-      return true;
-    }
-  }
-
-  async function verify_rodit_istrusted_issuingsmartcontract(
-    ownsubjectuniqueidentifier_url
-  ) {
-    const requestId = ulid();
-    const startTime = Date.now();
-  
-    logger.debug("Verifying smart contract trust", {
-      component: "RoditAuth",
-      method: "verify_rodit_istrusted_issuingsmartcontract",
-      requestId,
-      url: ownsubjectuniqueidentifier_url,
-      smartContract: CONSTANTS.SMART_CONTRACT,
-    });
-  
-    try {
-      const smartcontract = CONSTANTS.SMART_CONTRACT;
-      const smartontractnonear = smartcontract.replace(".testnet", "");
-      const smartcontracturl = smartontractnonear.replace("-", ".");
-  
-      logger.debug("Prepared smart contract identifiers", {
-        requestId,
-        originalContract: smartcontract,
-        nonearContract: smartontractnonear,
-        urlContract: smartcontracturl,
-      });
-  
-      const domainRegex =
-        /(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/i;
-  
-      const maindomainmatch = domainRegex.exec(ownsubjectuniqueidentifier_url);
-  
-      if (!maindomainmatch) {
-        logger.error("Failed to parse domain from URL", {
-          component: "AuthServices",
-          requestId,
-          duration: Date.now() - startTime,
-          url: ownsubjectuniqueidentifier_url,
-        });
-  
-        // Add metrics for domain parsing failures
-        logger.metric &&
-          logger.metric("rodit_trust_errors", 1, {
-            error_type: "domain_parse_error",
-            url: ownsubjectuniqueidentifier_url,
-          });
-  
-        throw new Error(
-          `Domain can't be parsed from URL: ${ownsubjectuniqueidentifier_url}`
-        );
-      }
-  
-      const extractedDomain = maindomainmatch[1];
-      const enablingdnsentry = `${smartontractnonear}.smartcontract.${extractedDomain}`;
-  
-      logger.debug("Checking DNS trust entry", {
-        requestId,
-        extractedDomain,
-        enablingDnsEntry: enablingdnsentry,
-      });
-  
-      try {
-        const dnsStart = Date.now();
-        const resolver = new Resolver();
-        const cfgresponse = await resolver.resolveTxt(enablingdnsentry);
-        const dnsDuration = Date.now() - dnsStart;
-  
-        logger.debug("DNS response received", {
-          requestId,
-          dnsDuration,
-          recordCount: cfgresponse?.length || 0,
-        });
-  
-        if (cfgresponse.length > 0) {
-          const totalDuration = Date.now() - startTime;
-  
-          logger.info("Smart contract is trusted", {
-            component: "AuthServices",
-            method: "verify_rodit_istrusted_issuingsmartcontract",
-            requestId,
-            duration: totalDuration,
-            dnsDuration,
-            smartContract: smartcontracturl,
-            domain: extractedDomain,
-            dnsEntry: enablingdnsentry,
-            recordCount: cfgresponse.length,
-            isTrusted: true,
-          });
-  
-          // Add metrics for trusted contracts
-          logger.metric &&
-            logger.metric("rodit_trust_checks", totalDuration, {
-              result: "trusted",
-              domain: extractedDomain,
-            });
-  
-          return true;
-        } else {
-          const totalDuration = Date.now() - startTime;
-  
-          logger.warn("Smart contract not trusted - empty DNS record", {
-            component: "AuthServices",
-            method: "verify_rodit_istrusted_issuingsmartcontract",
-            requestId,
-            duration: totalDuration,
-            dnsDuration,
-            smartContract: smartcontracturl,
-            domain: extractedDomain,
-            dnsEntry: enablingdnsentry,
-            isTrusted: false,
-          });
-  
-          // Add metrics for untrusted contracts
-          logger.metric &&
-            logger.metric("rodit_trust_checks", totalDuration, {
-              result: "empty_dns",
-              domain: extractedDomain,
-            });
-  
-          return false;
-        }
-      } catch (error) {
-        const totalDuration = Date.now() - startTime;
-  
-        logger.warn("Smart contract not trusted - DNS lookup failed", {
-          component: "AuthServices",
-          method: "verify_rodit_istrusted_issuingsmartcontract",
-          requestId,
-          duration: totalDuration,
-          smartContract: smartcontracturl,
-          domain: extractedDomain,
-          dnsEntry: enablingdnsentry,
-          dnsError: error.code,
-          isTrusted: false,
-        });
-  
-        // Add metrics for DNS errors
-        logger.metric &&
-          logger.metric("rodit_trust_checks", totalDuration, {
-            result: "dns_error",
-            domain: extractedDomain,
-            error_code: error.code,
-          });
-  
-        return false;
-      }
-    } catch (error) {
-      const duration = Date.now() - startTime;
-  
-      logger.error("Trust verification failed", {
-        component: "AuthServices",
-        method: "verify_rodit_istrusted_issuingsmartcontract",
-        requestId,
-        duration,
-        url: ownsubjectuniqueidentifier_url,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-  
-      // Add metrics for verification errors
-      logger.metric &&
-        logger.metric("rodit_trust_errors", 1, {
-          error_type: error.name || "Unknown",
-          message: error.message,
-        });
-  
-      return false;
-    }
-  }
-
-  async function verify_rodit_isamatch(own_service_provider_id, peer_rodit) {
-    const requestId = ulid();
-    const startTime = Date.now();
-  
-    logger.debug("Starting RODiT match verification", {
-      component: "RoditAuth",
-      method: "verify_rodit_isamatch",
-      requestId,
-      ownServiceProviderId: own_service_provider_id,
-      peerRoditId: peer_rodit?.token_id,
-    });
-  
-    try {
-      const own_provider_components = own_service_provider_id.split(";");
-  
-      logger.debug("Split provider components", {
-        requestId,
-        componentCount: own_provider_components.length,
-        components: own_provider_components,
-      });
-  
-      // Get blockchain and contract parts
-      const bcPart = own_provider_components.find((part) =>
-        part.startsWith("bc=")
-      );
-      const scPart = own_provider_components.find((part) =>
-        part.startsWith("sc=")
-      );
-  
-      // Find all ID components
-      const idComponents = own_provider_components.filter(
-        (part) =>
-          part.startsWith("id=") &&
-          !part.startsWith("bc=") &&
-          !part.startsWith("sc=")
-      );
-  
-      if (!bcPart || !scPart || idComponents.length < 1) {
-        logger.error("Invalid provider ID format", {
-          component: "AuthServices",
-          requestId,
-          duration: Date.now() - startTime,
-          providerId: own_service_provider_id,
-          components: own_provider_components,
-          hasBlockchain: !!bcPart,
-          hasSmartContract: !!scPart,
-          idCount: idComponents.length,
-        });
-  
-        // Add metrics for format errors
-        logger.metric &&
-          logger.metric("rodit_match_format_errors", 1, {
-            error_type: "invalid_provider_id",
-            bc_part_present: !!bcPart,
-            sc_part_present: !!scPart,
-            id_count: idComponents.length,
-          });
-  
-        return false;
-      }
-  
-      // Construct the base prefix
-      const base_prefix = `${bcPart};${scPart}`;
-      logger.debug("Constructed base prefix", {
-        requestId,
-        basePrefix: base_prefix,
-      });
-  
-      // Try verification with each ID component
-      for (let i = 0; i < idComponents.length; i++) {
-        const idIndex = i + 1;
-        const signing_token_id = `${base_prefix};${idComponents[i]}`;
-  
-        logger.debug(
-          `Trying verification with ID [${idIndex}/${idComponents.length}]`,
-          {
-            requestId,
-            idIndex,
-            totalIds: idComponents.length,
-            signingTokenId: signing_token_id,
-          }
-        );
-  
-        const tokenFetchStart = Date.now();
-        const signing_rodit = await nearorg_rpc_tokenfromroditid(
-          signing_token_id
-        );
-        const tokenFetchDuration = Date.now() - tokenFetchStart;
-  
-        logger.debug("Retrieved signing RODiT", {
-          requestId,
-          idIndex,
-          tokenFetchDuration,
-          tokenId: signing_rodit?.token_id,
-          ownerId: signing_rodit?.owner_id,
-        });
-  
-        // Process the owner ID
-        try {
-          const bytes_signing_owner_id = new Uint8Array(
-            Buffer.from(signing_rodit.owner_id, "hex")
-          );
-  
-          if (bytes_signing_owner_id.length !== CONSTANTS.RODIT_ID_PK_SZ) {
-            logger.warn(`Invalid signing key length for ID ${idIndex}`, {
-              requestId,
-              actual: bytes_signing_owner_id.length,
-              expected: CONSTANTS.RODIT_ID_PK_SZ,
-            });
-            continue; // Try the next ID
-          }
-  
-          // Process the signature
-          const base64urlSignature =
-            peer_rodit.metadata.serviceprovider_signature;
-          const base64Signature = base64urlSignature
-            .replace(/-/g, "+")
-            .replace(/_/g, "/")
-            .padEnd(
-              base64urlSignature.length +
-                ((4 - (base64urlSignature.length % 4)) % 4),
-              "="
-            );
-  
-          const signatureBytes = new Uint8Array(
-            Buffer.from(base64Signature, "base64")
-          );
-  
-          if (signatureBytes.length !== CONSTANTS.RODIT_ID_SIGNATURE_SZ) {
-            logger.warn(`Invalid signature length for ID ${idIndex}`, {
-              requestId,
-              actual: signatureBytes.length,
-              expected: CONSTANTS.RODIT_ID_SIGNATURE_SZ,
-            });
-            continue; // Try the next ID
-          }
-  
-          // Prepare the hash input
-          const hashInput = {
-            token_id: peer_rodit.token_id,
-            openapijson_url: peer_rodit.metadata.openapijson_url,
-            not_after: peer_rodit.metadata.not_after,
-            not_before: peer_rodit.metadata.not_before,
-            max_requests: peer_rodit.metadata.max_requests,
-            maxrq_window: peer_rodit.metadata.maxrq_window,
-            webhook_cidr: peer_rodit.metadata.webhook_cidr,
-            allowed_cidr: peer_rodit.metadata.allowed_cidr,
-            allowed_iso3166list: peer_rodit.metadata.allowed_iso3166list,
-            jwt_duration: peer_rodit.metadata.jwt_duration,
-            permissioned_routes: peer_rodit.metadata.permissioned_routes,
-            serviceprovider_id: peer_rodit.metadata.serviceprovider_id,
-            subjectuniqueidentifier_url:
-              peer_rodit.metadata.subjectuniqueidentifier_url,
-          };
-  
-          const hashStart = Date.now();
-          const hashHex = calculateCanonicalHash(hashInput);
-          const hashBytes = new Uint8Array(Buffer.from(hashHex, "hex"));
-          const hashDuration = Date.now() - hashStart;
-  
-          logger.debug("Calculated hash for verification", {
-            requestId,
-            idIndex,
-            hashDuration,
-            hashLength: hashBytes.length,
-          });
-  
-          // Verify the signature
-          const verifyStart = Date.now();
-          const is_valid = nacl.sign.detached.verify(
-            hashBytes,
-            signatureBytes,
-            bytes_signing_owner_id
-          );
-          const verifyDuration = Date.now() - verifyStart;
-  
-          logger.debug("Signature verification result", {
-            requestId,
-            idIndex,
-            verifyDuration,
-            isValid: is_valid,
-          });
-  
-          if (is_valid) {
-            const totalDuration = Date.now() - startTime;
-  
-            // Log based on which ID worked
-            if (i === 0) {
-              logger.info("Partner login verified successfully", {
-                component: "AuthServices",
-                method: "verify_rodit_isamatch",
-                requestId,
-                duration: totalDuration,
-                partnerVerification: true,
-                idIndex,
-              });
-            } else {
-              logger.info("Peer login verified successfully", {
-                component: "AuthServices",
-                method: "verify_rodit_isamatch",
-                requestId,
-                duration: totalDuration,
-                peerVerification: true,
-                idIndex,
-              });
-            }
-  
-            // Add metrics for successful matching
-            logger.metric &&
-              logger.metric("rodit_match_verification", totalDuration, {
-                result: "success",
-                id_index: idIndex,
-                verification_type: i === 0 ? "partner" : "peer",
-              });
-  
-            return true;
-          }
-  
-          logger.debug(`Verification with ID ${idIndex} failed`, {
-            requestId,
-          });
-        } catch (verifyError) {
-          logger.warn(`Error during verification with ID ${idIndex}`, {
-            requestId,
-            error: verifyError.message,
-            stack: verifyError.stack,
-          });
-        }
-      }
-  
-      // If we get here, all verification attempts failed
-      const totalDuration = Date.now() - startTime;
-  
-      logger.error("All verification attempts failed", {
-        component: "AuthServices",
-        method: "verify_rodit_isamatch",
-        requestId,
-        duration: totalDuration,
-        ownServiceProviderId: own_service_provider_id,
-        peerRoditId: peer_rodit?.token_id,
-        attemptCount: idComponents.length,
-      });
-  
-      // Add metrics for failed matching
-      logger.metric &&
-        logger.metric("rodit_match_verification", totalDuration, {
-          result: "failure",
-          attempts: idComponents.length,
-        });
-  
-      return false;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-  
-      logger.error("RODiT match verification failed", {
-        component: "AuthServices",
-        method: "verify_rodit_isamatch",
-        requestId,
-        duration,
-        ownServiceProviderId: own_service_provider_id,
-        peerRoditId: peer_rodit?.token_id,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-  
-      // Add metrics for verification errors
-      logger.metric &&
-        logger.metric("rodit_match_errors", 1, {
-          error_type: error.name || "Unknown",
-        });
-  
-      return false;
-    }
-  }
-
-// Export the functions directly (following the pattern used in tokenservice.js)
-module.exports = {
-  verify_rodit_ownership,
-  verify_rodit_ownership_withnep413,
-  verify_peerrodit_getrodit,
-  verify_rodit_isactive,
-  verify_rodit_isamatch,
-  verify_rodit_islive,
-  verify_rodit_istrusted_issuingsmartcontract,
-  authenticate_webhook,
-  send_webhook
 };
+
+// Webhook test functions removed as they are not needed for the authentication system
+
+// Export the database getter
+router.getDatabase = getDatabase;
+
+module.exports = router;

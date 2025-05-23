@@ -376,13 +376,42 @@ async function verify_rodit_ownership(
       });
 
       const timestamp = Date.now();
+      
+      // Ensure data is serializable before stringifying
+      let sanitizedData;
+      try {
+        // Test if data can be properly serialized
+        if (typeof data === 'object' && data !== null) {
+          // Create a deep copy to avoid modifying the original data
+          sanitizedData = JSON.parse(JSON.stringify(data));
+        } else {
+          sanitizedData = data;
+        }
+      } catch (serializeError) {
+        // If data can't be serialized, create a simplified version
+        logger.warn("Data serialization failed, creating simplified version", {
+          component: "AuthServices",
+          method: "send_webhook",
+          requestId,
+          error: serializeError.message
+        });
+        
+        // Create a simplified version with basic properties
+        sanitizedData = {
+          type: typeof data,
+          summary: "Data could not be serialized to JSON",
+          error: serializeError.message
+        };
+      }
+      
+      // Create the payload with sanitized data
       const payload = JSON.stringify({
         event,
-        data,
+        data: sanitizedData,
         isError,
         timestamp,
         requestId,
-      });
+      }, null, 0); // Use null, 0 to ensure compact JSON without special characters
 
       logger.debug("Preparing webhook payload", {
         component: "AuthServices",
