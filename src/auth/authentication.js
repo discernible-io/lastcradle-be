@@ -384,8 +384,18 @@ async function verify_rodit_ownership(
         if (typeof data === 'object' && data !== null) {
           // Create a deep copy to avoid modifying the original data
           sanitizedData = JSON.parse(JSON.stringify(data));
-        } else {
+        } else if (data === undefined || data === null) {
+          // Handle null/undefined explicitly
+          sanitizedData = null;
+        } else if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
+          // Primitive types can be used directly
           sanitizedData = data;
+        } else {
+          // For other types (functions, symbols, etc.), create a string representation
+          sanitizedData = {
+            type: typeof data,
+            stringValue: String(data)
+          };
         }
       } catch (serializeError) {
         // If data can't be serialized, create a simplified version
@@ -404,27 +414,54 @@ async function verify_rodit_ownership(
         };
       }
       
-      // Create the payload with sanitized data
-      const payload = JSON.stringify({
+      // Create the payload object
+      const payloadObj = {
         event,
         data: sanitizedData,
         isError,
-        timestamp,
         requestId,
-      }, null, 0); // Use null, 0 to ensure compact JSON without special characters
-
+      };
+      
+      // Create the payload with consistent JSON formatting
+      // Sort keys to ensure canonical representation regardless of object creation order
+      const payload = JSON.stringify(payloadObj, function(key, value) {
+        // Handle special numeric values consistently
+        if (typeof value === 'number') {
+          if (isNaN(value)) return 'NaN';
+          if (value === Infinity) return 'Infinity';
+          if (value === -Infinity) return '-Infinity';
+        }
+        return value;
+      }, 0);
+      
+      // Ensure consistent handling of Unicode characters
+      const normalizedPayload = payload.normalize('NFC');
+      
       logger.debug("Preparing webhook payload", {
         component: "AuthServices",
         method: "send_webhook",
         requestId,
-        payloadSize: payload.length,
+        payloadSize: normalizedPayload.length,
         event,
       });
+      
+      // Create the string to hash: payload + timestamp
+      // This binds the timestamp to the payload for signature verification
+      const payloadWithTimestamp = normalizedPayload + timestamp.toString();
+      
+      logger.debug("Creating payload+timestamp string for signing", {
+        component: "AuthServices",
+        method: "send_webhook",
+        requestId,
+        payloadSize: normalizedPayload.length,
+        timestampLength: timestamp.toString().length,
+        combinedLength: payloadWithTimestamp.length
+      });
 
-      // Generate payload hash
+      // Generate hash of payload+timestamp
       const sha256_ofpayload = crypto
         .createHash("sha256")
-        .update(payload)
+        .update(payloadWithTimestamp)
         .digest();
 
       logger.debug("Creating signature", {
@@ -605,14 +642,14 @@ async function verify_rodit_ownership(
    * @param {string} payload - Webhook payload
    * @param {string} signature_hex_ofpayload - Signature of payload
    * @param {number} timestamp - Request timestamp
-   * @param {Uint8Array} server_public_key - Server's public key from RODiT
+   * @param {string} server_public_key_base64url - Server's public key from RODiT in base64url format
    * @returns {Promise<Object>} Authentication result
    */
   async function authenticate_webhook(
     payload,
     signature_hex_ofpayload,
     timestamp,
-    server_public_key
+    server_public_key_base64url
   ) {
     const requestId = ulid();
     const startTime = Date.now();
@@ -624,8 +661,8 @@ async function verify_rodit_ownership(
       hasPayload: !!payload,
       hasSignature: !!signature_hex_ofpayload,
       hasTimestamp: !!timestamp,
-      hasServerPublicKey: !!server_public_key,
-      serverKeyLength: server_public_key?.length,
+      hasServerPublicKey: !!server_public_key_base64url,
+      serverKeyLength: server_public_key_base64url?.length,
     });
 
     try {
@@ -674,10 +711,60 @@ async function verify_rodit_ownership(
         payloadSize: payload.length,
       });
 
-      // Calculate hash of payload
+      // Normalize the payload for consistent verification
+      // This must match the same normalization used in send_webhook
+      
+      // First try to parse the payload as JSON to ensure it's valid
+      let payloadObj;
+      try {
+        payloadObj = JSON.parse(payload);
+      } catch (e) {
+        logger.warn("Failed to parse webhook payload as JSON", {
+          component: "AuthServices",
+          method: "authenticate_webhook",
+          requestId,
+          error: e.message,
+          payloadFirstChars: payload.substring(0, 50) + '...'
+        });
+        // Continue with raw payload if parsing fails
+        payloadObj = null;
+      }
+      
+      // If we have a valid JSON object, canonicalize it the same way as in send_webhook
+      let normalizedPayload = payload;
+      if (payloadObj) {
+        // Re-stringify with the same replacer function used in send_webhook
+        normalizedPayload = JSON.stringify(payloadObj, function(key, value) {
+          // Handle special numeric values consistently
+          if (typeof value === 'number') {
+            if (isNaN(value)) return 'NaN';
+            if (value === Infinity) return 'Infinity';
+            if (value === -Infinity) return '-Infinity';
+          }
+          return value;
+        }, 0);
+        
+        // Ensure consistent handling of Unicode characters
+        normalizedPayload = normalizedPayload.normalize('NFC');
+      }
+      
+      // Create the string to hash: payload + timestamp (same as in send_webhook)
+      const payloadWithTimestamp = normalizedPayload + timestamp.toString();
+      
+      logger.debug("Creating payload+timestamp string for verification", {
+        component: "AuthServices",
+        method: "authenticate_webhook",
+        requestId,
+        payloadSize: normalizedPayload.length,
+        timestampLength: timestamp.toString().length,
+        combinedLength: payloadWithTimestamp.length,
+        wasNormalized: normalizedPayload !== payload
+      });
+      
+      // Calculate hash of payload+timestamp
       const sha256_ofpayload = crypto
         .createHash("sha256")
-        .update(payload)
+        .update(payloadWithTimestamp)
         .digest();
 
       logger.debug("Converting signature to buffer", {
@@ -693,12 +780,30 @@ async function verify_rodit_ownership(
         "hex"
       );
 
+      // Convert base64url encoded key to bytes for use with nacl
+      const server_public_key = new Uint8Array(
+        Buffer.from(server_public_key_base64url, "base64url")
+      );
+
       logger.debug("Using server public key for verification", {
         component: "AuthServices",
         method: "authenticate_webhook",
         requestId,
         serverKeyLength: server_public_key.length,
         serverKeyHex: Buffer.from(server_public_key).toString('hex').substring(0, 16) + '...',
+      });
+
+      // Log detailed information about the verification inputs
+      logger.debug("Signature verification details", {
+        component: "AuthServices",
+        method: "authenticate_webhook",
+        requestId,
+        payloadHashHex: Buffer.from(sha256_ofpayload).toString('hex'),
+        signatureHex: signature_hex_ofpayload,
+        signatureLength: buffer_signature_ofpayload.length,
+        serverKeyHex: Buffer.from(server_public_key).toString('hex'),
+        serverKeyBase64: Buffer.from(server_public_key).toString('base64'),
+        serverKeyBase64url: server_public_key_base64url
       });
 
       // Verify signature using the server's public key
@@ -709,6 +814,15 @@ async function verify_rodit_ownership(
         server_public_key
       );
       const verificationDuration = Date.now() - verificationStartTime;
+      
+      // Log the verification result
+      logger.debug("Signature verification result", {
+        component: "AuthServices",
+        method: "authenticate_webhook",
+        requestId,
+        isValid,
+        verificationDuration
+      });
 
       // Log verification metrics
       logger.metric(
