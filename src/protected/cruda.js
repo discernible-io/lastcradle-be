@@ -7,7 +7,7 @@ const { open } = require("sqlite");
 const { ulid } = require("ulid"); // Adding ulid for request IDs
 const crypto = require("crypto");
 const stateManager = require("../blockchain/statemanager");
-const { send_webhook } = require("../auth/authentication");
+const { send_webhook, logEvent } = require("../auth/authentication");
 
 const DB_PATH = config.get("API_OPTIONS.DB_PATH");
 
@@ -75,126 +75,11 @@ const logEvent = (event, data, isError = false) => {
   });
 };
 
-// Enhanced function that logs, sends webhook, and tracks test results
+// Forward function to use the enhanced send_webhook that now includes all logAndSendWebhook functionality
 const logAndSendWebhook = async (event, data, isError = false, isTest = false, req = null) => {
-  const requestId = data.test_id || ulid();
-  const webhookContext = {
-    event,
-    requestId,
-    isError,
-    isTest,
-    dataType: typeof data,
-    operation: "webhook"
-  };
-
-  try {
-    // Log the webhook attempt
-    logger.infoWithContext("Sending webhook", {
-      ...webhookContext,
-      status: "attempt",
-      eventType: event
-    });
-
-    // Use the imported send_webhook function from the rodit middleware
-    // This avoids duplicating the complex logic for webhook generation
-    const result = await send_webhook(event, data, isError, req);
-
-    // Save test results if this is a test
-    if (isTest && db) {
-      try {
-        await db.run(
-          `INSERT INTO webhook_tests (correlation_id, event_type, payload, success, timestamp, error_message) 
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [
-            requestId,
-            event,
-            JSON.stringify(data),
-            result.isValid ? 1 : 0,
-            new Date().toISOString(),
-            result.error ? result.error.message || JSON.stringify(result.error) : null
-          ]
-        );
-
-        logger.infoWithContext("Webhook test result recorded", {
-          ...webhookContext,
-          status: result.isValid ? "success" : "failure",
-          databaseRecorded: true
-        });
-      } catch (dbError) {
-        logger.errorWithContext(
-          "Failed to record webhook test result", 
-          {
-            ...webhookContext,
-            status: "database_error"
-          },
-          dbError
-        );
-      }
-    }
-
-    if (result.isValid) {
-      logger.infoWithContext("Webhook sent successfully", {
-        ...webhookContext,
-        status: "success"
-      });
-    } else {
-      logger.errorWithContext(
-        "Webhook send failed", 
-        {
-          ...webhookContext,
-          status: "failed",
-          errorMessage: result.error?.message
-        },
-        result.error
-      );
-    }
-
-    // Log the event locally
-    logEvent(event, data, isError);
-    
-    return { ...result, requestId };
-  } catch (error) {
-    logger.errorWithContext(
-      "Exception occurred while sending webhook", 
-      {
-        ...webhookContext,
-        status: "exception"
-      }, 
-      error
-    );
-    
-    // Still log the event locally
-    logEvent(event, data, isError);
-
-    // Save test failure if this is a test
-    if (isTest && db) {
-      try {
-        await db.run(
-          `INSERT INTO webhook_tests (correlation_id, event_type, payload, success, timestamp, error_message) 
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [
-            requestId,
-            event,
-            JSON.stringify(data),
-            0,
-            new Date().toISOString(),
-            error.message || JSON.stringify(error)
-          ]
-        );
-      } catch (dbError) {
-        logger.errorWithContext(
-          "Failed to record webhook test failure", 
-          {
-            ...webhookContext,
-            status: "database_error"
-          },
-          dbError
-        );
-      }
-    }
-    
-    return { isValid: false, error, requestId };
-  }
+  // Simply forward to the enhanced send_webhook function in authentication.js
+  // which now includes all the logging, test tracking, and database functionality
+  return await send_webhook(event, data, isError, isTest, req);
 };
 
 // Initialize the database when this module is loaded
