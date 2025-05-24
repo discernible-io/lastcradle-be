@@ -53,27 +53,8 @@ const initializeDatabase = async () => {
 // Expose the database connection for proper cleanup in app.js
 const getDatabase = () => db;
 
-// Log events with structured context
-const logEvent = (event, data, isError = false) => {
-  const context = {
-    event,
-    dataType: typeof data,
-    dataSize: JSON.stringify(data).length,
-    hasData: !!data
-  };
-
-  if (isError) {
-    logger.errorWithContext(`Database event: ${event}`, context, data.error || new Error(event));
-  } else {
-    logger.infoWithContext(`Database event: ${event}`, context);
-  }
-  
-  // Log detailed data at debug level
-  logger.debugWithContext(`Event data detail`, {
-    ...context,
-    data
-  });
-};
+// We now use the logEvent function imported from authentication.js
+// This comment is kept to document the change
 
 // Forward function to use the enhanced send_webhook that now includes all logAndSendWebhook functionality
 const logAndSendWebhook = async (event, data, isError = false, isTest = false, req = null) => {
