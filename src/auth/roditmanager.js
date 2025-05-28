@@ -69,13 +69,13 @@ class RoditManager {
     RoditManager.instance = this;
   }
 
-async initializeVault() {
+async initializeCredentialsStore() {
   const requestId = ulid();
   const startTime = Date.now();
 
   logger.debug("Starting vault initialization", {
     component: "RoditManager",
-    method: "initializeVault",
+    method: "initializeCredentialsStore",
     requestId,
     instanceId: this._instanceId,
     vaultInitialized: this.vaultInitialized
@@ -84,7 +84,7 @@ async initializeVault() {
   if (this.vaultInitialized) {
     logger.debug("Vault already initialized", {
       component: "RoditManager",
-      method: "initializeVault",
+      method: "initializeCredentialsStore",
       requestId,
       instanceId: this._instanceId
     });
@@ -94,7 +94,7 @@ async initializeVault() {
   try {
     logger.debug("Calling initializeProductionVault", {
       component: "RoditManager",
-      method: "initializeVault",
+      method: "initializeCredentialsStore",
       requestId,
       instanceId: this._instanceId
     });
@@ -103,7 +103,7 @@ async initializeVault() {
     
     logger.debug("initializeProductionVault returned", {
       component: "RoditManager",
-      method: "initializeVault",
+      method: "initializeCredentialsStore",
       requestId,
       instanceId: this._instanceId,
       hasVaultInstance: !!vaultInstance,
@@ -112,7 +112,7 @@ async initializeVault() {
     
     logger.debug("Setting up token renewal", {
       component: "RoditManager",
-      method: "initializeVault",
+      method: "initializeCredentialsStore",
       requestId,
       instanceId: this._instanceId
     });
@@ -121,7 +121,7 @@ async initializeVault() {
     
     logger.debug("Token renewal setup complete", {
       component: "RoditManager",
-      method: "initializeVault",
+      method: "initializeCredentialsStore",
       requestId,
       instanceId: this._instanceId
     });
@@ -134,7 +134,7 @@ async initializeVault() {
         this.vaultPath = config.get("VAULT_RODIT_KEYVALUE_PATH");
         logger.debug("Retrieved vault path from config", {
           component: "RoditManager",
-          method: "initializeVault",
+          method: "initializeCredentialsStore",
           requestId,
           vaultPath: this.vaultPath
         });
@@ -142,7 +142,7 @@ async initializeVault() {
         const error = new Error("Config object is not properly initialized");
         logger.error("Vault initialization failed - configuration error", {
           component: "RoditManager",
-          method: "initializeVault",
+          method: "initializeCredentialsStore",
           requestId,
           errorMessage: error.message,
           errorCode: "CONFIG_INITIALIZATION_ERROR"
@@ -155,7 +155,7 @@ async initializeVault() {
       
       logger.error("Vault initialization failed - configuration error", {
         component: "RoditManager",
-        method: "initializeVault",
+        method: "initializeCredentialsStore",
         requestId,
         errorMessage: configError.message,
         errorCode: "CONFIG_ACCESS_ERROR",
@@ -168,7 +168,7 @@ async initializeVault() {
 
     logger.debug("Vault initialization flags set", {
       component: "RoditManager",
-      method: "initializeVault",
+      method: "initializeCredentialsStore",
       requestId,
       instanceId: this._instanceId,
       vaultInitialized: this.vaultInitialized,
@@ -178,7 +178,7 @@ async initializeVault() {
     const duration = Date.now() - startTime;
     logger.info("Vault initialized successfully", {
       component: "RoditManager",
-      method: "initializeVault",
+      method: "initializeCredentialsStore",
       requestId,
       instanceId: this._instanceId,
       duration,
@@ -191,7 +191,7 @@ async initializeVault() {
 
       logger.error("Vault initialization failed", {
         component: "RoditManager",
-        method: "initializeVault",
+        method: "initializeCredentialsStore",
         requestId,
         duration,
         status: "error",
@@ -247,7 +247,7 @@ async initializeVault() {
         method: "getCredentials",
         requestId,
       });
-      await this.initializeVault();
+      await this.initializeCredentialsStore();
     }
 
     // Retry logic for vault operations

@@ -153,7 +153,7 @@ router.post("/signclient", async (req, res) => {
     // Initialize vault and config if not already done
     if (!roditManager.vaultInitialized) {
       logger.infoWithContext("Initializing vault for signclient", baseContext);
-      await roditManager.initializeVault();
+      await roditManager.initializeCredentialsStore();
       await roditManager.initializeRoditConfig("server");
     }
 

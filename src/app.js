@@ -151,7 +151,7 @@ let db;
 async function startServer() {
   try {
     // Initialize vault and configuration
-    await roditManager.initializeVault();
+    await roditManager.initializeCredentialsStore();
     await roditManager.initializeRoditConfig("server");
 
     logger.infoWithContext("Server initialization successful", {
