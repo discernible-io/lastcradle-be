@@ -1,39 +1,73 @@
-const { ulid } = require("ulid");
+/**
+ * Request logging middleware
+ * Provides standardized request/response logging
+ * Copyright (c) 2024 Cableguard, Inc. All rights reserved.
+ */
+
 const logger = require("../../config/logger");
 
+/**
+ * Middleware for logging requests and responses
+ * This middleware should be applied after the performance middleware
+ * to leverage the request ID and timing information.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Next middleware function
+ */
 const loggingmw = (req, res, next) => {
- const start = Date.now();
+  // Ensure we have a request ID (should be set by performance middleware)
+  if (!req.requestId) {
+    const { ulid } = require("ulid");
+    req.requestId = ulid();
+  }
 
- // Capture the original end function
- const originalEnd = res.end;
+  // Capture the original end function
+  const originalEnd = res.end;
 
- // Override the end function
- res.end = function (chunk, encoding) {
-  // Call the original end function
-  originalEnd.call(this, chunk, encoding);
+  // Override the end function
+  res.end = function (chunk, encoding) {
+    // Call the original end function
+    originalEnd.call(this, chunk, encoding);
 
-  // Now log after the response has been sent
-  const duration = Date.now() - start;
-  logger.info({
-   method: req.method,
-   clientIP: req.ip, // Address ID
-   roditID: req.user ? req.user.id : "unauthenticated", // Credential ID / Credential Directory
-   url: req.originalUrl,
-   service: req.logService || "rodit-servertestapi-api", // Source ID / Source Directory
-   action: req.logAction || "unspecified", // Type of event / Request type
-   // payload with information necessary to perform the request
-   resource: res.itemid, // Resource ID / Resource Directory
-   status: res.statusCode, // Request result (success, failure, error, source error)
-   resulttext: res.statusReason, // ResultText with reason for the Result
-   eventID: ulid(),
-   timestamp: new Date().toISOString(), // DateTime
-   duration,
-   // Signature
-   // Hash or linked hash
+    // Now log after the response has been sent
+    // Use duration from performance middleware if available
+    const duration = req.duration || (req.startTime ? Date.now() - req.startTime : null);
+    
+    // Standard request log entry
+    logger.info("Request completed", {
+      component: "API",
+      method: req.method,
+      clientIP: req.ip,
+      userId: req.user ? req.user.id : null,
+      roditId: req.user ? req.user.roditId : null,
+      authenticated: !!req.user,
+      url: req.originalUrl,
+      service: req.logService || "rodit-servertestapi-api",
+      action: req.logAction || req.requestType || "unspecified",
+      resource: res.itemid,
+      status: res.statusCode,
+      statusMessage: res.statusReason || res.statusMessage,
+      requestId: req.requestId,
+      traceId: req.traceId,
+      timestamp: new Date().toISOString(),
+      duration,
+      userAgent: req.get('User-Agent'),
+      referer: req.get('Referer')
+    });
+  };
+
+  // Log the incoming request
+  logger.debug("Request received", {
+    component: "API",
+    method: req.method,
+    url: req.originalUrl,
+    clientIP: req.ip,
+    requestId: req.requestId,
+    timestamp: new Date().toISOString()
   });
- };
 
- next();
+  next();
 };
 
 module.exports = loggingmw;

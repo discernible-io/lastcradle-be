@@ -4,7 +4,7 @@
  * This module provides Express routes for user logout, delegating to
  * the centralized session management in sessionroutes.js.
  * 
- * Copyright (c) 2024 Cableguard, Inc. All rights reserved.
+ * Copyright (c) 2024 Ayayai, Inc. All rights reserved.
  */
 
 const express = require("express");

@@ -3,6 +3,7 @@ const ratelimitmw = require("./middleware/ratelimit");
 const validatepermissions = require("./middleware/validatepermissions");
 const logger = require("../config/logger");
 const loggingmw = require("./middleware/loggingmw");
+const performanceMw = require("./middleware/performancemw");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 // Import roditManager directly as it's now exported as the singleton instance
@@ -106,8 +107,11 @@ app.use((req, res, next) => {
 const echoprotectedRoute = require("./protected/echo");
 const crudaprotectedRoute = require("./protected/cruda");
 const signclientRoute = require("./routes/signclient");
+const metricsRoutes = require("./routes/metricsroutes");
 
-// Mount Logging middleware
+// Mount Performance and Logging middleware
+// Performance middleware must come first as it sets up request IDs and timing
+app.use(performanceMw);
 app.use(loggingmw);
 
 // Mount session routes
@@ -115,6 +119,7 @@ app.use("/api/sessions", sessionRoutes);
 
 app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
 app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaprotectedRoute);
+app.use("/api/metrics", metricsRoutes);
 app.use("/api", signclientRoute);
 
 // Enhanced error handling middleware
@@ -150,6 +155,10 @@ let db;
 
 async function startServer() {
   try {
+    // Initialize performance service
+    const performanceService = require('./services/performanceservice');
+    performanceService.initialize();
+    
     // Initialize vault and configuration
     await roditManager.initializeCredentialsStore();
     await roditManager.initializeRoditConfig("server");

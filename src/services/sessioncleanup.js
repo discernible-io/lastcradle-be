@@ -4,7 +4,7 @@
  * This module provides functionality to clean up expired sessions periodically
  * to prevent memory leaks in the session store.
  * 
- * Copyright (c) 2024 Cableguard, Inc. All rights reserved.
+ * Copyright (c) 2024 Ayayai, Inc. All rights reserved.
  */
 
 const logger = require("../../config/logger");
