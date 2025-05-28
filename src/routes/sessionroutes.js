@@ -14,7 +14,7 @@ const sessionManager = require('../auth/sessionmanager');
 const { authenticate_apicall, login_client, logout_client } = require('../middleware/authenticationmw');
 const validatepermissions = require('../middleware/validatepermissions');
 const logger = require('../../config/logger');
-const { runManualCleanup } = require('../features/sessioncleanup');
+const { runManualCleanup } = require('../services/sessioncleanup');
 
 /**
  * POST /api/sessions/login - Create a new session (login)
