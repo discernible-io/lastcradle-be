@@ -96,6 +96,44 @@ async function unixTimeToDateString(unixTimeSec) {
   return date.toISOString();
 }
 
+/**
+ * Ensures a URL has a protocol prefix (http:// or https://)
+ * If no protocol is present, adds the configured API_PROTOCOL or defaults to https://
+ * 
+ * @param {string} url - URL to ensure has a protocol
+ * @returns {string} URL with protocol prefix
+ */
+function ensureProtocol(url) {
+  if (!url) {
+    throw new Error('URL is required for ensureProtocol');
+  }
+
+  // If URL already has a protocol, return it as is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
+  // Get the configured protocol or default to https
+  let protocol;
+  try {
+    protocol = config.get('API_PROTOCOL');
+  } catch (error) {
+    logger.warn('API_PROTOCOL not found in configuration, defaulting to https://', {
+      component: 'Utils',
+      method: 'ensureProtocol',
+      url
+    });
+    protocol = 'https://';
+  }
+
+  // Ensure protocol ends with ://
+  if (!protocol.endsWith('://')) {
+    protocol = protocol + '://';
+  }
+
+  return protocol + url;
+}
+
 // ensureDateIsSet function has been removed in favor of validateAndSetDate
 
 /**
@@ -1163,5 +1201,6 @@ module.exports = {
   // Functions transferred from indexb.js
   validateAndExtractCredentials,
   validateCredentialParameters,
-  generateSignature
+  generateSignature,
+  ensureProtocol
 };
