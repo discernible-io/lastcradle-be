@@ -109,6 +109,7 @@ const crudaprotectedRoute = require("./protected/cruda");
 const signclientRoute = require("./routes/signclient");
 const metricsRoutes = require("./routes/metricsroutes");
 const mcpRoutes = require("./routes/mcproutes");
+const homeRoute = require("./routes/home");
 
 // Mount Performance and Logging middleware
 // Performance middleware must come first as it sets up request IDs and timing
@@ -122,6 +123,7 @@ app.use("/api/echo", authenticate_apicall, echoprotectedRoute);
 app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaprotectedRoute);
 app.use("/api/metrics", metricsRoutes);
 app.use("/api/mcp", mcpRoutes);
+app.use("/", homeRoute);
 app.use("/api", signclientRoute);
 
 // Enhanced error handling middleware

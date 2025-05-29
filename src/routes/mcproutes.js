@@ -18,22 +18,37 @@ const logger = require('../../config/logger');
  *     summary: List available MCP resources
  *     description: Returns a list of resources available through the MCP interface
  *     tags: [MCP]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Maximum number of resources to return
+ *       - in: query
+ *         name: cursor
+ *         schema:
+ *           type: string
+ *         description: Cursor for pagination
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of available resources
+ *         description: List of available resources with pagination info
  *       401:
  *         description: Unauthorized
  */
 router.get('/resources', async (req, res) => {
   try {
-    const resources = await mcpService.listAvailableResources(req);
+    // Extract pagination parameters from query
+    const options = {
+      limit: req.query.limit ? parseInt(req.query.limit, 10) : undefined,
+      cursor: req.query.cursor
+    };
     
-    res.json({
-      resources,
-      cursor: null // No pagination implemented yet
-    });
+    // Get resources with pagination
+    const result = await mcpService.listAvailableResources(req, options);
+    
+    res.json(result);
   } catch (error) {
     logger.errorWithContext('Error listing MCP resources', {
       component: 'MCPRoutes',
@@ -123,32 +138,22 @@ router.get('/resource/:uri(*)', authenticate_apicall, async (req, res) => {
  *       200:
  *         description: MCP schema
  */
-router.get('/schema', (req, res) => {
-  res.json({
-    name: 'RODiT API MCP Interface',
-    version: '1.0.0',
-    description: 'Model Context Protocol interface for the RODiT API',
-    endpoints: [
-      {
-        path: '/api/mcp/resources',
-        method: 'GET',
-        description: 'List available resources',
-        requiresAuth: false
-      },
-      {
-        path: '/api/mcp/resource/{uri}',
-        method: 'GET',
-        description: 'Get a specific resource by URI',
-        requiresAuth: true
-      },
-      {
-        path: '/api/mcp/schema',
-        method: 'GET',
-        description: 'Get MCP schema',
-        requiresAuth: false
-      }
-    ]
-  });
+router.get('/schema', async (req, res) => {
+  try {
+    // Reuse the schema resource to avoid duplication
+    const schema = await mcpService.getSchemaResource(req);
+    res.json(schema);
+  } catch (error) {
+    logger.errorWithContext('Error retrieving MCP schema', {
+      component: 'MCPRoutes',
+      method: 'GET /schema'
+    }, error);
+    
+    res.status(500).json({
+      error: 'Failed to retrieve schema',
+      message: error.message
+    });
+  }
 });
 
 module.exports = router;
