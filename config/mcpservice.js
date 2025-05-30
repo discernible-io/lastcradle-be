@@ -5,9 +5,9 @@
  * allowing AI models to access structured data from the application.
  */
 
-const logger = require("../../config/logger");
-const stateManager = require("../blockchain/statemanager");
-const roditManager = require("../auth/roditmanager");
+const logger = require("./logger");
+const stateManager = require("../sdk/lib/blockchain/statemanager");
+const roditManager = require("../sdk/lib/auth/roditmanager");
 
 /**
  * Formats RODiT data for MCP consumption
