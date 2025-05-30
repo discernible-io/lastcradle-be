@@ -1171,6 +1171,299 @@ function generateSignature(roditId, timestamp, privateKey, requestId) {
   return base64UrlSignature;
 }
 
+/**
+ * Converts a base64url string to a base64 string
+ * 
+ * @param {string} base64url - Base64url string
+ * @returns {string} Base64 string
+ */
+function base64urlToBase64(base64url) {
+  return base64url
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(base64url.length + ((4 - (base64url.length % 4)) % 4), "=");
+}
+
+/**
+ * Converts a base64url encoded public key to a JWK (JSON Web Key) format
+ * 
+ * @param {string} base64url_public_key - Base64url encoded public key
+ * @returns {Object} JWK formatted public key with tweetnacl verification capability
+ */
+function base64url2jwk_public_key(base64url_public_key) {
+  // Create the JWK object
+  const jwk_public_key = {
+    kty: "OKP",
+    crv: "Ed25519",
+    x: base64url_public_key,
+    use: "sig",
+  };
+
+  // Convert base64url to raw bytes that tweetnacl can use
+  const publicKeyBytes = bufferUtils.base64urlToUint8Array(base64url_public_key);
+
+  // Return an object that mimics the jose KeyLike interface
+  // but internally uses tweetnacl-js for verification
+  return {
+    type: "public",
+    algorithm: "EdDSA",
+    asymmetricKeyType: "ed25519",
+    _publicKeyBytes: publicKeyBytes, // Store raw bytes for internal use
+
+    // Implement verify method to match jose's interface
+    async verify(signature, message) {
+      const signatureBytes = new Uint8Array(signature);
+      const messageBytes = new Uint8Array(message);
+      return nacl.sign.detached.verify(messageBytes, signatureBytes, this._publicKeyBytes);
+    },
+  };
+}
+
+/**
+ * Verifies a JWT token using tweetnacl
+ * 
+ * @param {string} token - JWT token to verify
+ * @param {Object} publicKey - Public key object with _publicKeyBytes property
+ * @param {Object} options - Verification options
+ * @returns {Object} Verification result with payload, header, and signature
+ */
+async function jwtVerify_fe(token, publicKey, options = {}) {
+  // Split the JWT into its components
+  const [headerB64, payloadB64, signatureB64] = token.split(".");
+
+  if (!headerB64 || !payloadB64 || !signatureB64) {
+    throw new Error("Invalid JWT format");
+  }
+
+  // Decode and parse header
+  let headerStr = headerB64.replace(/-/g, "+").replace(/_/g, "/");
+  while (headerStr.length % 4) headerStr += "=";
+  const header = JSON.parse(atob(headerStr));
+
+  if (header.alg !== "EdDSA") {
+    throw new Error("Invalid algorithm. Expected EdDSA");
+  }
+
+  if (options.algorithms && !options.algorithms.includes("EdDSA")) {
+    throw new Error("Algorithm not allowed");
+  }
+
+  // Create the message that was signed (header.payload)
+  const messageToVerify = `${headerB64}.${payloadB64}`;
+  const messageBytes = new TextEncoder().encode(messageToVerify);
+
+  // Convert base64url signature to Uint8Array
+  let signatureStr = signatureB64.replace(/-/g, "+").replace(/_/g, "/");
+  while (signatureStr.length % 4) signatureStr += "=";
+  const signatureBinary = atob(signatureStr);
+  const signatureBytes = new Uint8Array(signatureBinary.length);
+  for (let i = 0; i < signatureBinary.length; i++) {
+    signatureBytes[i] = signatureBinary.charCodeAt(i);
+  }
+
+  // Verify the signature using tweetnacl
+  const isValid = nacl.sign.detached.verify(
+    messageBytes,
+    signatureBytes,
+    publicKey._publicKeyBytes
+  );
+
+  if (!isValid) {
+    throw new Error("Invalid signature");
+  }
+
+  // Decode and parse payload
+  let payloadStr = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+  while (payloadStr.length % 4) payloadStr += "=";
+  const payload = JSON.parse(atob(payloadStr));
+
+  return {
+    payload,
+    header,
+    signature: signatureBytes,
+  };
+}
+
+/**
+ * Verifies a RODiT signature
+ * 
+ * @param {Object} rodit - RODiT object with token_id and metadata
+ * @param {Uint8Array} signerPublicKey - Public key of the signer
+ * @param {string} type - Type of verification for logging
+ * @returns {boolean} True if signature is valid
+ */
+async function verifyRoditSignature(rodit, signerPublicKey, type) {
+  console.debug(`[DEBUG] Starting ${type} RODiT signature verification:`, {
+    roditId: rodit.token_id,
+    signerPubKeyLength: signerPublicKey?.length,
+  });
+
+  const hashInput = {
+    token_id: rodit.token_id,
+    openapijson_url: rodit.metadata.openapijson_url,
+    not_after: rodit.metadata.not_after,
+    not_before: rodit.metadata.not_before,
+    max_requests: String(rodit.metadata.max_requests),
+    maxrq_window: String(rodit.metadata.maxrq_window),
+    webhook_cidr: rodit.metadata.webhook_cidr,
+    allowed_cidr: rodit.metadata.allowed_cidr,
+    allowed_iso3166list: rodit.metadata.allowed_iso3166list,
+    jwt_duration: rodit.metadata.jwt_duration,
+    permissioned_routes: rodit.metadata.permissioned_routes,
+    serviceprovider_id: rodit.metadata.serviceprovider_id,
+    subjectuniqueidentifier_url: rodit.metadata.subjectuniqueidentifier_url,
+  };
+
+  const hashHex = calculateCanonicalHash(hashInput);
+  const hashBytes = bufferUtils.hexToUint8Array(hashHex);
+
+  const signature = bufferUtils.base64urlToUint8Array(
+    rodit.metadata.serviceprovider_signature
+  );
+
+  return nacl.sign.detached.verify(hashBytes, signature, signerPublicKey);
+}
+
+/**
+ * Validates buffer integrity by checking type and length
+ * 
+ * @param {Uint8Array} buffer - Buffer to validate
+ * @param {number} expectedLength - Expected buffer length
+ * @param {string} type - Type name for error messages
+ * @returns {boolean} True if buffer is valid
+ */
+function validateBufferIntegrity(buffer, expectedLength, type) {
+  if (!(buffer instanceof Uint8Array)) {
+    throw new Error(`${type} must be Uint8Array`);
+  }
+  if (buffer.length !== expectedLength) {
+    throw new Error(`Invalid ${type} length: ${buffer.length}`);
+  }
+  return true;
+}
+
+/**
+ * Verifies that two RODiT hash inputs have matching required fields
+ * 
+ * @param {Object} portalData - First RODiT metadata
+ * @param {Object} sanctumData - Second RODiT metadata
+ * @returns {boolean} True if hash inputs match
+ */
+function verifyHashInputs(portalData, sanctumData) {
+  const requiredFields = [
+    "token_id",
+    "openapijson_url",
+    "not_after",
+    "not_before",
+    "max_requests",
+    "maxrq_window",
+    "webhook_cidr",
+    "allowed_cidr",
+    "allowed_iso3166list",
+    "jwt_duration",
+    "permissioned_routes",
+    "serviceprovider_id",
+    "subjectuniqueidentifier_url",
+  ];
+
+  const portalMissing = requiredFields.filter(
+    (field) => !portalData.hasOwnProperty(field)
+  );
+  const sanctumMissing = requiredFields.filter(
+    (field) => !sanctumData.hasOwnProperty(field)
+  );
+
+  if (portalMissing.length > 0 || sanctumMissing.length > 0) {
+    throw new Error("Missing required fields");
+  }
+
+  // Verify matching fields except token_id and serviceprovider_id
+  const mismatchedFields = requiredFields
+    .filter((field) => !["token_id", "serviceprovider_id"].includes(field))
+    .filter((field) => portalData[field] !== sanctumData[field]);
+
+  if (mismatchedFields.length > 0) {
+    throw new Error(`Mismatched fields: ${mismatchedFields.join(", ")}`);
+  }
+
+  return true;
+}
+
+/**
+ * Debugs the canonical hash calculation process
+ * 
+ * @param {Object} hashInput - Hash input object
+ */
+function debugCanonicalHash(hashInput) {
+  console.debug("Hash input structure:", {
+    rawInput: hashInput,
+    sorted: Object.keys(hashInput).sort(),
+    canonicalized: canonicalizeObject(hashInput),
+  });
+}
+
+/**
+ * Ensures a date value is set, using a default if not
+ * 
+ * @param {string|null} dateVar - Date value to check
+ * @param {string} defaultValue - Default date value
+ * @returns {string} Date value or default
+ */
+function ensureDateIsSet(dateVar, defaultValue) {
+  if (!dateVar) {
+    return defaultValue;
+  }
+  return dateVar;
+}
+
+/**
+ * Buffer utility functions for data conversion
+ */
+const bufferUtils = {
+  /**
+   * Converts a hex string to Uint8Array
+   * 
+   * @param {string} hexString - Hex string to convert
+   * @returns {Uint8Array} Converted bytes
+   */
+  hexToUint8Array: (hexString) => {
+    const matches = hexString.match(/.{1,2}/g) || [];
+    return new Uint8Array(matches.map((byte) => parseInt(byte, 16)));
+  },
+
+  /**
+   * Converts a base64url string to Uint8Array
+   * 
+   * @param {string} base64url - Base64url string to convert
+   * @returns {Uint8Array} Converted bytes
+   */
+  base64urlToUint8Array: (base64url) => {
+    const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(
+      base64.length + ((4 - (base64.length % 4)) % 4),
+      "="
+    );
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  },
+
+  /**
+   * Converts a Uint8Array to base64url string
+   * 
+   * @param {Uint8Array} uint8Array - Bytes to convert
+   * @returns {string} Base64url string
+   */
+  uint8ArrayToBase64url: (uint8Array) => {
+    const binary = String.fromCharCode(...uint8Array);
+    const base64 = btoa(binary);
+    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  },
+};
+
 module.exports = {
   // Original utils functions
   debugWithType,
@@ -1182,6 +1475,17 @@ module.exports = {
   canonicalizeObject,
   calculateCanonicalHash,
   hex2base64url,
+  base64urlToBase64,
+  
+  // New utility functions from ferodit.js
+  base64url2jwk_public_key,
+  jwtVerify_fe,
+  verifyRoditSignature,
+  validateBufferIntegrity,
+  verifyHashInputs,
+  debugCanonicalHash,
+  ensureDateIsSet,
+  bufferUtils,
   
   // Validation functions from validateandset
   validateAndSetUrl,

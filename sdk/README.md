@@ -1,216 +1,188 @@
-# RODiT SDK
+# RODiT Authentication System
 
-A JavaScript SDK for interacting with RODiT authentication and API services. This SDK provides secure access to APIs using RODiT token-based authentication, with comprehensive validation, permission checking, and rate limiting based on token metadata.
-
-> **Updated for 2025**: Now includes enhanced security features like timestamp validation to prevent replay attacks.
+This npm package provides the RODiT-based authentication system for Express.js applications. It exports the exact same authentication functionality without adding unnecessary abstraction layers.
 
 ## Features
 
-- **Token-based Authentication**: Secure authentication using RODiT tokens
-- **Token Validation**: Verify token validity, expiration, and permissions
-- **Timestamp Validation**: Prevent replay attacks by validating request timestamps
-- **Subscription Management**: Check if service subscription is active
-- **Secure API Request Handling**: Make authenticated API requests with proper headers
-- **IP Authorization**: Validate client IP addresses against allowed CIDR ranges
-- **Permission-based Access Control**: Control access based on token metadata
-- **Webhook Support**: Register, manage, and verify webhooks
-- **OpenAPI Integration**: Discover available endpoints from OpenAPI specifications
-- **Session Management**: Handle authentication sessions with proper cleanup
-- **Rate Limiting**: Respect rate limits defined in token metadata
-- **Structured Logging**: Comprehensive logging with context for monitoring and debugging
+- Exclusive RODiT-based authentication with blockchain verification
+- JWT-based token management through HTTP headers (no cookies)
+- Permission validation for protected routes based on RODiT token permissions
+- Session management with secure token handling
+- Comprehensive logging and error handling
 
 ## Installation
 
 ```bash
-npm install @cableguard/rodit-sdk
+npm install rodit-auth
 ```
 
-## Quick Start
+For local development:
 
-```javascript
-const { RoditClient, createClient } = require('@cableguard/rodit-sdk');
-
-async function main() {
-  try {
-    // Option 1: Create and initialize a client in one step
-    const client = await createClient({
-      credentialsPath: './credentials.json'
-    });
-    
-    // Option 2: Create a client instance manually
-    // const client = new RoditClient();
-    // await client.init({ credentialsPath: './credentials.json' });
-    
-    // Check if token is valid
-    if (!client.isTokenValid()) {
-      console.error('Token is not valid at the current time');
-      return;
-    }
-    
-    // Make an authenticated API request
-    const response = await client.request('GET', '/api/endpoint');
-    console.log(response);
-  } catch (error) {
-    console.error('Error:', error.message);
-  }
-}
-
-main();
+```bash
+npm install /path/to/servertestapi-rodit/sdk
 ```
 
-## Authentication
+## Usage
 
-The SDK supports authentication using RODiT tokens. The token metadata is loaded from the credentials file and used for all subsequent API requests.
-
-### Login
+### Basic Setup
 
 ```javascript
-// Login to obtain a session token
-const loginResult = await client.login();
-console.log('Login successful, token expires:', loginResult.expiresAt);
-```
+const express = require('express');
+const app = express();
+const auth = require('rodit-auth');
 
-### Logout
+// Configure authentication with default options
+auth.configure({
+  logger: require('./config/logger')
+});
 
-```javascript
-// Logout to invalidate the session token
-await client.logout();
-console.log('Logout successful');
-```
+// Mount the authentication routes
+app.post('/api/login', auth.login);
+app.post('/api/logout', auth.authenticate, auth.logout);
 
-### Session Management
+// Protect routes with authentication
+app.use('/api/protected', auth.authenticate, protectedRoutes);
 
-The SDK automatically manages sessions, including token refresh and cleanup:
+// Add permission validation to routes that require specific permissions
+app.use('/api/admin', auth.authenticate, auth.validatePermissions, adminRoutes);
 
-```javascript
-// The SDK handles token refresh automatically when making requests
-// You can manually check if a refresh is needed
-if (client.isTokenRefreshNeeded()) {
-  await client.refreshToken();
-}
+// Example of a protected route with permission validation
+app.get('/api/entities/:entityId', auth.authenticate, auth.validatePermissions, (req, res) => {
+  // This route is protected and requires specific permissions from the RODiT token
+  // The validatePermissions middleware will check if the user has permission to access this entity
+  const entityId = req.params.entityId;
+  // Process the request...
+});
 
-// Session cleanup runs periodically, but can be triggered manually
-await client.cleanupSessions();
-```
-
-## Configuration
-
-The SDK can be configured in several ways:
-
-### Using a Credentials File
-
-```javascript
-const client = await createClient({
-  credentialsPath: './path/to/credentials.json'
+app.listen(3000, () => {
+  console.log('Server started on port 3000');
 });
 ```
 
-### Using Environment Variables
+### Custom Configuration
 
 ```javascript
-// Set environment variables
-process.env.RODIT_API_ENDPOINT = 'https://api.example.com';
-process.env.RODIT_TOKEN = 'your-token';
+const auth = require('rodit-auth');
 
-const client = await createClient();
-```
-
-### Using Direct Configuration
-
-```javascript
-const client = await createClient({
-  apiEndpoint: 'https://api.example.com',
-  token: 'your-token',
-  // Other configuration options
-  timeout: 5000,
-  retries: 3
+// Configure authentication with custom options
+auth.configure({
+  // Use a custom logger
+  logger: myCustomLogger,
+  
+  // Set token expiry time to 1 hour (in seconds)
+  tokenExpiry: 3600,
+  
+  // Customize header names
+  headerName: 'X-Auth-Token',
+  tokenPrefix: '',
+  newTokenHeader: 'X-New-Token',
+  
+  // Customize user property name on request object
+  userProperty: 'currentUser'
 });
 ```
 
 ## API Reference
 
-### RoditClient
+### Core Middleware Functions
 
-The main client class for interacting with RODiT services.
+- `authenticate(req, res, next)` - Middleware to authenticate API calls
+- `validatePermissions(req, res, next)` - Middleware to validate permissions for protected routes
 
-#### Methods
+### Authentication Handlers
 
-- `init(options)`: Initialize the client with credentials
-- `login()`: Authenticate and obtain a session token
-- `logout()`: Invalidate the current session token
-- `request(method, path, data, options)`: Make an authenticated API request
-- `isTokenValid()`: Check if the token is valid
-- `isSubscriptionActive()`: Check if the subscription is active
-- `getRoditMetadata()`: Get the token metadata
-- `isOperationPermitted(method, path)`: Check if an operation is permitted
-- `refreshToken()`: Refresh the session token
-- `cleanupSessions()`: Clean up expired sessions
-- `getAvailableEndpoints()`: Get available API endpoints from OpenAPI spec
+- `login(req, res)` - Handle client login
+- `logout(req, res)` - Handle client logout
+- `loginWithNEP413(req, res)` - Handle client login with NEP-413 standard
 
-## Core Components
+### Token Functions
 
-### RoditClient
+- `validateToken(token)` - Validate a JWT token
+- `generateToken(payload, options)` - Generate a JWT token
 
-The main client class for interacting with RODiT services.
+### Services
 
-```javascript
-const client = new RoditClient({
-  credentialsPath: './credentials.json' // Path to credentials file
-});
+- `sessionManager` - Session management service
+- `blockchainService` - Blockchain interaction service
+- `stateManager` - State management service
 
-// Initialize the client
-await client.init();
+### Configuration
+
+- `configure(config)` - Configure the authentication system
+
+#### Configuration Options
+
+- `logger` - Logger instance (optional, will use default if not provided)
+- `tokenExpiry` - JWT token expiry time in seconds (default: 3600)
+- `headerName` - Name of the header to use for the token (default: 'Authorization')
+- `tokenPrefix` - Prefix to use for the token in the header (default: 'Bearer ')
+- `newTokenHeader` - Name of the header to use for the new token (default: 'New-Token')
+- `userProperty` - Name of the property to attach the user object to on the request (default: 'user')
+
+## RODiT Authentication
+
+RODiT-based authentication uses the RODiT system to authenticate users. It requires the following parameters in the login request:
+
+- `roditid` - RODiT ID
+- `timestamp` - Timestamp (optional, defaults to current time)
+- `roditid_base64url_signature` - Signature
+
+The system also supports NEP-413 standard authentication with the `loginWithNEP413` function, which requires:
+
+- `message` - Message to sign
+- `nonce` - Nonce value
+- `recipient` - Recipient identifier
+- `callbackUrl` - Callback URL
+- `signature` - Signature
+
+## Permission System
+
+The permission system allows you to control access to protected routes based on the user's permissions. The permissions are stored in the JWT token and are checked by the `validatePermissions` middleware.
+
+### RODiT-based Permissions
+
+RODiT-based permissions use the `permissioned_routes` property in the JWT token. This property contains an array of objects with the following structure:
+
+```json
+[
+  {
+    "route": "^/api/admin/.*$",
+    "methods": ["get", "post", "put", "delete"]
+  },
+  {
+    "route": "^/api/users/.*$",
+    "methods": ["get"]
+  }
+]
 ```
 
-### Utility Functions
+The permission validator checks if the requested route matches any of the patterns in the `permissioned_routes` array and if the HTTP method is allowed for that route.
 
-The sdk provides several utility functions for working with RODiT tokens:
+## Error Handling
 
-```javascript
-const { utils } = require('@cableguard/rodit-sdk');
+All methods in this module handle errors gracefully and return appropriate HTTP status codes and error messages. Errors are also logged using the provided logger.
 
-// Validate token configuration
-const validationResult = await utils.validateRoditToken(config);
+## Logging
 
-// Check if client IP is authorized
-const isAuthorized = utils.isClientIpAuthorized('192.168.1.1', '192.168.1.0/24');
+This module uses the provided logger to log important events. If no logger is provided, it uses the default logger from the SDK.
 
-// Parse metadata JSON fields
-const routes = utils.parseMetadataJson(metadata.permissioned_routes, {});
-```
+## Security Considerations
 
-## Token Metadata
+- Tokens are transmitted via HTTP headers only, not cookies
+- Tokens are validated on every request
+- Permissions are checked on protected routes
+- Session invalidation is supported via logout
+- Token expiry is configurable
 
-The RODiT token contains metadata that controls various aspects of API access:
+## Backward Compatibility
 
-| Field | Description |
-|-------|-------------|
-| subjectuniqueidentifier_url | API endpoint URL. The base URL for all API requests. |
-| not_before | Token validity start date. Indicates when the service subscription begins. |
-| not_after | Token expiration date. Indicates when the service subscription ends. |
-| allowed_cidr | CIDR range for allowed client IP addresses. Defines the IP ranges from which the client is permitted to access the API. |
-| allowed_iso3166list | JSON string of allowed country codes. Specifies which countries the API can be used from. |
-| permissioned_routes | JSON string defining which API routes can be used and what rate limiting applies to them. |
-| max_requests | Maximum number of requests allowed within the time window. |
-| maxrq_window | Time window for rate limiting in seconds. |
-| webhook_url | Webhook URL. Endpoint where notifications will be sent. |
-| webhook_cidr | CIDR range for server IP addresses that are allowed to send webhooks to the client. |
+For backward compatibility, the package also exports the original function names:
 
-## Examples
-
-See the [examples directory](./examples) for complete usage examples:
-
-- [Basic Usage](./examples/basic-usage.js) - Simple example of client initialization and API requests
-- [Complete Example](./examples/complete-example.js) - Comprehensive example showing all sdk features
-
-## Testing
-
-Run the test suite with:
-
-```bash
-npm test
-```
+- `authenticate_apicall` - Original name for `authenticate`
+- `login_client` - Original name for `login`
+- `logout_client` - Original name for `logout`
+- `login_client_withnep413` - Original name for `loginWithNEP413`
 
 ## License
 
-MIT
+Copyright (c) 2025 Rodit Technologies Inc. All rights reserved.
