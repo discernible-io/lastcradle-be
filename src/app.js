@@ -1,15 +1,15 @@
 const express = require("express")
-const ratelimitmw = require("./middleware/ratelimit");
-const validatepermissions = require("./middleware/validatepermissions");
+const ratelimitmw = require("../sdk/lib/middleware/ratelimit");
+const validatepermissions = require("../sdk/lib/middleware/validatepermissions");
 const logger = require("../config/logger");
-const loggingmw = require("./middleware/loggingmw");
-const performanceMw = require("./middleware/performancemw");
+const loggingmw = require("../sdk/lib/middleware/loggingmw");
+const performanceMw = require("../sdk/lib/middleware/performancemw");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 // Import roditManager directly as it's now exported as the singleton instance
-const roditManager = require("./auth/roditmanager");
-const { authenticate_apicall } = require("./middleware/authenticationmw");
-const stateManager = require("./blockchain/statemanager");
+const roditManager = require("../sdk/lib/auth/roditmanager");
+const { authenticate_apicall } = require("../sdk/lib/middleware/authenticationmw");
+const stateManager = require("../sdk/lib/blockchain/statemanager");
 
 const options = {
   definition: {
@@ -66,7 +66,7 @@ app.post("/login", (req, res) => {
 
 // New simplified login route
 app.post("/api/login", (req, res) => {
-  const { login_client } = require('./middleware/authenticationmw');
+  const { login_client } = require('../sdk/lib/middleware/authenticationmw');
   const requestId = ulid();
   req.logAction = "login-attempt";
   
@@ -160,7 +160,7 @@ let db;
 async function startServer() {
   try {
     // Initialize performance service
-    const performanceService = require('./services/performanceservice');
+    const performanceService = require('../config/performanceservice');
     performanceService.initialize();
     
     // Initialize vault and configuration
