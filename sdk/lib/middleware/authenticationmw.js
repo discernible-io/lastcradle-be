@@ -4,7 +4,7 @@
  */
 
 const { ulid } = require("ulid");
-const logger = require("../../../config/logger");
+const logger = require("../../config/logger");
 const nacl = require("tweetnacl");
 const { decodeJwt } = require("jose");
 // Import specific functions directly to avoid circular dependencies
@@ -23,7 +23,7 @@ const {
 } = require("../blockchain/blockchainservice");
 // Direct import from statemanager to avoid circular dependencies
 const stateManager = require("../blockchain/statemanager");
-const { unixTimeToDateString } = require("../utils");
+const { unixTimeToDateString } = require("../../utils");
 const sessionManager = require("../auth/sessionmanager");
 
 /**
@@ -1344,41 +1344,6 @@ async function login_client(req, res) {
       const apiendpoint = config_own_rodit.apiendpoint;
       let roditid = own_rodit.token_id;
       const timestamp = Math.floor(Date.now() / 1000);
-      
-      // Validate timestamp is recent (within 5 minutes)
-      const currentTime = Math.floor(Date.now() / 1000);
-      const maxTimeDifference = 5 * 60; // 5 minutes in seconds
-
-      if (Math.abs(currentTime - timestamp) > maxTimeDifference) {
-        const duration = Date.now() - startTime;
-        
-        logger.warn("Stale timestamp in server login request", {
-          component: "AuthenticationService",
-          method: "login_server",
-          requestId,
-          timestamp,
-          currentTime,
-          timeDifference: Math.abs(currentTime - timestamp),
-          maxAllowed: maxTimeDifference
-        });
-        
-        // Emit metrics for Grafana dashboards
-        logger.metric("login_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: false,
-          error: "STALE_TIMESTAMP"
-        });
-        logger.metric("login_errors_total", 1, {
-          component: "AuthenticationService",
-          error: "STALE_TIMESTAMP"
-        });
-        
-        return {
-          error: "Authentication failed: Stale timestamp",
-          details: "Request timestamp is too old or too far in the future",
-          requestId
-        };
-      }
 
       logger.debug("Preparing authentication data", {
         component: "AuthenticationService",
