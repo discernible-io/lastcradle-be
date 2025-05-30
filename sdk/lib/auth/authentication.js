@@ -20,9 +20,6 @@ const {
   CONSTANTS,
 } = require("../blockchain/blockchainservice");
 
-// Import login_server function from authenticationmw to avoid circular dependency issues
-const { login_server } = require("../middleware/authenticationmw");
-
 async function verify_rodit_ownership(
     peerroditid,
     peertimestamp,
