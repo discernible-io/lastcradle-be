@@ -7,7 +7,7 @@
  * Copyright (c) 2024 Ayayai, Inc. All rights reserved.
  */
 
-const logger = require("../../config/logger");
+const logger = require("../../../config/logger");
 const sessionManager = require("../auth/sessionmanager");
 
 // Default interval is 1 hour

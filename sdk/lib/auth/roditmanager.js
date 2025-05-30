@@ -8,7 +8,7 @@
 const bs58 = require("bs58");
 const { ulid } = require("ulid");
 const config = require("config");
-const logger = require("../../config/logger");
+const logger = require("../../../config/logger");
 const {
   initializeProductionVault,
   get_rodit_fromvault,

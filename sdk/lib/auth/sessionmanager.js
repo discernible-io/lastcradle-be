@@ -8,7 +8,7 @@
  */
 
 const { ulid } = require('ulid');
-const logger = require("../../config/logger");
+const logger = require("../../../config/logger");
 
 class SessionManager {
   constructor() {
