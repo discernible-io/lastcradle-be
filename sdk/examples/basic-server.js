@@ -12,6 +12,37 @@ const { ulid } = require('ulid');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
+// Import rate limiting middleware
+// In a real app, this would be: const ratelimitmw = require('rodit-auth/lib/middleware/ratelimit');
+// For this example, we'll define a simple version inline
+const ratelimitmw = (maxRequests, windowSeconds) => {
+  const requests = {};
+  
+  return (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    
+    // Initialize or clean up old requests
+    if (!requests[ip]) {
+      requests[ip] = [];
+    } else {
+      requests[ip] = requests[ip].filter(time => now - time < windowSeconds * 1000);
+    }
+    
+    // Check if rate limit is exceeded
+    if (requests[ip].length >= maxRequests) {
+      return res.status(429).json({
+        error: 'Rate limit exceeded',
+        requestId: req.requestId
+      });
+    }
+    
+    // Add current request timestamp
+    requests[ip].push(now);
+    next();
+  };
+};
+
 // In a real application, you would use the npm package
 // const auth = require('rodit-auth');
 // For this example, we're using the local package
@@ -44,6 +75,9 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 // Create Express app
 const app = express();
+
+// Default rate limits - will be updated from RODiT metadata
+let ratelimiter = ratelimitmw(100, 15);
 
 // Configure middleware
 app.use(express.json());
@@ -82,30 +116,33 @@ logger.info("Server starting", {
   pid: process.pid
 });
 
-// Configure authentication
-auth.configure({
-  logger,
-  // Note: Token expiry will be extracted from the RODiT's jwt_duration metadata
-  // We don't set tokenExpiry here as it will be overridden by the RODiT value
-  headerName: 'Authorization',
-  tokenPrefix: 'Bearer ',
-  newTokenHeader: 'New-Token',
-  userProperty: 'user'
+// Apply rate limiting to all routes
+app.use((req, res, next) => ratelimiter(req, res, next));
+
+// Action logging middleware - tracks user actions
+app.use((req, res, next) => {
+  if (req.logAction) {
+    logger.infoWithContext(`Action executed`, {
+      action: req.logAction,
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+      userId: req.user ? req.user.id : "anonymous"
+    });
+  }
+  next();
 });
 
-// In a real application, the RODiT values would be fetched from the blockchain
-// This is just a comment explaining the process - no manual setting of values
-
-// The actual flow would be:
-// 1. The application starts and loads the RODiT ID from environment/config
-// 2. The blockchain service fetches the RODiT from the blockchain using nearorg_rpc_tokenfromroditid
-// 3. The state manager is automatically populated with the RODiT data
-// 4. All token lifetimes, rate limits, etc. are extracted from the blockchain-sourced RODiT
-
-// For this example, we'll assume the stateManager has already been initialized
-// by the authentication system's startup process
-
-// Public routes
+/**
+ * @swagger
+ * /:
+ *   get:
+ *     summary: Welcome page
+ *     description: Returns information about available endpoints
+ *     responses:
+ *       200:
+ *         description: Welcome message and endpoint information
+ */
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to the RODiT authentication example',
@@ -119,11 +156,93 @@ app.get('/', (req, res) => {
 });
 
 // Authentication routes
-app.post('/api/login', auth.login);
-app.post('/api/logout', auth.authenticate, auth.logout);
 
-// Protected routes
+/**
+ * @swagger
+ * /api/login:
+ *   post:
+ *     summary: User login
+ *     description: Authenticate using RODiT credentials
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - roditid
+ *               - roditid_base64url_signature
+ *             properties:
+ *               roditid:
+ *                 type: string
+ *                 description: RODiT ID
+ *               timestamp:
+ *                 type: integer
+ *                 description: Current timestamp (optional)
+ *               roditid_base64url_signature:
+ *                 type: string
+ *                 description: Base64URL signature
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Authentication failed
+ */
+app.post('/api/login', (req, res) => {
+  req.logAction = "login-attempt";
+  logger.infoWithContext("Login request received", {
+    component: "API",
+    method: "login",
+    requestId: req.requestId,
+    path: req.path,
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+  
+  auth.login(req, res);
+});
+
+/**
+ * @swagger
+ * /api/logout:
+ *   post:
+ *     summary: User logout
+ *     description: Invalidate the current session
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *       401:
+ *         description: Not authenticated
+ */
+app.post('/api/logout', auth.authenticate, (req, res) => {
+  req.logAction = "logout-attempt";
+  auth.logout(req, res);
+});
+
+/**
+ * @swagger
+ * /api/protected:
+ *   get:
+ *     summary: Protected route
+ *     description: Example of a protected route that requires authentication
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Protected resource
+ *       401:
+ *         description: Not authenticated
+ */
 app.get('/api/protected', auth.authenticate, (req, res) => {
+  logger.infoWithContext("Protected route accessed", {
+    component: "API",
+    method: "getProtected",
+    requestId: req.requestId,
+    userId: req.user.id || req.user.roditId
+  });
+  
   res.json({
     message: 'This is a protected route',
     user: {
@@ -133,54 +252,51 @@ app.get('/api/protected', auth.authenticate, (req, res) => {
   });
 });
 
-// Rate limiting middleware using RODiT configuration from blockchain
-const rateLimit = (req, res, next) => {
-  const requestId = req.headers['x-request-id'];
-  const startTime = Date.now();
-  
-  try {
-    // In a real implementation, the stateManager would already have the RODiT data from the blockchain
-    // The rate limit values would be extracted from the blockchain-sourced RODiT
-    
-    // For demonstration purposes, we'll just log what would happen
-    logger.debug('Rate limit check', {
-      component: 'RateLimit',
-      method: 'middleware',
-      message: 'Using rate limits from blockchain-sourced RODiT',
-      requestId
-    });
-    
-    // In a real implementation, you would check a counter in Redis/database
-    // against the limits defined in the RODiT metadata
-    
-    logger.info('Rate limit check passed', {
-      component: 'RateLimit',
-      method: 'middleware',
-      duration: Date.now() - startTime,
-      requestId
-    });
-    
-    next();
-  } catch (error) {
-    logger.error('Rate limit check error', {
-      component: 'RateLimit',
-      method: 'middleware',
-      error: error.message,
-      stack: error.stack,
-      duration: Date.now() - startTime,
-      requestId
-    });
-    
-    res.status(429).json({
-      error: 'Rate limit exceeded',
-      requestId
-    });
-  }
-};
+// Function to update rate limits based on RODiT metadata
+function updateRateLimit(maxRequests, maxRqWindow) {
+  ratelimiter = ratelimitmw(maxRequests, maxRqWindow);
+  logger.infoWithContext("Rate limit settings updated", { 
+    maxRequests: maxRequests, 
+    windowDuration: maxRqWindow 
+  });
+}
 
-// Protected routes with permission validation and rate limiting
-app.get('/api/entities/:entityId', auth.authenticate, rateLimit, auth.validatePermissions, (req, res) => {
+/**
+ * @swagger
+ * /api/entities/{entityId}:
+ *   get:
+ *     summary: Get entity by ID
+ *     description: Example of a protected route with permission validation
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: entityId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the entity to retrieve
+ *     responses:
+ *       200:
+ *         description: Entity data
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Permission denied
+ *       429:
+ *         description: Rate limit exceeded
+ */
+app.get('/api/entities/:entityId', auth.authenticate, auth.validatePermissions, (req, res) => {
   const entityId = req.params.entityId;
+  
+  logger.infoWithContext("Entity accessed", {
+    component: "API",
+    method: "getEntity",
+    requestId: req.requestId,
+    userId: req.user.id || req.user.roditId,
+    entityId,
+    permissionScope: req.permissionScope
+  });
   
   // In a real implementation, this data would come from the blockchain-sourced RODiT
   // We're just showing the structure of the response here
@@ -197,42 +313,106 @@ app.get('/api/entities/:entityId', auth.authenticate, rateLimit, auth.validatePe
   });
 });
 
-// Error handling
+// Enhanced error handling middleware
 app.use((err, req, res, next) => {
-  logger.error('Server error', {
-    error: err.message,
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
-    requestId: req.headers['x-request-id']
+  logger.errorWithContext(
+    "Server error occurred",
+    {
+      method: req.method,
+      url: req.originalUrl,
+      userIP: req.ip,
+      userId: req.user ? req.user.id : "anonymous",
+      errorCode: "106",
+      route: req.route ? req.route.path : "unknown",
+      requestId: req.requestId
+    },
+    err // Pass the error object directly
+  );
+  
+  res.status(500).json({ 
+    error: "Error 106: Internal Server Error",
+    requestId: req.requestId
+  });
+});
+
+// Store server instance for graceful shutdown
+let server;
+
+// Start the server with proper initialization
+async function startServer() {
+  try {
+    // In a real implementation, this would initialize the RODiT configuration from blockchain
+    // For this example, we'll just log what would happen
+    logger.infoWithContext("Initializing RODiT configuration", {
+      component: "AppLifecycle",
+      status: "initializing"
+    });
+        
+    // Start the HTTP server
+    const PORT = process.env.PORT || 3000;
+    server = app.listen(PORT, () => {
+      logger.infoWithContext("Server started", {
+        port: PORT,
+        env: process.env.NODE_ENV || "development",
+        protocol: "http",
+        swagger: "http://localhost:" + PORT + "/api-docs"
+      });
+      
+      console.log(`\nRODiT authentication example server running on port ${PORT}`);
+      console.log('');
+      console.log('Available endpoints:');
+      console.log('  GET  / - Public welcome page');
+      console.log('  POST /api/login - Login with RODiT credentials');
+      console.log('  POST /api/logout - Logout (requires authentication)');
+      console.log('  GET  /api/protected - Protected route (requires authentication)');
+      console.log('  GET  /api/entities/:entityId - Protected route with permission validation');
+      console.log('  GET  /api-docs - Swagger API documentation');
+      console.log('');
+      console.log('To login, send a POST request to /api/login with:');
+      console.log('  - roditid: Your RODiT ID');
+      console.log('  - timestamp: Current timestamp (optional)');
+      console.log('  - roditid_base64url_signature: Base64URL signature');
+      console.log('');
+      console.log('RODiT Configuration:');
+      console.log('  - All configuration values are automatically extracted from the blockchain-sourced RODiT');
+      console.log('  - No manual configuration is needed as values come directly from the blockchain');
+    });
+    
+    // Graceful shutdown handling
+    process.on("SIGTERM", gracefulShutdown);
+    process.on("SIGINT", gracefulShutdown);
+    
+  } catch (error) {
+    logger.errorWithContext("Server initialization failed", {
+      component: "AppLifecycle",
+      error: error.message
+    }, error);
+    process.exit(1);
+  }
+}
+
+// Graceful shutdown function
+function gracefulShutdown() {
+  logger.infoWithContext("Shutting down gracefully", {
+    component: "AppLifecycle",
+    time: new Date().toISOString()
   });
   
-  res.status(500).json({
-    error: 'Server error',
-    requestId: req.headers['x-request-id']
-  });
-});
+  if (server) {
+    server.close(() => {
+      logger.infoWithContext("Server closed", {
+        component: "AppLifecycle",
+        time: new Date().toISOString()
+      });
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+}
 
 // Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`RODiT authentication example server running on port ${PORT}`);
-  console.log('');
-  console.log('Available endpoints:');
-  console.log('  GET  / - Public welcome page');
-  console.log('  POST /api/login - Login with RODiT credentials');
-  console.log('  POST /api/logout - Logout (requires authentication)');
-  console.log('  GET  /api/protected - Protected route (requires authentication)');
-  console.log('  GET  /api/entities/:entityId - Protected route with permission validation');
-  console.log('');
-  console.log('To login, send a POST request to /api/login with:');
-  console.log('  - roditid: Your RODiT ID');
-  console.log('  - timestamp: Current timestamp (optional)');
-  console.log('  - roditid_base64url_signature: Base64URL signature');
-  console.log('');
-  console.log('RODiT Configuration:');
-  console.log('  - All configuration values are automatically extracted from the blockchain-sourced RODiT');
-  console.log('  - No manual configuration is needed as values come directly from the blockchain');
-});
+startServer();
 
-module.exports = app;
+// Export for testing purposes
+module.exports = { app, startServer };

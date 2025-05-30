@@ -51,9 +51,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// DO NOT REMOVE THESE THREE LINES 
 // Apply rate limiting to all routes for production and testin rate limiting only
-// app.use((req, res, next) => ratelimiter(req, res, next));
+app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Import session routes for centralized session management
 const sessionRoutes = require("./routes/sessionroutes");
