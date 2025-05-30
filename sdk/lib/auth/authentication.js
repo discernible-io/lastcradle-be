@@ -8,7 +8,7 @@ const logger = require("../../config/logger");
 const nacl = require("tweetnacl");
 const crypto = require("crypto");
 const { Resolver } = require("dns").promises;
-const { calculateCanonicalHash, unixTimeToDateString } = require("../../sdk/utils");
+const { calculateCanonicalHash, unixTimeToDateString } = require("../../../utils");
 const stateManager = require("../blockchain/statemanager");
 const { 
   nearorg_rpc_timestamp, 
