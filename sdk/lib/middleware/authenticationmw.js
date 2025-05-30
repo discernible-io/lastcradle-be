@@ -23,7 +23,7 @@ const {
 } = require("../blockchain/blockchainservice");
 // Direct import from statemanager to avoid circular dependencies
 const stateManager = require("../blockchain/statemanager");
-const { unixTimeToDateString } = require("../../../utils");
+const { unixTimeToDateString } = require("../../utils");
 const sessionManager = require("../auth/sessionmanager");
 
 /**
@@ -51,6 +51,41 @@ async function login_client(req, res) {
     // Extract parameters from request body
     const peer_roditid = req.body.roditid;
     const peer_timestamp = req.body.timestamp || Math.floor(Date.now() / 1000);
+    
+    // Validate timestamp is recent (within 5 minutes)
+    const currentTime = Math.floor(Date.now() / 1000);
+    const maxTimeDifference = 5 * 60; // 5 minutes in seconds
+
+    if (Math.abs(currentTime - peer_timestamp) > maxTimeDifference) {
+      const duration = Date.now() - startTime;
+      
+      logger.warn("Stale timestamp in request", {
+        component: "RoditAuth",
+        method: "login_client",
+        requestId,
+        timestamp: peer_timestamp,
+        currentTime,
+        timeDifference: Math.abs(currentTime - peer_timestamp),
+        maxAllowed: maxTimeDifference
+      });
+      
+      // Emit metrics for Grafana dashboards
+      logger.metric("login_attempt_duration_ms", duration, {
+        component: "RoditAuth",
+        success: false,
+        error: "STALE_TIMESTAMP"
+      });
+      logger.metric("failed_login_attempts_total", 1, {
+        component: "RoditAuth",
+        reason: "STALE_TIMESTAMP"
+      });
+      
+      return res.status(401).json({
+        error: "Authentication failed: Stale timestamp",
+        details: "Request timestamp is too old or too far in the future",
+        requestId
+      });
+    }
     
     // Handle both signature parameter names for backward compatibility
     // This aligns with the memory about supporting both parameter names
