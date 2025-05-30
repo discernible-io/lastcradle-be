@@ -2,6 +2,8 @@
 
 This document provides a comprehensive reference for all classes, methods, and utilities available in the RODiT SDK.
 
+> **Last Updated: May 30, 2025** - Documentation reflects the latest security enhancements and project structure.
+
 ## Table of Contents
 
 - [RoditClient](#roditclient)
@@ -10,6 +12,8 @@ This document provides a comprehensive reference for all classes, methods, and u
 - [Configuration](#configuration)
 - [Utility Functions](#utility-functions)
 - [Middleware](#middleware)
+- [Security Features](#security-features)
+- [Project Structure](#project-structure)
 - [Error Handling](#error-handling)
 
 ## RoditClient
@@ -494,6 +498,82 @@ The SDK internally handles various error types:
 - Network errors (connection issues, timeouts)
 - Configuration errors (missing required values)
 - Permission errors (unauthorized operations)
+
+## Security Features
+
+### Timestamp Validation
+
+The SDK implements timestamp validation to prevent replay attacks. Authentication requests include a timestamp that must be within a configurable time window (default: 5 minutes) of the server's current time.
+
+```javascript
+// Example of timestamp validation in authentication requests
+const timestamp = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
+const authData = {
+  roditid: "your-rodit-id",
+  timestamp: timestamp,
+  signature: signData(`${roditid}${timestamp}`)
+};
+```
+
+### JWT-Based Authentication
+
+The SDK uses modern JWT (JSON Web Token) for authentication, providing a stateless, secure method for transmitting information between parties.
+
+```javascript
+// Example of JWT token verification
+const tokenData = decodeJwt(token);
+const isValid = await verifyJwtSignature(token);
+```
+
+### Webhook Security
+
+Webhooks are secured using cryptographic signatures to ensure the authenticity of webhook deliveries.
+
+```javascript
+// Example of webhook signature verification
+const isValid = await authenticate_webhook(
+  payload,
+  signature_hex_ofpayload,
+  timestamp,
+  server_public_key_base64url
+);
+```
+
+## Project Structure
+
+The RODiT SDK is organized into the following directory structure:
+
+```
+sdk/
+├── lib/                  # Core library files
+│   ├── auth/             # Authentication modules
+│   │   ├── authentication.js
+│   │   ├── roditmanager.js
+│   │   ├── sessionmanager.js
+│   │   ├── tokenservice.js
+│   │   └── sessioncleanup.js
+│   ├── blockchain/       # Blockchain interaction
+│   │   ├── blockchainservice.js
+│   │   └── statemanager.js
+│   └── middleware/       # Express middleware
+│       ├── authenticationmw.js
+│       ├── loggingmw.js
+│       ├── performancemw.js
+│       ├── ratelimit.js
+│       └── validatepermissions.js
+├── utils.js              # Utility functions
+├── README.md             # SDK documentation
+└── API-REFERENCE.md      # API reference
+```
+
+### Module Dependencies
+
+The SDK is designed to minimize circular dependencies by using direct function imports and careful module organization.
+
+```javascript
+// Example of importing specific functions to avoid circular dependencies
+const { login_server } = require("../middleware/authenticationmw");
+```
 
 ### Client-Side Error Handling
 

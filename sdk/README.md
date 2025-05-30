@@ -2,10 +2,13 @@
 
 A JavaScript SDK for interacting with RODiT authentication and API services. This SDK provides secure access to APIs using RODiT token-based authentication, with comprehensive validation, permission checking, and rate limiting based on token metadata.
 
+> **Updated for 2025**: Now includes enhanced security features like timestamp validation to prevent replay attacks.
+
 ## Features
 
 - **Token-based Authentication**: Secure authentication using RODiT tokens
 - **Token Validation**: Verify token validity, expiration, and permissions
+- **Timestamp Validation**: Prevent replay attacks by validating request timestamps
 - **Subscription Management**: Check if service subscription is active
 - **Secure API Request Handling**: Make authenticated API requests with proper headers
 - **IP Authorization**: Validate client IP addresses against allowed CIDR ranges
@@ -14,6 +17,7 @@ A JavaScript SDK for interacting with RODiT authentication and API services. Thi
 - **OpenAPI Integration**: Discover available endpoints from OpenAPI specifications
 - **Session Management**: Handle authentication sessions with proper cleanup
 - **Rate Limiting**: Respect rate limits defined in token metadata
+- **Structured Logging**: Comprehensive logging with context for monitoring and debugging
 
 ## Installation
 
