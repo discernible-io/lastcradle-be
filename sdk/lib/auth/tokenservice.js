@@ -4,7 +4,7 @@
  */
 
 const { ulid } = require("ulid");
-const logger = require("../../config/logger");
+const logger = require("../../../config/logger");
 const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
 const nacl = require("tweetnacl");
 const crypto = require("crypto");
