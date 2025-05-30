@@ -1987,48 +1987,54 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
   
       // Try verification with each ID component
       for (let i = 0; i < idComponents.length; i++) {
-        const idIndex = i + 1;
+        const idPosition = i + 1;
+        const isPartnerVerification = i === 0;
+        const isPeerVerification = i > 0;
+        const verificationType = isPartnerVerification ? "PARTNER" : "PEER";
         const signing_token_id = `${base_prefix};${idComponents[i]}`;
-  
+
         logger.debug(
-          `Trying verification with ID [${idIndex}/${idComponents.length}]`,
+          `Trying ${verificationType} verification with ID [${idPosition}/${idComponents.length}]`,
           {
             requestId,
-            idIndex,
+            idPosition,
+            verificationType,
             totalIds: idComponents.length,
             signingTokenId: signing_token_id,
           }
         );
-  
+
         const tokenFetchStart = Date.now();
         const signing_rodit = await nearorg_rpc_tokenfromroditid(
           signing_token_id
         );
         const tokenFetchDuration = Date.now() - tokenFetchStart;
-  
+
         logger.debug("Retrieved signing RODiT", {
           requestId,
-          idIndex,
+          idPosition,
+          verificationType,
           tokenFetchDuration,
           tokenId: signing_rodit?.token_id,
           ownerId: signing_rodit?.owner_id,
         });
-  
+
         // Process the owner ID
         try {
           const bytes_signing_owner_id = new Uint8Array(
             Buffer.from(signing_rodit.owner_id, "hex")
           );
-  
+
           if (bytes_signing_owner_id.length !== CONSTANTS.RODIT_ID_PK_SZ) {
-            logger.warn(`Invalid signing key length for ID ${idIndex}`, {
+            logger.warn(`Invalid signing key length for ${verificationType} verification (ID position: ${idPosition})`, {
               requestId,
+              verificationType,
               actual: bytes_signing_owner_id.length,
               expected: CONSTANTS.RODIT_ID_PK_SZ,
             });
             continue; // Try the next ID
           }
-  
+
           // Process the signature
           const base64urlSignature =
             peer_rodit.metadata.serviceprovider_signature;
@@ -2040,20 +2046,21 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
                 ((4 - (base64urlSignature.length % 4)) % 4),
               "="
             );
-  
+
           const signatureBytes = new Uint8Array(
             Buffer.from(base64Signature, "base64")
           );
-  
+
           if (signatureBytes.length !== CONSTANTS.RODIT_ID_SIGNATURE_SZ) {
-            logger.warn(`Invalid signature length for ID ${idIndex}`, {
+            logger.warn(`Invalid signature length for ${verificationType} verification (ID position: ${idPosition})`, {
               requestId,
+              verificationType,
               actual: signatureBytes.length,
               expected: CONSTANTS.RODIT_ID_SIGNATURE_SZ,
             });
             continue; // Try the next ID
           }
-  
+
           // Prepare the hash input
           const hashInput = {
             token_id: peer_rodit.token_id,
@@ -2071,19 +2078,20 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
             subjectuniqueidentifier_url:
               peer_rodit.metadata.subjectuniqueidentifier_url,
           };
-  
+
           const hashStart = Date.now();
           const hashHex = calculateCanonicalHash(hashInput);
           const hashBytes = new Uint8Array(Buffer.from(hashHex, "hex"));
           const hashDuration = Date.now() - hashStart;
-  
+
           logger.debug("Calculated hash for verification", {
             requestId,
-            idIndex,
+            idPosition,
+            verificationType,
             hashDuration,
             hashLength: hashBytes.length,
           });
-  
+
           // Verify the signature
           const verifyStart = Date.now();
           const is_valid = nacl.sign.detached.verify(
@@ -2092,55 +2100,48 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
             bytes_signing_owner_id
           );
           const verifyDuration = Date.now() - verifyStart;
-  
+
           logger.debug("Signature verification result", {
             requestId,
-            idIndex,
+            idPosition,
+            verificationType,
             verifyDuration,
             isValid: is_valid,
           });
-  
+
           if (is_valid) {
             const totalDuration = Date.now() - startTime;
-  
-            // Log based on which ID worked
-            if (i === 0) {
-              logger.info("Partner login verified successfully", {
-                component: "AuthServices",
-                method: "verify_rodit_isamatch",
-                requestId,
-                duration: totalDuration,
-                partnerVerification: true,
-                idIndex,
-              });
-            } else {
-              logger.info("Peer login verified successfully", {
-                component: "AuthServices",
-                method: "verify_rodit_isamatch",
-                requestId,
-                duration: totalDuration,
-                peerVerification: true,
-                idIndex,
-              });
-            }
-  
+
+            // Log based on verification type
+            logger.info(`${verificationType} login verified successfully`, {
+              component: "AuthServices",
+              method: "verify_rodit_isamatch",
+              requestId,
+              duration: totalDuration,
+              verificationType,
+              idPosition,
+              partnerVerification: isPartnerVerification,
+              peerVerification: isPeerVerification
+            });
+
             // Add metrics for successful matching
             logger.metric &&
               logger.metric("rodit_match_verification", totalDuration, {
                 result: "success",
-                id_index: idIndex,
-                verification_type: i === 0 ? "partner" : "peer",
+                verification_type: verificationType.toLowerCase(),
               });
   
             return true;
           }
   
-          logger.debug(`Verification with ID ${idIndex} failed`, {
+          logger.debug(`${verificationType} verification failed (ID position: ${idPosition})`, {
             requestId,
+            verificationType
           });
         } catch (verifyError) {
-          logger.warn(`Error during verification with ID ${idIndex}`, {
+          logger.warn(`Error during ${verificationType} verification (ID position: ${idPosition})`, {
             requestId,
+            verificationType,
             error: verifyError.message,
             stack: verifyError.stack,
           });
