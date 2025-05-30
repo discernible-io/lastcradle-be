@@ -5,8 +5,8 @@
  */
 
 const { ulid } = require("ulid");
-const logger = require("../../config/logger");
-const performanceService = require('../services/performanceservice');
+const logger = require("../../../config/logger");
+const performanceService = require('../../../config/performanceservice');
 
 /**
  * Middleware for monitoring request performance

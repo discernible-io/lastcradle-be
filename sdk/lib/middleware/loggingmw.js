@@ -4,7 +4,7 @@
  * Copyright (c) 2024 Cableguard, Inc. All rights reserved.
  */
 
-const logger = require("../../config/logger");
+const logger = require("../../../config/logger");
 
 /**
  * Middleware for logging requests and responses

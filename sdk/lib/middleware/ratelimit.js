@@ -3,7 +3,7 @@
  * Updated to work with express-rate-limit v7.x
  */
 const rateLimit = require('express-rate-limit');
-const logger = require('../../config/logger');
+const logger = require('../../../config/logger');
 
 /**
  * Creates a rate limiting middleware with the specified configuration

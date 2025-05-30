@@ -1,6 +1,6 @@
 const config = require("config");
 const bs58 = require("bs58");
-const logger = require("../../config/logger");
+const logger = require("../../../config/logger");
 
 logger.debug("Loading vaultsetup-production.js module", {
   component: "ModuleLoader",
