@@ -9,7 +9,7 @@ const crypto = require("crypto");
 const stateManager = require("../blockchain/statemanager");
 const { send_webhook, logEvent } = require("../auth/authentication");
 
-const DB_PATH = config.get("API_OPTIONS.DB_PATH");
+const DB_PATH = config.get("API_DEFAULT_OPTIONS.DB_PATH");
 
 // Database connection
 let db;

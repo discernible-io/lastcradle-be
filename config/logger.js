@@ -4,7 +4,7 @@ const config = require("config");
 const fs = require('fs');
 
 // Configuration
-const LOG_DIR = config.get("API_OPTIONS.LOG_DIR");
+const LOG_DIR = config.get("API_DEFAULT_OPTIONS.LOG_DIR");
 const SERVICE_NAME = "servertest-api";
 
 // Ensure log directory exists

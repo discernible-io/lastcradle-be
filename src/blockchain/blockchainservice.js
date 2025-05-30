@@ -11,7 +11,7 @@ const config = require("config");
  * Constants and Configuration
  */
 const CONSTANTS = {
-  SMART_CONTRACT: config.get("APISERVICEOPTIONS.scaccountid"),
+  SMART_CONTRACT: config.get("NEAR_CONTRACT_ID"),
   SMART_CONTRACT_REVOKED: "10975-revoked-cableguard-org.testnet",
   BLOCKCHAIN_NETWORK: config.get("NEAR_NETWORK_ID"),
   RODIT_ID_SZ: 128,

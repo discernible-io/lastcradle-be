@@ -1,5 +1,5 @@
 {
- "API_OPTIONS": {
+ "API_DEFAULT_OPTIONS": {
   "ISO639": "es",
   "ISO3166": "ES",
   "ISO15924": "215",
@@ -16,10 +16,8 @@
 },
   "LOG_DIR": "/app/logs",
   "DB_PATH": "/app/data/database.sqlite",
-  "MAX_REQUESTS": 100,
-  "MAXRQ_WINDOW": 100
+  "DEFAULT_MAX_REQUESTS": 100,
+  "DEFAULT_MAXRQ_WINDOW": 100
  },
- "APISERVICEOPTIONS": {
-  "scaccountid": "10975-cableguard-org.testnet"
- }
+"NEAR_CONTRACT_ID": "10975-cableguard-org.testnet"
 }

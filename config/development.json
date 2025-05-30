@@ -9,9 +9,7 @@
  "WEBHOOKPORT": 3444,
  "API_PROTOCOL": "https",
  "NEAR_NETWORK_ID": ".testnet",
- "MAX_REQUESTS": 16,
  "NEAR_RPC_URL": "https://rpc.testnet.fastnear.com/",
- "NEAR_CONTRACT_ID": "10975-cableguard-org.testnet",
  "SERVER_FRONTEND_URL": "https://testnet-serverfe.cableguard.net:2443",
  "CLIENT_FRONTEND_URL": "https://testnet-clientfe.cableguard.net",
  "API_URL": "https://dev-api.aparejos.net:3443"

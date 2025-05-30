@@ -497,10 +497,10 @@ async initializeCredentialsStore() {
           own_rodit_bytes_private_key: credentials.signing_bytes_key,
           apiendpoint: "localhost:" + config.get("SERVERPORT"),
           port: config.get("SERVERPORT"),
-          iso639: config.get("API_OPTIONS.ISO639"),
-          iso3166: config.get("API_OPTIONS.ISO3166"),
-          iso15924: config.get("API_OPTIONS.ISO15924"),
-          timeoptions: config.get("API_OPTIONS.TIMEOPTIONS"),
+          iso639: config.get("API_DEFAULT_OPTIONS.ISO639"),
+          iso3166: config.get("API_DEFAULT_OPTIONS.ISO3166"),
+          iso15924: config.get("API_DEFAULT_OPTIONS.ISO15924"),
+          timeoptions: config.get("API_DEFAULT_OPTIONS.TIMEOPTIONS"),
         };
 
         const configCopy = JSON.parse(
@@ -629,10 +629,10 @@ async initializeCredentialsStore() {
         own_rodit_bytes_private_key: credentials.signing_bytes_key,
         apiendpoint,
         port: SERVERPORT,
-        iso639: config.get("API_OPTIONS.ISO639"),
-        iso3166: config.get("API_OPTIONS.ISO3166"),
-        iso15924: config.get("API_OPTIONS.ISO15924"),
-        timeoptions: config.get("API_OPTIONS.TIMEOPTIONS"),
+        iso639: config.get("API_DEFAULT_OPTIONS.ISO639"),
+        iso3166: config.get("API_DEFAULT_OPTIONS.ISO3166"),
+        iso15924: config.get("API_DEFAULT_OPTIONS.ISO15924"),
+        timeoptions: config.get("API_DEFAULT_OPTIONS.TIMEOPTIONS"),
       };
 
       const configCopy = JSON.parse(

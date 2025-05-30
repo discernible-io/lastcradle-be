@@ -4,9 +4,7 @@
  "WEBHOOKPORT": 9443,
  "API_PROTOCOL": "https",
  "NEAR_NETWORK_ID": ".mainnet",
- "MAX_REQUESTS": 1,
  "NEAR_RPC_URL": "https://rpc.near.org",
- "NEAR_CONTRACT_ID": "10975-cableguard-org.near",
  "SERVER_FRONTEND_URL": "https://serverfe.cableguard.net",
  "CLIENT_FRONTEND_URL": "https://clientfe.cableguard.net",
  "API_URL": "https://api.aparejos.net"
