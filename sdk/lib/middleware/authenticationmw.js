@@ -138,7 +138,7 @@ async function login_client(req, res) {
     });
 
     // Import stateManager only when needed to avoid circular dependencies
-    const stateManager = require("../sdk/lib/blockchain/statemanager");
+    const stateManager = require("../blockchain/statemanager");
     const config_own_rodit = await stateManager.getConfigOwnRodit();
 
     if (!config_own_rodit) {
@@ -641,7 +641,7 @@ async function login_client(req, res) {
           // Generate a final token with session_status="closed"
           try {
             // Import the tokenservice dynamically to avoid circular dependencies
-            const tokenService = require('../sdk/lib/auth/tokenservice');
+            const tokenService = require('../auth/tokenservice');
             
             // Generate a final token with very short expiration (1 minute)
             // This token is just for status communication, not for authentication
