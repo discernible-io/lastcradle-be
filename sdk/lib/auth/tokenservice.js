@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const {
   dateStringToUnixTime,
   unixTimeToDateString
-} = require("../../utils");
+} = require("../utils");
 const sessionManager = require('../auth/sessionmanager');
 const stateManager = require('../blockchain/statemanager');
 const {  
