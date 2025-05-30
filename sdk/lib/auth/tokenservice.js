@@ -11,8 +11,8 @@ const crypto = require("crypto");
 const {
   dateStringToUnixTime,
   unixTimeToDateString
-} = require("../utils");
-const sessionManager = require('../auth/sessionmanager');
+} = require("../../utils");
+const sessionManager = require('./sessionmanager');
 const stateManager = require('../blockchain/statemanager');
 const {  
   nearorg_rpc_tokenfromroditid, 

@@ -21,7 +21,7 @@ class AuthStateManager {
     this.peerBase64urlJwkPublicKey = null;
 
     // Other existing properties
-    this.configOwnRodit = null;
+    this.config_own_rodit = null;
     this.signportalJwtToken = null;
     this.jwtToken = null;
     
@@ -91,12 +91,12 @@ class AuthStateManager {
 
   // RODiT configuration management
   async setConfigOwnRodit(config) {
-    this.configOwnRodit = config;
+    this.config_own_rodit = config;
     return config;
   }
 
   getConfigOwnRodit() {
-    return this.configOwnRodit;
+    return this.config_own_rodit;
   }
 
   // JWT token management

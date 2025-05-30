@@ -4,7 +4,7 @@
  */
 
 const { ulid } = require("ulid");
-const logger = require("../../config/logger");
+const logger = require("../../../config/logger");
 const nacl = require("tweetnacl");
 const { decodeJwt } = require("jose");
 // Import specific functions directly to avoid circular dependencies
@@ -51,41 +51,6 @@ async function login_client(req, res) {
     // Extract parameters from request body
     const peer_roditid = req.body.roditid;
     const peer_timestamp = req.body.timestamp || Math.floor(Date.now() / 1000);
-    
-    // Validate timestamp is recent (within 5 minutes)
-    const currentTime = Math.floor(Date.now() / 1000);
-    const maxTimeDifference = 5 * 60; // 5 minutes in seconds
-
-    if (Math.abs(currentTime - peer_timestamp) > maxTimeDifference) {
-      const duration = Date.now() - startTime;
-      
-      logger.warn("Stale timestamp in request", {
-        component: "RoditAuth",
-        method: "login_client",
-        requestId,
-        timestamp: peer_timestamp,
-        currentTime,
-        timeDifference: Math.abs(currentTime - peer_timestamp),
-        maxAllowed: maxTimeDifference
-      });
-      
-      // Emit metrics for Grafana dashboards
-      logger.metric("login_attempt_duration_ms", duration, {
-        component: "RoditAuth",
-        success: false,
-        error: "STALE_TIMESTAMP"
-      });
-      logger.metric("failed_login_attempts_total", 1, {
-        component: "RoditAuth",
-        reason: "STALE_TIMESTAMP"
-      });
-      
-      return res.status(401).json({
-        error: "Authentication failed: Stale timestamp",
-        details: "Request timestamp is too old or too far in the future",
-        requestId
-      });
-    }
     
     // Handle both signature parameter names for backward compatibility
     // This aligns with the memory about supporting both parameter names
@@ -173,7 +138,7 @@ async function login_client(req, res) {
     });
 
     // Import stateManager only when needed to avoid circular dependencies
-    const stateManager = require("../blockchain/statemanager");
+    const stateManager = require("../sdk/lib/blockchain/statemanager");
     const config_own_rodit = await stateManager.getConfigOwnRodit();
 
     if (!config_own_rodit) {
@@ -676,7 +641,7 @@ async function login_client(req, res) {
           // Generate a final token with session_status="closed"
           try {
             // Import the tokenservice dynamically to avoid circular dependencies
-            const tokenService = require('../auth/tokenservice');
+            const tokenService = require('../sdk/lib/auth/tokenservice');
             
             // Generate a final token with very short expiration (1 minute)
             // This token is just for status communication, not for authentication

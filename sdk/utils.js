@@ -4,7 +4,7 @@
  */
 
 const { ulid } = require("ulid");
-const logger = require("../../config/logger");
+const logger = require("../config/logger");
 const crypto = require("crypto");
 const nacl = require("tweetnacl");
 nacl.util = require("tweetnacl-util");
@@ -114,22 +114,15 @@ function ensureProtocol(url) {
   }
 
   // Get the configured protocol or default to https
-  let protocol;
+  let protocol = 'https';
   try {
     protocol = config.get('API_PROTOCOL');
   } catch (error) {
-    logger.warn('API_PROTOCOL not found in configuration, defaulting to https://', {
-      component: 'Utils',
-      method: 'ensureProtocol',
-      url
-    });
-    protocol = 'https://';
+    // Silently use the default protocol
   }
-
-  // Ensure protocol ends with ://
-  if (!protocol.endsWith('://')) {
-    protocol = protocol + '://';
-  }
+  
+  // Always add '://' to the protocol
+  protocol = protocol + '://';
 
   return protocol + url;
 }
