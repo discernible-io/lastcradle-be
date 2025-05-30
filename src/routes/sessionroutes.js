@@ -10,11 +10,11 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const sessionManager = require('../auth/sessionmanager');
-const { authenticate_apicall, login_client, logout_client } = require('../middleware/authenticationmw');
-const validatepermissions = require('../middleware/validatepermissions');
+const sessionManager = require('../../sdk/lib/auth/sessionmanager');
+const { authenticate_apicall, login_client, logout_client } = require('../../sdk/lib/middleware/authenticationmw');
+const validatepermissions = require('../../sdk/lib/middleware/validatepermissions');
 const logger = require('../../config/logger');
-const { runManualCleanup } = require('../services/sessioncleanup');
+const { runManualCleanup } = require('../../sdk/lib/auth/sessioncleanup');
 
 /**
  * POST /api/sessions/login - Create a new session (login)

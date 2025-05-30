@@ -5,8 +5,8 @@
 
 const express = require('express');
 const router = express.Router();
-const performanceService = require('../services/performanceservice');
-const { authenticate_apicall } = require('../middleware/authenticationmw');
+const performanceService = require('../../config/performanceservice');
+const { authenticate_apicall } = require('../../sdk/lib/middleware/authenticationmw');
 
 /**
  * GET /api/metrics

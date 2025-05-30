@@ -7,11 +7,11 @@ const {
   nearorg_rpc_tokenfromroditid,
   nearorg_rpc_fetchpublickeybytes,
   nearorg_rpc_timestamp,
-} = require("../blockchain/blockchainservice");
-const stateManager = require("../blockchain/statemanager");
+} = require("../../sdk/lib/blockchain/blockchainservice");
+const stateManager = require("../../sdk/lib/blockchain/statemanager");
 const {
   login_portal,
-} = require("../middleware/authenticationmw");
+} = require("../../sdk/lib/middleware/authenticationmw");
 
 async function signPortalRodit(
   port,

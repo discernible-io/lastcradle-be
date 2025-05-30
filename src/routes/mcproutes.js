@@ -7,8 +7,8 @@
 
 const express = require('express');
 const router = express.Router();
-const { authenticate_apicall } = require('../middleware/authenticationmw');
-const mcpService = require('../services/mcpservice');
+const { authenticate_apicall } = require('../../sdk/lib/middleware/authenticationmw');
+const mcpService = require('../../config/mcpservice');
 const logger = require('../../config/logger');
 
 /**
