@@ -1263,7 +1263,7 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
     const startTime = Date.now();
 
     // Get own_rodit from stateManager
-    const own_rodit = await stateManager.getConfigOwnRodit();
+    const config_own_rodit = await stateManager.getConfigOwnRodit();
 
     logger.debug("Starting peer RODiT verification", {
       component: "RoditAuth",
@@ -1272,8 +1272,8 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
       peerRoditId: peerroditid,
       timestamp: peertimestamp,
       signatureLength: peerroditid_base64url_signature?.length,
-      hasOwnRodit: !!own_rodit,
-      ownRoditId: own_rodit?.token_id,
+      hasOwnRodit: !!config_own_rodit,
+      ownRoditId: config_own_rodit?.token_id,
     });
 
     try {
@@ -1348,8 +1348,22 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
 
       // Verify match
       const matchStart = Date.now();
+      
+      // Check if config_own_rodit is properly defined before accessing properties
+      if (!config_own_rodit || !config_own_rodit.own_rodit.metadata) {
+        logger.error("Own RODiT configuration is incomplete", {
+          component: "AuthServices",
+          method: "verify_peerrodit_getrodit",
+          requestId,
+          duration: Date.now() - startTime,
+          hasOwnRodit: !!config_own_rodit,
+          hasMetadata: config_own_rodit && !!config_own_rodit.own_rodit.metadata
+        });
+        return { peer_rodit, goodrodit: false };
+      }
+      
       const isaMatch = await verify_rodit_isamatch(
-        own_rodit.own_rodit.metadata.serviceprovider_id,
+        config_own_rodit.own_rodit.metadata.serviceprovider_id,
         peer_rodit
       );
       const matchDuration = Date.now() - matchStart;
@@ -1394,7 +1408,7 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
       const activeStart = Date.now();
       const isActive = await verify_rodit_isactive(
         peer_rodit.token_id,
-        own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
+        config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
       );
       const activeDuration = Date.now() - activeStart;
 
@@ -1415,7 +1429,7 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
       // Verify trusted
       const trustedStart = Date.now();
       const isTrusted = await verify_rodit_istrusted_issuingsmartcontract(
-        own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
+        config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url
       );
       const trustedDuration = Date.now() - trustedStart;
 
