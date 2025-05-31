@@ -41,7 +41,9 @@ const swaggerSpec = swaggerJsdoc(options);
 const app = express();
 
 // Configure Express to trust proxies for correct client IP detection
-app.set('trust proxy', true);
+// Using a specific configuration instead of 'true' to prevent IP spoofing
+// This trusts only the first proxy (typical for most setups)
+app.set('trust proxy', 1);
 
 // Near the top of app.js
 logger.info("Server starting", {

@@ -31,6 +31,10 @@ function ratelimitmw(maxRequests = 100, windowMinutes = 15) {
     // Disable X-RateLimit-* headers
     legacyHeaders: false,
     
+    // Configure how to identify clients when behind a proxy
+    // This matches the app.set('trust proxy', 1) configuration
+    trustProxy: 1,
+    
     // Handler for when the rate limit is exceeded
     handler: (req, res, next, options) => {
       // Log rate limit exceeded events
