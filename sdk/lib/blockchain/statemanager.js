@@ -165,6 +165,17 @@ class AuthStateManager {
   }
   
   getPortalUrl(serviceProviderId, port) {
+    // Validate serviceProviderId
+    if (!serviceProviderId) {
+      const error = new Error("serviceProviderId is undefined in getPortalUrl");
+      logger.error("Missing serviceProviderId parameter", {
+        component: "StateManager",
+        method: "getPortalUrl",
+        error: error.message
+      });
+      throw error;
+    }
+    
     // Extract smart contract component from serviceprovider_id
     const components = serviceProviderId.split(";");
     const scComponent = components
@@ -172,13 +183,27 @@ class AuthStateManager {
       ?.substring(3);
 
     if (!scComponent) {
-      throw new Error("Invalid serviceprovider_id format");
+      const error = new Error("Invalid serviceprovider_id format: missing sc= component");
+      logger.error("Invalid serviceprovider_id format", {
+        component: "StateManager",
+        method: "getPortalUrl",
+        serviceProviderId,
+        error: error.message
+      });
+      throw error;
     }
 
     // Extract domain parts from smart contract name
     const scParts = scComponent.split(".");
     if (scParts.length < 1) {
-      throw new Error("Invalid smart contract format");
+      const error = new Error("Invalid smart contract format");
+      logger.error("Invalid smart contract format", {
+        component: "StateManager",
+        method: "getPortalUrl",
+        serviceProviderId,
+        error: error.message
+      });
+      throw error;
     }
 
     // Get domain information from the first part
@@ -187,7 +212,14 @@ class AuthStateManager {
 
     // Find domain and TLD in the components (format: 10975-cableguard-org)
     if (domainComponents.length < 3) {
-      throw new Error("Invalid domain format in smart contract");
+      const error = new Error("Invalid domain format in smart contract");
+      logger.error("Invalid domain format in smart contract", {
+        component: "StateManager",
+        method: "getPortalUrl",
+        serviceProviderId,
+        error: error.message
+      });
+      throw error;
     }
 
     const domain = domainComponents[1]; // cableguard

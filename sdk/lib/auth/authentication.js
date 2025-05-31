@@ -1349,17 +1349,41 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
       // Verify match
       const matchStart = Date.now();
       
-      // Check if config_own_rodit is properly defined before accessing properties
-      if (!config_own_rodit || !config_own_rodit.own_rodit.metadata) {
-        logger.error("Own RODiT configuration is incomplete", {
+      // Validate configuration before proceeding
+      if (!config_own_rodit) {
+        const error = new Error("RODiT configuration is missing");
+        logger.error("RODiT configuration is missing", {
           component: "AuthServices",
           method: "verify_peerrodit_getrodit",
           requestId,
           duration: Date.now() - startTime,
-          hasOwnRodit: !!config_own_rodit,
-          hasMetadata: config_own_rodit && !!config_own_rodit.own_rodit.metadata
+          error: error.message
         });
-        return { peer_rodit, goodrodit: false };
+        throw error;
+      }
+      
+      if (!config_own_rodit.own_rodit) {
+        const error = new Error("RODiT configuration is incomplete: own_rodit is missing");
+        logger.error("RODiT configuration is incomplete", {
+          component: "AuthServices",
+          method: "verify_peerrodit_getrodit",
+          requestId,
+          duration: Date.now() - startTime,
+          error: error.message
+        });
+        throw error;
+      }
+      
+      if (!config_own_rodit.own_rodit.metadata) {
+        const error = new Error("RODiT configuration is incomplete: metadata is missing");
+        logger.error("RODiT configuration is incomplete", {
+          component: "AuthServices",
+          method: "verify_peerrodit_getrodit",
+          requestId,
+          duration: Date.now() - startTime,
+          error: error.message
+        });
+        throw error;
       }
       
       const isaMatch = await verify_rodit_isamatch(
