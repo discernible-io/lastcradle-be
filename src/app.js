@@ -39,6 +39,10 @@ let ratelimiter = ratelimitmw(100, 15);
 
 const swaggerSpec = swaggerJsdoc(options);
 const app = express();
+
+// Configure Express to trust proxies for correct client IP detection
+app.set('trust proxy', true);
+
 // Near the top of app.js
 logger.info("Server starting", {
   component: "AppLifecycle",
