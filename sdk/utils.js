@@ -1554,6 +1554,39 @@ function isSubscriptionActive(metadata) {
   return isActive;
 }
 
+/**
+ * Validates if a string is a valid CIDR IP range
+ *
+ * @param {string} cidr - CIDR notation IP range to validate
+ * @returns {boolean} True if valid CIDR range
+ */
+function isValidIpRange(cidr) {
+  if (!cidr || typeof cidr !== 'string') return false;
+  
+  // Simple CIDR validation regex
+  const cidrRegex = /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$/;
+  return cidrRegex.test(cidr);
+}
+
+// isValidEndpoint function removed - endpoint comes from RODiT token and is correct by definition
+
+/**
+ * Parses a JSON string safely with fallback to default value
+ *
+ * @param {string} json - JSON string to parse
+ * @param {Object} defaultValue - Default value if parsing fails
+ * @returns {Object} Parsed JSON or default value
+ */
+function parseMetadataJson(json, defaultValue = {}) {
+  if (!json || typeof json !== 'string') return defaultValue;
+  
+  try {
+    return JSON.parse(json);
+  } catch (e) {
+    return defaultValue;
+  }
+}
+
 module.exports = {
   // Original utils functions
   debugWithType,
@@ -1590,5 +1623,9 @@ module.exports = {
   validateAndExtractCredentials,
   validateCredentialParameters,
   generateSignature,
-  ensureProtocol
+  ensureProtocol,
+  
+  // Utility functions for validation
+  isValidIpRange,
+  parseMetadataJson
 };
