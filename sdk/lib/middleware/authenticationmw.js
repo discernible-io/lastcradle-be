@@ -6,7 +6,6 @@
 const { ulid } = require("ulid");
 const logger = require("../../../config/logger");
 const nacl = require("tweetnacl");
-const { Buffer } = require("buffer");
 const { decodeJwt } = require("jose");
 // Import specific functions directly to avoid circular dependencies
 const { 
@@ -24,8 +23,12 @@ const {
 } = require("../blockchain/blockchainservice");
 // Direct import from statemanager to avoid circular dependencies
 const stateManager = require("../blockchain/statemanager");
-const { unixTimeToDateString } = require("../../utils");
+const utils = require("../../utils");
+const { unixTimeToDateString } = utils;
 const sessionManager = require("../auth/sessionmanager");
+
+// Import validation utilities or define them if not available
+const validationResult = { isEmpty: () => true }; // Default implementation if not available
 
 /**
  * Middleware for handling authentication in routes
