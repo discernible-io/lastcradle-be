@@ -31,6 +31,18 @@ scrape_configs:
       - regex:
           expression: '(?P<component>api|nginx|system)(?P<logtype>error|access|info)'
           source: filename
+      - match:
+          selector: '{filename=~".+"} |~ "Webhook server listening on port 8080"'
+          stages:
+            - drop:
+                expression: ".*"  # Drop all messages that match the selector
+      # Simple filtering approach instead of deduplication
+      - match:
+          selector: '{filename=~".+"}'
+          stages:
+            - output:
+                source: message
+      # You can add more pipeline stages here if needed
       - labels:
           component:
           logtype:
