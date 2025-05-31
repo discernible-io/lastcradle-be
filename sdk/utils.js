@@ -1417,6 +1417,51 @@ function ensureDateIsSet(dateVar, defaultValue) {
 }
 
 /**
+ * Checks if a subscription is active based on token metadata dates
+ * 
+ * @param {Object} metadata - Token metadata with not_before and not_after dates
+ * @returns {boolean} True if subscription is active
+ */
+function isSubscriptionActive(metadata) {
+  if (!metadata) {
+    return false;
+  }
+  
+  const now = new Date();
+  let isActive = true;
+  
+  // Check not_before date if present
+  if (metadata.not_before) {
+    const notBefore = new Date(metadata.not_before);
+    if (now < notBefore) {
+      logger.debug('Subscription not yet active', {
+        component: 'Utils',
+        method: 'isSubscriptionActive',
+        now: now.toISOString(),
+        notBefore: notBefore.toISOString()
+      });
+      isActive = false;
+    }
+  }
+  
+  // Check not_after date if present
+  if (metadata.not_after) {
+    const notAfter = new Date(metadata.not_after);
+    if (now > notAfter) {
+      logger.debug('Subscription has expired', {
+        component: 'Utils',
+        method: 'isSubscriptionActive',
+        now: now.toISOString(),
+        notAfter: notAfter.toISOString()
+      });
+      isActive = false;
+    }
+  }
+  
+  return isActive;
+}
+
+/**
  * Buffer utility functions for data conversion
  */
 const bufferUtils = {
@@ -1464,9 +1509,55 @@ const bufferUtils = {
   },
 };
 
+/**
+ * Checks if a subscription is active based on token metadata dates
+ * 
+ * @param {Object} metadata - Token metadata with not_before and not_after dates
+ * @returns {boolean} True if subscription is active
+ */
+function isSubscriptionActive(metadata) {
+  if (!metadata) {
+    return false;
+  }
+  
+  const now = new Date();
+  let isActive = true;
+  
+  // Check not_before date if present
+  if (metadata.not_before) {
+    const notBefore = new Date(metadata.not_before);
+    if (now < notBefore) {
+      logger.debug('Subscription not yet active', {
+        component: 'Utils',
+        method: 'isSubscriptionActive',
+        now: now.toISOString(),
+        notBefore: notBefore.toISOString()
+      });
+      isActive = false;
+    }
+  }
+  
+  // Check not_after date if present
+  if (metadata.not_after) {
+    const notAfter = new Date(metadata.not_after);
+    if (now > notAfter) {
+      logger.debug('Subscription has expired', {
+        component: 'Utils',
+        method: 'isSubscriptionActive',
+        now: now.toISOString(),
+        notAfter: notAfter.toISOString()
+      });
+      isActive = false;
+    }
+  }
+  
+  return isActive;
+}
+
 module.exports = {
   // Original utils functions
   debugWithType,
+  unixTimeToDateString,
   logServerBufferState,
   setValue,
   dateStringToUnixTime,

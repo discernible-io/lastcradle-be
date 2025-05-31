@@ -6,6 +6,7 @@
 const { ulid } = require("ulid");
 const logger = require("../../../config/logger");
 const nacl = require("tweetnacl");
+const { Buffer } = require("buffer");
 const { decodeJwt } = require("jose");
 // Import specific functions directly to avoid circular dependencies
 const { 
@@ -13,10 +14,10 @@ const {
   generate_jwt_token,
   tokenService
 } = require("../auth/tokenservice");
+// Import specific functions from authentication.js to avoid circular dependencies
 const { 
-  send_webhook,
   verify_peerrodit_getrodit,
-  verify_peerrodit_getrodit_withnep413,
+  verify_peerrodit_getrodit_withnep413
 } = require("../auth/authentication");
 const { 
   nearorg_rpc_tokenfromroditid
@@ -138,7 +139,7 @@ async function login_client(req, res) {
     });
 
     // Import stateManager only when needed to avoid circular dependencies
-    const stateManager = require("../blockchain/statemanager");
+    const stateManager = require("../sdk/lib/blockchain/statemanager");
     const config_own_rodit = await stateManager.getConfigOwnRodit();
 
     if (!config_own_rodit) {
@@ -173,7 +174,7 @@ async function login_client(req, res) {
       roditId: peer_roditid,
     });
 
-    // Call verify_peerrodit_getrodit with direct parameters
+    // Call verify_peerrodit_getrodit directly
     const result = await verify_peerrodit_getrodit(
       peer_roditid,
       peer_timestamp,
@@ -641,7 +642,7 @@ async function login_client(req, res) {
           // Generate a final token with session_status="closed"
           try {
             // Import the tokenservice dynamically to avoid circular dependencies
-            const tokenService = require('../auth/tokenservice');
+            const tokenService = require('../sdk/lib/auth/tokenservice');
             
             // Generate a final token with very short expiration (1 minute)
             // This token is just for status communication, not for authentication
