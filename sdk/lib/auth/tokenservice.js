@@ -503,15 +503,35 @@ const {
 
       const sessionCreateStart = Date.now();
       try {
-        const session = sessionManager.createSession(sessionData);
-        const sessionCreateDuration = Date.now() - sessionCreateStart;
+        // Check if sessionManager is defined and has createSession method
+        if (!sessionManager) {
+          logger.warn("Session manager is undefined, skipping session creation", {
+            component: "JwtAuth",
+            method: "generate_jwt_token",
+            requestId,
+            roditId: peer_rodit.token_id,
+          });
+        } else if (typeof sessionManager.createSession !== 'function') {
+          logger.warn("Session manager createSession method is not available", {
+            component: "JwtAuth",
+            method: "generate_jwt_token",
+            requestId,
+            roditId: peer_rodit.token_id,
+            sessionManagerType: typeof sessionManager,
+            hasCreateSession: sessionManager ? 'createSession' in sessionManager : false
+          });
+        } else {
+          // Session manager is available, proceed with session creation
+          const session = sessionManager.createSession(sessionData);
+          const sessionCreateDuration = Date.now() - sessionCreateStart;
 
-        logger.debug("Session created in session manager", {
-          requestId,
-          sessionId: session.id,
-          roditId: peer_rodit.token_id,
-          sessionCreateDuration,
-        });
+          logger.debug("Session created in session manager", {
+            requestId,
+            sessionId: session.id,
+            roditId: peer_rodit.token_id,
+            sessionCreateDuration,
+          });
+        }
       } catch (sessionError) {
         logger.warn(
           "Failed to register session, continuing with token generation",
@@ -1050,7 +1070,25 @@ const {
         jwtVerifyDuration: Date.now() - jwtVerifyStartTime,
       });
   
-      stateManager.setOwnBase64urlJwkPublicKey(serviceprovider_base64_public_key);
+      // Check if stateManager is defined before calling methods on it
+      if (!stateManager) {
+        logger.warn("State manager is undefined, skipping public key storage", {
+          component: "JwtAuth",
+          method: "validate_jwt_token_be",
+          requestId,
+        });
+      } else if (typeof stateManager.setOwnBase64urlJwkPublicKey !== 'function') {
+        logger.warn("State manager setOwnBase64urlJwkPublicKey method is not available", {
+          component: "JwtAuth",
+          method: "validate_jwt_token_be",
+          requestId,
+          stateManagerType: typeof stateManager,
+          hasSetMethod: stateManager ? 'setOwnBase64urlJwkPublicKey' in stateManager : false
+        });
+      } else {
+        // State manager is available, proceed with setting the public key
+        stateManager.setOwnBase64urlJwkPublicKey(serviceprovider_base64_public_key);
+      }
   
       const { verify_peerrodit_getrodit } = require("./authentication");
       
