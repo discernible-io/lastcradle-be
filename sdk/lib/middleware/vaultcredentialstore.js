@@ -3,9 +3,9 @@ const bs58 = require("bs58");
 const { ulid } = require("ulid");
 const logger = require("../../../config/logger");
 
-logger.debug("Loading vaultsetup-production.js module", {
+logger.debug("Loading vaultcredentialstore.js module", {
   component: "ModuleLoader",
-  module: "vaultsetup-production.js",
+  module: "vaultcredentialstore.js",
   loadedAt: new Date().toISOString()
 });
 
@@ -40,14 +40,14 @@ class ProductionVaultManager {
     const startTime = Date.now();
 
     logger.debug("Starting vault initialization", {
-      component: "VaultManager",
+      component: "CredentialManager",
       method: "initialize",
       requestId
     });
 
     if (this.vaultInitialized) {
       logger.debug("Vault already initialized", {
-        component: "VaultManager",
+        component: "CredentialManager",
         method: "initialize",
         requestId
       });
@@ -71,7 +71,7 @@ class ProductionVaultManager {
         if (config && typeof config.get === 'function') {
           this.vaultPath = config.get("VAULT_RODIT_KEYVALUE_PATH");
           logger.debug("Retrieved vault path from config", {
-            component: "VaultManager",
+            component: "CredentialManager",
             method: "initialize",
             requestId,
             vaultPath: this.vaultPath
@@ -79,7 +79,7 @@ class ProductionVaultManager {
         } else {
           const error = new Error("Config object is not properly initialized");
           logger.error("Vault initialization failed - configuration error", {
-            component: "VaultManager",
+            component: "CredentialManager",
             method: "initialize",
             requestId,
             errorMessage: error.message,
@@ -92,7 +92,7 @@ class ProductionVaultManager {
         this.vaultInitialized = false;
         
         logger.error("Vault initialization failed - configuration error", {
-          component: "VaultManager",
+          component: "CredentialManager",
           method: "initialize",
           requestId,
           errorMessage: configError.message,
@@ -107,7 +107,7 @@ class ProductionVaultManager {
       this.vaultInitialized = true;
 
       logger.debug("Vault initialization flags set", {
-        component: "VaultManager",
+        component: "CredentialManager",
         method: "initialize",
         requestId,
         vaultInitialized: this.vaultInitialized,
@@ -116,7 +116,7 @@ class ProductionVaultManager {
 
       const duration = Date.now() - startTime;
       logger.info("Vault initialized successfully", {
-        component: "VaultManager",
+        component: "CredentialManager",
         method: "initialize",
         requestId,
         duration,
@@ -128,7 +128,7 @@ class ProductionVaultManager {
       const duration = Date.now() - startTime;
 
       logger.error("Vault initialization failed", {
-        component: "VaultManager",
+        component: "CredentialManager",
         method: "initialize",
         requestId,
         duration,
@@ -141,12 +141,12 @@ class ProductionVaultManager {
       // Emit metrics for Grafana dashboards
       logger.metric("vault_initialization_duration_ms", duration, {
         success: false,
-        component: "VaultManager",
+        component: "CredentialManager",
         errorType: error.code || "UNKNOWN_ERROR",
       });
       logger.metric("vault_initialization_errors_total", 1, {
         errorType: error.code || "UNKNOWN_ERROR",
-        component: "VaultManager",
+        component: "CredentialManager",
       });
 
       throw error;
@@ -163,7 +163,7 @@ class ProductionVaultManager {
       const renewalTimeMs = (ttlSeconds * 0.8) * 1000;
       
       logger.info("Setting up token renewal", {
-        component: "VaultManager",
+        component: "CredentialManager",
         ttlSeconds,
         renewalIntervalMs: renewalTimeMs || this.renewalInterval,
         nextRenewalAt: new Date(Date.now() + (renewalTimeMs || this.renewalInterval)).toISOString()
@@ -175,7 +175,7 @@ class ProductionVaultManager {
       setInterval(async () => {
         try {
           logger.debug("Attempting to renew Vault token", {
-            component: "VaultManager",
+            component: "CredentialManager",
             method: "tokenRenewal"
           });
           
@@ -183,13 +183,13 @@ class ProductionVaultManager {
           const renewResponse = await this.vault.tokenRenew();
           
           logger.info("Successfully renewed Vault token", {
-            component: "VaultManager",
+            component: "CredentialManager",
             method: "tokenRenewal",
             newTtl: renewResponse.auth?.lease_duration || "unknown"
           });
         } catch (error) {
           logger.error("Error renewing Vault token, attempting re-authentication", {
-            component: "VaultManager",
+            component: "CredentialManager",
             method: "tokenRenewal",
             errorMessage: error.message
           });
@@ -200,12 +200,12 @@ class ProductionVaultManager {
             this.vault.token = token;
             
             logger.info("Successfully re-authenticated with Vault", {
-              component: "VaultManager",
+              component: "CredentialManager",
               method: "tokenRenewal"
             });
           } catch (reAuthError) {
             logger.error("Failed to re-authenticate with Vault", {
-              component: "VaultManager",
+              component: "CredentialManager",
               method: "tokenRenewal",
               errorMessage: reAuthError.message
             });
@@ -214,7 +214,7 @@ class ProductionVaultManager {
       }, interval);
     } catch (error) {
       logger.error("Error setting up token renewal", {
-        component: "VaultManager",
+        component: "CredentialManager",
         errorMessage: error.message
       });
       
@@ -225,12 +225,12 @@ class ProductionVaultManager {
           this.vault.token = token;
           
           logger.info("Successfully refreshed Vault token", {
-            component: "VaultManager",
+            component: "CredentialManager",
             method: "tokenRenewal"
           });
         } catch (refreshError) {
           logger.error("Error refreshing Vault token", {
-            component: "VaultManager",
+            component: "CredentialManager",
             method: "tokenRenewal",
             errorMessage: refreshError.message
           });
@@ -360,7 +360,7 @@ class ProductionVaultManager {
     let lastError = null;
 
     logger.debug("Retrieving credentials", {
-      component: "VaultManager",
+      component: "CredentialManager",
       method: "getCredentials",
       requestId,
       credentialType: type,
@@ -369,7 +369,7 @@ class ProductionVaultManager {
     // Use cached credentials if available
     if (this.credentials[type]) {
       logger.debug("Using cached credentials", {
-        component: "VaultManager",
+        component: "CredentialManager",
         method: "getCredentials",
         requestId,
         credentialType: type,
@@ -380,7 +380,7 @@ class ProductionVaultManager {
     // Make sure vault is initialized
     if (!this.vaultInitialized) {
       logger.debug("Vault not initialized, initializing now", {
-        component: "VaultManager",
+        component: "CredentialManager",
         method: "getCredentials",
         requestId,
       });
@@ -395,7 +395,7 @@ class ProductionVaultManager {
         const vaultPath = `${this.vaultPath}/${type}`;
 
         logger.debug("Fetching credentials from vault", {
-          component: "VaultManager",
+          component: "CredentialManager",
           method: "getCredentials",
           requestId,
           credentialType: type,
@@ -411,7 +411,7 @@ class ProductionVaultManager {
 
         // Add detailed logging about the vault data received
         logger.debug("Vault data received", {
-          component: "VaultManager",
+          component: "CredentialManager",
           method: "getCredentials",
           requestId,
           credentialType: type,
@@ -424,7 +424,7 @@ class ProductionVaultManager {
         if (!vaultData || !vaultData.private_key || typeof vaultData.private_key !== "string") {
           const error = new Error(`Invalid or missing private_key for ${type}`);
           logger.warn("Invalid private key format", {
-            component: "VaultManager",
+            component: "CredentialManager",
             method: "getCredentials",
             requestId,
             credentialType: type,
@@ -455,7 +455,7 @@ class ProductionVaultManager {
 
         const duration = Date.now() - startTime;
         logger.info("Credentials retrieved successfully", {
-          component: "VaultManager",
+          component: "CredentialManager",
           method: "getCredentials",
           requestId,
           credentialType: type,
@@ -468,7 +468,7 @@ class ProductionVaultManager {
         logger.metric("credential_retrieval_duration_ms", duration, {
           success: true,
           credentialType: type,
-          component: "VaultManager"
+          component: "CredentialManager"
         });
 
         return vaultData;
@@ -481,7 +481,7 @@ class ProductionVaultManager {
         const duration = Date.now() - startTime;
         
         logger[logLevel](`${isRetrying ? "Retryable error" : "Failed"} retrieving credentials`, {
-          component: "VaultManager",
+          component: "CredentialManager",
           method: "getCredentials",
           requestId,
           credentialType: type,
@@ -498,7 +498,7 @@ class ProductionVaultManager {
           success: false,
           credentialType: type,
           errorType: error.code || "UNKNOWN_ERROR",
-          component: "VaultManager",
+          component: "CredentialManager",
           retryAttempt: retryCount
         });
         
@@ -512,7 +512,7 @@ class ProductionVaultManager {
         logger.metric("credential_retrieval_errors_total", 1, {
           credentialType: type,
           errorType: error.code || "UNKNOWN_ERROR",
-          component: "VaultManager"
+          component: "CredentialManager"
         });
         
         throw lastError;
@@ -524,7 +524,7 @@ class ProductionVaultManager {
 const vaultManager = new ProductionVaultManager();
 
 module.exports = {
-  initializeProductionVault: () => vaultManager.initialize(),
+  initializeProductionCredentialStore: () => vaultManager.initialize(),
   get_rodit_fromvault: (vault, path, secretKey) =>
     vaultManager.getRoditFromVault(path, secretKey),
   setupTokenRenewal: () => vaultManager.setupTokenRenewal(),

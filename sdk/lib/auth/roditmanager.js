@@ -2,18 +2,18 @@
 
 /**
  * RODiT Manager Service
- * Responsible for managing RODiT configurations, credentials, and vault interactions
+ * Responsible for managing RODiT configurations, credentials, interactions
  */
 
 const { ulid } = require("ulid");
 const config = require("config");
 const logger = require("../../../config/logger");
 const {
-  initializeProductionVault,
+  initializeProductionCredentialStore,
   setupTokenRenewal,
   getCredentials,
   vault,
-} = require("../middleware/vaultsetup-production");
+} = require("../middleware/vaultcredentialstore");
 const {
   nearorg_rpc_state,
   nearorg_rpc_tokensfromaccountid,
@@ -62,7 +62,7 @@ class RoditManager {
 
 async initializeCredentialsStore() {
   const requestId = ulid();
-  logger.debug("Initializing vault through VaultManager", {
+  logger.debug("Initializing CredentialManager", {
     component: "RoditManager",
     method: "initializeCredentialsStore",
     requestId,
@@ -70,19 +70,19 @@ async initializeCredentialsStore() {
   });
   
   try {
-    const vaultInstance = await initializeProductionVault();
-    await setupTokenRenewal(vaultInstance);
+    const credentialstoreInstance = await initializeProductionCredentialStore();
+    await setupTokenRenewal(credentialstoreInstance);
     
-    logger.debug("Vault initialization completed through VaultManager", {
+    logger.debug("CredentialStore initialization completed through CredentialManager", {
       component: "RoditManager",
       method: "initializeCredentialsStore",
       requestId,
       instanceId: this._instanceId
     });
     
-    return vaultInstance;
+    return credentialstoreInstance;
   } catch (error) {
-    logger.error("Error during vault initialization", {
+    logger.error("Error during CredentialStore initialization", {
       component: "RoditManager",
       method: "initializeCredentialsStore",
       requestId,
@@ -98,7 +98,7 @@ async initializeCredentialsStore() {
   async getCredentials(type) {
     const requestId = ulid();
     
-    logger.debug("Retrieving credentials through VaultManager", {
+    logger.debug("Retrieving credentials through CredentialManager", {
       component: "RoditManager",
       method: "getCredentials",
       requestId,
@@ -106,10 +106,10 @@ async initializeCredentialsStore() {
     });
     
     try {
-      // Delegate credential retrieval to the VaultManager
+      // Delegate credential retrieval to the CredentialManager
       const credentials = await getCredentials(type);
       
-      logger.debug("Credentials retrieved through VaultManager", {
+      logger.debug("Credentials retrieved through CredentialManager", {
         component: "RoditManager",
         method: "getCredentials",
         requestId,
@@ -119,7 +119,7 @@ async initializeCredentialsStore() {
       
       return credentials;
     } catch (error) {
-      logger.error("Error retrieving credentials through VaultManager", {
+      logger.error("Error retrieving credentials through CredentialManager", {
         component: "RoditManager",
         method: "getCredentials",
         requestId,
