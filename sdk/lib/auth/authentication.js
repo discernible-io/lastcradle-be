@@ -1247,6 +1247,48 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
   }
 
   /**
+   * Validates that a timestamp is recent and not in the future
+   * 
+   * @param {number} timestamp - Unix timestamp in seconds
+   * @param {number} maxAgeSeconds - Maximum age in seconds (default: 5 minutes)
+   * @returns {Promise<boolean>} True if timestamp is valid, false otherwise
+   */
+  async function validateTimestamp(timestamp, maxAgeSeconds = 300) {
+    const requestId = ulid();
+    const currentTime = Math.floor(Date.now() / 1000);
+    const timeDifference = currentTime - timestamp;
+    
+    // Check if timestamp is in the future (with small buffer for clock skew)
+    if (timestamp > currentTime + 30) {
+      logger.warn("Authentication rejected: timestamp is in the future", {
+        component: "RoditAuth",
+        method: "validateTimestamp",
+        requestId,
+        timestamp,
+        currentTime,
+        difference: timestamp - currentTime
+      });
+      return false;
+    }
+    
+    // Check if timestamp is too old
+    if (timeDifference > maxAgeSeconds) {
+      logger.warn("Authentication rejected: timestamp too old", {
+        component: "RoditAuth",
+        method: "validateTimestamp",
+        requestId,
+        timestamp,
+        currentTime,
+        difference: timeDifference,
+        maxAge: maxAgeSeconds
+      });
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
    * Verify and get a peer RODiT
    *
    * @param {string} peerroditid - Peer RODiT ID
@@ -1277,6 +1319,29 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
     });
 
     try {
+      // Validate timestamp is recent
+      const maxAgeSeconds = config_own_rodit?.own_rodit?.metadata?.timestamp_max_age || 300;
+      const timestampValid = await validateTimestamp(peertimestamp, maxAgeSeconds);
+      
+      if (!timestampValid) {
+        logger.warn("Invalid timestamp, aborting RODiT verification", {
+          component: "RoditAuth",
+          method: "verify_peerrodit_getrodit",
+          requestId,
+          roditId: peerroditid,
+          timestamp: peertimestamp,
+          currentTime: Math.floor(Date.now() / 1000),
+          maxAge: maxAgeSeconds
+        });
+        return { peer_rodit: null, goodrodit: false };
+      }
+      
+      logger.debug("Timestamp validation passed", {
+        component: "RoditAuth",
+        method: "verify_peerrodit_getrodit",
+        requestId,
+        timestamp: peertimestamp
+      });
       logger.debug("Fetching peer RODiT from blockchain", {
         requestId,
         peerRoditId: peerroditid,
@@ -2240,6 +2305,7 @@ module.exports = {
   verify_rodit_ownership,
   verify_rodit_ownership_withnep413,
   verify_peerrodit_getrodit,
+  validateTimestamp,
   verify_rodit_isactive,
   verify_rodit_isamatch,
   verify_rodit_islive,
