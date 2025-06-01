@@ -1731,14 +1731,14 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
 
     // Parse config values ensuring they're numbers
     const LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY = parseFloat(
-      config_own_rodit.timeoptions
+      config_own_rodit.tokenrenewaloptions
         .LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY || 0.15
     );
     const THRESHOLD_VALIDATION_TYPE = parseFloat(
-      config_own_rodit.timeoptions.THRESHOLD_VALIDATION_TYPE || 0.25
+      config_own_rodit.tokenrenewaloptions.THRESHOLD_VALIDATION_TYPE || 0.25
     );
     const DURATIONRAMP = parseFloat(
-      config_own_rodit.timeoptions.DURATIONRAMP || 1.0
+      config_own_rodit.tokenrenewaloptions.DURATIONRAMP || 1.0
     );
 
     const currentTime = Math.floor(Date.now() / 1000);
