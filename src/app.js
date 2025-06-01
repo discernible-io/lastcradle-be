@@ -104,7 +104,7 @@ app.use((req, res, next) => {
 });
 
 // Apply rate limiting to all routes
-app.use((req, res, next) => ratelimiter(req, res, next));
+// app.use((req, res, next) => ratelimiter(req, res, next));
 
 // Action logging middleware - tracks user actions
 app.use((req, res, next) => {
