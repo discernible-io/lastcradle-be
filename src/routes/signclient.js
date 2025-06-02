@@ -3,15 +3,11 @@ const express = require("express");
 const router = express.Router();
 const { ulid } = require("ulid");
 const logger = require("../../config/logger");
-const {
-  nearorg_rpc_tokenfromroditid,
-  nearorg_rpc_fetchpublickeybytes,
-  nearorg_rpc_timestamp,
-} = require("../../sdk/lib/blockchain/blockchainservice");
 const stateManager = require("../../sdk/lib/blockchain/statemanager");
 const {
   login_portal,
 } = require("../../sdk/lib/middleware/authenticationmw");
+const roditManager = require("../../sdk/lib/auth/roditmanager");
 
 async function signPortalRodit(
   port,
@@ -73,7 +69,7 @@ async function signPortalRodit(
   });
 
   try {
-    const result = await stateManager.fetchPortalWithErrorHandling(fetchUrl, {
+    const result = await stateManager.fetchWithErrorHandlingSignPortal(fetchUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),
