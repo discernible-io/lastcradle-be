@@ -46,18 +46,135 @@ const swaggerOptions = {
     info: {
       title: "RODiT Authentication API",
       version: "1.0.0",
-      description: "API using RODiT authentication system",
+      description: `# API using RODiT authentication system
+
+## Service Description
+The RODiT Authentication API provides secure authentication services using the RODiT authentication system. This API enables applications to implement robust user authentication, session management, and access control using RODiT's cryptographic identity verification.
+
+## Key Features
+- Secure user authentication via RODiT credentials
+- Session management and token-based authorization
+- User identity verification
+- Access control for protected resources
+- Metrics and monitoring capabilities
+
+## Data Handling and Privacy
+All user data is handled in accordance with our privacy policy. We implement industry-standard encryption for data in transit and at rest. Personal information is processed only for the purposes of authentication and is not shared with third parties without explicit consent.
+
+We comply with applicable data protection regulations including GDPR and CCPA. In the event of a data breach, we will notify affected users within 72 hours of discovery.
+      `,
+      termsOfService: "https://dev-api.aparejos.net:3443/terms",
       contact: {
         name: "Rodit Technologies Inc.",
         url: "https://dev-api.aparejos.net:3443/home.js",
+        email: "support@rodit-tech.com"
       },
+      license: {
+        name: "Proprietary",
+        url: "https://dev-api.aparejos.net:3443/license"
+      },
+      "x-api-id": "rodit-auth-api-v1"
     },
     servers: [
       {
         url: "https://dev-api.aparejos.net:3443",
         description: "RODiT Development server",
       },
+      {
+        url: "https://api.aparejos.net:3443",
+        description: "RODiT Production server"
+      },
+      {
+        url: "https://sandbox-api.aparejos.net:3443",
+        description: "RODiT Sandbox environment for testing"
+      }
     ],
+    externalDocs: {
+      description: "Additional API Documentation",
+      url: "https://docs.rodit-tech.com"
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description: "JWT token obtained after successful authentication"
+        }
+      },
+      schemas: {
+        Error: {
+          type: "object",
+          properties: {
+            code: {
+              type: "string",
+              description: "Error code"
+            },
+            message: {
+              type: "string",
+              description: "Error message"
+            }
+          }
+        }
+      }
+    },
+    "x-terms-and-conditions": {
+      "usage-rights": "This API is provided for use by authorized clients only. Usage rights are granted upon acceptance of the terms and conditions.",
+      "intellectual-property": "All intellectual property rights in the API, including but not limited to copyright, patents, and trademarks, are owned by Rodit Technologies Inc.",
+      "liability": "Rodit Technologies Inc. shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from the use or inability to use the API.",
+      "termination": "Rodit Technologies Inc. reserves the right to terminate API access for any user who violates these terms and conditions."
+    },
+    "x-subscription-plans": {
+      "free": {
+        "description": "Limited access for development and testing",
+        "rate-limits": "100 requests per day",
+        "features": ["Basic authentication", "Limited API access"]
+      },
+      "basic": {
+        "description": "Standard access for small applications",
+        "rate-limits": "1000 requests per day",
+        "features": ["Full authentication features", "Standard support"],
+        "price": "$49/month"
+      },
+      "premium": {
+        "description": "Enhanced access for enterprise applications",
+        "rate-limits": "10000 requests per day",
+        "features": ["Full authentication features", "Priority support", "Advanced analytics"],
+        "price": "$199/month"
+      }
+    },
+    "x-rate-limits": {
+      "default": {
+        "rate": "100 requests per 15 minutes",
+        "burst": "150 requests"
+      },
+      "premium": {
+        "rate": "1000 requests per 15 minutes",
+        "burst": "1500 requests"
+      }
+    },
+    "x-sla": {
+      "uptime": "99.9% guaranteed uptime for premium subscribers",
+      "response-time": "Average response time under 200ms",
+      "support": {
+        "standard": "24-hour response time",
+        "premium": "4-hour response time"
+      }
+    },
+    "x-versioning": {
+      "current": "v1.0.0",
+      "supported": ["v1.0.0"],
+      "deprecation-policy": "APIs are supported for at least 12 months after deprecation notice"
+    },
+    "x-monitoring": {
+      "metrics": "Available via /api/metrics endpoint for authenticated users",
+      "status": "Service status available at https://status.rodit-tech.com"
+    },
+    "x-compliance": {
+      "gdpr": "Compliant with EU General Data Protection Regulation",
+      "ccpa": "Compliant with California Consumer Privacy Act",
+      "security": "Regular security audits and penetration testing"
+    }
   },
   apis: ["./src/app.js", "./src/routes/*.js"],
 };
