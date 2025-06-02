@@ -6,11 +6,7 @@
  "VAULT_SECRET_ID": "442c06e7-017d-3ad2-a367-59cd211fbf51",
  "VAULT_TOKEN_TTL": "0",
  "SERVERPORT":8080,
- "WEBHOOKPORT": 3444,
  "API_PROTOCOL": "https",
  "NEAR_NETWORK_ID": ".testnet",
- "NEAR_RPC_URL": "https://rpc.testnet.fastnear.com/",
- "SERVER_FRONTEND_URL": "https://testnet-serverfe.cableguard.net:2443",
- "CLIENT_FRONTEND_URL": "https://testnet-clientfe.cableguard.net",
- "API_URL": "https://dev-api.aparejos.net:3443"
+ "NEAR_RPC_URL": "https://rpc.testnet.fastnear.com/"
 }
