@@ -109,7 +109,6 @@ async function unixTimeToDateString(unixTimeSec) {
 
 /**
  * Ensures a URL has a protocol prefix (http:// or https://)
- * If no protocol is present, adds the configured API_PROTOCOL or defaults to https://
  * 
  * @param {string} url - URL to ensure has a protocol
  * @returns {string} URL with protocol prefix
@@ -123,23 +122,11 @@ function ensureProtocol(url) {
     return '';
   }
 
-  // If URL already has a protocol, return it as is
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
 
-  // Get the configured protocol or default to https
-  let protocol = 'https';
-  try {
-    protocol = config.get('API_PROTOCOL');
-  } catch (error) {
-    // Silently use the default protocol
-  }
-  
-  // Always add '://' to the protocol
-  protocol = protocol + '://';
-
-  return protocol + url;
+  return 'https://' + url;
 }
 
 // ensureDateIsSet function has been removed in favor of validateAndSetDate
