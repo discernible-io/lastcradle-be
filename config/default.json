@@ -17,7 +17,8 @@
   "LOG_DIR": "/app/logs",
   "DB_PATH": "/app/data/database.sqlite",
   "DEFAULT_MAX_REQUESTS": 100,
-  "DEFAULT_MAXRQ_WINDOW": 100
+  "DEFAULT_MAXRQ_WINDOW": 100,
+  "TIMESTAMP_MAX_AGE": 300
  },
 "NEAR_CONTRACT_ID": "10975-cableguard-org.testnet"
 }

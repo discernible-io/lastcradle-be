@@ -1319,8 +1319,9 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
     });
 
     try {
-      // Validate timestamp is recent
-      const maxAgeSeconds = config_own_rodit?.own_rodit?.metadata?.timestamp_max_age || 300;
+      // Get TIMESTAMP_MAX_AGE from global configuration only
+      const config = require("config");
+      const maxAgeSeconds = config.get("API_DEFAULT_OPTIONS.TIMESTAMP_MAX_AGE");
       const timestampValid = await validateTimestamp(peertimestamp, maxAgeSeconds);
       
       if (!timestampValid) {
