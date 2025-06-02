@@ -10,6 +10,17 @@ const nacl = require("tweetnacl");
 nacl.util = require("tweetnacl-util");
 const { decodeUTF8 } = require("tweetnacl-util");
 
+// Import config if available, otherwise create a fallback
+let config;
+try {
+  config = require("../config");
+} catch (error) {
+  // Create a fallback config object
+  config = {
+    get: (key) => process.env[key] || null
+  };
+}
+
 /**
  * Debug utility that logs the type and value of a variable
  * 
@@ -105,7 +116,11 @@ async function unixTimeToDateString(unixTimeSec) {
  */
 function ensureProtocol(url) {
   if (!url) {
-    throw new Error('URL is required for ensureProtocol');
+    logger.warn('Empty URL provided to ensureProtocol', {
+      component: 'Utils',
+      function: 'ensureProtocol'
+    });
+    return '';
   }
 
   // If URL already has a protocol, return it as is
@@ -1415,51 +1430,7 @@ function ensureDateIsSet(dateVar, defaultValue) {
   }
   return dateVar;
 }
-
-/**
- * Checks if a subscription is active based on token metadata dates
- * 
- * @param {Object} metadata - Token metadata with not_before and not_after dates
- * @returns {boolean} True if subscription is active
- */
-function isSubscriptionActive(metadata) {
-  if (!metadata) {
-    return false;
-  }
-  
-  const now = new Date();
-  let isActive = true;
-  
-  // Check not_before date if present
-  if (metadata.not_before) {
-    const notBefore = new Date(metadata.not_before);
-    if (now < notBefore) {
-      logger.debug('Subscription not yet active', {
-        component: 'Utils',
-        method: 'isSubscriptionActive',
-        now: now.toISOString(),
-        notBefore: notBefore.toISOString()
-      });
-      isActive = false;
-    }
-  }
-  
-  // Check not_after date if present
-  if (metadata.not_after) {
-    const notAfter = new Date(metadata.not_after);
-    if (now > notAfter) {
-      logger.debug('Subscription has expired', {
-        component: 'Utils',
-        method: 'isSubscriptionActive',
-        now: now.toISOString(),
-        notAfter: notAfter.toISOString()
-      });
-      isActive = false;
-    }
-  }
-  
-  return isActive;
-}
+// isSubscriptionActive has been moved to RoditClient class
 
 /**
  * Buffer utility functions for data conversion
@@ -1515,44 +1486,7 @@ const bufferUtils = {
  * @param {Object} metadata - Token metadata with not_before and not_after dates
  * @returns {boolean} True if subscription is active
  */
-function isSubscriptionActive(metadata) {
-  if (!metadata) {
-    return false;
-  }
-  
-  const now = new Date();
-  let isActive = true;
-  
-  // Check not_before date if present
-  if (metadata.not_before) {
-    const notBefore = new Date(metadata.not_before);
-    if (now < notBefore) {
-      logger.debug('Subscription not yet active', {
-        component: 'Utils',
-        method: 'isSubscriptionActive',
-        now: now.toISOString(),
-        notBefore: notBefore.toISOString()
-      });
-      isActive = false;
-    }
-  }
-  
-  // Check not_after date if present
-  if (metadata.not_after) {
-    const notAfter = new Date(metadata.not_after);
-    if (now > notAfter) {
-      logger.debug('Subscription has expired', {
-        component: 'Utils',
-        method: 'isSubscriptionActive',
-        now: now.toISOString(),
-        notAfter: notAfter.toISOString()
-      });
-      isActive = false;
-    }
-  }
-  
-  return isActive;
-}
+// isSubscriptionActive has been moved to RoditClient class
 
 /**
  * Validates if a string is a valid CIDR IP range
