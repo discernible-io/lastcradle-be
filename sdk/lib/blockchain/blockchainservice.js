@@ -11,9 +11,8 @@ const config = require("config");
  * Constants and Configuration
  */
 const CONSTANTS = {
-  SMART_CONTRACT: config.get("NEAR_CONTRACT_ID"),
+  NEAR_CONTRACT_ID: config.get("NEAR_CONTRACT_ID"),
   SMART_CONTRACT_REVOKED: "10975-revoked-cableguard-org.testnet",
-  BLOCKCHAIN_NETWORK: config.get("NEAR_NETWORK_ID"),
   RODIT_ID_SZ: 128,
   RODIT_ID_PK_SZ: 32,
   RODIT_ID_SIGNATURE_SZ: 64,
@@ -268,12 +267,12 @@ const PayloadNEP413Schema = {
 
       const json_data = {
         jsonrpc: "2.0",
-        id: CONSTANTS.SMART_CONTRACT,
+        id: CONSTANTS.NEAR_CONTRACT_ID,
         method: "query",
         params: {
           request_type: "call_function",
           finality: "final",
-          account_id: CONSTANTS.SMART_CONTRACT,
+          account_id: CONSTANTS.NEAR_CONTRACT_ID,
           method_name: "rodit_token",
           args_base64: argsBase64,
         },
@@ -453,13 +452,13 @@ const PayloadNEP413Schema = {
       method: "nearorg_rpc_state",
       requestId,
       accountId,
-      contractId: CONSTANTS.SMART_CONTRACT,
+      contractId: CONSTANTS.NEAR_CONTRACT_ID,
     });
 
     try {
       const jsonData = {
         jsonrpc: "2.0",
-        id: CONSTANTS.SMART_CONTRACT,
+        id: CONSTANTS.NEAR_CONTRACT_ID,
         method: "query",
         params: {
           request_type: "view_account",
@@ -573,7 +572,7 @@ const PayloadNEP413Schema = {
       method: "nearorg_rpc_tokensfromaccountid",
       requestId,
       accountId: account_id,
-      contractId: CONSTANTS.SMART_CONTRACT,
+      contractId: CONSTANTS.NEAR_CONTRACT_ID,
     });
 
     try {
@@ -585,12 +584,12 @@ const PayloadNEP413Schema = {
 
       const jsonData = {
         jsonrpc: "2.0",
-        id: CONSTANTS.SMART_CONTRACT,
+        id: CONSTANTS.NEAR_CONTRACT_ID,
         method: "query",
         params: {
           request_type: "call_function",
           finality: "final",
-          account_id: CONSTANTS.SMART_CONTRACT,
+          account_id: CONSTANTS.NEAR_CONTRACT_ID,
           method_name: "rodit_tokens_for_owner",
           args_base64: Buffer.from(args).toString("base64"),
         },
@@ -811,7 +810,7 @@ const PayloadNEP413Schema = {
       });
 
       const rodit = await this.nearorg_rpc_tokensfromaccountid(
-        CONSTANTS.SMART_CONTRACT,
+        CONSTANTS.NEAR_CONTRACT_ID,
         accountId
       );
 

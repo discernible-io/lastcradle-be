@@ -1833,11 +1833,11 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
       method: "verify_rodit_istrusted_issuingsmartcontract",
       requestId,
       url: ownsubjectuniqueidentifier_url,
-      smartContract: CONSTANTS.SMART_CONTRACT,
+      smartContract: CONSTANTS.NEAR_CONTRACT_ID,
     });
   
     try {
-      const smartcontract = CONSTANTS.SMART_CONTRACT;
+      const smartcontract = CONSTANTS.NEAR_CONTRACT_ID;
       const smartontractnonear = smartcontract.replace(".testnet", "");
       const smartcontracturl = smartontractnonear.replace("-", ".");
   
