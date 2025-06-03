@@ -415,6 +415,37 @@ async function login_client(req, res) {
       // Use the token service to validate the token WITH the own_rodit parameter
       let validationResult;
       try {
+        // Before validation, log token information (safely)
+        try {
+          const unverifiedPayload = decodeJwt(token);
+          logger.debug("Token payload before validation", {
+            component: "AuthMiddleware",
+            method: "authenticate_apicall",
+            requestId,
+            payload: {
+              aud: unverifiedPayload.aud,
+              iss: unverifiedPayload.iss,
+              sub: unverifiedPayload.sub,
+              rodit_id: unverifiedPayload.rodit_id,
+              auth_mode: unverifiedPayload.auth_mode,
+              auth_context: unverifiedPayload.auth_context,
+              jti: unverifiedPayload.jti
+            },
+            own_rodit: {
+              token_id: config_own_rodit.own_rodit?.token_id,
+              owner_id: config_own_rodit.own_rodit?.owner_id
+            }
+          });
+        } catch (decodeError) {
+          logger.debug("Unable to decode token for logging", {
+            component: "AuthMiddleware",
+            method: "authenticate_apicall",
+            requestId,
+            error: decodeError.message,
+            tokenLength: token?.length
+          });
+        }
+        
         validationResult = await validate_jwt_token_be(
           token,
           config_own_rodit.own_rodit
@@ -426,6 +457,9 @@ async function login_client(req, res) {
           method: "authenticate_apicall",
           requestId,
           error: validationError.message,
+          errorName: validationError.name,
+          errorCode: validationError.code,
+          stack: validationError.stack
         });
         
         // Return 403 for invalid tokens
@@ -1136,8 +1170,36 @@ async function login_client(req, res) {
           const unverifiedPayload = decodeJwt(jwt_token);
           const peerRoditId = unverifiedPayload.rodit_id;
           
+          logger.debug("Decoded JWT payload in login_portal", {
+            component: "AuthenticationService",
+            method: "login_portal",
+            requestId,
+            payload: {
+              aud: unverifiedPayload.aud,
+              iss: unverifiedPayload.iss,
+              sub: unverifiedPayload.sub,
+              rodit_id: unverifiedPayload.rodit_id,
+              auth_mode: unverifiedPayload.auth_mode,
+              auth_context: unverifiedPayload.auth_context,
+              jti: unverifiedPayload.jti
+            }
+          });
+          
           // Fetch the peer RODiT information directly from the blockchain
           const peer_rodit = await nearorg_rpc_tokenfromroditid(peerRoditId);
+          
+          logger.debug("Fetched peer RODiT for validation", {
+            component: "AuthenticationService",
+            method: "login_portal",
+            requestId,
+            peer_rodit: {
+              token_id: peer_rodit?.token_id,
+              owner_id: peer_rodit?.owner_id,
+              metadata: {
+                serviceprovider_id: peer_rodit?.metadata?.serviceprovider_id
+              }
+            }
+          });
           
           // Now perform the full validation
           const validationResult = await validate_jwt_token_be(jwt_token, peer_rodit);
@@ -1147,6 +1209,11 @@ async function login_client(req, res) {
             method: "login_portal",
             requestId,
             peerRoditId: peer_rodit.token_id,
+            validationResult: {
+              valid: validationResult.valid,
+              hasNewToken: !!validationResult.newToken,
+              hasPeerRodit: !!validationResult.peer_rodit
+            }
           });
         } catch (validationError) {
           const duration = Date.now() - startTime;

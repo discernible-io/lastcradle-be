@@ -1156,6 +1156,47 @@ const {
         throw new Error("Error 005: Invalid issuer");
       }
       
+      // Enhanced logging for audience validation
+      logger.debug("Detailed JWT payload for audience validation", {
+        component: "JwtAuth",
+        method: "validate_jwt_token_be",
+        requestId,
+        payload: {
+          aud: payload.aud,
+          iss: payload.iss,
+          sub: payload.sub,
+          rodit_id: payload.rodit_id,
+          auth_mode: payload.auth_mode,
+          auth_context: payload.auth_context,
+          jti: payload.jti
+        },
+        rodit: {
+          token_id: rodit.token_id,
+          owner_id: rodit.owner_id,
+          metadata: {
+            serviceprovider_id: rodit.metadata?.serviceprovider_id
+          }
+        }
+      });
+      
+      // Check if this might be a peer-to-peer authentication attempt
+      const isPossiblePeerAuth = 
+        (payload.auth_mode === 'peer-to-peer') || 
+        (payload.auth_context && payload.auth_context.mode === 'peer-to-peer') ||
+        payload.aud.startsWith('peer:') ||
+        /^[a-zA-Z0-9]{1,64}\.[a-zA-Z0-9]{1,64}$/.test(payload.aud) ||
+        /^[a-z0-9_-]{2,64}(\.near)?$/.test(payload.aud);
+      
+      logger.debug("Audience validation context", {
+        component: "JwtAuth",
+        method: "validate_jwt_token_be",
+        requestId,
+        tokenAudience: payload.aud,
+        expectedAudience: rodit.owner_id,
+        isPossiblePeerAuth,
+        audienceMatchesOwner: (payload.aud === rodit.owner_id)
+      });
+      
       if (payload.aud !== rodit.owner_id) {
         logger.warn("Token validation failed - Invalid audience", {
           component: "JwtAuth",
@@ -1163,6 +1204,7 @@ const {
           requestId,
           tokenAudience: payload.aud,
           expectedAudience: rodit.owner_id,
+          isPossiblePeerAuth
         });
 
         throw new Error("Error 004: Invalid audience");
