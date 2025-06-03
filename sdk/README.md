@@ -19,7 +19,7 @@ npm install rodit-auth
 For local development:
 
 ```bash
-npm install /path/to/servertestapi-rodit/sdk
+npm install /path/to/servertestapi/sdk
 ```
 
 ## Usage
