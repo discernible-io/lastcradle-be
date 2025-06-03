@@ -1140,7 +1140,7 @@ async function login_client(req, res) {
           const peer_rodit = await nearorg_rpc_tokenfromroditid(peerRoditId);
           
           // Now perform the full validation
-          const validationResult = await validate_jwt_token_be(jwt_token, own_rodit);
+          const validationResult = await validate_jwt_token_be(jwt_token, peer_rodit);
 
           logger.debug("JWT token validation successful", {
             component: "AuthenticationService",

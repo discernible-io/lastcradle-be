@@ -154,8 +154,8 @@ router.post("/signclient", async (req, res) => {
     }
 
     // Get configuration from state manager
-    const config = await stateManager.getConfigOwnRodit();
-    if (!config) {
+    const config_own_rodit = await stateManager.getConfigOwnRodit();
+    if (!config_own_rodit) {
       logger.errorWithContext("Failed to get RODiT configuration", baseContext);
       throw new Error("Failed to initialize RODiT configuration");
     }
@@ -172,8 +172,8 @@ router.post("/signclient", async (req, res) => {
     if (!stateManager.getSignPortalJwtToken()) {
       logger.infoWithContext("Authenticating with SignPortal", jwtContext);
 
-      // Pass the full config object to login_portal for consistency
-      const loginResult = await login_portal(config, portalPort);
+      // Pass the full config_own_rodit object to login_portal for consistency
+      const loginResult = await login_portal(config_own_rodit, portalPort);
 
       if (!loginResult.jwt_token) {
         logger.errorWithContext("Failed to obtain JWT token", jwtContext);
@@ -185,18 +185,18 @@ router.post("/signclient", async (req, res) => {
     }
 
     const tamperproofedValues = {
-      openapijson_url: config.own_rodit.metadata.openapijson_url,
+      openapijson_url: config_own_rodit.own_rodit.metadata.openapijson_url,
       not_after: tobesignedValues.not_after,
-      not_before: config.own_rodit.metadata.not_before,
+      not_before: config_own_rodit.own_rodit.metadata.not_before,
       max_requests: String(tobesignedValues.max_requests),    // Explicit conversion to string
       maxrq_window: String(tobesignedValues.maxrq_window),
-      webhook_cidr: config.own_rodit.metadata.webhook_cidr,
-      allowed_cidr: config.own_rodit.metadata.allowed_cidr,
-      allowed_iso3166list: config.own_rodit.metadata.allowed_iso3166list,
-      jwt_duration: config.own_rodit.metadata.jwt_duration,
+      webhook_cidr: config_own_rodit.own_rodit.metadata.webhook_cidr,
+      allowed_cidr: config_own_rodit.own_rodit.metadata.allowed_cidr,
+      allowed_iso3166list: config_own_rodit.own_rodit.metadata.allowed_iso3166list,
+      jwt_duration: config_own_rodit.own_rodit.metadata.jwt_duration,
       permissioned_routes: tobesignedValues.permissioned_routes,
-      subjectuniqueidentifier_url: config.own_rodit.metadata.subjectuniqueidentifier_url,
-      serviceprovider_id: config.own_rodit.metadata.serviceprovider_id,
+      subjectuniqueidentifier_url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
+      serviceprovider_id: config_own_rodit.own_rodit.metadata.serviceprovider_id,
       serviceprovider_signature: tobesignedValues.serviceprovider_signature,
     };
 
