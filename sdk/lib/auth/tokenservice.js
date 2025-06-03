@@ -1144,6 +1144,26 @@ const {
         throw new Error("Error 006: Token is not yet valid");
       }
   
+      // Function to normalize URL by removing port
+      const normalizeUrlWithoutPort = (url) => {
+        if (!url) return '';
+        try {
+          // Use URL constructor to parse the URL
+          const parsedUrl = new URL(url);
+          // Remove the port
+          parsedUrl.port = '';
+          // Return the normalized URL as a string
+          return parsedUrl.toString();
+        } catch (e) {
+          // If URL parsing fails, return the original URL
+          return url;
+        }
+      };
+      
+      // Normalize both URLs for comparison
+      const normalizedTokenIssuer = normalizeUrlWithoutPort(payload.iss);
+      const normalizedExpectedIssuer = normalizeUrlWithoutPort(rodit.metadata.subjectuniqueidentifier_url);
+      
       // Issuer check with enhanced logging
       logger.debug("Detailed issuer validation information", {
         component: "JwtAuth",
@@ -1151,21 +1171,27 @@ const {
         requestId,
         tokenIssuer: payload.iss,
         expectedIssuer: rodit.metadata.subjectuniqueidentifier_url,
+        normalizedTokenIssuer,
+        normalizedExpectedIssuer,
         roditId: rodit.token_id,
         roditOwnerId: rodit.owner_id,
         hasMetadata: !!rodit.metadata,
         metadataKeys: rodit.metadata ? Object.keys(rodit.metadata) : [],
         payloadKeys: Object.keys(payload),
-        issuerMatch: payload.iss === rodit.metadata.subjectuniqueidentifier_url
+        rawIssuerMatch: payload.iss === rodit.metadata.subjectuniqueidentifier_url,
+        normalizedIssuerMatch: normalizedTokenIssuer === normalizedExpectedIssuer
       });
       
-      if (payload.iss !== rodit.metadata.subjectuniqueidentifier_url) {
+      // Compare normalized URLs instead of raw URLs
+      if (normalizedTokenIssuer !== normalizedExpectedIssuer) {
         logger.warn("Token validation failed - Invalid issuer", {
           component: "JwtAuth",
           method: "validate_jwt_token_be",
           requestId,
           tokenIssuer: payload.iss,
           expectedIssuer: rodit.metadata.subjectuniqueidentifier_url,
+          normalizedTokenIssuer,
+          normalizedExpectedIssuer,
           roditId: rodit.token_id,
           // Check for common URL variations that might cause mismatch
           issuerHasTrailingSlash: payload.iss?.endsWith('/'),
