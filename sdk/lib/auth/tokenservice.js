@@ -1069,27 +1069,7 @@ const {
         requestId,
         jwtVerifyDuration: Date.now() - jwtVerifyStartTime,
       });
-  
-      // Check if stateManager is defined before calling methods on it
-      if (!stateManager) {
-        logger.warn("State manager is undefined, skipping public key storage", {
-          component: "JwtAuth",
-          method: "validate_jwt_token_be",
-          requestId,
-        });
-      } else if (typeof stateManager.setOwnBase64urlJwkPublicKey !== 'function') {
-        logger.warn("State manager setOwnBase64urlJwkPublicKey method is not available", {
-          component: "JwtAuth",
-          method: "validate_jwt_token_be",
-          requestId,
-          stateManagerType: typeof stateManager,
-          hasSetMethod: stateManager ? 'setOwnBase64urlJwkPublicKey' in stateManager : false
-        });
-      } else {
-        // State manager is available, proceed with setting the public key
-        stateManager.setOwnBase64urlJwkPublicKey(serviceprovider_base64_public_key);
-      }
-  
+    
       const { verify_peerrodit_getrodit } = require("./authentication");
       
       const verifyStartTime = Date.now();
