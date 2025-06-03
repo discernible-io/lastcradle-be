@@ -313,7 +313,7 @@ async fetchWithErrorHandling(url, options, retryCount = 0) {
         try {
           const config_own_rodit = this.getConfigOwnRodit();
           if (config_own_rodit && config_own_rodit.own_rodit) {
-            const loginResult = await login_server(config_own_rodit.own_rodit);
+            const loginResult = await login_server(config_own_rodit);
 
             if (loginResult && loginResult.jwt_token) {
               // Save the new token
@@ -529,7 +529,7 @@ async fetchWithErrorHandlingSignPortal(url, options, retryCount = 0) {
         try {
           const config_own_rodit = stateManager.getConfigOwnRodit();
           if (config_own_rodit && config_own_rodit.own_rodit) {
-            const loginResult = await login_server(config_own_rodit.own_rodit);
+            const loginResult = await login_server(config_own_rodit);
 
             if (loginResult && loginResult.jwt_token) {
               // Save the new token

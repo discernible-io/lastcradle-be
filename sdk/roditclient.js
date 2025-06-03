@@ -586,11 +586,8 @@ class RoditClient {
         throw new Error('RODiT configuration not set in AuthStateManager');
       }
       
-      // The RoditManager stores the token as config_own_rodit, but we need to use it as own_rodit
-      // This is based on the memory that states the mapping between different property names
-      const own_rodit = config_own_rodit.own_rodit;
-      
-      if (!own_rodit) {
+      // Check if the config_own_rodit has a valid own_rodit property
+      if (!config_own_rodit.own_rodit) {
         logger.error('Valid RODiT configuration not found in AuthStateManager', {
           component: 'RoditClient',
           method: 'login',
@@ -604,13 +601,14 @@ class RoditClient {
         component: 'RoditClient',
         method: 'login',
         requestId,
-        roditId: own_rodit.token_id
+        roditId: config_own_rodit.own_rodit.token_id
       });
       
       // Use login_server directly to ensure consistent mutual authentication
       let loginResult;
       try {
-        loginResult = await authMw.login_server(own_rodit);
+        // Pass the entire config_own_rodit object to login_server
+        loginResult = await authMw.login_server(config_own_rodit);
       } catch (error) {
         // Handle server connectivity issues
         const errorMessage = 'Unable to connect to authentication server. The server may be down or unreachable.';

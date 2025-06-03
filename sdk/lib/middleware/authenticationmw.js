@@ -942,25 +942,26 @@ async function login_client(req, res) {
   /**
    * Login the server to a RODiT portal
    *
-   * @param {Object} own_rodit - Own RODiT object
+   * @param {Object} config_own_rodit - Configuration object containing own_rodit and other settings
+   * @param {number} port - Optional port number for the portal URL
    * @returns {Promise<Object>} Login result
    */
- async function login_portal(own_rodit, port) {
-    const requestId = ulid();
-    const startTime = Date.now();
+ async function login_portal(config_own_rodit, port) {
+  const requestId = ulid();
+  const startTime = Date.now();
+  
+  // Access the own_rodit object from the config
+  const own_rodit = config_own_rodit.own_rodit;
 
-    logger.info("Starting portal login process", {
-      component: "AuthenticationService",
-      method: "login_portal",
-      requestId,
-      roditId: own_rodit?.token_id,
-    });
+  logger.info("Starting portal login process", {
+    component: "AuthenticationService",
+    method: "login_portal",
+    requestId,
+    roditId: own_rodit?.token_id,
+  });
 
-    try {
-      // Get configuration from state manager
-      const config_own_rodit = await stateManager.getConfigOwnRodit();
-
-      logger.debug("Retrieved configuration from state manager", {
+  try {
+      logger.debug("Using provided configuration", {
         component: "AuthenticationService",
         method: "login_portal",
         requestId,
@@ -1260,12 +1261,15 @@ async function login_client(req, res) {
   /**
    * Login to server with RODiT credentials
    *
-   * @param {Object} own_rodit - Own RODiT object
+   * @param {Object} config_own_rodit - Configuration object containing own_rodit and other settings
    * @returns {Promise<Object>} Login result
    */
- async function login_server(own_rodit) {
+ async function login_server(config_own_rodit) {
     const requestId = ulid();
     const startTime = Date.now();
+    
+    // Access the own_rodit object from the config
+    const own_rodit = config_own_rodit.own_rodit;
 
     logger.info("Starting login_server process", {
       component: "AuthenticationService",
@@ -1275,7 +1279,6 @@ async function login_client(req, res) {
     });
 
     try {
-      const config_own_rodit = await stateManager.getConfigOwnRodit();
 
       logger.debug("Retrieved config from state manager", {
         component: "AuthenticationService",

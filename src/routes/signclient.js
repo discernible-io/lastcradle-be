@@ -172,8 +172,8 @@ router.post("/signclient", async (req, res) => {
     if (!stateManager.getSignPortalJwtToken()) {
       logger.infoWithContext("Authenticating with SignPortal", jwtContext);
 
-      // Make this configurable if needed
-      const loginResult = await login_portal(config.own_rodit, portalPort);
+      // Pass the full config object to login_portal for consistency
+      const loginResult = await login_portal(config, portalPort);
 
       if (!loginResult.jwt_token) {
         logger.errorWithContext("Failed to obtain JWT token", jwtContext);
