@@ -1144,7 +1144,21 @@ const {
         throw new Error("Error 006: Token is not yet valid");
       }
   
-      // Issuer check
+      // Issuer check with enhanced logging
+      logger.debug("Detailed issuer validation information", {
+        component: "JwtAuth",
+        method: "validate_jwt_token_be",
+        requestId,
+        tokenIssuer: payload.iss,
+        expectedIssuer: rodit.metadata.subjectuniqueidentifier_url,
+        roditId: rodit.token_id,
+        roditOwnerId: rodit.owner_id,
+        hasMetadata: !!rodit.metadata,
+        metadataKeys: rodit.metadata ? Object.keys(rodit.metadata) : [],
+        payloadKeys: Object.keys(payload),
+        issuerMatch: payload.iss === rodit.metadata.subjectuniqueidentifier_url
+      });
+      
       if (payload.iss !== rodit.metadata.subjectuniqueidentifier_url) {
         logger.warn("Token validation failed - Invalid issuer", {
           component: "JwtAuth",
@@ -1152,7 +1166,14 @@ const {
           requestId,
           tokenIssuer: payload.iss,
           expectedIssuer: rodit.metadata.subjectuniqueidentifier_url,
+          roditId: rodit.token_id,
+          // Check for common URL variations that might cause mismatch
+          issuerHasTrailingSlash: payload.iss?.endsWith('/'),
+          expectedHasTrailingSlash: rodit.metadata.subjectuniqueidentifier_url?.endsWith('/'),
+          issuerHasProtocol: payload.iss?.startsWith('http'),
+          expectedHasProtocol: rodit.metadata.subjectuniqueidentifier_url?.startsWith('http')
         });
+        
         throw new Error("Error 005: Invalid issuer");
       }
       
