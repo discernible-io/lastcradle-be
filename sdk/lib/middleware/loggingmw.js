@@ -44,7 +44,7 @@ const loggingmw = (req, res, next) => {
       roditId: req.user ? req.user.roditId : null,
       authenticated: !!req.user,
       url: req.originalUrl,
-      service: req.logService || config.SERVICE_NAME,
+      service: req.logService || config.get("SERVICE_NAME"),
       action: req.logAction || req.requestType || "unspecified",
       resource: res.itemid,
       status: res.statusCode,

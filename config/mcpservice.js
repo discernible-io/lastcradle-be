@@ -472,5 +472,6 @@ console.log('Private Key:', privateKey);`,
 
 module.exports = {
   listAvailableResources,
-  getResource
+  getResource,
+  getSchemaResource
 };

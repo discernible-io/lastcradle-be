@@ -115,4 +115,3 @@ logger.metric = (name, value, labels = {}) => {
 
 // Export both the logger and the SERVICE_NAME constant
 module.exports = logger;
-module.exports.SERVICE_NAME = SERVICE_NAME;
