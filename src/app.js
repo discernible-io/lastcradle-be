@@ -414,7 +414,7 @@ async function startServer() {
     // Start the HTTP server
     const port = configObject.port || 8080;
     server = app.listen(port, () => {
-    logger.info("Server started", {
+    console.log("Server started", {
         port: port,
         env: process.env.NODE_ENV || "development",
         protocol: "http",
