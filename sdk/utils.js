@@ -109,7 +109,6 @@ async function unixTimeToDateString(unixTimeSec) {
 
 /**
  * Ensures a URL has a protocol prefix (http:// or https://)
- * 
  * @param {string} url - URL to ensure has a protocol
  * @returns {string} URL with protocol prefix
  */

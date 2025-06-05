@@ -5,7 +5,7 @@ const fs = require('fs');
 
 // Configuration
 const LOG_DIR = config.get("API_DEFAULT_OPTIONS.LOG_DIR");
-const SERVICE_NAME = "servertest-api";
+const SERVICE_NAME = config.get("SERVICE_NAME");
 
 // Ensure log directory exists
 fs.mkdirSync(LOG_DIR, { recursive: true });
@@ -113,4 +113,6 @@ logger.metric = (name, value, labels = {}) => {
   // This is a minimal implementation to resolve the error
 };
 
+// Export both the logger and the SERVICE_NAME constant
 module.exports = logger;
+module.exports.SERVICE_NAME = SERVICE_NAME;

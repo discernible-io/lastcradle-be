@@ -222,12 +222,23 @@ function createWebhookAuthenticationMiddleware() {
       logger.debugWithContext("Authenticating webhook", logContext);
       const publicKeyBase64url = req.server_public_key_base64url;
       
-      const authResult = await authenticate_webhook(
-        payload,
-        signature_hex_ofpayload,
-        timestamp,
-        publicKeyBase64url
-      );
+      // Call the authentication function with proper error handling
+      let authResult;
+      try {
+        authResult = await authenticate_webhook(
+          payload,
+          signature_hex_ofpayload,
+          timestamp,
+          publicKeyBase64url
+        );
+      } catch (authError) {
+        logger.errorWithContext("Error during webhook authentication", {
+          ...logContext,
+          error: authError.message,
+          stack: authError.stack
+        });
+        return res.status(500).json({ error: "Webhook authentication error", message: authError.message });
+      }
 
       if (!authResult.isValid) {
         logContext.authError = authResult.error?.message;

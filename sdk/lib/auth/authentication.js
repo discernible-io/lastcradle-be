@@ -909,13 +909,11 @@ async function send_webhook(event, data, isError = false, isTest = false, req = 
       serverKeyFirstChars: server_public_key_base64url ? server_public_key_base64url.substring(0, 15) + '...' : 'null'
     });
 
-    // Log the call stack to understand where this function is being called from
-    const stackTrace = new Error().stack;
-    logger.debug("Webhook authentication call stack", {
+    // Only log detailed debugging info at debug level
+    logger.debug("Starting webhook authentication process", {
       component: "AuthServices",
       method: "authenticate_webhook",
-      requestId,
-      stack: stackTrace
+      requestId
     });
 
     try {

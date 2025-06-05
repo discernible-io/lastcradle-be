@@ -1,4 +1,5 @@
 {
+"SERVICE_NAME": "servertest-api",
   "NEAR_CONTRACT_ID": "10975-cableguard-org.testnet",
  "API_DEFAULT_OPTIONS": {
   "ISO639": "es",
