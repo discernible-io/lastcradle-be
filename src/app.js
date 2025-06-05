@@ -189,12 +189,12 @@ const app = express();
 app.set('trust proxy', 1);
 
 // Log server startup
-logger.info("Server starting", {
+/* logger.info("Server starting", {
   component: "AppLifecycle",
   startTime: new Date().toISOString(),
   nodeEnv: process.env.NODE_ENV || 'development',
   pid: process.pid
-});
+}); */
 
 // Configure middleware
 app.use(express.json());
