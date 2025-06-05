@@ -188,14 +188,6 @@ const app = express();
 // Using a specific configuration instead of 'true' to prevent IP spoofing
 app.set('trust proxy', 1);
 
-// Log server startup
-/* logger.info("Server starting", {
-  component: "AppLifecycle",
-  startTime: new Date().toISOString(),
-  nodeEnv: process.env.NODE_ENV || 'development',
-  pid: process.pid
-}); */
-
 // Configure middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -379,6 +371,13 @@ let db;
 // Start the server with proper initialization
 async function startServer() {
   try {
+    // Log server startup
+    logger.info("Server starting", {
+      component: "AppLifecycle",
+      startTime: new Date().toISOString(),
+      nodeEnv: process.env.NODE_ENV || 'development',
+      pid: process.pid
+    });
     // Initialize performance service
     const performanceService = require('../config/performanceservice');
     performanceService.initialize();

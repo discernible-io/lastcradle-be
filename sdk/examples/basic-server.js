@@ -108,14 +108,6 @@ const logger = {
   metric: (name, value, tags) => console.log(`METRIC: ${name}=${value}`, tags)
 };
 
-// Log server startup
-logger.info("Server starting", {
-  component: "AppLifecycle",
-  startTime: new Date().toISOString(),
-  nodeEnv: process.env.NODE_ENV || 'development',
-  pid: process.pid
-});
-
 // Apply rate limiting to all routes
 app.use((req, res, next) => ratelimiter(req, res, next));
 
@@ -341,6 +333,13 @@ let server;
 // Start the server with proper initialization
 async function startServer() {
   try {
+    // Log server startup
+    logger.info("Server starting", {
+      component: "AppLifecycle",
+      startTime: new Date().toISOString(),
+      nodeEnv: process.env.NODE_ENV || 'development',
+      pid: process.pid
+    });
     // In a real implementation, this would initialize the RODiT configuration from blockchain
     // For this example, we'll just log what would happen
     logger.infoWithContext("Initializing RODiT configuration", {
