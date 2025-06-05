@@ -210,7 +210,7 @@ class AuthStateManager {
     const domainPart = scParts[0];
     const domainComponents = domainPart.split("-");
 
-    // Find domain and TLD in the components (format: 10975-cableguard-org)
+    // Find domain and TLD in the components (format: 10975-ayayai-org)
     if (domainComponents.length < 3) {
       const error = new Error("Invalid domain format in smart contract");
       logger.error("Invalid domain format in smart contract", {
@@ -222,7 +222,7 @@ class AuthStateManager {
       throw error;
     }
 
-    const domain = domainComponents[1]; // cableguard
+    const domain = domainComponents[1]; // ayayai
     const tld = domainComponents[2]; // org
 
     // Build and return the API endpoint

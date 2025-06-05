@@ -321,7 +321,7 @@ async function getSubscriptionResource(resourceId, req) {
               "Standard support"
             ],
             purchaseInstructions: [
-              "Visit https://cableguard.io/pricing to select a plan",
+              "Visit https://ayayai.io/pricing to select a plan",
               "Complete the registration process",
               "Receive your API credentials via email"
             ]
@@ -336,7 +336,7 @@ async function getSubscriptionResource(resourceId, req) {
               "Access to beta features"
             ],
             purchaseInstructions: [
-              "Visit https://cableguard.io/pricing to select a plan",
+              "Visit https://ayayai.io/pricing to select a plan",
               "Complete the registration process",
               "Schedule an onboarding call with our team",
               "Receive your API credentials and documentation"
@@ -353,7 +353,7 @@ async function getSubscriptionResource(resourceId, req) {
               "SLA guarantees"
             ],
             purchaseInstructions: [
-              "Contact our sales team at sales@cableguard.io",
+              "Contact our sales team at sales@ayayai.io",
               "Schedule a consultation to discuss your requirements",
               "Receive a custom quote and implementation plan"
             ]
@@ -366,9 +366,9 @@ async function getSubscriptionResource(resourceId, req) {
           "Cryptocurrency (NEAR, ETH, BTC)"
         ],
         contactInformation: {
-          sales: "sales@cableguard.io",
-          support: "support@cableguard.io",
-          phone: "+1-555-CABLEGUARD"
+          sales: "sales@ayayai.io",
+          support: "support@ayayai.io",
+          phone: "+1-555-ayayai"
         }
       };
     
@@ -448,7 +448,7 @@ console.log('Private Key:', privateKey);`,
             "Verify ownership through a blockchain transaction",
             "Access your RODiT token using your NEAR credentials"
           ],
-          documentation: "https://docs.cableguard.io/near-integration"
+          documentation: "https://docs.ayayai.io/near-integration"
         },
         testnetVsMainnet: {
           description: "NEAR Protocol offers both testnet and mainnet environments",

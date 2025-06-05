@@ -1,7 +1,7 @@
 /**
  * Request logging middleware
  * Provides standardized request/response logging
- * Copyright (c) 2024 Cableguard, Inc. All rights reserved.
+ * Copyright (c) 2024 Ayayai, Inc. All rights reserved.
  */
 
 const logger = require("../../../config/logger");
