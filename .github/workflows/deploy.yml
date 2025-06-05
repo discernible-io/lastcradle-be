@@ -2,9 +2,9 @@ name: Deploy Node.js API
 
 on:
   push:
-    branches: [ refactored ]
+    branches: [ 20250605sdk ]
   pull_request:
-    branches: [ refactored ]
+    branches: [ 20250605sdk ]
 
 env:
   SSH_HOST: 178.128.173.226
