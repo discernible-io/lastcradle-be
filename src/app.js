@@ -414,12 +414,20 @@ async function startServer() {
     // Start the HTTP server
     const port = configObject.port || 8080;
     server = app.listen(port, () => {
-    /*  logger.info("Server started", {
-        port: port,
-        env: process.env.NODE_ENV || "development",
-        protocol: "http",
-        swagger: `http://localhost:${port}/api-docs`
-      }); */
+        try {
+          logger.info("Server started", {
+            port: port,
+            env: process.env.NODE_ENV || "development",
+            protocol: "http",
+            swagger: `http://localhost:${port}/api-docs`
+          });
+        } catch (err) {
+          console.error("Error logging server start:", err);
+        }
+        
+        console.log(`\nRODiT Authentication API Server running on port ${port}`);
+        // Rest of your console logs...
+      });
       
       console.log(`\nRODiT Authentication API Server running on port ${port}`);
       console.log('');
