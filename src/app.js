@@ -371,13 +371,10 @@ let db;
 // Start the server with proper initialization
 async function startServer() {
   try {
-    // Log server startup
-    logger.info("Server starting", {
-      component: "AppLifecycle",
-      startTime: new Date().toISOString(),
-      nodeEnv: process.env.NODE_ENV || 'development',
-      pid: process.pid
-    });
+    // Log server startup with console.log to avoid initialization issues
+    console.log(`Server starting - ${new Date().toISOString()} - Environment: ${process.env.NODE_ENV || 'development'} - PID: ${process.pid}`);
+    
+    // We'll use the structured logger after initialization is complete
     // Initialize performance service
     const performanceService = require('../config/performanceservice');
     performanceService.initialize();
@@ -414,16 +411,8 @@ async function startServer() {
     // Start the HTTP server
     const port = configObject.port || 8080;
     server = app.listen(port, () => {
-      try {
-        logger.info("Server started", {
-          port: port,
-          env: process.env.NODE_ENV || "development",
-          protocol: "http",
-          swagger: `http://localhost:${port}/api-docs`
-        });
-      } catch (err) {
-        console.error("Error logging server start:", err);
-      }
+      // Use console.log instead of logger to avoid initialization issues
+      console.log(`Server started on port ${port} - Environment: ${process.env.NODE_ENV || "development"} - Swagger: http://localhost:${port}/api-docs`);
       
       console.log(`\nRODiT Authentication API Server running on port ${port}`);
       console.log('');
