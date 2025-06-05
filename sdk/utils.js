@@ -9,17 +9,7 @@ const crypto = require("crypto");
 const nacl = require("tweetnacl");
 nacl.util = require("tweetnacl-util");
 const { decodeUTF8 } = require("tweetnacl-util");
-
-// Import config if available, otherwise create a fallback
-let config;
-try {
-  config = require("../config");
-} catch (error) {
-  // Create a fallback config object
-  config = {
-    get: (key) => process.env[key] || null
-  };
-}
+const config = require("config");
 
 /**
  * Debug utility that logs the type and value of a variable
