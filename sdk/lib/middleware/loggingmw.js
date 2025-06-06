@@ -5,6 +5,7 @@
  */
 
 const logger = require("../../../config/logger");
+const config = require("../../../config/default.json");
 
 /**
  * Middleware for logging requests and responses
@@ -43,8 +44,8 @@ const loggingmw = (req, res, next) => {
       roditId: req.user ? req.user.roditId : null,
       authenticated: !!req.user,
       url: req.originalUrl,
-      service: req.logService,
-      action: req.logAction || req.requestType || "unspecified",
+      service: req.logService || "unspecified service",
+      action: req.logAction || req.requestType || "unspecified action",
       resource: res.itemid,
       status: res.statusCode,
       statusMessage: res.statusReason || res.statusMessage,

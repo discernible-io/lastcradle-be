@@ -1,49 +1,33 @@
 {
-  "name": "@cableguard/rodit-sdk",
+  "name": "rodit-auth",
   "version": "1.0.0",
-  "description": "JavaScript sdk for interacting with RODiT authentication and API services",
-  "main": "roditclient.js",
+  "description": "RODiT-based authentication system for Express.js applications",
+  "main": "index.js",
   "scripts": {
-    "test": "node ../src/run-tests.js --module=sdk-tests",
-    "lint": "eslint .",
-    "docs": "jsdoc -c jsdoc.json"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
-    "rodit",
     "authentication",
-    "api",
-    "sdk",
-    "cableguard"
+    "express",
+    "middleware",
+    "jwt",
+    "rodit"
   ],
-  "author": "Ayayai",
+  "author": "Rodit Technologies Inc.",
   "license": "UNLICENSED",
+  "private": true,
   "dependencies": {
-    "bs58": "^5.0.0",
-    "ipaddr.js": "^2.0.1",
+    "express": "^4.18.2",
     "jose": "^4.14.4",
+    "jsonwebtoken": "^9.0.0",
+    "nacl": "^0.0.0",
     "tweetnacl": "^1.0.3",
     "ulid": "^2.3.0"
   },
-  "devDependencies": {
-    "eslint": "^8.40.0",
-    "jsdoc": "^4.0.2"
+  "peerDependencies": {
+    "express": "^4.17.1 || ^5.0.0"
   },
-  "files": [
-    "roditclient.js",
-    "utils.js",
-    "lib/**/*.js",
-    "README.md",
-    "LICENSE"
-  ],
   "engines": {
     "node": ">=14.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/cableguard/rodit-sdk.git"
-  },
-  "bugs": {
-    "url": "https://github.com/cableguard/rodit-sdk/issues"
-  },
-  "homepage": "https://github.com/cableguard/rodit-sdk#readme"
+  }
 }

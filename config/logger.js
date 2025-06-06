@@ -27,7 +27,7 @@ const grafanaFormat = winston.format.combine(
       info.level = info.level.toUpperCase();
     }
     // Add standard fields if not present
-    info.service_name = info.service_name || SERVICE_NAME;
+    info.service_name = SERVICE_NAME;
     info.context = info.context || {};
     // Add hostname for better filtering
     info.hostname = require('os').hostname();
@@ -115,3 +115,4 @@ logger.metric = (name, value, labels = {}) => {
 
 // Export both the logger and the SERVICE_NAME constant
 module.exports = logger;
+module.exports.SERVICE_NAME = SERVICE_NAME;
