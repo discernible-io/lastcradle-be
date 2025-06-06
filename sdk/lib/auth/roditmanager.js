@@ -13,7 +13,7 @@ const {
   setupTokenRenewal,
   getCredentials,
   vault,
-} = require("../middleware/filecredentialstore");
+} = require("../middleware/vaultcredentialstore");
 const {
   nearorg_rpc_state,
   nearorg_rpc_tokensfromaccountid,
