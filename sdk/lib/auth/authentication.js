@@ -6,7 +6,9 @@
 const { ulid } = require("ulid");
 const logger = require("../../../config/logger");
 const nacl = require("tweetnacl");
+nacl.util = require("tweetnacl-util");
 const crypto = require("crypto");
+const borsh = require("borsh");
 const { Resolver } = require("dns").promises;
 const { calculateCanonicalHash, unixTimeToDateString } = require("../../utils");
 const stateManager = require("../blockchain/statemanager");

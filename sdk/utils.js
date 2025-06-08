@@ -1179,100 +1179,103 @@ function base64urlToBase64(base64url) {
  * Converts a base64url encoded public key to a JWK (JSON Web Key) format
  * 
  * @param {string} base64url_public_key - Base64url encoded public key
- * @returns {Object} JWK formatted public key with tweetnacl verification capability
+ * @returns {Object} JWK formatted public key using jose's importJWK
  */
-function base64url2jwk_public_key(base64url_public_key) {
-  // Create the JWK object
-  const jwk_public_key = {
-    kty: "OKP",
-    crv: "Ed25519",
-    x: base64url_public_key,
-    use: "sig",
-  };
-
-  // Convert base64url to raw bytes that tweetnacl can use
-  const publicKeyBytes = bufferUtils.base64urlToUint8Array(base64url_public_key);
-
-  // Return an object that mimics the jose KeyLike interface
-  // but internally uses tweetnacl-js for verification
-  return {
-    type: "public",
-    algorithm: "EdDSA",
-    asymmetricKeyType: "ed25519",
-    _publicKeyBytes: publicKeyBytes, // Store raw bytes for internal use
-
-    // Implement verify method to match jose's interface
-    async verify(signature, message) {
-      const signatureBytes = new Uint8Array(signature);
-      const messageBytes = new Uint8Array(message);
-      return nacl.sign.detached.verify(messageBytes, signatureBytes, this._publicKeyBytes);
-    },
-  };
+async function base64url2jwk_public_key(base64url_public_key) {
+  console.log('[base64url2jwk_public_key] Starting with input:', base64url_public_key);
+  console.log('[base64url2jwk_public_key] Input length:', base64url_public_key.length);
+  
+  try {
+    // Check if the input is a valid base64url string
+    const validBase64UrlRegex = /^[A-Za-z0-9_-]*$/;
+    const isValidFormat = validBase64UrlRegex.test(base64url_public_key);
+    console.log('[base64url2jwk_public_key] Is valid base64url format:', isValidFormat);
+    
+    // Create the JWK object
+    const jwk_public_key = {
+      kty: "OKP",
+      crv: "Ed25519",
+      x: base64url_public_key,
+      use: "sig",
+    };
+    console.log('[base64url2jwk_public_key] Created JWK public key object');
+    
+    // Let's also try to decode the base64url to see if it's the right length for Ed25519
+    try {
+      const bytes = bufferUtils.base64urlToUint8Array(base64url_public_key);
+      console.log('[base64url2jwk_public_key] Decoded bytes length:', bytes.length, '(should be 32 for Ed25519)');
+    } catch (decodeError) {
+      console.error('[base64url2jwk_public_key] Error decoding base64url:', decodeError);
+    }
+    
+    // Import the JWK
+    console.log('[base64url2jwk_public_key] Importing JWK with jose library...');
+    const { importJWK } = require("jose");
+    const session_jwk_public_key = await importJWK(jwk_public_key, "EdDSA");
+    console.log('[base64url2jwk_public_key] Successfully imported JWK');
+    
+    return session_jwk_public_key;
+  } catch (error) {
+    console.error('[base64url2jwk_public_key] Error:', error.message, error);
+    throw error;
+  }
 }
 
 /**
- * Verifies a JWT token using tweetnacl
+ * Verifies a JWT token using jose library
  * 
  * @param {string} token - JWT token to verify
- * @param {Object} publicKey - Public key object with _publicKeyBytes property
+ * @param {Object} publicKey - Public key object from importJWK
  * @param {Object} options - Verification options
- * @returns {Object} Verification result with payload, header, and signature
+ * @returns {Object} Verification result with payload, protectedHeader
  */
 async function jwtVerify_fe(token, publicKey, options = {}) {
-  // Split the JWT into its components
-  const [headerB64, payloadB64, signatureB64] = token.split(".");
-
-  if (!headerB64 || !payloadB64 || !signatureB64) {
-    throw new Error("Invalid JWT format");
+  console.log('[jwtVerify_fe] Starting JWT verification');
+  console.log('[jwtVerify_fe] Token (first 30 chars):', token.substring(0, 30) + '...');
+  console.log('[jwtVerify_fe] Public key type:', typeof publicKey);
+  console.log('[jwtVerify_fe] Public key properties:', Object.keys(publicKey));
+  console.log('[jwtVerify_fe] Options:', options);
+  
+  try {
+    // Let's examine the token structure
+    const parts = token.split('.');
+    console.log('[jwtVerify_fe] Token parts count:', parts.length);
+    
+    if (parts.length === 3) {
+      try {
+        // Decode header without verification
+        const headerStr = parts[0].replace(/-/g, '+').replace(/_/g, '/');
+        const paddedHeader = headerStr.padEnd(headerStr.length + ((4 - (headerStr.length % 4)) % 4), '=');
+        const header = JSON.parse(atob(paddedHeader));
+        console.log('[jwtVerify_fe] Token header:', header);
+      } catch (decodeError) {
+        console.error('[jwtVerify_fe] Error decoding header:', decodeError);
+      }
+    }
+    
+    const { jwtVerify } = require("jose");
+    console.log('[jwtVerify_fe] Calling jose.jwtVerify...');
+    const result = await jwtVerify(token, publicKey, options);
+    console.log('[jwtVerify_fe] JWT verification successful');
+    return result;
+  } catch (error) {
+    console.error(`[jwtVerify_fe] Error: ${error.message}`, error);
+    
+    // Additional diagnostics for specific errors
+    if (error.message.includes('bad public key size')) {
+      console.error('[jwtVerify_fe] Bad public key size error detected. This typically means the key is not the correct format or length for Ed25519.');
+      console.error('[jwtVerify_fe] Public key details:', {
+        type: typeof publicKey,
+        constructor: publicKey.constructor?.name,
+        properties: Object.keys(publicKey),
+        isKeyObject: publicKey instanceof Object,
+        algorithm: publicKey.algorithm,
+        keyType: publicKey.type
+      });
+    }
+    
+    throw error;
   }
-
-  // Decode and parse header
-  let headerStr = headerB64.replace(/-/g, "+").replace(/_/g, "/");
-  while (headerStr.length % 4) headerStr += "=";
-  const header = JSON.parse(atob(headerStr));
-
-  if (header.alg !== "EdDSA") {
-    throw new Error("Invalid algorithm. Expected EdDSA");
-  }
-
-  if (options.algorithms && !options.algorithms.includes("EdDSA")) {
-    throw new Error("Algorithm not allowed");
-  }
-
-  // Create the message that was signed (header.payload)
-  const messageToVerify = `${headerB64}.${payloadB64}`;
-  const messageBytes = new TextEncoder().encode(messageToVerify);
-
-  // Convert base64url signature to Uint8Array
-  let signatureStr = signatureB64.replace(/-/g, "+").replace(/_/g, "/");
-  while (signatureStr.length % 4) signatureStr += "=";
-  const signatureBinary = atob(signatureStr);
-  const signatureBytes = new Uint8Array(signatureBinary.length);
-  for (let i = 0; i < signatureBinary.length; i++) {
-    signatureBytes[i] = signatureBinary.charCodeAt(i);
-  }
-
-  // Verify the signature using tweetnacl
-  const isValid = nacl.sign.detached.verify(
-    messageBytes,
-    signatureBytes,
-    publicKey._publicKeyBytes
-  );
-
-  if (!isValid) {
-    throw new Error("Invalid signature");
-  }
-
-  // Decode and parse payload
-  let payloadStr = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
-  while (payloadStr.length % 4) payloadStr += "=";
-  const payload = JSON.parse(atob(payloadStr));
-
-  return {
-    payload,
-    header,
-    signature: signatureBytes,
-  };
 }
 
 /**

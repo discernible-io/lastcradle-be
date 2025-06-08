@@ -14,9 +14,10 @@ const {
   tokenService
 } = require("../auth/tokenservice");
 // Import specific functions from authentication.js to avoid circular dependencies
+// Import specific functions from authentication.js to avoid circular dependencies
 const { 
   verify_peerrodit_getrodit,
-  verify_peerrodit_getrodit_withnep413
+  verify_rodit_ownership_withnep413
 } = require("../auth/authentication");
 const { 
   nearorg_rpc_tokenfromroditid
@@ -177,7 +178,6 @@ async function login_client(req, res) {
       roditId: peer_roditid,
     });
 
-    // Call verify_peerrodit_getrodit directly
     const result = await verify_peerrodit_getrodit(
       peer_roditid,
       peer_timestamp,
@@ -864,48 +864,80 @@ async function login_client(req, res) {
         component: "AuthenticationService",
         method: "login_client_withnep413",
         requestId,
-        message,
       });
 
-      const { peer_rodit, goodrodit: isRoditValid } =
-        await verify_peerrodit_getrodit_withnep413(
+      // Declare peer_rodit outside the try block so it's accessible throughout the function
+      let peer_rodit;
+      
+      try {
+        // First, fetch the peer RODiT using message (which contains the RODiT ID)
+        peer_rodit = await nearorg_rpc_tokenfromroditid(message);
+        
+        if (!peer_rodit || !peer_rodit.token_id) {
+          logger.error("Failed to retrieve peer RODiT data", {
+            component: "AuthenticationService",
+            method: "login_client_withnep413",
+            requestId,
+            message
+          });
+          throw new Error("Error 0115: Invalid RODiT ID");
+        }
+        
+        // Now verify the signature using NEP-413 parameters
+        const isRoditValid = await verify_rodit_ownership_withnep413(
           message,
           nonce,
           recipient,
           callbackUrl,
           signature,
-          config_own_rodit
+          peer_rodit
         );
 
-      if (!isRoditValid) {
-        const duration = Date.now() - startTime;
+        if (!isRoditValid) {
+          const duration = Date.now() - startTime;
 
-        logger.warn("NEP-413 login failed - Invalid RODiT credentials", {
+          logger.warn("NEP-413 login failed - Invalid RODiT credentials", {
+            component: "AuthenticationService",
+            method: "login_client_withnep413",
+            requestId,
+            duration,
+            message,
+          });
+
+          // Emit metrics for Grafana dashboards
+          logger.metric("nep413_login_duration_ms", duration, {
+            component: "AuthenticationService",
+            success: false,
+            error: "INVALID_CREDENTIALS",
+          });
+          logger.metric("failed_nep413_logins_total", 1, {
+            component: "AuthenticationService",
+            reason: "INVALID_CREDENTIALS",
+          });
+
+          return res.status(401).json({
+            message:
+              "Error 106: Login attempt failed: Invalid RODiT ID or Signature",
+            requestId,
+          });
+        }
+
+      } catch (innerError) {
+        const duration = Date.now() - startTime;
+        logger.error(`NEP-413 verification error: ${innerError.message}`, {
           component: "AuthenticationService",
           method: "login_client_withnep413",
           requestId,
           duration,
-          message,
+          error: innerError.message,
         });
-
-        // Emit metrics for Grafana dashboards
-        logger.metric("nep413_login_duration_ms", duration, {
-          component: "AuthenticationService",
-          success: false,
-          error: "INVALID_CREDENTIALS",
-        });
-        logger.metric("failed_nep413_logins_total", 1, {
-          component: "AuthenticationService",
-          reason: "INVALID_CREDENTIALS",
-        });
-
+        
         return res.status(401).json({
-          message:
-            "Error 106: Login attempt failed: Invalid RODiT ID or Signature",
+          message: `Error 107: Login verification failed: ${innerError.message}`,
           requestId,
         });
       }
-
+      
       logger.debug("Generating JWT token for validated NEP-413 login", {
         component: "AuthenticationService",
         method: "login_client_withnep413",
@@ -913,7 +945,7 @@ async function login_client(req, res) {
         roditId: peer_rodit.token_id,
       });
 
-      const token = await tokenService.generate_jwt_token(
+      const token = await generate_jwt_token(
         peer_rodit,
         Math.floor(Date.now() / 1000),
         config_own_rodit.own_rodit,
@@ -980,7 +1012,7 @@ async function login_client(req, res) {
    * @param {number} port - Optional port number for the portal URL
    * @returns {Promise<Object>} Login result
    */
- async function login_portal(config_own_rodit, port) {
+async function login_portal(config_own_rodit, port) {
   const requestId = ulid();
   const startTime = Date.now();
   
