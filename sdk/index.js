@@ -36,6 +36,10 @@ const stateManager = require('./lib/blockchain/statemanager');
 const webhookHandler = require('./lib/webhook/webhookhandler');
 // Note: eventHandler has been consolidated into webhookhandler.js
 
+// Import versioning functionality
+const { versioningMiddleware } = require('./lib/middleware/versioningmw');
+const { versionManager, VersionManager } = require('./lib/versioning/versionmanager');
+
 // Simple export of the authentication system
 module.exports = {
   // Core middleware functions
@@ -69,11 +73,27 @@ module.exports = {
     // Note: eventHandler functionality is now part of webhookHandler
   },
   
+  // Versioning functionality
+  versioning: {
+    middleware: versioningMiddleware,
+    manager: versionManager,
+    VersionManager
+  },
+  
   // Configuration helper
   configure: (config) => {
     // Store configuration in state manager for access by all components
     if (config) {
       stateManager.setConfig(config);
+      
+      // Configure versioning if specified
+      if (config.apiVersion) {
+        versionManager.setVersion(config.apiVersion);
+      }
+      
+      if (config.versionHeaderType) {
+        versionManager.setHeaderType(config.versionHeaderType);
+      }
     }
     return module.exports;
   }

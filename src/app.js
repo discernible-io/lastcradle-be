@@ -193,8 +193,26 @@ app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// API versioning middleware
+app.use(auth.versioning.middleware({
+  strict: false // Set to true to reject requests with unsupported versions
+}));
+
 // Setup Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Add request ID to all error responses
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function(body) {
+    // If this is an error response, add the request ID
+    if (body && (body.error || body.success === false) && req.requestId) {
+      body.requestId = req.requestId;
+    }
+    return originalJson.call(this, body);
+  };
+  next();
+});
 
 // Performance monitoring middleware
 app.use((req, res, next) => {

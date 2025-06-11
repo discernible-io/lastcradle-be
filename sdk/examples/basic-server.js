@@ -49,6 +49,12 @@ const ratelimitmw = (maxRequests, windowSeconds) => {
 // For this example, we're using the local package
 const auth = require('../index');
 
+// Example of client-side versioning setup
+// Configure the version manager with specific version
+auth.versioning.manager.setVersion('1.1.0');
+// Choose header type: 'accept', 'custom', or 'both'
+auth.versioning.manager.setHeaderType('both');
+
 // Swagger API documentation setup
 const swaggerOptions = {
   definition: {
@@ -83,6 +89,32 @@ let ratelimiter = ratelimitmw(100, 15);
 // Configure middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// API versioning middleware
+// This middleware will parse version information from headers
+// and make it available as req.apiVersion and req.apiMajorVersion
+app.use(auth.versioning.middleware({
+  strict: false // Set to true to reject requests with unsupported versions
+}));
+
+// Example middleware that uses API version for different behavior
+app.use((req, res, next) => {
+  // Log the API version being used
+  logger.infoWithContext('API version detected', { 
+    version: req.apiVersion,
+    majorVersion: req.apiMajorVersion,
+    requestId: req.requestId
+  });
+  
+  // You can conditionally apply different logic based on version
+  if (req.apiMajorVersion === 1) {
+    // v1.x.x specific behavior
+  } else if (req.apiMajorVersion === 2) {
+    // v2.x.x specific behavior
+  }
+  
+  next();
+});
 
 // Setup webhook handling - this would typically be in a separate file
 // Create webhook raw body parser for signature verification
@@ -279,6 +311,73 @@ function updateRateLimit(maxRequests, maxRqWindow) {
 
 /**
  * @swagger
+ * /api/version:
+ *   get:
+ *     summary: Get API version information
+ *     description: Returns information about the current API version and supported versions
+ *     responses:
+ *       200:
+ *         description: Version information
+ */
+app.get('/api/version', (req, res) => {
+  res.json({
+    currentVersion: req.apiVersion,
+    supportedVersions: auth.versioning.middleware.AVAILABLE_VERSIONS,
+    deprecatedVersions: auth.versioning.middleware.DEPRECATED_VERSIONS,
+    clientRequestedVersion: req.headers['x-api-version'] || req.headers['accept'],
+    versionDetectionMethod: req.headers['x-api-version'] ? 'custom-header' : 
+                           (req.headers['accept'] && req.headers['accept'].includes('vnd.rodit')) ? 'accept-header' : 'default'
+  });
+});
+
+/**
+ * @swagger
+ * /api/client-example:
+ *   get:
+ *     summary: Example of client-side version header usage
+ *     description: Shows how to make API requests with version headers
+ *     responses:
+ *       200:
+ *         description: Example code
+ */
+app.get('/api/client-example', (req, res) => {
+  // Example code to show in the response
+  const exampleCode = `
+  // Example 1: Using the SDK's built-in version manager
+  const { RoditClient } = require('@cableguard/rodit-sdk');
+  
+  // Initialize client with version information
+  const client = new RoditClient({
+    apiVersion: '1.1.0',
+    versionHeaderType: 'both' // 'accept', 'custom', or 'both'
+  });
+  
+  await client.init();
+  
+  // All API requests will automatically include version headers
+  const response = await client.request('GET', '/api/data');
+  
+  
+  // Example 2: Manual version header application
+  const headers = {
+    'Accept': 'application/vnd.rodit.v1.1.0+json',
+    'X-API-Version': '1.1.0'
+  };
+  
+  const response = await fetch('https://api.example.com/data', {
+    headers
+  });
+  `;
+  
+  res.json({
+    message: 'Example of client-side version header usage',
+    exampleCode,
+    note: 'This shows how to include version headers in API requests'
+  });
+});
+
+/**
+ * @swagger
  * /api/entities/{entityId}:
  *   get:
  *     summary: Get entity by ID
@@ -353,6 +452,48 @@ app.use((err, req, res, next) => {
 
 // Store server instance for graceful shutdown
 let server;
+
+// Example of version-specific route handlers
+
+/**
+ * @swagger
+ * /api/feature:
+ *   get:
+ *     summary: Version-specific feature endpoint
+ *     description: Demonstrates different behavior based on API version
+ *     responses:
+ *       200:
+ *         description: Feature response
+ */
+app.get('/api/feature', (req, res) => {
+  // Example of version-specific behavior
+  if (req.apiVersion === '1.0.0') {
+    return res.json({
+      version: '1.0.0',
+      features: ['basic-auth', 'data-retrieval'],
+      deprecated: true,
+      message: 'This version will be discontinued on 2025-12-31'
+    });
+  } else if (req.apiVersion === '1.1.0') {
+    return res.json({
+      version: '1.1.0',
+      features: ['basic-auth', 'data-retrieval', 'advanced-filtering'],
+      deprecated: false
+    });
+  } else if (req.apiVersion.startsWith('2.')) {
+    return res.json({
+      version: req.apiVersion,
+      features: ['basic-auth', 'data-retrieval', 'advanced-filtering', 'real-time-updates', 'webhooks'],
+      beta: true
+    });
+  }
+  
+  // Default response
+  res.json({
+    version: req.apiVersion,
+    features: ['basic-auth', 'data-retrieval']
+  });
+});
 
 // Start the server with proper initialization
 async function startServer() {

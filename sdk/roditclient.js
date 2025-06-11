@@ -10,6 +10,7 @@ const roditManager = require('./lib/auth/roditmanager');
 const stateManager = require('./lib/blockchain/statemanager');
 const authMw = require('./lib/middleware/authenticationmw');
 const { ensureProtocol } = require('./utils');
+const { versionManager } = require('./lib/versioning/versionmanager');
 
 // External logger for compatibility during transition
 const externalLogger = require('./services/logger');
@@ -95,13 +96,25 @@ class RoditClient {
       authEndpoint: options.authEndpoint,
       dataEndpoint: options.dataEndpoint,
       configEndpoint: options.configEndpoint,
-      credentialsFilePath: options.credentialsFilePath
+      credentialsFilePath: options.credentialsFilePath,
+      apiVersion: options.apiVersion || '1.0.0',
+      versionHeaderType: options.versionHeaderType || 'both'
     };
+    
+    // Configure version manager if custom version is specified
+    if (options.apiVersion) {
+      versionManager.setVersion(options.apiVersion);
+    }
+    
+    if (options.versionHeaderType) {
+      versionManager.setHeaderType(options.versionHeaderType);
+    }
     
     logger.debug('RODiT client instance created', {
       component: 'RoditClient',
       method: 'constructor',
-      requestId: this.requestId
+      requestId: this.requestId,
+      apiVersion: this.config.apiVersion
     });
   }
 
@@ -256,6 +269,10 @@ class RoditClient {
       'X-Request-ID': requestId,
       ...options.headers
     };
+    
+    // Apply API version headers
+    const versionHeaders = versionManager.getVersionHeaders();
+    Object.assign(headers, versionHeaders);
 
     // Get current session token
     const token = await this.getSessionToken();
