@@ -511,6 +511,14 @@ class ProductionVaultManager {
       if (!private_key || typeof private_key !== "string") {
         throw new Error("Error 043: Invalid or missing private_key value");
       }
+      
+      // Log private key format before processing
+      logger.debugWithContext("Processing private key from vault", {
+        ...baseContext,
+        privateKeyFormat: "string",
+        privateKeyLength: private_key.length,
+        hasPrefix: private_key.startsWith('ed25519:')
+      });
   
       if (public_key) {
         // Try both hex and base58 formats for comparison
@@ -563,10 +571,25 @@ class ProductionVaultManager {
         }
       }
   
+      // Convert the private key string to Uint8Array using bs58
+      const privateKeyStr = stripEd25519Prefix(private_key);
+      const signing_bytes_key = new Uint8Array(bs58.decode(privateKeyStr));
+      
+      // Log the conversion result
+      logger.debugWithContext("Converted private key to Uint8Array", {
+        ...baseContext,
+        strippedKeyLength: privateKeyStr.length,
+        bytesKeyLength: signing_bytes_key.length,
+        isUint8Array: signing_bytes_key instanceof Uint8Array,
+        // DEV ONLY - Show first few bytes
+        keyFirstBytes: Array.from(signing_bytes_key.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ')
+      });
+      
       return {
         account_id: implicit_account_id, // Use implicit_account_id as account_id
         implicit_account_id,
-        private_key: stripEd25519Prefix(private_key)
+        private_key: privateKeyStr,
+        signing_bytes_key // Add the Uint8Array version of the private key
       };
     }
   
@@ -584,10 +607,25 @@ class ProductionVaultManager {
       throw new Error("Error 043: Invalid or missing private_key value");
     }
 
+    // Convert the private key string to Uint8Array using bs58
+    const privateKeyStr = stripEd25519Prefix(private_key);
+    const signing_bytes_key = new Uint8Array(bs58.decode(privateKeyStr));
+    
+    // Log the conversion result
+    logger.debugWithContext("Converted private key to Uint8Array (standard account)", {
+      ...baseContext,
+      strippedKeyLength: privateKeyStr.length,
+      bytesKeyLength: signing_bytes_key.length,
+      isUint8Array: signing_bytes_key instanceof Uint8Array,
+      // DEV ONLY - Show first few bytes
+      keyFirstBytes: Array.from(signing_bytes_key.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ')
+    });
+    
     return {
       account_id,
       implicit_account_id: publicKeyToImplicitId(public_key, 'hex'), // Use hex format consistently
-      private_key: stripEd25519Prefix(private_key)
+      private_key: privateKeyStr,
+      signing_bytes_key // Add the Uint8Array version of the private key
     };
   }
 

@@ -115,6 +115,21 @@ async initializeCredentialsStore() {
       // Delegate credential retrieval to the CredentialManager
       const credentials = await getCredentials(type);
       
+      // DEVELOPMENT ENVIRONMENT ONLY - Add detailed private key verification
+      logger.debugWithContext("PRIVATE KEY DEBUG - After credential retrieval", {
+        ...baseContext,
+        hasCredentials: !!credentials,
+        hasSigningKey: !!credentials?.signing_bytes_key,
+        signingKeyType: typeof credentials?.signing_bytes_key,
+        isUint8Array: credentials?.signing_bytes_key instanceof Uint8Array,
+        isBuffer: Buffer.isBuffer(credentials?.signing_bytes_key),
+        keyLength: credentials?.signing_bytes_key ? credentials.signing_bytes_key.length : 0,
+        keyConstructor: credentials?.signing_bytes_key ? credentials.signing_bytes_key.constructor.name : 'undefined',
+        // DEV ONLY - Show first few bytes
+        keyFirstBytes: credentials?.signing_bytes_key && credentials.signing_bytes_key.length > 0 ? 
+          Array.from(credentials.signing_bytes_key.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ') : 'N/A'
+      });
+      
       logger.debugWithContext("Credentials retrieved through CredentialManager", {
         ...baseContext,
         hasCredentials: !!credentials
