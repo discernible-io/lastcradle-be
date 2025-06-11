@@ -4,6 +4,7 @@
  */
 
 const { ulid } = require("ulid");
+const config = require('config');
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
 const nacl = require("tweetnacl");
@@ -74,6 +75,11 @@ async function login_client(req, res) {
     }
 
     // Validate required parameters
+    // Get the silence flag from config (default to false if not set)
+    const silenceLoginFailures = config.has('SECURITY_OPTIONS.SILENCE_LOGIN_FAILURES') 
+      ? config.get('SECURITY_OPTIONS.SILENCE_LOGIN_FAILURES') 
+      : false;
+      
     if (!peer_roditid) {
       const duration = Date.now() - startTime;
       
@@ -95,10 +101,15 @@ async function login_client(req, res) {
         reason: "MISSING_RODIT_ID"
       });
       
-      return res.status(400).json({
-        error: "Missing RODiT ID",
-        requestId
-      });
+      if (!silenceLoginFailures) {
+        return res.status(400).json({
+          error: "Missing RODiT ID",
+          requestId
+        });
+      } else {
+        // Just return a generic 400 without details
+        return res.status(400).end();
+      }
     }
     
     if (!roditid_base64url_signature) {
@@ -121,10 +132,15 @@ async function login_client(req, res) {
         reason: "MISSING_SIGNATURE"
       });
       
-      return res.status(400).json({
-        error: "Missing signature",
-        requestId
-      });
+      if (!silenceLoginFailures) {
+        return res.status(400).json({
+          error: "Missing signature",
+          requestId
+        });
+      } else {
+        // Just return a generic 400 without details
+        return res.status(400).end();
+      }
     }
 
     logger.debugWithContext("Login parameters extracted", {
@@ -202,11 +218,16 @@ async function login_client(req, res) {
         reason: "INVALID_CREDENTIALS",
       });
 
-      return res.status(401).json({
-        message:
-          "Error 102: Login attempt failed: Invalid RODiT ID or Signature",
-        requestId,
-      });
+      if (!silenceLoginFailures) {
+        return res.status(401).json({
+          message:
+            "Error 102: Login attempt failed: Invalid RODiT ID or Signature",
+          requestId,
+        });
+      } else {
+        // Just return a generic 401 without details
+        return res.status(401).end();
+      }
     }
 
     logger.debugWithContext("Generating JWT token", {
@@ -270,10 +291,15 @@ async function login_client(req, res) {
       reason: error.code || "UNKNOWN_ERROR",
     });
 
-    return res.status(401).json({
-      message: `Error 105: Login attempt failed: ${error.message}`,
-      requestId,
-    });
+    if (!silenceLoginFailures) {
+      return res.status(401).json({
+        message: `Error 105: Login attempt failed: ${error.message}`,
+        requestId,
+      });
+    } else {
+      // Just return a generic 401 without details
+      return res.status(401).end();
+    }
   }
 }
 

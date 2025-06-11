@@ -265,7 +265,7 @@ async initializeCredentialsStore() {
           iso3166: config.get("API_DEFAULT_OPTIONS.ISO3166"),
           iso15924: config.get("API_DEFAULT_OPTIONS.ISO15924"),
           timeoptions: config.get("API_DEFAULT_OPTIONS.TIMEOPTIONS"),
-          tokenrenewaloptions: config.get("API_DEFAULT_OPTIONS.TOKENRENEWALOPTIONS"),
+          tokenrenewaloptions: config.get("API_DEFAULT_OPTIONS.SECURITY_OPTIONS"),
         };
 
         await this.stateManager.setConfigOwnRodit(minimalConfig);
@@ -495,7 +495,7 @@ async initializeCredentialsStore() {
         iso3166: config.get("API_DEFAULT_OPTIONS.ISO3166"),
         iso15924: config.get("API_DEFAULT_OPTIONS.ISO15924"),
         timeoptions: config.get("API_DEFAULT_OPTIONS.TIMEOPTIONS"),
-        tokenrenewaloptions: config.get("API_DEFAULT_OPTIONS.TOKENRENEWALOPTIONS"),
+        tokenrenewaloptions: config.get("API_DEFAULT_OPTIONS.SECURITY_OPTIONS"),
       };
 
       logger.debugWithContext("Using RODiT token for configuration", {
