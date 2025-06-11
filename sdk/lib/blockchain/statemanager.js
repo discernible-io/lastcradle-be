@@ -4,7 +4,14 @@
  */
 
 const { ulid } = require("ulid");
-const logger = require("../../../config/logger");
+const logger = require("../../services/logger");
+const { createLogContext, logErrorWithMetrics } = logger;
+
+const baseModuleContext = createLogContext("AuthStateManager", "module", {
+  loadedAt: new Date().toISOString()
+});
+
+logger.debugWithContext("Loading statemanager.js module", baseModuleContext);
 
 /**
  * Singleton class for managing authentication state
@@ -33,200 +40,1105 @@ class AuthStateManager {
 
   // Methods for own public key
   async setOwnBase64urlJwkPublicKey(key) {
-    const requestId = require('ulid').ulid();
-    logger.debug("Setting own base64url JWK public key", {
-      component: "AuthStateManager",
-      method: "setOwnBase64urlJwkPublicKey",
-      requestId,
-      keyLength: key ? key.length : 0,
-      keyFirstChars: key ? key.substring(0, 10) + '...' : 'null',
-      callStack: new Error().stack
-    });
-    this.ownBase64urlJwkPublicKey = key;
-    return key;
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "setOwnBase64urlJwkPublicKey",
+      {
+        requestId,
+        keyLength: key ? key.length : 0,
+        keyFirstChars: key ? key.substring(0, 10) + '...' : 'null'
+      }
+    );
+    
+    logger.debugWithContext("Setting own base64url JWK public key", baseContext);
+    
+    try {
+      this.ownBase64urlJwkPublicKey = key;
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Successfully set own base64url JWK public key", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for key operations
+      logger.metric("auth_key_operations", duration, {
+        operation: "set",
+        keyType: "own",
+        result: "success"
+      });
+      
+      return key;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to set own base64url JWK public key",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "auth_key_operations_error",
+        {
+          operation: "set",
+          keyType: "own",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
 
   getOwnBase64urlJwkPublicKey() {
-    const requestId = require('ulid').ulid();
+    const requestId = ulid();
+    const startTime = Date.now();
+    
     const hasKey = !!this.ownBase64urlJwkPublicKey;
-    logger.debug("Getting own base64url JWK public key", {
-      component: "AuthStateManager",
-      method: "getOwnBase64urlJwkPublicKey",
-      requestId,
-      hasKey,
-      keyLength: hasKey ? this.ownBase64urlJwkPublicKey.length : 0,
-      callStack: new Error().stack
-    });
-    return this.ownBase64urlJwkPublicKey;
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "getOwnBase64urlJwkPublicKey",
+      {
+        requestId,
+        hasKey,
+        keyLength: hasKey ? this.ownBase64urlJwkPublicKey.length : 0
+      }
+    );
+    
+    logger.debugWithContext("Getting own base64url JWK public key", baseContext);
+    
+    try {
+      const duration = Date.now() - startTime;
+      
+      logger.debugWithContext("Retrieved own base64url JWK public key", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for key operations
+      logger.metric("auth_key_operations", duration, {
+        operation: "get",
+        keyType: "own",
+        result: "success",
+        hasKey
+      });
+      
+      return this.ownBase64urlJwkPublicKey;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to get own base64url JWK public key",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "auth_key_operations_error",
+        {
+          operation: "get",
+          keyType: "own",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
 
   // Methods for peer public key
   async setPeerBase64urlJwkPublicKey(key) {
-    const requestId = require('ulid').ulid();
-    logger.debug("Setting peer base64url JWK public key", {
-      component: "AuthStateManager",
-      method: "setPeerBase64urlJwkPublicKey",
-      requestId,
-      keyLength: key ? key.length : 0,
-      keyFirstChars: key ? key.substring(0, 10) + '...' : 'null',
-      callStack: new Error().stack
-    });
-    this.peerBase64urlJwkPublicKey = key;
-    return key;
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "setPeerBase64urlJwkPublicKey",
+      {
+        requestId,
+        keyLength: key ? key.length : 0,
+        keyFirstChars: key ? key.substring(0, 10) + '...' : 'null'
+      }
+    );
+    
+    logger.debugWithContext("Setting peer base64url JWK public key", baseContext);
+    
+    try {
+      this.peerBase64urlJwkPublicKey = key;
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Successfully set peer base64url JWK public key", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for key operations
+      logger.metric("auth_key_operations", duration, {
+        operation: "set",
+        keyType: "peer",
+        result: "success"
+      });
+      
+      return key;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to set peer base64url JWK public key",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "auth_key_operations_error",
+        {
+          operation: "set",
+          keyType: "peer",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
 
   getPeerBase64urlJwkPublicKey() {
-    const requestId = require('ulid').ulid();
+    const requestId = ulid();
+    const startTime = Date.now();
+    
     const hasKey = !!this.peerBase64urlJwkPublicKey;
-    logger.debug("Getting peer base64url JWK public key", {
-      component: "AuthStateManager",
-      method: "getPeerBase64urlJwkPublicKey",
-      requestId,
-      hasKey,
-      keyLength: hasKey ? this.peerBase64urlJwkPublicKey.length : 0,
-      callStack: new Error().stack
-    });
-    return this.peerBase64urlJwkPublicKey;
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "getPeerBase64urlJwkPublicKey",
+      {
+        requestId,
+        hasKey,
+        keyLength: hasKey ? this.peerBase64urlJwkPublicKey.length : 0
+      }
+    );
+    
+    logger.debugWithContext("Getting peer base64url JWK public key", baseContext);
+    
+    try {
+      const duration = Date.now() - startTime;
+      
+      logger.debugWithContext("Retrieved peer base64url JWK public key", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for key operations
+      logger.metric("auth_key_operations", duration, {
+        operation: "get",
+        keyType: "peer",
+        result: "success",
+        hasKey
+      });
+      
+      return this.peerBase64urlJwkPublicKey;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to get peer base64url JWK public key",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "auth_key_operations_error",
+        {
+          operation: "get",
+          keyType: "peer",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
 
   // RODiT configuration management
   async setConfigOwnRodit(config) {
-    this.config_own_rodit = config;
-    return config;
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "setConfigOwnRodit",
+      {
+        requestId,
+        hasConfig: !!config
+      }
+    );
+    
+    logger.debugWithContext("Setting own RODiT configuration", baseContext);
+    
+    try {
+      // Ensure private key is in Uint8Array format for nacl.sign.detached
+      if (config && config.own_rodit_bytes_private_key) {
+        const privateKey = config.own_rodit_bytes_private_key;
+        
+        // Check if the private key is already a Uint8Array
+        if (!(privateKey instanceof Uint8Array)) {
+          logger.debugWithContext("Converting private key to Uint8Array", {
+            ...baseContext,
+            privateKeyType: typeof privateKey,
+            isBuffer: Buffer.isBuffer(privateKey)
+          });
+          
+          // Convert Buffer to Uint8Array
+          if (Buffer.isBuffer(privateKey)) {
+            config.own_rodit_bytes_private_key = new Uint8Array(privateKey);
+          } 
+          // Convert base64/hex string to Uint8Array
+          else if (typeof privateKey === 'string') {
+            try {
+              // Try to decode as base64 first
+              const buffer = Buffer.from(privateKey, 'base64');
+              config.own_rodit_bytes_private_key = new Uint8Array(buffer);
+            } catch (conversionError) {
+              logger.warnWithContext("Failed to convert private key string to Uint8Array", {
+                ...baseContext,
+                error: conversionError.message
+              });
+              throw new Error("Private key must be convertible to Uint8Array");
+            }
+          } else {
+            logger.errorWithContext("Private key is in an unsupported format", {
+              ...baseContext,
+              privateKeyType: typeof privateKey
+            });
+            throw new Error("Private key must be a Buffer, string, or Uint8Array");
+          }
+          
+          logger.debugWithContext("Successfully converted private key to Uint8Array", {
+            ...baseContext,
+            convertedKeyLength: config.own_rodit_bytes_private_key.length
+          });
+        }
+      }
+      
+      this.config_own_rodit = config;
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Successfully set own RODiT configuration", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for configuration operations
+      logger.metric("auth_config_operations", duration, {
+        operation: "set",
+        configType: "own_rodit",
+        result: "success"
+      });
+      
+      return config;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to set own RODiT configuration",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "auth_config_operations_error",
+        {
+          operation: "set",
+          configType: "own_rodit",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
 
   getConfigOwnRodit() {
-    return this.config_own_rodit;
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const hasConfig = !!this.config_own_rodit;
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "getConfigOwnRodit",
+      {
+        requestId,
+        hasConfig
+      }
+    );
+    
+    logger.debugWithContext("Getting own RODiT configuration", baseContext);
+    
+    try {
+      const duration = Date.now() - startTime;
+      
+      logger.debugWithContext("Retrieved own RODiT configuration", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for configuration operations
+      logger.metric("auth_config_operations", duration, {
+        operation: "get",
+        configType: "own_rodit",
+        result: "success",
+        hasConfig
+      });
+      
+      return this.config_own_rodit;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to get own RODiT configuration",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "auth_config_operations_error",
+        {
+          operation: "get",
+          configType: "own_rodit",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
 
   // JWT token management
   async setSignPortalJwtToken(token) {
-    this.signportalJwtToken = token;
-    return token;
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "setSignPortalJwtToken",
+      {
+        requestId,
+        hasToken: !!token
+      }
+    );
+    
+    logger.debugWithContext("Setting SignPortal JWT token", baseContext);
+    
+    try {
+      this.signportalJwtToken = token;
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Successfully set SignPortal JWT token", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for token operations
+      logger.metric("auth_token_operations", duration, {
+        operation: "set",
+        tokenType: "signportal",
+        result: "success"
+      });
+      
+      return token;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to set SignPortal JWT token",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "auth_token_operations_error",
+        {
+          operation: "set",
+          tokenType: "signportal",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
 
   getSignPortalJwtToken() {
-    return this.signportalJwtToken;
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const hasToken = !!this.signportalJwtToken;
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "getSignPortalJwtToken",
+      {
+        requestId,
+        hasToken
+      }
+    );
+    
+    logger.debugWithContext("Getting SignPortal JWT token", baseContext);
+    
+    try {
+      const duration = Date.now() - startTime;
+      
+      logger.debugWithContext("Retrieved SignPortal JWT token", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for token operations
+      logger.metric("auth_token_operations", duration, {
+        operation: "get",
+        tokenType: "signportal",
+        result: "success",
+        hasToken
+      });
+      
+      return this.signportalJwtToken;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to get SignPortal JWT token",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "auth_token_operations_error",
+        {
+          operation: "get",
+          tokenType: "signportal",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
 
   async setJwtToken(token) {
-    this.jwtToken = token;
-    return token;
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "setJwtToken",
+      {
+        requestId,
+        hasToken: !!token
+      }
+    );
+    
+    logger.debugWithContext("Setting JWT token", baseContext);
+    
+    try {
+      this.jwtToken = token;
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Successfully set JWT token", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for token operations
+      logger.metric("auth_token_operations", duration, {
+        operation: "set",
+        tokenType: "jwt",
+        result: "success"
+      });
+      
+      return token;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to set JWT token",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "auth_token_operations_error",
+        {
+          operation: "set",
+          tokenType: "jwt",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
 
   getJwtToken() {
-    return this.jwtToken;
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const hasToken = !!this.jwtToken;
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "getJwtToken",
+      {
+        requestId,
+        hasToken
+      }
+    );
+    
+    logger.debugWithContext("Getting JWT token", baseContext);
+    
+    try {
+      const duration = Date.now() - startTime;
+      
+      logger.debugWithContext("Retrieved JWT token", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for token operations
+      logger.metric("auth_token_operations", duration, {
+        operation: "get",
+        tokenType: "jwt",
+        result: "success",
+        hasToken
+      });
+      
+      return this.jwtToken;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to get JWT token",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "auth_token_operations_error",
+        {
+          operation: "get",
+          tokenType: "jwt",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
 
   // Session management
   createSession(sessionData) {
-    if (!sessionData || !sessionData.id) {
-      throw new Error("Session data must include an ID");
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "createSession",
+      {
+        requestId,
+        sessionId: sessionData?.id
+      }
+    );
+    
+    logger.debugWithContext("Creating new session", baseContext);
+    
+    try {
+      if (!sessionData || !sessionData.id) {
+        const error = new Error("Session data must include an ID");
+        
+        logErrorWithMetrics(
+          "Failed to create session: missing ID",
+          baseContext,
+          error,
+          "session_operations_error",
+          {
+            operation: "create",
+            result: "error",
+            reason: "missing_id"
+          }
+        );
+        
+        throw error;
+      }
+      
+      const sessionWithTimestamp = {
+        ...sessionData,
+        lastAccessedAt: Math.floor(Date.now() / 1000)
+      };
+      
+      this.sessions.set(sessionData.id, sessionWithTimestamp);
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Successfully created session", {
+        ...baseContext,
+        duration,
+        sessionData: {
+          id: sessionData.id,
+          lastAccessedAt: sessionWithTimestamp.lastAccessedAt
+        }
+      });
+      
+      // Add metric for session operations
+      logger.metric("session_operations", duration, {
+        operation: "create",
+        result: "success"
+      });
+      
+      return sessionWithTimestamp;
+    } catch (error) {
+      if (error.message !== "Session data must include an ID") {
+        const duration = Date.now() - startTime;
+        
+        logErrorWithMetrics(
+          "Failed to create session",
+          {
+            ...baseContext,
+            duration
+          },
+          error,
+          "session_operations_error",
+          {
+            operation: "create",
+            result: "error",
+            duration
+          }
+        );
+      }
+      
+      throw error;
     }
-    
-    this.sessions.set(sessionData.id, {
-      ...sessionData,
-      lastAccessedAt: Math.floor(Date.now() / 1000)
-    });
-    
-    return this.sessions.get(sessionData.id);
   }
   
   getSession(sessionId) {
-    return this.sessions.get(sessionId);
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "getSession",
+      {
+        requestId,
+        sessionId
+      }
+    );
+    
+    logger.debugWithContext("Getting session", baseContext);
+    
+    try {
+      const session = this.sessions.get(sessionId);
+      const hasSession = !!session;
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Session retrieval complete", {
+        ...baseContext,
+        duration,
+        found: hasSession
+      });
+      
+      // Add metric for session operations
+      logger.metric("session_operations", duration, {
+        operation: "get",
+        result: "success",
+        found: hasSession
+      });
+      
+      return session;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to get session",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "session_operations_error",
+        {
+          operation: "get",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
   
   updateSession(sessionId, updates) {
-    if (!this.sessions.has(sessionId)) {
-      return null;
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "updateSession",
+      {
+        requestId,
+        sessionId
+      }
+    );
+    
+    logger.debugWithContext("Updating session", baseContext);
+    
+    try {
+      if (!this.sessions.has(sessionId)) {
+        const duration = Date.now() - startTime;
+        
+        logger.debugWithContext("Session not found for update", {
+          ...baseContext,
+          duration
+        });
+        
+        // Add metric for session operations
+        logger.metric("session_operations", duration, {
+          operation: "update",
+          result: "not_found"
+        });
+        
+        return null;
+      }
+      
+      const session = this.sessions.get(sessionId);
+      const updatedSession = {
+        ...session,
+        ...updates,
+        lastAccessedAt: Math.floor(Date.now() / 1000)
+      };
+      
+      this.sessions.set(sessionId, updatedSession);
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Successfully updated session", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for session operations
+      logger.metric("session_operations", duration, {
+        operation: "update",
+        result: "success"
+      });
+      
+      return updatedSession;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to update session",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "session_operations_error",
+        {
+          operation: "update",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
     }
-    
-    const session = this.sessions.get(sessionId);
-    const updatedSession = {
-      ...session,
-      ...updates,
-      lastAccessedAt: Math.floor(Date.now() / 1000)
-    };
-    
-    this.sessions.set(sessionId, updatedSession);
-    return updatedSession;
   }
   
   deleteSession(sessionId) {
-    if (!this.sessions.has(sessionId)) {
-      return false;
-    }
+    const requestId = ulid();
+    const startTime = Date.now();
     
-    return this.sessions.delete(sessionId);
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "deleteSession",
+      {
+        requestId,
+        sessionId
+      }
+    );
+    
+    logger.debugWithContext("Deleting session", baseContext);
+    
+    try {
+      if (!this.sessions.has(sessionId)) {
+        const duration = Date.now() - startTime;
+        
+        logger.debugWithContext("Session not found for deletion", {
+          ...baseContext,
+          duration
+        });
+        
+        // Add metric for session operations
+        logger.metric("session_operations", duration, {
+          operation: "delete",
+          result: "not_found"
+        });
+        
+        return false;
+      }
+      
+      const deleted = this.sessions.delete(sessionId);
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Session deletion complete", {
+        ...baseContext,
+        duration,
+        deleted
+      });
+      
+      // Add metric for session operations
+      logger.metric("session_operations", duration, {
+        operation: "delete",
+        result: deleted ? "success" : "failed"
+      });
+      
+      return deleted;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to delete session",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "session_operations_error",
+        {
+          operation: "delete",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
   
   getAllSessions() {
-    return Array.from(this.sessions.values());
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "getAllSessions",
+      {
+        requestId
+      }
+    );
+    
+    logger.debugWithContext("Getting all sessions", baseContext);
+    
+    try {
+      const sessions = Array.from(this.sessions.values());
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Retrieved all sessions", {
+        ...baseContext,
+        duration,
+        sessionCount: sessions.length
+      });
+      
+      // Add metric for session operations
+      logger.metric("session_operations", duration, {
+        operation: "getAll",
+        result: "success",
+        sessionCount: sessions.length
+      });
+      
+      return sessions;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to get all sessions",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "session_operations_error",
+        {
+          operation: "getAll",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
   
   getPortalUrl(serviceProviderId, port) {
-    // Validate serviceProviderId
-    if (!serviceProviderId) {
-      const error = new Error("serviceProviderId is undefined in getPortalUrl");
-      logger.error("Missing serviceProviderId parameter", {
-        component: "StateManager",
-        method: "getPortalUrl",
-        error: error.message
-      });
-      throw error;
-    }
+    const requestId = ulid();
+    const startTime = Date.now();
     
-    // Extract smart contract component from serviceprovider_id
-    const components = serviceProviderId.split(";");
-    const scComponent = components
-      .find((c) => c.startsWith("sc="))
-      ?.substring(3);
-
-    if (!scComponent) {
-      const error = new Error("Invalid serviceprovider_id format: missing sc= component");
-      logger.error("Invalid serviceprovider_id format", {
-        component: "StateManager",
-        method: "getPortalUrl",
+    const baseContext = createLogContext(
+      "AuthStateManager",
+      "getPortalUrl",
+      {
+        requestId,
         serviceProviderId,
-        error: error.message
+        port
+      }
+    );
+    
+    logger.debugWithContext("Generating portal URL", baseContext);
+    
+    try {
+      // Validate serviceProviderId
+      if (!serviceProviderId) {
+        const error = new Error("serviceProviderId is undefined in getPortalUrl");
+        
+        logErrorWithMetrics(
+          "Missing serviceProviderId parameter",
+          baseContext,
+          error,
+          "portal_url_error",
+          {
+            result: "error",
+            reason: "missing_provider_id"
+          }
+        );
+        
+        throw error;
+      }
+      
+      // Extract smart contract component from serviceprovider_id
+      const components = serviceProviderId.split(";");
+      const scComponent = components
+        .find((c) => c.startsWith("sc="))
+        ?.substring(3);
+
+      if (!scComponent) {
+        const error = new Error("Invalid serviceprovider_id format: missing sc= component");
+        
+        logErrorWithMetrics(
+          "Invalid serviceprovider_id format",
+          {
+            ...baseContext,
+            serviceProviderId
+          },
+          error,
+          "portal_url_error",
+          {
+            result: "error",
+            reason: "invalid_format"
+          }
+        );
+        
+        throw error;
+      }
+
+      // Extract domain parts from smart contract name
+      const scParts = scComponent.split(".");
+      if (scParts.length < 1) {
+        const error = new Error("Invalid smart contract format");
+        
+        logErrorWithMetrics(
+          "Invalid smart contract format",
+          {
+            ...baseContext,
+            serviceProviderId,
+            scComponent
+          },
+          error,
+          "portal_url_error",
+          {
+            result: "error",
+            reason: "invalid_sc_format"
+          }
+        );
+        
+        throw error;
+      }
+
+      // Get domain information from the first part
+      const domainPart = scParts[0];
+      const domainComponents = domainPart.split("-");
+
+      // Find domain and TLD in the components (format: 10975-ayayai-org)
+      if (domainComponents.length < 3) {
+        const error = new Error("Invalid domain format in smart contract");
+        
+        logErrorWithMetrics(
+          "Invalid domain format in smart contract",
+          {
+            ...baseContext,
+            serviceProviderId,
+            scComponent,
+            domainPart
+          },
+          error,
+          "portal_url_error",
+          {
+            result: "error",
+            reason: "invalid_domain_format"
+          }
+        );
+        
+        throw error;
+      }
+
+      const domain = domainComponents[1]; // ayayai
+      const tld = domainComponents[2]; // org
+
+      // Build the API endpoint
+      const portalUrl = `https://signportal.${domain}.${tld}:${port}`;
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Successfully generated portal URL", {
+        ...baseContext,
+        duration,
+        portalUrl
       });
+      
+      // Add metric for portal URL generation
+      logger.metric("portal_url_operations", duration, {
+        result: "success"
+      });
+      
+      return portalUrl;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      // Only log errors that haven't been logged already
+      if (!error.logged) {
+        logErrorWithMetrics(
+          "Unexpected error generating portal URL",
+          {
+            ...baseContext,
+            duration
+          },
+          error,
+          "portal_url_error",
+          {
+            result: "error",
+            reason: "unexpected",
+            duration
+          }
+        );
+      }
+      
       throw error;
     }
-
-    // Extract domain parts from smart contract name
-    const scParts = scComponent.split(".");
-    if (scParts.length < 1) {
-      const error = new Error("Invalid smart contract format");
-      logger.error("Invalid smart contract format", {
-        component: "StateManager",
-        method: "getPortalUrl",
-        serviceProviderId,
-        error: error.message
-      });
-      throw error;
-    }
-
-    // Get domain information from the first part
-    const domainPart = scParts[0];
-    const domainComponents = domainPart.split("-");
-
-    // Find domain and TLD in the components (format: 10975-ayayai-org)
-    if (domainComponents.length < 3) {
-      const error = new Error("Invalid domain format in smart contract");
-      logger.error("Invalid domain format in smart contract", {
-        component: "StateManager",
-        method: "getPortalUrl",
-        serviceProviderId,
-        error: error.message
-      });
-      throw error;
-    }
-
-    const domain = domainComponents[1]; // ayayai
-    const tld = domainComponents[2]; // org
-
-    // Build and return the API endpoint
-    return `https://signportal.${domain}.${tld}:${port}`;
   }
 
   /**

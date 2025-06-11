@@ -26,11 +26,15 @@ const {
 const validatePermissions = require('./lib/middleware/validatepermissions');
 
 // Import session management
-const sessionManager = require('./lib/auth/sessionmanager');
+const { sessionManager } = require('./lib/auth/sessionmanager');
 
 // Import blockchain services
 const blockchainService = require('./lib/blockchain/blockchainservice');
 const stateManager = require('./lib/blockchain/statemanager');
+
+// Import webhook functionality directly
+const webhookHandler = require('./lib/webhook/webhookhandler');
+// Note: eventHandler has been consolidated into webhookhandler.js
 
 // Simple export of the authentication system
 module.exports = {
@@ -57,6 +61,13 @@ module.exports = {
   sessionManager,
   blockchainService,
   stateManager,
+  
+  // Webhook functionality
+  webhook: {
+    // Export all webhook handler functionality
+    ...webhookHandler
+    // Note: eventHandler functionality is now part of webhookHandler
+  },
   
   // Configuration helper
   configure: (config) => {

@@ -4,7 +4,8 @@
  */
 
 const { ulid } = require("ulid");
-const logger = require("../../../config/logger");
+const logger = require("../../services/logger");
+const { createLogContext, logErrorWithMetrics } = logger;
 const nacl = require("tweetnacl");
 const { decodeJwt } = require("jose");
 // Import specific functions directly to avoid circular dependencies
@@ -26,7 +27,7 @@ const {
 const stateManager = require("../blockchain/statemanager");
 const utils = require("../../utils");
 const { unixTimeToDateString } = utils;
-const sessionManager = require("../auth/sessionmanager");
+const { sessionManager } = require("../auth/sessionmanager");
 
 // Import validation utilities or define them if not available
 const validationResult = { isEmpty: () => true }; // Default implementation if not available
@@ -45,12 +46,19 @@ const validationResult = { isEmpty: () => true }; // Default implementation if n
 async function login_client(req, res) {
   const requestId = ulid();
   const startTime = Date.now();
+  
+  // Create a base context for this function
+  const baseContext = createLogContext(
+    "RoditAuth",
+    "login_client",
+    {
+      requestId,
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]
+    }
+  );
 
-  logger.info("Client login request received", {
-    component: "RoditAuth",
-    method: "login_client",
-    requestId,
-  });
+  logger.infoWithContext("Client login request received", baseContext);
 
   try {
     // Extract parameters from request body
@@ -62,21 +70,16 @@ async function login_client(req, res) {
     let roditid_base64url_signature = req.body.roditid_base64url_signature;
     if (!roditid_base64url_signature && req.body.signature) {
       roditid_base64url_signature = req.body.signature;
-      logger.info("Using legacy 'signature' parameter instead of 'roditid_base64url_signature'", {
-        component: "RoditAuth",
-        method: "login_client",
-        requestId
-      });
+      logger.infoWithContext("Using legacy 'signature' parameter instead of 'roditid_base64url_signature'", baseContext);
     }
 
     // Validate required parameters
     if (!peer_roditid) {
       const duration = Date.now() - startTime;
       
-      logger.warn("Missing RODiT ID in login request", {
-        component: "RoditAuth",
-        method: "login_client",
-        requestId,
+      // Use warnWithContext for consistent logging
+      logger.warnWithContext("Missing RODiT ID in login request", {
+        ...baseContext,
         duration,
         bodyKeys: Object.keys(req.body)
       });
@@ -101,10 +104,8 @@ async function login_client(req, res) {
     if (!roditid_base64url_signature) {
       const duration = Date.now() - startTime;
       
-      logger.warn("Missing signature in login request", {
-        component: "RoditAuth",
-        method: "login_client",
-        requestId,
+      logger.warnWithContext("Missing signature in login request", {
+        ...baseContext,
         duration,
         bodyKeys: Object.keys(req.body)
       });
@@ -126,21 +127,15 @@ async function login_client(req, res) {
       });
     }
 
-    logger.debug("Login parameters extracted", {
-      component: "RoditAuth",
-      method: "login_client",
-      requestId,
+    logger.debugWithContext("Login parameters extracted", {
+      ...baseContext,
       hasRoditId: !!peer_roditid,
       hasTimestamp: !!peer_timestamp,
       hasSignature: !!roditid_base64url_signature,
       signatureLength: roditid_base64url_signature?.length
     });
 
-    logger.debug("Retrieving server configuration", {
-      component: "RoditAuth",
-      method: "login_client",
-      requestId,
-    });
+    logger.debugWithContext("Retrieving server configuration", baseContext);
 
     // Import stateManager only when needed to avoid circular dependencies
     const stateManager = require("../blockchain/statemanager");
@@ -149,13 +144,17 @@ async function login_client(req, res) {
     if (!config_own_rodit) {
       const duration = Date.now() - startTime;
 
-      logger.error("Server configuration not initialized", {
-        component: "RoditAuth",
-        method: "login_client",
-        requestId,
-        duration,
-        errorCode: "CONFIG_NOT_INITIALIZED",
-      });
+      logErrorWithMetrics(
+        "Server configuration not initialized",
+        {
+          ...baseContext,
+          duration,
+          errorCode: "CONFIG_NOT_INITIALIZED"
+        },
+        new Error("Server configuration not initialized"),
+        "login_error",
+        { error_type: "config_error" }
+      );
 
       // Emit metrics for Grafana dashboards
       logger.metric("login_attempt_duration_ms", duration, {
@@ -171,10 +170,8 @@ async function login_client(req, res) {
       throw new Error("Error 0112: Server configuration not initialized");
     }
 
-    logger.debug("Verifying peer RODiT credentials", {
-      component: "RoditAuth",
-      method: "login_client",
-      requestId,
+    logger.debugWithContext("Verifying peer RODiT credentials", {
+      ...baseContext,
       roditId: peer_roditid,
     });
 
@@ -188,12 +185,10 @@ async function login_client(req, res) {
     if (!isRoditValid) {
       const duration = Date.now() - startTime;
 
-      logger.warn("Invalid RODiT credentials", {
-        component: "RoditAuth",
-        method: "login_client",
-        requestId,
+      logger.warnWithContext("Invalid RODiT credentials", {
+        ...baseContext,
         duration,
-        roditId: peer_roditid,
+        roditId: peer_roditid
       });
 
       // Emit metrics for Grafana dashboards
@@ -214,11 +209,9 @@ async function login_client(req, res) {
       });
     }
 
-    logger.debug("Generating JWT token", {
-      component: "RoditAuth",
-      method: "login_client",
-      requestId,
-      roditId: peer_rodit.token_id,
+    logger.debugWithContext("Generating JWT token", {
+      ...baseContext,
+      roditId: peer_rodit.token_id
     });
 
     const token = await generate_jwt_token(
@@ -229,12 +222,10 @@ async function login_client(req, res) {
     );
 
     const duration = Date.now() - startTime;
-    logger.info("Login successful", {
-      component: "RoditAuth",
-      method: "login_client",
-      requestId,
+    logger.infoWithContext("Login successful", {
+      ...baseContext,
       duration,
-      roditId: peer_rodit.token_id,
+      roditId: peer_rodit.token_id
     });
 
     // Emit metrics for Grafana dashboards
@@ -251,20 +242,22 @@ async function login_client(req, res) {
 
     return res.json({
       token,
-      requestId,
+      requestId
     });
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    logger.error("Login authentication failed", {
-      component: "RoditAuth",
-      method: "login_client",
-      requestId,
-      duration,
-      errorMessage: error.message,
-      errorCode: error.code || "UNKNOWN_ERROR",
-      stack: error.stack,
-    });
+    logErrorWithMetrics(
+      "Login authentication failed",
+      {
+        ...baseContext,
+        duration,
+        errorCode: error.code || "UNKNOWN_ERROR"
+      },
+      error,
+      "login_error",
+      { error_type: "authentication_error" }
+    );
 
     // Emit metrics for Grafana dashboards
     logger.metric("login_attempt_duration_ms", duration, {
@@ -294,41 +287,38 @@ async function login_client(req, res) {
   function extractTokenFromHeader(authHeader) {
     const startTime = Date.now();
     const requestId = ulid();
+    
+    // Create a base context for this function
+    const baseContext = createLogContext(
+      "TokenExtractor",
+      "extractTokenFromHeader",
+      { requestId }
+    );
 
-    logger.debug("Extracting token from authorization header", {
-      component: "TokenExtractor",
-      method: "extractTokenFromHeader",
-      requestId,
-      hasAuthHeader: !!authHeader,
+    logger.debugWithContext("Extracting token from authorization header", {
+      ...baseContext,
+      hasAuthHeader: !!authHeader
     });
 
     if (!authHeader) {
-      logger.debug("No authorization header present", {
-        component: "TokenExtractor",
-        method: "extractTokenFromHeader",
-        requestId,
-      });
+      logger.debugWithContext("No authorization header present", baseContext);
       return null;
     }
 
     const [bearer, token] = authHeader.split(" ");
 
     if (bearer.toLowerCase() !== "bearer" || !token) {
-      logger.debug("Invalid authorization header format", {
-        component: "TokenExtractor",
-        method: "extractTokenFromHeader",
-        requestId,
-        headerFormat: authHeader,
+      logger.debugWithContext("Invalid authorization header format", {
+        ...baseContext,
+        headerFormat: authHeader
       });
       return null;
     }
 
-    logger.debug("Successfully extracted token from header", {
-      component: "TokenExtractor",
-      method: "extractTokenFromHeader",
-      requestId,
+    logger.debugWithContext("Successfully extracted token from header", {
+      ...baseContext,
       tokenLength: token.length,
-      duration: Date.now() - startTime,
+      duration: Date.now() - startTime
     });
 
     return token;
@@ -345,23 +335,28 @@ async function login_client(req, res) {
     const startTime = Date.now();
     const requestId = ulid();
     const token = extractTokenFromHeader(req.headers.authorization);
+    
+    // Create a base context for this function
+    const baseContext = createLogContext(
+      "AuthMiddleware",
+      "authenticate_apicall",
+      {
+        requestId,
+        path: req.path,
+        method: req.method
+      }
+    );
 
-    logger.info("API authentication started", {
-      component: "AuthMiddleware",
-      method: "authenticate_apicall",
-      requestId,
-      hasToken: !!token,
-      path: req.path,
-      method: req.method,
+    logger.infoWithContext("API authentication started", {
+      ...baseContext,
+      hasToken: !!token
     });
 
     try {
       if (!token) {
-        logger.warn("No token provided in request", {
-          component: "AuthMiddleware",
-          method: "authenticate_apicall",
-          requestId,
-          headers: req.headers,
+        logger.warnWithContext("No token provided in request", {
+          ...baseContext,
+          headers: Object.keys(req.headers)
         });
         return res.status(401).json({
           error: {
@@ -376,11 +371,9 @@ async function login_client(req, res) {
       if (sessionManager.isTokenInvalidated(token)) {
         const invalidationInfo = sessionManager.getTokenInvalidationInfo(token);
         
-        logger.warn("Attempt to use invalidated token", {
-          component: "AuthMiddleware",
-          method: "authenticate_apicall",
-          requestId,
-          invalidationInfo,
+        logger.warnWithContext("Attempt to use invalidated token", {
+          ...baseContext,
+          invalidationInfo
         });
         
         return res.status(401).json({
@@ -397,12 +390,16 @@ async function login_client(req, res) {
       const config_own_rodit = await stateManager.getConfigOwnRodit();
 
       if (!config_own_rodit || !config_own_rodit.own_rodit) {
-        logger.error("Server configuration not initialized", {
-          component: "AuthMiddleware",
-          method: "authenticate_apicall",
-          requestId,
-          hasConfig: !!config_own_rodit,
-        });
+        logErrorWithMetrics(
+          "Server configuration not initialized",
+          {
+            ...baseContext,
+            hasConfig: !!config_own_rodit
+          },
+          new Error("Server configuration not initialized"),
+          "auth_error",
+          { error_type: "config_error" }
+        );
         return res.status(500).json({
           error: {
             code: "SERVER_CONFIG_ERROR",
@@ -418,10 +415,8 @@ async function login_client(req, res) {
         // Before validation, log token information (safely)
         try {
           const unverifiedPayload = decodeJwt(token);
-          logger.debug("Token payload before validation", {
-            component: "AuthMiddleware",
-            method: "authenticate_apicall",
-            requestId,
+          logger.debugWithContext("Token payload before validation", {
+            ...baseContext,
             payload: {
               aud: unverifiedPayload.aud,
               iss: unverifiedPayload.iss,
@@ -437,10 +432,8 @@ async function login_client(req, res) {
             }
           });
         } catch (decodeError) {
-          logger.debug("Unable to decode token for logging", {
-            component: "AuthMiddleware",
-            method: "authenticate_apicall",
-            requestId,
+          logger.debugWithContext("Unable to decode token for logging", {
+            ...baseContext,
             error: decodeError.message,
             tokenLength: token?.length
           });
@@ -452,14 +445,11 @@ async function login_client(req, res) {
         );
       } catch (validationError) {
         // Handle specific validation errors
-        logger.warn("Token validation failed", {
-          component: "AuthMiddleware",
-          method: "authenticate_apicall",
-          requestId,
+        logger.warnWithContext("Token validation failed", {
+          ...baseContext,
           error: validationError.message,
           errorName: validationError.name,
-          errorCode: validationError.code,
-          stack: validationError.stack
+          errorCode: validationError.code
         });
         
         // Return 403 for invalid tokens
@@ -474,11 +464,9 @@ async function login_client(req, res) {
       }
 
       if (!validationResult.valid) {
-        logger.warn("Invalid token provided", {
-          component: "AuthMiddleware",
-          method: "authenticate_apicall",
-          requestId,
-          error: validationResult.error,
+        logger.warnWithContext("Invalid token provided", {
+          ...baseContext,
+          error: validationResult.error
         });
         // Return 403 for invalid tokens
         return res.status(403).json({
@@ -502,30 +490,29 @@ async function login_client(req, res) {
         // Add the new token to the response headers ONLY (no cookies)
         res.setHeader('New-Token', validationResult.newToken);
         
-        logger.debug("Added renewed token to response headers", {
-          component: "AuthMiddleware",
-          method: "authenticate_apicall",
-          requestId,
-        });
+        logger.debugWithContext("Added renewed token to response headers", baseContext);
       }
 
-      logger.info("Authentication successful", {
-        component: "AuthMiddleware",
-        method: "authenticate_apicall",
-        requestId,
+      const duration = Date.now() - startTime;
+      logger.infoWithContext("Authentication successful", {
+        ...baseContext,
         userId: req.user.sub, // Use sub from raw payload
-        duration: Date.now() - startTime,
+        duration
       });
 
       next();
     } catch (error) {
-      logger.error("Authentication error", {
-        component: "AuthMiddleware",
-        method: "authenticate_apicall",
-        requestId,
-        error: error.message,
-        stack: error.stack,
-      });
+      const duration = Date.now() - startTime;
+      logErrorWithMetrics(
+        "Authentication error",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "auth_error",
+        { error_type: "authentication_error" }
+      );
 
       return res.status(500).json({
         error: {
@@ -548,15 +535,22 @@ async function login_client(req, res) {
   async function logout_client(req, res) {
     const requestId = ulid();
     const startTime = Date.now();
+    
+    // Create a base context for this function
+    const baseContext = createLogContext(
+      "AuthenticationService",
+      "logout_client",
+      {
+        requestId,
+        path: req.path,
+        method: req.method,
+        ip: req.ip
+      }
+    );
 
-    logger.info("Logout request received", {
-      component: "AuthenticationService",
-      method: "logout_client",
-      requestId,
-      path: req.path,
-      method: req.method,
-      ip: req.ip,
-      userAgent: req.get("User-Agent"),
+    logger.infoWithContext("Logout request received", {
+      ...baseContext,
+      userAgent: req.get("User-Agent")
     });
 
     try {
@@ -570,12 +564,9 @@ async function login_client(req, res) {
       if (!token) {
         const duration = Date.now() - startTime;
 
-        logger.warn("Logout failed - no token provided", {
-          component: "AuthenticationService",
-          method: "logout_client",
-          requestId,
-          duration,
-          ip: req.ip,
+        logger.warnWithContext("Logout failed - no token provided", {
+          ...baseContext,
+          duration
         });
 
         // Emit metrics for unauthorized logout attempts
@@ -605,20 +596,22 @@ async function login_client(req, res) {
         const payload = Buffer.from(parts[1], "base64url").toString();
         decodedToken = JSON.parse(payload);
 
-        logger.debug("Token decoded for logout", {
-          component: "AuthenticationService",
-          method: "logout_client",
-          requestId,
+        logger.debugWithContext("Token decoded for logout", {
+          ...baseContext,
           jti: decodedToken.jti,
-          hasSessionId: !!decodedToken.session_id,
+          hasSessionId: !!decodedToken.session_id
         });
       } catch (decodeError) {
-        logger.error("Failed to decode token for logout", {
-          component: "AuthenticationService",
-          method: "logout_client",
-          requestId,
-          error: decodeError.message,
-        });
+        logErrorWithMetrics(
+          "Failed to decode token for logout",
+          {
+            ...baseContext,
+            tokenLength: token?.length
+          },
+          decodeError,
+          "logout_error",
+          { error_type: "token_decode_error" }
+        );
 
         // Continue with a partial logout even if token can't be decoded
         decodedToken = {};
@@ -640,10 +633,8 @@ async function login_client(req, res) {
           // Always invalidate the token directly first
           tokenInvalidated = sessionManager.invalidateToken(token, reason, decodedToken.session_id);
           
-          logger.info("Token invalidation result", {
-            component: "AuthenticationService",
-            method: "logout_client",
-            requestId,
+          logger.infoWithContext("Token invalidation result", {
+            ...baseContext,
             tokenInvalidated,
             tokenLength: token.length
           });
@@ -655,10 +646,8 @@ async function login_client(req, res) {
             null // Don't pass token here since we've already invalidated it
           );
           
-          logger.info("Session closure result", {
-            component: "AuthenticationService",
-            method: "logout_client",
-            requestId,
+          logger.infoWithContext("Session closure result", {
+            ...baseContext,
             sessionClosed
           });
           
@@ -688,38 +677,37 @@ async function login_client(req, res) {
               60 // 1 minute duration
             );
             
-            logger.info("Generated final token with closed status", {
-              component: "AuthenticationService",
-              method: "logout_client",
-              requestId,
+            logger.infoWithContext("Generated final token with closed status", {
+              ...baseContext,
               hasToken: !!finalToken
             });
           } catch (tokenError) {
-            logger.error("Failed to generate final token", {
-              component: "AuthenticationService",
-              method: "logout_client",
-              requestId,
-              error: tokenError.message,
-              stack: tokenError.stack
-            });
+            logErrorWithMetrics(
+              "Failed to generate final token",
+              baseContext,
+              tokenError,
+              "logout_error",
+              { error_type: "token_generation_error" }
+            );
           }
         } catch (sessionError) {
-          logger.error("Error closing session", {
-            component: "AuthenticationService",
-            method: "logout_client",
-            requestId,
-            sessionId: decodedToken.session_id,
-            error: sessionError.message,
-          });
+          logErrorWithMetrics(
+            "Error closing session",
+            {
+              ...baseContext,
+              sessionId: decodedToken.session_id
+            },
+            sessionError,
+            "logout_error",
+            { error_type: "session_closure_error" }
+          );
 
           // Continue with logout process even if session closing fails
         }
       } else {
-        logger.warn("Logout with token that has no session ID", {
-          component: "AuthenticationService",
-          method: "logout_client",
-          requestId,
-          jti: decodedToken.jti || "unknown",
+        logger.warnWithContext("Logout with token that has no session ID", {
+          ...baseContext,
+          jti: decodedToken.jti || "unknown"
         });
 
         // We still consider this a success since there's no session to log out from
@@ -735,14 +723,12 @@ async function login_client(req, res) {
       }
 
       const duration = Date.now() - startTime;
-      logger.info("Logout completed", {
-        component: "AuthenticationService",
-        method: "logout_client",
-        requestId,
+      logger.infoWithContext("Logout completed", {
+        ...baseContext,
         duration,
         success: logoutSuccess,
         sessionClosed,
-        hasSessionId: !!decodedToken.session_id,
+        hasSessionId: !!decodedToken.session_id
       });
 
       // Emit metrics for logout
@@ -772,14 +758,16 @@ async function login_client(req, res) {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error("Logout process failed", {
-        component: "AuthenticationService",
-        method: "logout_client",
-        requestId,
-        duration,
-        error: error.message,
-        stack: error.stack,
-      });
+      logErrorWithMetrics(
+        "Logout process failed",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "logout_error",
+        { error_type: "general_logout_error" }
+      );
 
       // Emit metrics for logout errors
       logger.metric &&

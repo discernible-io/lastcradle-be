@@ -11,7 +11,8 @@ const path = require("path");
 const crypto = require('crypto');
 const { ulid } = require("ulid");
 const config = require("config");
-const logger = require("../../../config/logger");
+const logger = require("../../services/logger");
+const { createLogContext, logErrorWithMetrics } = logger;
 const { validateAndExtractCredentials, validateCredentialParameters } = require("../../utils");
 
 /**
@@ -43,22 +44,22 @@ class FileCredentialStore {
   async initialize(options = {}) {
     const requestId = ulid();
     const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "FileCredentialStore",
+      "initialize",
+      {
+        requestId,
+        hasConfigPath: !!options.configPath,
+        hasEncryptionKey: !!options.encryptionKey,
+        initialized: this.initialized
+      }
+    );
 
-    logger.debug("Initializing file credential store", {
-      component: "FileCredentialStore",
-      method: "initialize",
-      requestId,
-      hasConfigPath: !!options.configPath,
-      hasEncryptionKey: !!options.encryptionKey,
-      initialized: this.initialized
-    });
+    logger.debugWithContext("Initializing file credential store", baseContext);
 
     if (this.initialized) {
-      logger.debug("File credential store already initialized", {
-        component: "FileCredentialStore",
-        method: "initialize",
-        requestId
-      });
+      logger.debugWithContext("File credential store already initialized", baseContext);
       return this;
     }
 
@@ -73,6 +74,7 @@ class FileCredentialStore {
       // Set encryption key if provided
       if (options.encryptionKey) {
         this.encryptionKey = options.encryptionKey;
+        logger.debugWithContext("Encryption key set for credential store", baseContext);
       }
 
       // Check if credentials file exists and load it
@@ -90,70 +92,81 @@ class FileCredentialStore {
             // Decrypt if necessary
             if (this.encryptionKey && parsedContent.encrypted) {
               this.credentials = this.decryptCredentials(parsedContent.data);
+              logger.debugWithContext("Decrypted credentials from file", baseContext);
             } else {
               this.credentials = parsedContent;
             }
             
-            logger.info("Loaded credentials from file", {
-              component: "FileCredentialStore",
-              method: "initialize",
-              requestId,
+            logger.infoWithContext("Loaded credentials from file", {
+              ...baseContext,
               configPath: this.configPath,
               credentialCount: Object.keys(this.credentials).length
             });
           } else {
-            logger.info("Credentials file exists but is empty", {
-              component: "FileCredentialStore",
-              method: "initialize",
-              requestId,
+            logger.infoWithContext("Credentials file exists but is empty", {
+              ...baseContext,
               configPath: this.configPath
             });
             this.credentials = {};
           }
         } else {
-          logger.info("Credentials file does not exist, will be created when needed", {
-            component: "FileCredentialStore",
-            method: "initialize",
-            requestId,
+          logger.infoWithContext("Credentials file does not exist, will be created when needed", {
+            ...baseContext,
             configPath: this.configPath
           });
           this.credentials = {};
         }
       } catch (fileError) {
-        logger.warn("Failed to load credentials file, creating new one", {
-          component: "FileCredentialStore",
-          method: "initialize",
-          requestId,
-          configPath: this.configPath,
-          error: fileError.message
-        });
+        logErrorWithMetrics(
+          "Failed to load credentials file, creating new one",
+          {
+            ...baseContext,
+            configPath: this.configPath
+          },
+          fileError,
+          "credential_store_file_error",
+          {
+            result: "error",
+            reason: "file_access_error"
+          }
+        );
         this.credentials = {};
       }
 
       this.initialized = true;
       
       const duration = Date.now() - startTime;
-      logger.info("File credential store initialized successfully", {
-        component: "FileCredentialStore",
-        method: "initialize",
-        requestId,
+      logger.infoWithContext("File credential store initialized successfully", {
+        ...baseContext,
         duration,
         configPath: this.configPath,
-        encrypted: !!this.encryptionKey
+        credentialCount: Object.keys(this.credentials).length
       });
-
+      
+      // Add metric for successful initialization
+      logger.metric("credential_store_operations", duration, {
+        operation: "initialize",
+        result: "success"
+      });
+      
       return this;
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error("Failed to initialize file credential store", {
-        component: "FileCredentialStore",
-        method: "initialize",
-        requestId,
-        duration,
-        error: error.message,
-        stack: error.stack
-      });
+      logErrorWithMetrics(
+        "Failed to initialize file credential store",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "credential_store_error",
+        {
+          operation: "initialize",
+          result: "error",
+          duration
+        }
+      );
       
       throw error;
     }
@@ -227,14 +240,18 @@ class FileCredentialStore {
   async saveCredentials() {
     const requestId = ulid();
     const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "FileCredentialStore",
+      "saveCredentials",
+      {
+        requestId,
+        configPath: this.configPath,
+        credentialCount: Object.keys(this.credentials).length
+      }
+    );
 
-    logger.debug("Saving credentials to file", {
-      component: "FileCredentialStore",
-      method: "saveCredentials",
-      requestId,
-      configPath: this.configPath,
-      credentialCount: Object.keys(this.credentials).length
-    });
+    logger.debugWithContext("Saving credentials to file", baseContext);
 
     try {
       // Prepare data for saving
@@ -245,6 +262,7 @@ class FileCredentialStore {
           encrypted: true,
           data: this.encryptCredentials(this.credentials)
         };
+        logger.debugWithContext("Encrypting credentials before saving", baseContext);
       } else {
         dataToSave = this.credentials;
       }
@@ -253,12 +271,16 @@ class FileCredentialStore {
       await fs.writeFile(this.configPath, JSON.stringify(dataToSave, null, 2), 'utf8');
       
       const duration = Date.now() - startTime;
-      logger.info("Credentials saved to file successfully", {
-        component: "FileCredentialStore",
-        method: "saveCredentials",
-        requestId,
+      logger.infoWithContext("Credentials saved to file successfully", {
+        ...baseContext,
         duration,
-        configPath: this.configPath,
+        encrypted: !!this.encryptionKey
+      });
+      
+      // Add metric for successful save operation
+      logger.metric("credential_store_operations", duration, {
+        operation: "save",
+        result: "success",
         encrypted: !!this.encryptionKey
       });
       
@@ -266,15 +288,21 @@ class FileCredentialStore {
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error("Failed to save credentials to file", {
-        component: "FileCredentialStore",
-        method: "saveCredentials",
-        requestId,
-        duration,
-        configPath: this.configPath,
-        error: error.message,
-        stack: error.stack
-      });
+      logErrorWithMetrics(
+        "Failed to save credentials to file",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "credential_store_error",
+        {
+          operation: "save",
+          result: "error",
+          reason: "file_write_error",
+          duration
+        }
+      );
       
       throw error;
     }
@@ -288,16 +316,57 @@ class FileCredentialStore {
    */
   async getCredential(key) {
     const requestId = ulid();
+    const startTime = Date.now();
     
-    logger.debug("Getting credential", {
-      component: "FileCredentialStore",
-      method: "getCredential",
-      requestId,
-      key,
-      exists: this.credentials.hasOwnProperty(key)
-    });
+    const baseContext = createLogContext(
+      "FileCredentialStore",
+      "getCredential",
+      {
+        requestId,
+        key,
+        exists: this.credentials.hasOwnProperty(key)
+      }
+    );
     
-    return this.credentials[key];
+    logger.debugWithContext("Getting credential", baseContext);
+    
+    try {
+      const credential = this.credentials[key];
+      
+      const duration = Date.now() - startTime;
+      logger.debugWithContext("Retrieved credential", {
+        ...baseContext,
+        duration,
+        found: !!credential
+      });
+      
+      // Add metric for credential retrieval
+      logger.metric("credential_store_operations", duration, {
+        operation: "get",
+        result: credential ? "success" : "not_found"
+      });
+      
+      return credential;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Error retrieving credential",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "credential_store_error",
+        {
+          operation: "get",
+          result: "error",
+          duration
+        }
+      );
+      
+      throw error;
+    }
   }
 
   /**
@@ -310,22 +379,63 @@ class FileCredentialStore {
    */
   async setCredential(key, value, save = true) {
     const requestId = ulid();
+    const startTime = Date.now();
     
-    logger.debug("Setting credential", {
-      component: "FileCredentialStore",
-      method: "setCredential",
-      requestId,
-      key,
-      saveImmediately: save
-    });
+    const baseContext = createLogContext(
+      "FileCredentialStore",
+      "setCredential",
+      {
+        requestId,
+        key,
+        save
+      }
+    );
     
-    this.credentials[key] = value;
-    
-    if (save) {
-      return this.saveCredentials();
+    logger.debugWithContext("Setting credential", baseContext);
+
+    try {
+      this.credentials[key] = value;
+
+      if (save) {
+        logger.debugWithContext("Saving credential to file", baseContext);
+        await this.saveCredentials();
+      }
+
+      const duration = Date.now() - startTime;
+      logger.infoWithContext("Credential set successfully", {
+        ...baseContext,
+        duration
+      });
+      
+      // Add metric for credential setting
+      logger.metric("credential_store_operations", duration, {
+        operation: "set",
+        result: "success",
+        saved: save
+      });
+      
+      return true;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Error setting credential",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "credential_store_error",
+        {
+          operation: "set",
+          result: "error",
+          saved: false,
+          duration
+        }
+      );
+      
+      throw error;
     }
-    
-    return true;
   }
 
   /**
@@ -487,14 +597,21 @@ class FileCredentialStore {
  */
 async function setupRoditCredentialsFromFile(config_own_rodit) {
   const requestId = ulid();
-  const logContext = {
-    component: "FileCredentialStore",
-    method: "setupRoditCredentialsFromFile",
-    requestId
-  };
+  const startTime = Date.now();
+  
+  const baseContext = createLogContext(
+    "FileCredentialStore",
+    "setupRoditCredentialsFromFile",
+    {
+      requestId
+    }
+  );
+
+  logger.debugWithContext("Setting up RODiT credentials from file", baseContext);
 
   try {
     // Initialize the store if not already initialized
+    logger.debugWithContext("Initializing credential store", baseContext);
     await fileCredentialStore.initialize();
     
     // Check if credentials file exists
@@ -504,33 +621,68 @@ async function setupRoditCredentialsFromFile(config_own_rodit) {
       .catch(() => false);
     
     if (!fileExists) {
-      logger.warn("NEAR credentials file not found", {
-        ...logContext,
+      const duration = Date.now() - startTime;
+      
+      logger.warnWithContext("NEAR credentials file not found", {
+        ...baseContext,
+        duration,
         path: credentialPath
       });
-      return config;
+      
+      // Add metric for missing credentials file
+      logger.metric("credential_store_operations", duration, {
+        operation: "setup_rodit",
+        result: "error",
+        reason: "file_not_found"
+      });
+      
+      return config_own_rodit;
     }
     
     // Read the credentials file directly to get the exact format
     const fileContent = await fs.readFile(credentialPath, 'utf8');
     const credentials = JSON.parse(fileContent);
     
-    logger.info("NEAR credentials loaded from file", {
-      ...logContext,
+    logger.infoWithContext("NEAR credentials loaded from file", {
+      ...baseContext,
       accountId: credentials.account_id || credentials.implicit_account_id
     });
     
-    // Use the shared validation function to process credentials
-    const validatedCredentials = validateAndExtractCredentials(credentials);
+    // Extract the credentials
+    const { privateKey, publicKey, accountId } = validateAndExtractCredentials(credentials);
     
-    // Get the account ID from the credentials
-    const accountId = validatedCredentials.account_id;
+    if (!privateKey || !publicKey || !accountId) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Invalid NEAR credentials format",
+        {
+          ...baseContext,
+          duration,
+          hasPrivateKey: !!privateKey,
+          hasPublicKey: !!publicKey,
+          hasAccountId: !!accountId
+        },
+        new Error("Invalid NEAR credentials format"),
+        "credential_store_error",
+        {
+          operation: "setup_rodit",
+          result: "error",
+          reason: "invalid_format",
+          duration
+        }
+      );
+      
+      throw new Error("Invalid NEAR credentials format");
+    }
     
+    // Update the configuration with the credentials
+    config_own_rodit = config_own_rodit || {};
     // Load the token metadata from the blockchain
     const { nearorg_rpc_tokensfromaccountid } = require('../blockchain/blockchainservice');
     
-    logger.debug("Loading RODiT metadata from blockchain", {
-      ...logContext,
+    logger.debugWithContext("Loading RODiT metadata from blockchain", {
+      ...baseContext,
       accountId
     });
     
@@ -538,12 +690,31 @@ async function setupRoditCredentialsFromFile(config_own_rodit) {
     const roditToken = await nearorg_rpc_tokensfromaccountid(accountId);
     
     if (!roditToken || !roditToken.metadata || !roditToken.metadata.subjectuniqueidentifier_url) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Failed to load token metadata from blockchain",
+        {
+          ...baseContext,
+          duration,
+          accountId
+        },
+        new Error("Failed to load token metadata from blockchain"),
+        "credential_store_error",
+        {
+          operation: "setup_rodit",
+          result: "error",
+          reason: "missing_metadata",
+          duration
+        }
+      );
+      
       throw new Error('Failed to load token metadata from blockchain');
     }
     
     // Log the token metadata from blockchain
-    logger.debug("RODiT token metadata from blockchain", {
-      ...logContext,
+    logger.debugWithContext("RODiT token metadata from blockchain", {
+      ...baseContext,
       tokenId: roditToken.token_id,
       metadataKeys: Object.keys(roditToken.metadata),
       subjectuniqueidentifier_url: roditToken.metadata.subjectuniqueidentifier_url
@@ -558,23 +729,46 @@ async function setupRoditCredentialsFromFile(config_own_rodit) {
     };
     
     // Log the final config structure
-    logger.debug("Final config structure after setting config_own_rodit", {
-      ...logContext,
-      configKeys: Object.keys(config),
+    logger.debugWithContext("Final config structure after setting config_own_rodit", {
+      ...baseContext,
       hasConfigOwnRodit: !!config_own_rodit.own_rodit,
       configOwnRoditKeys: config_own_rodit.own_rodit ? Object.keys(config_own_rodit.own_rodit) : [],
-      hasMetadata: config_own_rodit.own_rodit ? !!config_own_rodit.own_rodit.metadata : false,
-      metadataKeys: config_own_rodit.own_rodit && config_own_rodit.own_rodit.metadata ? Object.keys(config_own_rodit.own_rodit.metadata) : []
+      hasMetadata: config_own_rodit.own_rodit ? !!config_own_rodit.own_rodit.metadata : false
     });
     
+    const duration = Date.now() - startTime;
+    logger.infoWithContext("RODiT credentials set up successfully", {
+      ...baseContext,
+      duration,
+      accountId
+    });
+    
+    // Add metric for successful setup
+    logger.metric("credential_store_operations", duration, {
+      operation: "setup_rodit",
+      result: "success"
+    });
     
     return config_own_rodit;
   } catch (error) {
-    logger.error("Failed to setup RODiT credentials from file", {
-      component: "FileCredentialStore",
-      method: "setupRoditCredentialsFromFile",
-      error: error.message
-    });
+    const duration = Date.now() - startTime;
+    
+    logErrorWithMetrics(
+      "Failed to setup RODiT credentials from file",
+      {
+        ...baseContext,
+        duration
+      },
+      error,
+      "credential_store_error",
+      {
+        operation: "setup_rodit",
+        result: "error",
+        reason: "unexpected",
+        duration
+      }
+    );
+    
     throw error;
   }
 }
@@ -594,21 +788,32 @@ const fileCredentialStore = new FileCredentialStore();
 async function get_rodit_fromfile(_unused1, configPath, credentialType) {
   const requestId = ulid();
   const startTime = Date.now();
-  const logContext = {
-    component: "FileCredentialStore",
-    method: "get_rodit_fromfile",
-    requestId,
-    credentialType
-  };
+  
+  const baseContext = createLogContext(
+    "FileCredentialStore",
+    "get_rodit_fromfile",
+    {
+      requestId,
+      credentialType
+    }
+  );
+
+  logger.debugWithContext("Getting RODiT credentials from file", baseContext);
 
   try {
     // If configPath is not provided, use the one from fileCredentialStore
     const effectiveConfigPath = configPath || fileCredentialStore.configPath;
     
     // Validate parameters
+    logger.debugWithContext("Validating credential parameters", {
+      ...baseContext,
+      configPath: effectiveConfigPath
+    });
+    
     validateCredentialParameters(effectiveConfigPath, credentialType);
     
     // Initialize the store if not already initialized
+    logger.debugWithContext("Initializing credential store", baseContext);
     await fileCredentialStore.initialize();
     
     // Check if credentials file exists
@@ -618,38 +823,59 @@ async function get_rodit_fromfile(_unused1, configPath, credentialType) {
       .catch(() => false);
     
     if (!fileExists) {
-      logger.error("NEAR credentials file not found", {
-        ...logContext,
-        path: credentialPath
-      });
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "NEAR credentials file not found",
+        {
+          ...baseContext,
+          duration,
+          path: credentialPath
+        },
+        new Error(`Error 049: Credentials file not found at ${credentialPath}`),
+        "credential_store_error",
+        {
+          operation: "get_rodit",
+          result: "error",
+          reason: "file_not_found",
+          duration
+        }
+      );
+      
       throw new Error(`Error 049: Credentials file not found at ${credentialPath}`);
     }
     
     // Read the credentials file directly to get the exact format
+    logger.debugWithContext("Reading credentials file", {
+      ...baseContext,
+      path: credentialPath
+    });
+    
     const fileContent = await fs.readFile(credentialPath, 'utf8');
     const fileCredentials = JSON.parse(fileContent);
     
     // Use the shared validation function to process credentials
+    logger.debugWithContext("Validating credential structure", baseContext);
     const validatedCredentials = validateAndExtractCredentials(fileCredentials);
     
     // Get the account ID from the credentials
     const accountId = validatedCredentials.account_id;
     
-    // Load the token metadata from the blockchain
-    const { nearorg_rpc_tokensfromaccountid } = require('../blockchain/blockchainservice');
-    
-    logger.debug("Fetching RODiT token metadata from blockchain", {
-      ...logContext,
-      accountId,
-      hasImplicitId: !!validatedCredentials.implicit_account_id
-    });
-    
     // Log the validated credential structure for debugging
-    logger.debug("Validated credential structure", {
-      ...logContext,
+    logger.debugWithContext("Validated credential structure", {
+      ...baseContext,
       hasAccountId: !!validatedCredentials.account_id,
       hasPrivateKey: !!validatedCredentials.private_key,
       hasPublicKey: !!validatedCredentials.public_key,
+      hasImplicitId: !!validatedCredentials.implicit_account_id
+    });
+    
+    // Load the token metadata from the blockchain
+    const { nearorg_rpc_tokensfromaccountid } = require('../blockchain/blockchainservice');
+    
+    logger.debugWithContext("Fetching RODiT token metadata from blockchain", {
+      ...baseContext,
+      accountId,
       hasImplicitId: !!validatedCredentials.implicit_account_id
     });
     
@@ -658,16 +884,25 @@ async function get_rodit_fromfile(_unused1, configPath, credentialType) {
     
     // Validate token metadata
     if (!roditToken || !roditToken.metadata || !roditToken.metadata.subjectuniqueidentifier_url) {
-      logger.warn("Failed to load complete token metadata from blockchain", {
-        ...logContext,
+      logger.warnWithContext("Failed to load complete token metadata from blockchain", {
+        ...baseContext,
         accountId,
         hasToken: !!roditToken,
         hasMetadata: roditToken ? !!roditToken.metadata : false,
         hasEndpoint: roditToken && roditToken.metadata ? !!roditToken.metadata.subjectuniqueidentifier_url : false
       });
+      
+      // Add metric for incomplete token metadata
+      logger.metric("credential_store_operations", Date.now() - startTime, {
+        operation: "get_rodit",
+        result: "warning",
+        reason: "incomplete_metadata"
+      });
     }
     
     // Prepare credentials in the expected format
+    logger.debugWithContext("Preparing credential data structure", baseContext);
+    
     const credentialData = {
       private_key: fileCredentials.private_key,
       public_key: fileCredentials.public_key,
@@ -689,15 +924,16 @@ async function get_rodit_fromfile(_unused1, configPath, credentialType) {
     credentialData.signing_bytes_key = new Uint8Array(bs58.decode(privateKeyStr));
     
     const duration = Date.now() - startTime;
-    logger.info("Credentials retrieved successfully from file", {
-      ...logContext,
-      duration
+    logger.infoWithContext("Credentials retrieved successfully from file", {
+      ...baseContext,
+      duration,
+      hasSigningKey: !!credentialData.signing_bytes_key
     });
 
     // Emit metrics for Grafana dashboards
-    logger.metric("credentials_retrieval_duration_ms", duration, {
-      success: true,
-      component: "FileCredentialStore",
+    logger.metric("credential_store_operations", duration, {
+      operation: "get_rodit",
+      result: "success",
       credentialType,
       source: "file"
     });
@@ -705,21 +941,23 @@ async function get_rodit_fromfile(_unused1, configPath, credentialType) {
     return credentialData;
   } catch (error) {
     const duration = Date.now() - startTime;
-    logger.error("Failed to get RODiT credentials from file", {
-      ...logContext,
-      error: error.message,
-      stack: error.stack,
-      duration
-    });
     
-    // Emit metrics for Grafana dashboards
-    logger.metric("credentials_retrieval_duration_ms", duration, {
-      success: false,
-      component: "FileCredentialStore",
-      credentialType,
-      source: "file",
-      error: error.message
-    });
+    logErrorWithMetrics(
+      "Failed to get RODiT credentials from file",
+      {
+        ...baseContext,
+        duration
+      },
+      error,
+      "credential_store_error",
+      {
+        operation: "get_rodit",
+        result: "error",
+        credentialType,
+        source: "file",
+        duration
+      }
+    );
     
     throw error;
   }
@@ -773,17 +1011,80 @@ module.exports = {
   initializeProductionCredentialStore: () => fileCredentialStore.initialize(),
   setupTokenRenewal: async (store) => {
     // No-op for file store, but maintain interface compatibility
-    logger.debug('Token renewal not needed for file-based credentials', {
-      component: 'FileCredentialStore',
-      method: 'setupTokenRenewal'
+    const requestId = ulid();
+    
+    const baseContext = createLogContext(
+      'FileCredentialStore',
+      'setupTokenRenewal',
+      { requestId }
+    );
+    
+    logger.debugWithContext('Token renewal not needed for file-based credentials', baseContext);
+    
+    // Add metric for token renewal check
+    logger.metric("credential_store_operations", 0, {
+      operation: "token_renewal",
+      result: "skipped",
+      store_type: "file"
     });
+    
     return true;
   },
   getCredentials: async (type) => {
     // Get credentials from file store
-    const credentials = config.get('credentials');
-    const filePath = credentials.filePath;
-    return get_rodit_fromfile(null, filePath, type);
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      'FileCredentialStore',
+      'getCredentials',
+      { 
+        requestId,
+        credentialType: type 
+      }
+    );
+    
+    logger.debugWithContext('Getting credentials from file store', baseContext);
+    
+    try {
+      const credentials = config.get('credentials');
+      const filePath = credentials.filePath;
+      
+      logger.debugWithContext('Retrieving credentials from file', {
+        ...baseContext,
+        filePath
+      });
+      
+      const result = await get_rodit_fromfile(null, filePath, type);
+      
+      const duration = Date.now() - startTime;
+      logger.infoWithContext('Successfully retrieved credentials', {
+        ...baseContext,
+        duration
+      });
+      
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        'Failed to get credentials',
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        'credential_store_error',
+        {
+          operation: 'get_credentials',
+          result: 'error',
+          credentialType: type,
+          duration
+        }
+      );
+      
+      throw error;
+    }
   },
   vault: null, // No vault for file store, but maintain interface compatibility
   

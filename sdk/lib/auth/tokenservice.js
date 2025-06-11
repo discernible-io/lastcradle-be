@@ -4,7 +4,7 @@
  */
 
 const { ulid } = require("ulid");
-const logger = require("../../../config/logger");
+const logger = require("../../services/logger");
 const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
 const nacl = require("tweetnacl");
 const crypto = require("crypto");
@@ -12,7 +12,7 @@ const {
   dateStringToUnixTime,
   unixTimeToDateString
 } = require("../../utils");
-const sessionManager = require('./sessionmanager');
+const { sessionManager } = require('./sessionmanager');
 const stateManager = require('../blockchain/statemanager');
 const {  
   nearorg_rpc_tokenfromroditid, 
@@ -444,9 +444,48 @@ const {
       });
 
       const signatureStart = Date.now();
+      
+      // Handle different private key formats
+      let privateKeyToUse = own_rodit_bytes_private_key;
+      
+      // Add diagnostic logging to help identify the issue
+      if (!(own_rodit_bytes_private_key instanceof Uint8Array)) {
+        // Capture detailed information about the key
+        const keyInfo = {
+          requestId,
+          type: typeof own_rodit_bytes_private_key,
+          isNull: own_rodit_bytes_private_key === null,
+          isUndefined: own_rodit_bytes_private_key === undefined,
+          isBuffer: Buffer.isBuffer(own_rodit_bytes_private_key),
+          constructor: own_rodit_bytes_private_key ? own_rodit_bytes_private_key.constructor.name : 'null',
+          // If it's an object, log its keys to understand its structure
+          keys: typeof own_rodit_bytes_private_key === 'object' && own_rodit_bytes_private_key !== null ? 
+                Object.keys(own_rodit_bytes_private_key) : [],
+          // Try to safely stringify the value for inspection
+          stringValue: typeof own_rodit_bytes_private_key === 'string' ? 
+                      own_rodit_bytes_private_key.substring(0, 20) + '...' : 'not a string',
+          // Check if it's an array-like object
+          isArrayLike: own_rodit_bytes_private_key && typeof own_rodit_bytes_private_key.length === 'number',
+          length: own_rodit_bytes_private_key && typeof own_rodit_bytes_private_key.length === 'number' ? 
+                 own_rodit_bytes_private_key.length : 'N/A'
+        };
+        
+        // Log the detailed information
+        logger.debug("Private key is not a Uint8Array", keyInfo);
+        
+        // If it's a Buffer, we can convert it to a Uint8Array
+        if (Buffer.isBuffer(own_rodit_bytes_private_key)) {
+          logger.info("Converting Buffer to Uint8Array", { requestId });
+          privateKeyToUse = new Uint8Array(own_rodit_bytes_private_key);
+        } else {
+          logger.error("Private key must be a Uint8Array or Buffer for nacl.sign.detached", keyInfo);
+          throw new Error("Private key must be a Uint8Array or Buffer for nacl.sign.detached");
+        }
+      }
+      
       const own_rodit_bytes_signature = nacl.sign.detached(
         roditidandtimestamp,
-        own_rodit_bytes_private_key
+        privateKeyToUse
       );
       const signatureDuration = Date.now() - signatureStart;
 

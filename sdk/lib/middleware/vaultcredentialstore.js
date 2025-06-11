@@ -1,13 +1,17 @@
 const config = require("config");
 const bs58 = require("bs58");
 const { ulid } = require("ulid");
-const logger = require("../../../config/logger");
+const logger = require("../../services/logger");
+const { createLogContext, logErrorWithMetrics } = logger;
 
-logger.debug("Loading vaultcredentialstore.js module", {
-  component: "ModuleLoader",
-  module: "vaultcredentialstore.js",
-  loadedAt: new Date().toISOString()
-});
+logger.debugWithContext("Loading vaultcredentialstore.js module", createLogContext(
+  "ModuleLoader",
+  "moduleInitialization",
+  {
+    module: "vaultcredentialstore.js",
+    loadedAt: new Date().toISOString()
+  }
+));
 
 class ProductionVaultManager {
   constructor() {
@@ -23,14 +27,41 @@ class ProductionVaultManager {
   }
 
   async getProductionVaultToken() {
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    // Create a base context for this method
+    const baseContext = createLogContext(
+      "CredentialManager",
+      "getProductionVaultToken",
+      { requestId }
+    );
+    
+    logger.debugWithContext("Attempting Vault authentication", baseContext);
+    
     try {
       const result = await this.vault.approleLogin({
         role_id: this.roleId,
         secret_id: this.secretId,
       });
+      
+      logger.debugWithContext("Vault authentication successful", {
+        ...baseContext,
+        duration: Date.now() - startTime
+      });
+      
       return result.auth.client_token;
     } catch (error) {
-      logger.error("Error authenticating with Vault:", error);
+      logErrorWithMetrics(
+        "Error authenticating with Vault", 
+        {
+          ...baseContext,
+          duration: Date.now() - startTime
+        },
+        error,
+        "vault_authentication_error",
+        { error_type: "auth_failure" }
+      );
       throw new Error("Error 108: Vault authentication failed");
     }
   }
@@ -38,18 +69,20 @@ class ProductionVaultManager {
   async initialize() {
     const requestId = ulid();
     const startTime = Date.now();
+    
+    // Create a base context for this method
+    const baseContext = createLogContext(
+      "CredentialManager",
+      "initialize",
+      { requestId }
+    );
 
-    logger.debug("Starting vault initialization", {
-      component: "CredentialManager",
-      method: "initialize",
-      requestId
-    });
+    logger.debugWithContext("Starting vault initialization", baseContext);
 
     if (this.vaultInitialized) {
-      logger.debug("Vault already initialized", {
-        component: "CredentialManager",
-        method: "initialize",
-        requestId
+      logger.debugWithContext("Vault already initialized", {
+        ...baseContext,
+        duration: Date.now() - startTime
       });
       return this.vault;
     }
@@ -57,48 +90,63 @@ class ProductionVaultManager {
     try {
       const token = await this.getProductionVaultToken();
       this.vault.token = token;
-
+      
+      logger.debugWithContext("Checking Vault health status", baseContext);
+      
       const health = await this.vault.health();
       if (!health.initialized) {
-        throw new Error("Error 109: Vault is not initialized");
+        const error = new Error("Error 109: Vault is not initialized");
+        logErrorWithMetrics(
+          "Vault is not initialized", 
+          baseContext,
+          error,
+          "vault_initialization_error",
+          { error_type: "not_initialized" }
+        );
+        throw error;
       }
       if (health.sealed) {
-        throw new Error("Error 110: Vault is sealed");
+        const error = new Error("Error 110: Vault is sealed");
+        logErrorWithMetrics(
+          "Vault is sealed", 
+          baseContext,
+          error,
+          "vault_initialization_error",
+          { error_type: "sealed" }
+        );
+        throw error;
       }
 
       try {
         // Check if config is available and has the required path
         if (config && typeof config.get === 'function') {
           this.vaultPath = config.get("VAULT_RODIT_KEYVALUE_PATH");
-          logger.debug("Retrieved vault path from config", {
-            component: "CredentialManager",
-            method: "initialize",
-            requestId,
+          logger.debugWithContext("Retrieved vault path from config", {
+            ...baseContext,
             vaultPath: this.vaultPath
           });
         } else {
           const error = new Error("Config object is not properly initialized");
-          logger.error("Vault initialization failed - configuration error", {
-            component: "CredentialManager",
-            method: "initialize",
-            requestId,
-            errorMessage: error.message,
-            errorCode: "CONFIG_INITIALIZATION_ERROR"
-          });
+          logErrorWithMetrics(
+            "Vault initialization failed - configuration error", 
+            baseContext,
+            error,
+            "vault_initialization_error",
+            { error_type: "config_initialization_error" }
+          );
           throw error;
         }
       } catch (configError) {
         // Reset the vaultInitialized flag since initialization failed
         this.vaultInitialized = false;
         
-        logger.error("Vault initialization failed - configuration error", {
-          component: "CredentialManager",
-          method: "initialize",
-          requestId,
-          errorMessage: configError.message,
-          errorCode: "CONFIG_ACCESS_ERROR",
-          stack: configError.stack
-        });
+        logErrorWithMetrics(
+          "Vault initialization failed - configuration error", 
+          baseContext,
+          configError,
+          "vault_initialization_error",
+          { error_type: "config_access_error" }
+        );
         
         // Rethrow the error to prevent continuing with invalid configuration
         throw configError;
@@ -106,47 +154,53 @@ class ProductionVaultManager {
 
       this.vaultInitialized = true;
 
-      logger.debug("Vault initialization flags set", {
-        component: "CredentialManager",
-        method: "initialize",
-        requestId,
+      logger.debugWithContext("Vault initialization flags set", {
+        ...baseContext,
         vaultInitialized: this.vaultInitialized,
         vaultPath: this.vaultPath
       });
 
       const duration = Date.now() - startTime;
-      logger.info("Vault initialized successfully", {
-        component: "CredentialManager",
-        method: "initialize",
-        requestId,
+      logger.infoWithContext("Vault initialized successfully", {
+        ...baseContext,
         duration,
         status: "success"
+      });
+      
+      // Add metrics for successful initialization
+      logger.metric("vault_initialization_duration_ms", duration, {
+        success: true,
+        component: "CredentialManager"
       });
 
       return this.vault;
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error("Vault initialization failed", {
-        component: "CredentialManager",
-        method: "initialize",
-        requestId,
-        duration,
-        status: "error",
-        errorMessage: error.message,
-        errorCode: error.code || "UNKNOWN_ERROR",
-        stack: error.stack,
-      });
+      logErrorWithMetrics(
+        "Vault initialization failed", 
+        {
+          ...baseContext,
+          duration,
+          status: "error"
+        },
+        error,
+        "vault_initialization_error",
+        { 
+          error_type: error.code || "UNKNOWN_ERROR",
+          component: "CredentialManager"
+        }
+      );
 
       // Emit metrics for Grafana dashboards
       logger.metric("vault_initialization_duration_ms", duration, {
         success: false,
         component: "CredentialManager",
-        errorType: error.code || "UNKNOWN_ERROR",
+        errorType: error.code || "UNKNOWN_ERROR"
       });
       logger.metric("vault_initialization_errors_total", 1, {
         errorType: error.code || "UNKNOWN_ERROR",
-        component: "CredentialManager",
+        component: "CredentialManager"
       });
 
       throw error;
@@ -154,6 +208,18 @@ class ProductionVaultManager {
   }
 
   async setupTokenRenewal() {
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    // Create a base context for this method
+    const baseContext = createLogContext(
+      "CredentialManager",
+      "setupTokenRenewal",
+      { requestId }
+    );
+    
+    logger.debugWithContext("Starting token renewal setup", baseContext);
+    
     try {
       // Get token info to determine TTL
       const tokenInfo = await this.vault.tokenLookupSelf();
@@ -162,149 +228,278 @@ class ProductionVaultManager {
       // Calculate renewal time (renew at 80% of TTL)
       const renewalTimeMs = (ttlSeconds * 0.8) * 1000;
       
-      logger.info("Setting up token renewal", {
-        component: "CredentialManager",
+      logger.infoWithContext("Setting up token renewal", {
+        ...baseContext,
         ttlSeconds,
         renewalIntervalMs: renewalTimeMs || this.renewalInterval,
-        nextRenewalAt: new Date(Date.now() + (renewalTimeMs || this.renewalInterval)).toISOString()
+        nextRenewalAt: new Date(Date.now() + (renewalTimeMs || this.renewalInterval)).toISOString(),
+        duration: Date.now() - startTime
       });
       
       // Use calculated renewal time or fall back to default
       const interval = renewalTimeMs || this.renewalInterval;
       
       setInterval(async () => {
+        const renewalRequestId = ulid();
+        const renewalStartTime = Date.now();
+        
+        // Create a context for the renewal operation
+        const renewalContext = createLogContext(
+          "CredentialManager",
+          "tokenRenewal",
+          { requestId: renewalRequestId }
+        );
+        
+        logger.debugWithContext("Attempting to renew Vault token", renewalContext);
+        
         try {
-          logger.debug("Attempting to renew Vault token", {
-            component: "CredentialManager",
-            method: "tokenRenewal"
-          });
-          
           // Use proper token renewal instead of re-authenticating
           const renewResponse = await this.vault.tokenRenew();
           
-          logger.info("Successfully renewed Vault token", {
-            component: "CredentialManager",
-            method: "tokenRenewal",
-            newTtl: renewResponse.auth?.lease_duration || "unknown"
+          logger.infoWithContext("Successfully renewed Vault token", {
+            ...renewalContext,
+            newTtl: renewResponse.auth?.lease_duration || "unknown",
+            duration: Date.now() - renewalStartTime
+          });
+          
+          // Add metrics for successful renewal
+          logger.metric("vault_token_renewal_duration_ms", Date.now() - renewalStartTime, {
+            success: true,
+            component: "CredentialManager"
           });
         } catch (error) {
-          logger.error("Error renewing Vault token, attempting re-authentication", {
-            component: "CredentialManager",
-            method: "tokenRenewal",
-            errorMessage: error.message
-          });
+          logErrorWithMetrics(
+            "Error renewing Vault token, attempting re-authentication", 
+            {
+              ...renewalContext,
+              duration: Date.now() - renewalStartTime
+            },
+            error,
+            "vault_token_renewal_error",
+            { error_type: "renewal_failure" }
+          );
           
           try {
             // Fall back to re-authentication if renewal fails
             const token = await this.getProductionVaultToken();
             this.vault.token = token;
             
-            logger.info("Successfully re-authenticated with Vault", {
-              component: "CredentialManager",
-              method: "tokenRenewal"
+            logger.infoWithContext("Successfully re-authenticated with Vault", {
+              ...renewalContext,
+              duration: Date.now() - renewalStartTime
+            });
+            
+            // Add metrics for successful re-authentication
+            logger.metric("vault_token_reauthentication_duration_ms", Date.now() - renewalStartTime, {
+              success: true,
+              component: "CredentialManager"
             });
           } catch (reAuthError) {
-            logger.error("Failed to re-authenticate with Vault", {
-              component: "CredentialManager",
-              method: "tokenRenewal",
-              errorMessage: reAuthError.message
-            });
+            logErrorWithMetrics(
+              "Failed to re-authenticate with Vault", 
+              {
+                ...renewalContext,
+                duration: Date.now() - renewalStartTime
+              },
+              reAuthError,
+              "vault_token_reauthentication_error",
+              { error_type: "reauthentication_failure" }
+            );
           }
         }
       }, interval);
-    } catch (error) {
-      logger.error("Error setting up token renewal", {
-        component: "CredentialManager",
-        errorMessage: error.message
-      });
       
-      // Fall back to default renewal interval if we can't get token info
-      setInterval(async () => {
-        try {
-          const token = await this.getProductionVaultToken();
-          this.vault.token = token;
-          
-          logger.info("Successfully refreshed Vault token", {
-            component: "CredentialManager",
-            method: "tokenRenewal"
-          });
-        } catch (refreshError) {
-          logger.error("Error refreshing Vault token", {
-            component: "CredentialManager",
-            method: "tokenRenewal",
-            errorMessage: refreshError.message
-          });
-        }
-      }, this.renewalInterval);
+      return true;
+    } catch (error) {
+      logErrorWithMetrics(
+        "Error setting up token renewal", 
+        {
+          ...baseContext,
+          duration: Date.now() - startTime
+        },
+        error,
+        "vault_token_renewal_setup_error",
+        { error_type: "setup_failure" }
+      );
+      return false;
     }
   }
 
   async getRoditFromVault(vaultPath, secretKey) {
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    // Create a base context for this method
+    const baseContext = createLogContext(
+      "CredentialManager",
+      "getRoditFromVault",
+      { 
+        requestId,
+        vaultPath,
+        secretKey 
+      }
+    );
+    
     this.validateVaultParameters(vaultPath, secretKey);
 
     try {
-      logger.debug("¬", {
+      logger.debugWithContext("Retrieving data from Vault", {
+        ...baseContext,
         path: `secret/data/${vaultPath}`,
-        secretKey,
         endpoint: this.vault.endpoint,
-        hasToken: !!this.vault.token,
+        hasToken: !!this.vault.token
       });
+      
       const result = await this.vault.read(`secret/data/${vaultPath}`);
       const secretData = result.data.data[secretKey];
 
       if (!secretData) {
-        throw new Error(
+        const error = new Error(
           `Error 048: No data found for ${secretKey} at secret/data/${vaultPath}`
         );
+        
+        logErrorWithMetrics(
+          "No data found in Vault path", 
+          baseContext,
+          error,
+          "vault_data_retrieval_error",
+          { error_type: "data_not_found" }
+        );
+        
+        throw error;
       }
 
+      logger.debugWithContext("Successfully retrieved data from Vault", {
+        ...baseContext,
+        duration: Date.now() - startTime
+      });
+      
       const parsedData = this.parseSecretData(secretData, secretKey);
       return this.validateAndExtractCredentials(parsedData);
     } catch (error) {
-      logger.error("Error retrieving Rodit config from Vault:", {
-        path: `secret/data/${vaultPath}`,
-        secretKey,
-        errorMessage: error.message,
-        errorDetails: error.response?.data || error.response || "No details available",
-        statusCode: error.response?.statusCode,
-      });
+      logErrorWithMetrics(
+        "Error retrieving Rodit config from Vault", 
+        {
+          ...baseContext,
+          duration: Date.now() - startTime,
+          errorDetails: error.response?.data || error.response || "No details available",
+          statusCode: error.response?.statusCode
+        },
+        error,
+        "vault_data_retrieval_error",
+        { error_type: "retrieval_failure" }
+      );
       throw error;
     }
   }
 
   validateVaultParameters(vaultPath, secretKey) {
+    const requestId = ulid();
+    
+    // Create a base context for this method
+    const baseContext = createLogContext(
+      "CredentialManager",
+      "validateVaultParameters",
+      { 
+        requestId,
+        vaultPath,
+        secretKey 
+      }
+    );
+    
+    logger.debugWithContext("Validating Vault parameters", baseContext);
+    
     if (!this.vault || typeof this.vault.read !== "function") {
-      throw new Error("Error 051: Invalid vault object");
+      const error = new Error("Error 051: Invalid vault object");
+      logErrorWithMetrics(
+        "Invalid vault object", 
+        baseContext,
+        error,
+        "vault_parameter_validation_error",
+        { error_type: "invalid_vault" }
+      );
+      throw error;
     }
     if (!vaultPath || typeof vaultPath !== "string") {
-      throw new Error("Error 052: Invalid VAULT_RODIT_KEYVALUE_PATH");
+      const error = new Error("Error 052: Invalid VAULT_RODIT_KEYVALUE_PATH");
+      logErrorWithMetrics(
+        "Invalid vault path", 
+        baseContext,
+        error,
+        "vault_parameter_validation_error",
+        { error_type: "invalid_path" }
+      );
+      throw error;
     }
     if (!secretKey || typeof secretKey !== "string") {
-      throw new Error("Error 047: Invalid or missing secretKey parameter");
+      const error = new Error("Error 047: Invalid or missing secretKey parameter");
+      logErrorWithMetrics(
+        "Invalid secret key", 
+        baseContext,
+        error,
+        "vault_parameter_validation_error",
+        { error_type: "invalid_key" }
+      );
+      throw error;
     }
+    
+    logger.debugWithContext("Vault parameters validated successfully", baseContext);
   }
 
   parseSecretData(secretData, secretKey) {
+    const requestId = ulid();
+    
+    // Create a base context for this method
+    const baseContext = createLogContext(
+      "CredentialManager",
+      "parseSecretData",
+      { 
+        requestId,
+        secretKey,
+        dataType: typeof secretData
+      }
+    );
+    
+    logger.debugWithContext("Parsing secret data", baseContext);
+    
     if (typeof secretData === "string") {
       try {
-        return JSON.parse(secretData);
+        const parsedData = JSON.parse(secretData);
+        logger.debugWithContext("Successfully parsed secret data", baseContext);
+        return parsedData;
       } catch (parseError) {
-        throw new Error(`Error 046: Invalid JSON format in ${secretKey}`);
+        const error = new Error(`Error 046: Invalid JSON format in ${secretKey}`);
+        logErrorWithMetrics(
+          "Failed to parse secret data", 
+          baseContext,
+          parseError,
+          "vault_data_parsing_error",
+          { error_type: "invalid_json" }
+        );
+        throw error;
       }
     }
+    
+    logger.debugWithContext("Secret data already in object format", baseContext);
     return secretData;
   }
 
   validateAndExtractCredentials(parsedData) {
-    logger.error("parsedData", parsedData);
+    const requestId = ulid();
+    const startTime = Date.now();
     
-    const stripEd25519Prefix = (key) => key.replace("ed25519:", "");
+    // Create a base context for this method
+    const baseContext = createLogContext(
+      "CredentialManager",
+      "validateAndExtractCredentials",
+      { requestId }
+    );
     
-    const publicKeyToImplicitId = (publicKey) => {
-      const publicKeyBase58 = stripEd25519Prefix(publicKey);
-      const publicKeyBytes = bs58.decode(publicKeyBase58);
-      return Buffer.from(publicKeyBytes.buffer).toString('hex');
-    };
+    logger.debugWithContext("Validating credential data", baseContext);
+    
+    // Bind methods to preserve 'this' context
+    const stripEd25519Prefix = this.stripEd25519Prefix.bind(this);
+    const publicKeyToImplicitId = this.publicKeyToImplicitId.bind(this);
   
     if (parsedData.implicit_account_id) {
       const { implicit_account_id, private_key, public_key } = parsedData;
@@ -318,9 +513,53 @@ class ProductionVaultManager {
       }
   
       if (public_key) {
-        const calculatedImplicitId = publicKeyToImplicitId(public_key);
-        if (implicit_account_id !== calculatedImplicitId) {
+        // Try both hex and base58 formats for comparison
+        const calculatedImplicitIdHex = publicKeyToImplicitId(public_key, 'hex');
+        const calculatedImplicitIdBase58 = publicKeyToImplicitId(public_key, 'base58');
+        
+        // Add very detailed logging to help diagnose the mismatch
+        logger.debugWithContext("Comparing implicit IDs with multiple formats", {
+          ...baseContext,
+          storedImplicitId: implicit_account_id,
+          calculatedImplicitIdHex,
+          calculatedImplicitIdBase58,
+          publicKeyLength: public_key.length,
+          publicKeyFirstChars: public_key.substring(0, 10) + '...',
+          hasPrefix: public_key.startsWith('ed25519:'),
+          matchHex: implicit_account_id === calculatedImplicitIdHex,
+          matchBase58: implicit_account_id === calculatedImplicitIdBase58,
+          storedIdLength: implicit_account_id.length,
+          hexIdLength: calculatedImplicitIdHex.length,
+          // Add more debug info about the key and IDs
+          storedIdIsHex: /^[0-9a-f]+$/i.test(implicit_account_id),
+          calculatedHexIsHex: /^[0-9a-f]+$/i.test(calculatedImplicitIdHex)
+        });
+        
+        // Check if the stored ID matches either format
+        const matchesHex = implicit_account_id === calculatedImplicitIdHex;
+        const matchesBase58 = implicit_account_id === calculatedImplicitIdBase58;
+        
+        if (!matchesHex && !matchesBase58) {
+          // If neither format matches, log a warning and throw the error
+          logger.warnWithContext(
+            "Implicit account ID mismatch detected", 
+            {
+              ...baseContext,
+              storedImplicitId: implicit_account_id,
+              calculatedImplicitIdHex,
+              calculatedImplicitIdBase58
+            }
+          );
           throw new Error("Error 246: implicit_account_id does not match public_key");
+        } else {
+          // If one format matches, log which one matched
+          logger.infoWithContext(
+            "Implicit account ID matched successfully", 
+            {
+              ...baseContext,
+              matchFormat: matchesHex ? 'hex' : 'base58'
+            }
+          );
         }
       }
   
@@ -344,46 +583,125 @@ class ProductionVaultManager {
     if (!private_key || typeof private_key !== "string") {
       throw new Error("Error 043: Invalid or missing private_key value");
     }
-  
+
     return {
       account_id,
-      implicit_account_id: publicKeyToImplicitId(public_key),
+      implicit_account_id: publicKeyToImplicitId(public_key, 'hex'), // Use hex format consistently
       private_key: stripEd25519Prefix(private_key)
     };
   }
+
+  stripEd25519Prefix(key) {
+    const requestId = ulid();
+    
+    // Create a base context for this method
+    const baseContext = createLogContext(
+      "CredentialManager",
+      "stripEd25519Prefix",
+      { 
+        requestId,
+        keyType: typeof key,
+        hasPrefix: key && typeof key === 'string' && key.startsWith('ed25519:')
+      }
+    );
+    
+      logger.debugWithContext("Stripping ed25519 prefix from key", baseContext);
+    
+    if (!key || typeof key !== 'string') {
+      const error = new Error("Error 053: Invalid key format");
+      logErrorWithMetrics(
+        "Invalid key format for prefix stripping", 
+        baseContext,
+        error,
+        "key_processing_error",
+        { error_type: "invalid_key_format" }
+      );
+      throw error;
+    }
+    
+    return key.replace("ed25519:", "");
+  }
   
+  publicKeyToImplicitId(publicKey, outputFormat = 'hex') {
+    const requestId = ulid();
+    const utils = require('../../../sdk/utils');
+    
+    // Create a base context for this method
+    const baseContext = createLogContext(
+      "CredentialManager",
+      "publicKeyToImplicitId",
+      { 
+        requestId,
+        keyType: typeof publicKey,
+        outputFormat
+      }
+    );
+    
+    logger.debugWithContext("Converting public key to implicit ID", baseContext);
+    
+    if (!publicKey || typeof publicKey !== 'string') {
+      const error = new Error("Error 054: Invalid public key format");
+      logErrorWithMetrics(
+        "Invalid public key format", 
+        baseContext,
+        error,
+        "key_processing_error",
+        { error_type: "invalid_public_key_format" }
+      );
+      throw error;
+    }
+    
+    try {
+      // Use the shared implementation from utils.js
+      const implicit_id = utils.publicKeyToImplicitId(publicKey, outputFormat);
+      
+      logger.debugWithContext("Successfully converted public key to implicit ID", {
+        ...baseContext,
+        outputFormat,
+        idLength: implicit_id.length
+      });
+      
+      return implicit_id;
+    } catch (error) {
+      logErrorWithMetrics(
+        "Error converting public key to implicit ID", 
+        baseContext,
+        error,
+        "key_processing_error",
+        { error_type: "conversion_error" }
+      );
+      throw error;
+    }
+  }
+
   async getCredentials(type) {
     const requestId = ulid();
     const startTime = Date.now();
     const maxRetries = 2; // Maximum number of retry attempts
     let retryCount = 0;
     let lastError = null;
+    
+    // Create a base context for this method
+    const baseContext = createLogContext(
+      "CredentialManager",
+      "getCredentials",
+      { 
+        requestId,
+        credentialType: type
+      }
+    );
 
-    logger.debug("Retrieving credentials", {
-      component: "CredentialManager",
-      method: "getCredentials",
-      requestId,
-      credentialType: type,
-    });
+    logger.debugWithContext("Retrieving credentials", baseContext);
 
     // Use cached credentials if available
     if (this.credentials[type]) {
-      logger.debug("Using cached credentials", {
-        component: "CredentialManager",
-        method: "getCredentials",
-        requestId,
-        credentialType: type,
-      });
+      logger.debugWithContext("Using cached credentials", baseContext);
       return this.credentials[type];
     }
 
     // Make sure vault is initialized
     if (!this.vaultInitialized) {
-      logger.debug("Vault not initialized, initializing now", {
-        component: "CredentialManager",
-        method: "getCredentials",
-        requestId,
-      });
+      logger.debugWithContext("Vault not initialized, initializing now", baseContext);
       await this.initialize();
     }
 
@@ -394,11 +712,8 @@ class ProductionVaultManager {
         const accountType = `account_${type}`;
         const vaultPath = `${this.vaultPath}/${type}`;
 
-        logger.debug("Fetching credentials from vault", {
-          component: "CredentialManager",
-          method: "getCredentials",
-          requestId,
-          credentialType: type,
+        logger.debugWithContext("Fetching credentials from vault", {
+          ...baseContext,
           vaultPath,
           attempt: retryCount + 1,
           maxAttempts: maxRetries + 1
@@ -410,11 +725,8 @@ class ProductionVaultManager {
         );
 
         // Add detailed logging about the vault data received
-        logger.debug("Vault data received", {
-          component: "CredentialManager",
-          method: "getCredentials",
-          requestId,
-          credentialType: type,
+        logger.debugWithContext("Vault data received", {
+          ...baseContext,
           hasVaultData: !!vaultData,
           dataKeys: vaultData ? Object.keys(vaultData) : [],
           hasPrivateKey: vaultData && !!vaultData.private_key
@@ -423,45 +735,24 @@ class ProductionVaultManager {
         // Safely check for private_key before using it
         if (!vaultData || !vaultData.private_key || typeof vaultData.private_key !== "string") {
           const error = new Error(`Invalid or missing private_key for ${type}`);
-          logger.warn("Invalid private key format", {
-            component: "CredentialManager",
-            method: "getCredentials",
-            requestId,
-            credentialType: type,
-            privateKeyType: vaultData ? typeof vaultData.private_key : 'undefined',
-            attempt: retryCount + 1
-          });
-          
-          // Store error for potential retry
-          lastError = error;
-          
-          // If we've reached max retries, throw the error
-          if (retryCount >= maxRetries) {
-            throw error;
-          }
-          
-          // Otherwise retry
-          retryCount++;
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
-          continue;
+          logErrorWithMetrics(
+            "Invalid private key format", 
+            baseContext,
+            error,
+            "credential_retrieval_error",
+            { error_type: "invalid_private_key" }
+          );
+          throw error;
         }
 
-        const privateKeyStr = vaultData.private_key.startsWith("ed25519:")
-          ? vaultData.private_key.replace("ed25519:", "")
-          : vaultData.private_key;
-
-        vaultData.signing_bytes_key = new Uint8Array(bs58.decode(privateKeyStr));
+        // Cache the credentials for future use
         this.credentials[type] = vaultData;
-
+        
         const duration = Date.now() - startTime;
-        logger.info("Credentials retrieved successfully", {
-          component: "CredentialManager",
-          method: "getCredentials",
-          requestId,
-          credentialType: type,
+        logger.infoWithContext("Successfully retrieved credentials", {
+          ...baseContext,
           duration,
-          accountId: vaultData.account_id, // Safe to log account ID
-          attempt: retryCount + 1
+          accountId: vaultData.account_id // Safe to log account ID
         });
 
         // Emit metrics for Grafana dashboards
@@ -477,38 +768,47 @@ class ProductionVaultManager {
         
         // Log the error but don't throw yet if we have retries left
         const isRetrying = retryCount < maxRetries;
-        const logLevel = isRetrying ? "warn" : "error";
         const duration = Date.now() - startTime;
         
-        logger[logLevel](`${isRetrying ? "Retryable error" : "Failed"} retrieving credentials`, {
-          component: "CredentialManager",
-          method: "getCredentials",
-          requestId,
-          credentialType: type,
-          duration,
-          errorMessage: error.message,
-          errorCode: error.code || "UNKNOWN_ERROR",
-          stack: error.stack,
-          attempt: retryCount + 1,
-          willRetry: isRetrying
-        });
-        
-        // Emit metrics for Grafana dashboards
-        logger.metric("credential_retrieval_duration_ms", duration, {
-          success: false,
-          credentialType: type,
-          errorType: error.code || "UNKNOWN_ERROR",
-          component: "CredentialManager",
-          retryAttempt: retryCount
-        });
-        
         if (isRetrying) {
+          logger.warnWithContext(`Retryable error retrieving credentials`, {
+            ...baseContext,
+            duration,
+            errorMessage: error.message,
+            errorCode: error.code || "UNKNOWN_ERROR",
+            attempt: retryCount + 1,
+            willRetry: true
+          });
+          
+          // Emit metrics for Grafana dashboards
+          logger.metric("credential_retrieval_duration_ms", duration, {
+            success: false,
+            credentialType: type,
+            errorType: error.code || "UNKNOWN_ERROR",
+            component: "CredentialManager",
+            retryAttempt: retryCount
+          });
+          
           retryCount++;
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
           continue;
         }
         
-        // If we've exhausted retries, throw the last error
+        // If we've exhausted retries, log and throw the last error
+        logErrorWithMetrics(
+          "Failed to retrieve credentials after all retry attempts", 
+          {
+            ...baseContext,
+            duration,
+            attempts: retryCount + 1,
+            maxAttempts: maxRetries + 1
+          },
+          lastError,
+          "credential_retrieval_error",
+          { error_type: "max_retries_exceeded" }
+        );
+        
+        // Emit metrics for Grafana dashboards
         logger.metric("credential_retrieval_errors_total", 1, {
           credentialType: type,
           errorType: error.code || "UNKNOWN_ERROR",

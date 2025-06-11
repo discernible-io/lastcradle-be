@@ -4,7 +4,7 @@
  */
 
 const { ulid } = require("ulid");
-const logger = require("../config/logger");
+const logger = require("./services/logger");
 const crypto = require("crypto");
 const nacl = require("tweetnacl");
 nacl.util = require("tweetnacl-util");
@@ -1031,12 +1031,6 @@ function validateAndExtractCredentials(parsedData) {
   const bs58 = require("bs58");
   
   const stripEd25519Prefix = (key) => key.replace("ed25519:", "");
-  
-  const publicKeyToImplicitId = (publicKey) => {
-    const publicKeyBase58 = stripEd25519Prefix(publicKey);
-    const publicKeyBytes = bs58.decode(publicKeyBase58);
-    return Buffer.from(publicKeyBytes.buffer).toString('hex');
-  };
 
   if (parsedData.implicit_account_id) {
     const { implicit_account_id, private_key, public_key } = parsedData;
@@ -1050,7 +1044,8 @@ function validateAndExtractCredentials(parsedData) {
     }
 
     if (public_key) {
-      const calculatedImplicitId = publicKeyToImplicitId(public_key);
+      // Use the exported function with hex format to match stored implicit_account_id
+      const calculatedImplicitId = module.exports.publicKeyToImplicitId(public_key, 'hex');
       if (implicit_account_id !== calculatedImplicitId) {
         throw new Error("Error 246: implicit_account_id does not match public_key");
       }
@@ -1080,7 +1075,7 @@ function validateAndExtractCredentials(parsedData) {
 
   return {
     account_id,
-    implicit_account_id: publicKeyToImplicitId(public_key),
+    implicit_account_id: module.exports.publicKeyToImplicitId(public_key, 'hex'),
     private_key: stripEd25519Prefix(private_key),
     public_key: stripEd25519Prefix(public_key)
   };
@@ -1100,6 +1095,36 @@ function validateCredentialParameters(configPath, credentialType) {
   
   if (!credentialType || typeof credentialType !== "string") {
     throw new Error("Error 047: Invalid or missing credentialType parameter");
+  }
+}
+
+/**
+ * Converts a public key to an implicit account ID according to NEAR protocol
+ * 
+ * @param {string} publicKey - The public key to convert (with or without ed25519: prefix)
+ * @param {string} outputFormat - The output format ('hex' or 'base58')
+ * @returns {string} The implicit account ID
+ */
+function publicKeyToImplicitId(publicKey, outputFormat = 'hex') {
+  // This function implements the NEAR protocol algorithm for implicit accounts
+  // According to the docs: "The account ID is a lowercase hex representation of the public key."
+  // "An ED25519 Public key contains 32 bytes that maps to 64 characters account ID."
+  const bs58 = require("bs58");
+  
+  // Strip the ed25519: prefix if it exists
+  const stripPrefix = (key) => key.replace("ed25519:", "");
+  
+  const publicKeyBase58 = stripPrefix(publicKey);
+  const publicKeyBytes = bs58.decode(publicKeyBase58);
+  
+  if (outputFormat === 'base58') {
+    // For base58 format, return the first 20 bytes as before for backward compatibility
+    const slicedBytes = publicKeyBytes.slice(0, 20);
+    return bs58.encode(slicedBytes);
+  } else {
+    // For hex format, convert the entire 32-byte public key to a 64-character hex string
+    // This matches the NEAR protocol's implicit account ID format
+    return Buffer.from(publicKeyBytes).toString('hex').toLowerCase();
   }
 }
 
@@ -1540,5 +1565,8 @@ module.exports = {
   
   // Utility functions for validation
   isValidIpRange,
-  parseMetadataJson
+  parseMetadataJson,
+  
+  // Export the public key to implicit ID conversion function
+  publicKeyToImplicitId
 };

@@ -12,7 +12,7 @@ const authMw = require('./lib/middleware/authenticationmw');
 const { ensureProtocol } = require('./utils');
 
 // External logger for compatibility during transition
-const externalLogger = require('../config/logger');
+const externalLogger = require('./services/logger');
 
 // Internal logger implementation for the SDK
 const logger = {

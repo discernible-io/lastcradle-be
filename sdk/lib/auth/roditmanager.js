@@ -7,7 +7,8 @@
 
 const { ulid } = require("ulid");
 const config = require("config");
-const logger = require("../../../config/logger");
+const logger = require("../../services/logger");
+const { createLogContext, logErrorWithMetrics } = logger;
 const {
   initializeProductionCredentialStore,
   setupTokenRenewal,
@@ -22,11 +23,11 @@ const {
 const stateManager = require("../blockchain/statemanager");
 
 
-logger.debug("Loading roditmanager.js module", {
-  component: "ModuleLoader",
-  module: "roditmanager.js",
+const baseModuleContext = createLogContext("ModuleLoader", "roditmanager", {
   loadedAt: new Date().toISOString()
 });
+
+logger.debugWithContext("Loading roditmanager.js module", baseModuleContext);
 /**
  * RoditManager class
  * Singleton class for managing RODiT configurations and credentials
@@ -34,24 +35,26 @@ logger.debug("Loading roditmanager.js module", {
 class RoditManager {
   constructor() {
     const instanceId = ulid();
-
-    logger.debug("RoditManager constructor called", {
-      component: "RoditManager",
+    
+    const baseContext = createLogContext("RoditManager", "constructor", {
       instanceId,
       hasExistingInstance: !!RoditManager.instance,
       existingInstanceId: RoditManager.instance ? RoditManager.instance._instanceId : null
     });
+    
+    logger.debugWithContext("RoditManager constructor called", baseContext);
+    
     if (RoditManager.instance) {
-      logger.debug("Returning existing RoditManager instance", {
-        component: "RoditManager",
+      logger.debugWithContext("Returning existing RoditManager instance", {
+        ...baseContext,
         instanceId: RoditManager.instance._instanceId
       });
       return RoditManager.instance;
     }
 
     this._instanceId = instanceId; // Store the instance ID
-    logger.debug("Creating new RoditManager instance", {
-      component: "RoditManager",
+    logger.infoWithContext("Creating new RoditManager instance", {
+      ...baseContext,
       instanceId: this._instanceId
     });
 
@@ -62,34 +65,67 @@ class RoditManager {
 
 async initializeCredentialsStore() {
   const requestId = ulid();
-  logger.debug("Initializing CredentialManager", {
-    component: "RoditManager",
-    method: "initializeCredentialsStore",
-    requestId,
-    instanceId: this._instanceId
-  });
+  const startTime = Date.now();
+  
+  const baseContext = createLogContext(
+    "RoditManager",
+    "initializeCredentialsStore",
+    {
+      requestId,
+      instanceId: this._instanceId
+    }
+  );
+  
+  logger.infoWithContext("Initializing CredentialManager", baseContext);
   
   try {
     const credentialstoreInstance = await initializeProductionCredentialStore();
     await setupTokenRenewal(credentialstoreInstance);
     
-    logger.debug("CredentialStore initialization completed through CredentialManager", {
+    const duration = Date.now() - startTime;
+    
+    logger.infoWithContext("CredentialStore initialization completed", {
+      ...baseContext,
+      duration
+    });
+    
+    // Emit metrics for Grafana dashboards
+    logger.metric("credential_store_initialization_ms", duration, {
       component: "RoditManager",
-      method: "initializeCredentialsStore",
-      requestId,
-      instanceId: this._instanceId
+      success: true
     });
     
     return credentialstoreInstance;
   } catch (error) {
-    logger.error("Error during CredentialStore initialization", {
+    const duration = Date.now() - startTime;
+    
+    // Emit metrics for Grafana dashboards
+    logger.metric("credential_store_initialization_ms", duration, {
       component: "RoditManager",
-      method: "initializeCredentialsStore",
-      requestId,
-      errorMessage: error.message,
-      errorCode: error.code || "UNKNOWN_ERROR",
-      stack: error.stack
+      success: false,
+      error: error.name || "Unknown"
     });
+    logger.metric("credential_store_errors_total", 1, {
+      component: "RoditManager",
+      error_type: error.name || "Unknown"
+    });
+    
+    logErrorWithMetrics(
+      "Error during CredentialStore initialization", 
+      {
+        ...baseContext,
+        duration,
+        errorMessage: error.message,
+        errorCode: error.code || "UNKNOWN_ERROR"
+      },
+      error,
+      "credential_store_initialization",
+      {
+        result: "error",
+        error_type: error.name || "Unknown",
+        duration
+      }
+    );
     
     throw error;
   }
@@ -97,37 +133,72 @@ async initializeCredentialsStore() {
 
   async getCredentials(type) {
     const requestId = ulid();
+    const startTime = Date.now();
     
-    logger.debug("Retrieving credentials through CredentialManager", {
-      component: "RoditManager",
-      method: "getCredentials",
-      requestId,
-      credentialType: type,
-    });
+    const baseContext = createLogContext(
+      "RoditManager",
+      "getCredentials",
+      {
+        requestId,
+        credentialType: type
+      }
+    );
+    
+    logger.debugWithContext("Retrieving credentials", baseContext);
     
     try {
       // Delegate credential retrieval to the CredentialManager
       const credentials = await getCredentials(type);
       
-      logger.debug("Credentials retrieved through CredentialManager", {
-        component: "RoditManager",
-        method: "getCredentials",
-        requestId,
-        credentialType: type,
+      const duration = Date.now() - startTime;
+      
+      logger.debugWithContext("Credentials retrieved successfully", {
+        ...baseContext,
+        duration,
         hasCredentials: !!credentials
+      });
+      
+      // Emit metrics for Grafana dashboards
+      logger.metric("credential_retrieval_ms", duration, {
+        component: "RoditManager",
+        success: true,
+        credentialType: type
       });
       
       return credentials;
     } catch (error) {
-      logger.error("Error retrieving credentials through CredentialManager", {
+      const duration = Date.now() - startTime;
+      
+      // Emit metrics for Grafana dashboards
+      logger.metric("credential_retrieval_ms", duration, {
         component: "RoditManager",
-        method: "getCredentials",
-        requestId,
+        success: false,
         credentialType: type,
-        errorMessage: error.message,
-        errorCode: error.code || "UNKNOWN_ERROR",
-        stack: error.stack
+        error: error.name || "Unknown"
       });
+      logger.metric("credential_retrieval_errors_total", 1, {
+        component: "RoditManager",
+        credentialType: type,
+        error_type: error.name || "Unknown"
+      });
+      
+      logErrorWithMetrics(
+        "Error retrieving credentials", 
+        {
+          ...baseContext,
+          duration,
+          errorMessage: error.message,
+          errorCode: error.code || "UNKNOWN_ERROR"
+        },
+        error,
+        "credential_retrieval",
+        {
+          result: "error",
+          error_type: error.name || "Unknown",
+          credentialType: type,
+          duration
+        }
+      );
       
       throw error;
     }
@@ -136,6 +207,16 @@ async initializeCredentialsStore() {
   async initializeRoditConfig(type) {
     const requestId = ulid();
     const startTime = Date.now();
+    
+    // Create a base context for this method
+    const baseContext = createLogContext(
+      "RoditManager",
+      "initializeRoditConfig",
+      { 
+        requestId,
+        configType: type
+      }
+    );
 
     logger.info("Starting RODiT config initialization", {
       component: "RoditManager",
@@ -472,19 +553,7 @@ async initializeCredentialsStore() {
       return configObject;
     } catch (error) {
       const duration = Date.now() - startTime;
-
-      logger.error("Error initializing RODiT config", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
-        duration,
-        errorMessage: error.message,
-        errorCode: error.code || "UNKNOWN_ERROR",
-        stack: error.stack,
-        step: error.step || "unknown",
-      });
-
+      
       // Emit metrics for Grafana dashboards
       logger.metric("rodit_initialization_duration_ms", duration, {
         success: false,
@@ -498,6 +567,29 @@ async initializeCredentialsStore() {
         component: "RoditManager",
         step: error.step || "unknown",
       });
+
+      const errorContext = {
+        ...baseContext,
+        duration,
+        configType: type,
+        errorMessage: error.message,
+        errorCode: error.code || "UNKNOWN_ERROR",
+        step: error.step || "unknown"
+      };
+      
+      logErrorWithMetrics(
+        "Error initializing RODiT config",
+        errorContext,
+        error,
+        "rodit_initialization",
+        {
+          result: "error",
+          error_type: error.code || "UNKNOWN_ERROR",
+          configType: type,
+          step: error.step || "unknown",
+          duration
+        }
+      );
 
       throw error;
     }

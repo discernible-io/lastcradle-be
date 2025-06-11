@@ -18,7 +18,8 @@ const config = require('config');
 const auth = require('../sdk');
 
 // Import logger from config
-const logger = require('../config/logger');
+const logger = require('../sdk/services/logger'); // Path is correct as app.js is in src directory
+const { createLogContext, logErrorWithMetrics } = logger;
 
 // Import required services
 const roditManager = require('../sdk/lib/auth/roditmanager');
@@ -357,11 +358,52 @@ app.use((err, req, res, next) => {
 
 // Update rate limit once obtained config
 function updateRateLimit(maxRequests, maxRqWindow) {
-  ratelimiter = ratelimitmw(maxRequests, maxRqWindow);
-  logger.info("Rate limit settings updated", { 
-    maxRequests: maxRequests, 
-    windowDuration: maxRqWindow 
+  const requestId = ulid();
+  const startTime = Date.now();
+  
+  const baseContext = createLogContext({
+    requestId,
+    component: "RateLimiter",
+    method: "updateRateLimit",
+    maxRequests,
+    windowDuration: maxRqWindow
   });
+  
+  try {
+    ratelimiter = ratelimitmw(maxRequests, maxRqWindow);
+    
+    const duration = Date.now() - startTime;
+    logger.infoWithContext("Rate limit settings updated", {
+      ...baseContext,
+      duration,
+      result: "success"
+    });
+    
+    // Add metric for rate limit update
+    logger.metric("rate_limit_operations", duration, {
+      operation: "updateRateLimit",
+      result: "success"
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    
+    logErrorWithMetrics(
+      "Failed to update rate limit settings",
+      {
+        ...baseContext,
+        duration
+      },
+      error,
+      "rate_limit_error",
+      {
+        operation: "updateRateLimit",
+        result: "error",
+        duration
+      }
+    );
+    
+    throw error;
+  }
 }
 
 // Store server instance for graceful shutdown
@@ -370,20 +412,26 @@ let db;
 
 // Start the server with proper initialization
 async function startServer() {
+  const requestId = ulid();
+  const startTime = Date.now();
+  
+  const baseContext = createLogContext({
+    requestId,
+    component: "AppLifecycle",
+    method: "startServer",
+    nodeEnv: process.env.NODE_ENV || 'development',
+    pid: process.pid
+  });
+  
+  logger.infoWithContext("Server starting", baseContext);
+  
   try {
-    // Log server startup
-    logger.info("Server starting", {
-      component: "AppLifecycle",
-      startTime: new Date().toISOString(),
-      nodeEnv: process.env.NODE_ENV || 'development',
-      pid: process.pid
-    });
     // Initialize performance service
-    const performanceService = require('../config/performanceservice');
+    const performanceService = require('../sdk/services/performanceservice');
     performanceService.initialize();
     
-    logger.info("Initializing RODiT configuration", {
-      component: "AppLifecycle",
+    logger.infoWithContext("Initializing RODiT configuration", {
+      ...baseContext,
       status: "initializing"
     });
     
@@ -391,7 +439,8 @@ async function startServer() {
     await roditManager.initializeCredentialsStore();
     await roditManager.initializeRoditConfig("server");
 
-    logger.info("Server initialization successful", {
+    logger.infoWithContext("Credential store initialization successful", {
+      ...baseContext,
       component: "vault",
       status: "initialized"
     });
@@ -414,12 +463,23 @@ async function startServer() {
     // Start the HTTP server
     const port = configObject.port || 8080;
     server = app.listen(port, () => {
-    /*console.log("Server started", {
-        port: port,
-        env: process.env.NODE_ENV || "development",
+      const serverStartDuration = Date.now() - startTime;
+      
+      const serverContext = createLogContext({
+        ...baseContext,
+        port,
+        duration: serverStartDuration,
         protocol: "http",
-        swagger: `http://localhost:${port}/api-docs`
-      });*/
+        swagger: `/api-docs`
+      });
+      
+      logger.infoWithContext("HTTP server started successfully", serverContext);
+      
+      // Add metric for server startup
+      logger.metric("server_operations", serverStartDuration, {
+        operation: "startup",
+        result: "success"
+      });
       
       console.log(`\nRODiT Authentication API Server running on port ${port}`);
       console.log('');
@@ -438,49 +498,145 @@ async function startServer() {
     process.on("SIGINT", gracefulShutdown);
     
   } catch (error) {
-    logger.error("Server initialization failed", {
-      component: "AppLifecycle",
-      error: error.message
-    }, error);
+    const duration = Date.now() - startTime;
+    
+    logErrorWithMetrics(
+      "Server initialization failed",
+      {
+        ...baseContext,
+        duration
+      },
+      error,
+      "server_startup_error",
+      {
+        operation: "startServer",
+        result: "error",
+        duration
+      }
+    );
+    
     process.exit(1);
   }
 }
 
 // Graceful shutdown function
 async function gracefulShutdown(signal) {
-  logger.info("Shutting down gracefully", {
+  const requestId = ulid();
+  const startTime = Date.now();
+  
+  const baseContext = createLogContext({
+    requestId,
     component: "AppLifecycle",
-    signal: signal || "unknown",
-    time: new Date().toISOString()
+    method: "gracefulShutdown",
+    signal: signal || "unknown"
   });
   
-  if (server) {
-    server.close(async () => {
-      logger.info("HTTP server closed", { component: "http-server" });
-      
-      // Close database connections
+  logger.infoWithContext("Shutting down gracefully", baseContext);
+  
+  try {
+    if (server) {
+      server.close(async () => {
+        const duration = Date.now() - startTime;
+        logger.infoWithContext("HTTP server closed", { 
+          ...baseContext,
+          component: "http-server",
+          duration 
+        });
+        
+        // Add metric for server shutdown
+        logger.metric("server_operations", duration, {
+          operation: "shutdown",
+          result: "success"
+        });
+        
+        // Close database connections
+        await closeAllDatabases();
+        
+        process.exit(0);
+      });
+    } else {
       await closeAllDatabases();
       
+      const duration = Date.now() - startTime;
+      logger.infoWithContext("Server shutdown completed (no active HTTP server)", {
+        ...baseContext,
+        duration
+      });
+      
       process.exit(0);
-    });
-  } else {
-    await closeAllDatabases();
-    process.exit(0);
+    }
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    
+    logErrorWithMetrics(
+      "Error during graceful shutdown",
+      {
+        ...baseContext,
+        duration
+      },
+      error,
+      "server_shutdown_error",
+      {
+        operation: "gracefulShutdown",
+        result: "error",
+        duration
+      }
+    );
+    
+    // Force exit in case of shutdown errors
+    process.exit(1);
   }
 }
 
 // Helper function to close all database connections
 async function closeAllDatabases() {
+  const requestId = ulid();
+  const startTime = Date.now();
+  
+  const baseContext = createLogContext({
+    requestId,
+    component: "DatabaseManager",
+    method: "closeAllDatabases"
+  });
+  
+  logger.debugWithContext("Closing all database connections", baseContext);
+  
   // Check if db exists and has a close method before calling it
   if (db && typeof db.close === 'function') {
     try {
       await db.close();
-      logger.info("Database connection closed", { component: "main-db" });
+      
+      const duration = Date.now() - startTime;
+      logger.infoWithContext("Main database connection closed", { 
+        ...baseContext,
+        component: "main-db",
+        duration 
+      });
+      
+      // Add metric for database close
+      logger.metric("database_operations", duration, {
+        operation: "close",
+        database: "main-db",
+        result: "success"
+      });
     } catch (error) {
-      logger.error(
-        "Error closing database", 
-        { component: "main-db" },
-        error
+      const duration = Date.now() - startTime;
+      
+      logErrorWithMetrics(
+        "Error closing main database",
+        {
+          ...baseContext,
+          component: "main-db",
+          duration
+        },
+        error,
+        "database_error",
+        {
+          operation: "close",
+          database: "main-db",
+          result: "error",
+          duration
+        }
       );
     }
   }
@@ -488,14 +644,41 @@ async function closeAllDatabases() {
   // Close the CRUDA database connection
   try {
     if (crudaprotectedRoute.closeDatabase) {
+      const crudaStartTime = Date.now();
       await crudaprotectedRoute.closeDatabase();
-      logger.info("CRUDA database connection closed", { component: "cruda-db" });
+      
+      const crudaDuration = Date.now() - crudaStartTime;
+      logger.infoWithContext("CRUDA database connection closed", { 
+        ...baseContext,
+        component: "cruda-db",
+        duration: crudaDuration 
+      });
+      
+      // Add metric for CRUDA database close
+      logger.metric("database_operations", crudaDuration, {
+        operation: "close",
+        database: "cruda-db",
+        result: "success"
+      });
     }
   } catch (error) {
-    logger.error(
-      "Error closing CRUDA database", 
-      { component: "cruda-db" },
-      error
+    const crudaDuration = Date.now() - startTime;
+    
+    logErrorWithMetrics(
+      "Error closing CRUDA database",
+      {
+        ...baseContext,
+        component: "cruda-db",
+        duration: crudaDuration
+      },
+      error,
+      "database_error",
+      {
+        operation: "close",
+        database: "cruda-db",
+        result: "error",
+        duration: crudaDuration
+      }
     );
   }
 }

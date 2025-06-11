@@ -4,7 +4,7 @@
  * Copyright (c) 2024 Ayayai, Inc. All rights reserved.
  */
 
-const logger = require("../../../config/logger");
+const logger = require("../../services/logger");
 const config = require("../../../config/default.json");
 
 /**

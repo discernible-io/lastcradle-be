@@ -2,7 +2,8 @@
 const express = require("express");
 const router = express.Router();
 const { ulid } = require("ulid");
-const logger = require("../../config/logger");
+const logger = require("../../sdk/services/logger");
+const { createLogContext, logErrorWithMetrics } = logger;
 const stateManager = require("../../sdk/lib/blockchain/statemanager");
 const {
   login_portal,
@@ -16,16 +17,18 @@ async function signPortalRodit(
   mintingfeeaccount
 ) {
   const requestId = ulid();
+  const startTime = Date.now();
   
   // Create context objects for structured logging
-  const requestContext = {
+  const baseContext = createLogContext({
     requestId,
-    operation: "signPortalRodit",
+    component: "SignPortal",
+    method: "signPortalRodit",
     serviceProviderId: tamperproofedValues.serviceprovider_id,
     port
-  };
+  });
 
-  logger.infoWithContext("Sending signportal request", requestContext);
+  logger.debugWithContext("Sending signportal request", baseContext);
 
   // Get API endpoint using the stateManager's getPortalUrl method
   const apiendpoint = stateManager.getPortalUrl(
@@ -53,9 +56,9 @@ async function signPortalRodit(
 
   // Enhanced logging with structured context
   const apiCallContext = {
-    ...requestContext,
+    ...baseContext,
     url: fetchUrl,
-    headers,
+    headers: Object.keys(headers),
     bodySize: JSON.stringify(requestBody).length,
     hasToken: !!signportalJwtToken
   };
@@ -64,8 +67,8 @@ async function signPortalRodit(
   
   // Separate sensitive data into debug level logs
   logger.debugWithContext("Request body details", {
-    ...requestContext,
-    body: requestBody
+    ...baseContext,
+    bodyKeys: Object.keys(requestBody)
   });
 
   try {
@@ -75,36 +78,69 @@ async function signPortalRodit(
       body: JSON.stringify(requestBody),
     });
 
+    const duration = Date.now() - startTime;
     logger.infoWithContext("Raw response received from SignPortal", {
-      ...requestContext,
-      responseReceived: true
+      ...baseContext,
+      responseReceived: true,
+      duration
     });
 
     if (result.error) {
-      const errorContext = {
-        ...requestContext,
-        errorCode: result.error,
-        errorMessage: result.message
-      };
+      const duration = Date.now() - startTime;
       
-      logger.errorWithContext("SignPortal error response", errorContext);
+      logErrorWithMetrics(
+        "SignPortal error response",
+        {
+          ...baseContext,
+          errorCode: result.error,
+          errorMessage: result.message,
+          duration
+        },
+        new Error(`SignPortal error: ${result.error}: ${result.message}`),
+        "signportal_error",
+        {
+          operation: "signPortalRodit",
+          result: "error",
+          duration
+        }
+      );
+      
       throw new Error(`SignPortal error: ${result.error}: ${result.message}`);
     }
 
+    const successDuration = Date.now() - startTime;
     logger.infoWithContext("SignPortal operation successful", {
-      ...requestContext,
-      tokenId: result.token_id
+      ...baseContext,
+      tokenId: result.token_id,
+      duration: successDuration
+    });
+    
+    // Add metric for successful operation
+    logger.metric("signportal_operations", successDuration, {
+      operation: "signPortalRodit",
+      result: "success"
     });
     
     return result;
   } catch (error) {
-    logger.errorWithContext("Error during signportal operation", 
+    const errorDuration = Date.now() - startTime;
+    
+    logErrorWithMetrics(
+      "Error during signportal operation",
       {
-        ...requestContext,
-        errorMessage: error.message
+        ...baseContext,
+        errorMessage: error.message,
+        duration: errorDuration
       },
-      error // Pass the error object directly for stack trace
+      error,
+      "signportal_error",
+      {
+        operation: "signPortalRodit",
+        result: "error",
+        duration: errorDuration
+      }
     );
+    
     throw error;
   }
 }
@@ -112,15 +148,18 @@ async function signPortalRodit(
 // The signclient endpoint that the frontend will call
 router.post("/signclient", async (req, res) => {
   const requestId = ulid();
+  const startTime = Date.now();
   
   // Create base context object for consistent logging
-  const baseContext = {
+  const baseContext = createLogContext({
     requestId,
+    component: "SignClient",
+    method: "handleSignClientRequest",
     endpoint: "/signclient",
-    method: req.method,
+    httpMethod: req.method,
     ip: req.ip,
     userAgent: req.get("User-Agent")
-  };
+  });
   
   logger.infoWithContext("Received signclient request", baseContext);
 
@@ -133,7 +172,8 @@ router.post("/signclient", async (req, res) => {
       ...baseContext,
       hasSignedValues: !!tobesignedValues,
       hasMintingFee: !!mintingfee,
-      hasMintingFeeAccount: !!mintingfeeaccount
+      hasMintingFeeAccount: !!mintingfeeaccount,
+      bodySize: req.body ? JSON.stringify(req.body).length : 0
     };
 
     // Basic validation
@@ -231,23 +271,42 @@ router.post("/signclient", async (req, res) => {
     }
 
     // Success response
+    const duration = Date.now() - startTime;
     const successContext = {
       ...baseContext,
       token_id: signResult.token_id,
-      status: "success"
+      status: "success",
+      duration
     };
     
     logger.infoWithContext("Successfully created new RODiT token", successContext);
+    
+    // Add metric for successful operation
+    logger.metric("signclient_operations", duration, {
+      operation: "handleSignClientRequest",
+      result: "success"
+    });
 
     res.status(201).json(signResult);
   } catch (error) {
-    const errorContext = {
-      ...baseContext,
-      errorMessage: error.message,
-      errorName: error.name
-    };
+    const duration = Date.now() - startTime;
     
-    logger.errorWithContext("Error in signclient endpoint", errorContext, error);
+    logErrorWithMetrics(
+      "Error in signclient endpoint",
+      {
+        ...baseContext,
+        errorMessage: error.message,
+        errorName: error.name,
+        duration
+      },
+      error,
+      "signclient_error",
+      {
+        operation: "handleSignClientRequest",
+        result: "error",
+        duration
+      }
+    );
 
     res.status(500).json({
       error: "Failed to sign client request",

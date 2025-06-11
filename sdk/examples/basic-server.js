@@ -83,6 +83,38 @@ let ratelimiter = ratelimitmw(100, 15);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Setup webhook handling - this would typically be in a separate file
+// Create webhook raw body parser for signature verification
+const webhookBodyParser = auth.webhook.createRawBodyParser();
+
+// Create webhook flag middleware to mark routes as webhook endpoints
+const webhookFlagMiddleware = auth.webhook.createWebhookFlagMiddleware();
+
+// Create webhook public key middleware
+const webhookPublicKeyMiddleware = auth.webhook.createPublicKeyMiddleware(auth.stateManager);
+
+// Create webhook authentication middleware
+const webhookAuthMiddleware = auth.webhook.createWebhookAuthenticationMiddleware();
+
+// Create a webhook event handler factory
+const webhookEventHandlerFactory = new auth.webhook.WebhookEventHandlerFactory({
+  // Mock dependencies for demonstration
+  configManager: {
+    updateConfig: async (config) => {
+      console.log('Mock config update:', config);
+      return true;
+    }
+  },
+  runTestSuite: async (apiEndpoint, suiteName) => {
+    console.log(`Mock running test suite ${suiteName} against ${apiEndpoint}`);
+    return { success: true };
+  },
+  runSingleTest: async (apiEndpoint, suiteName, testName) => {
+    console.log(`Mock running test ${testName} from suite ${suiteName} against ${apiEndpoint}`);
+    return { success: true };
+  }
+});
+
 // Setup Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
@@ -409,6 +441,168 @@ function gracefulShutdown() {
     process.exit(0);
   }
 }
+
+/**
+ * @swagger
+ * /api/webhooks:
+ *   post:
+ *     summary: Webhook endpoint
+ *     description: Receives and processes webhook events
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - event
+ *               - data
+ *             properties:
+ *               event:
+ *                 type: string
+ *                 description: Event type
+ *               data:
+ *                 type: object
+ *                 description: Event data
+ *     responses:
+ *       200:
+ *         description: Webhook processed successfully
+ *       400:
+ *         description: Invalid webhook payload
+ *       401:
+ *         description: Webhook authentication failed
+ */
+app.post('/api/webhooks',
+  // Apply webhook-specific middleware
+  webhookBodyParser,
+  webhookFlagMiddleware,
+  webhookPublicKeyMiddleware,
+  webhookAuthMiddleware,
+  async (req, res) => {
+    const requestId = req.requestId || ulid();
+    const logContext = {
+      requestId,
+      endpoint: req.path,
+      method: req.method,
+      component: 'WebhookHandler'
+    };
+    
+    try {
+      // Extract the event from the request
+      const event = auth.webhook.processWebhookEvent(req, logContext);
+      
+      if (!event || !event.event) {
+        logger.warnWithContext('Invalid webhook event format', logContext);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid webhook event format'
+        });
+      }
+      
+      logger.infoWithContext(`Processing webhook event: ${event.event}`, {
+        ...logContext,
+        eventType: event.event
+      });
+      
+      // Handle the event using the factory
+      const result = await webhookEventHandlerFactory.handleEvent(event, req, res);
+      
+      return res.status(200).json({
+        success: true,
+        message: `Webhook ${event.event} processed successfully`,
+        result
+      });
+    } catch (error) {
+      logger.errorWithContext('Error processing webhook', {
+        ...logContext,
+        error: error.message
+      });
+      
+      return res.status(500).json({
+        success: false,
+        error: 'Error processing webhook',
+        message: error.message
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/send-webhook:
+ *   post:
+ *     summary: Send a webhook notification
+ *     description: Sends a webhook notification to a configured endpoint
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - event
+ *               - data
+ *             properties:
+ *               event:
+ *                 type: string
+ *                 description: Event type
+ *               data:
+ *                 type: object
+ *                 description: Event data
+ *     responses:
+ *       200:
+ *         description: Webhook sent successfully
+ *       400:
+ *         description: Invalid webhook payload
+ */
+app.post('/api/send-webhook', auth.authenticate, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const logContext = {
+    requestId,
+    endpoint: req.path,
+    method: req.method,
+    component: 'WebhookSender',
+    userId: req.user ? req.user.id : 'anonymous'
+  };
+  
+  try {
+    const { event, data } = req.body;
+    
+    if (!event || !data) {
+      logger.warnWithContext('Invalid webhook payload', logContext);
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid webhook payload'
+      });
+    }
+    
+    logger.infoWithContext(`Sending webhook event: ${event}`, {
+      ...logContext,
+      eventType: event
+    });
+    
+    // In a real application, this would send to an actual endpoint
+    // For this example, we'll mock the webhook sending
+    const result = await auth.webhook.send_webhook(event, data, false, false, req);
+    
+    return res.status(200).json({
+      success: true,
+      message: `Webhook ${event} sent successfully`,
+      requestId: result.requestId
+    });
+  } catch (error) {
+    logger.errorWithContext('Error sending webhook', {
+      ...logContext,
+      error: error.message
+    });
+    
+    return res.status(500).json({
+      success: false,
+      error: 'Error sending webhook',
+      message: error.message
+    });
+  }
+});
 
 // Start the server
 startServer();

@@ -4,8 +4,15 @@
  */
 
 const { ulid } = require("ulid");
-const logger = require("../../../config/logger");
 const config = require("config");
+const logger = require("../../services/logger");
+const { createLogContext, logErrorWithMetrics } = logger;
+
+const baseModuleContext = createLogContext("BlockchainService", "module", {
+  loadedAt: new Date().toISOString()
+});
+
+logger.debugWithContext("Loading blockchainservice.js module", baseModuleContext);
 
 /**
  * Constants and Configuration
@@ -105,13 +112,17 @@ const PayloadNEP413Schema = {
   async function nearorg_rpc_timestamp() {
     const requestId = ulid();
     const startTime = Date.now();
-
-    logger.debug("Fetching blockchain timestamp", {
-      component: "BlockchainService",
-      method: "nearorg_rpc_timestamp",
-      requestId,
-      rpcUrl: NEAR_RPC_URL,
-    });
+    
+    const baseContext = createLogContext(
+      "BlockchainService",
+      "nearorg_rpc_timestamp",
+      {
+        requestId,
+        rpcUrl: NEAR_RPC_URL
+      }
+    );
+    
+    logger.debugWithContext("Fetching blockchain timestamp", baseContext);
 
     try {
       const jsonData = {
@@ -133,27 +144,39 @@ const PayloadNEP413Schema = {
       });
       const fetchDuration = Date.now() - fetchStartTime;
 
-      logger.debug("RPC response received", {
-        requestId,
+      logger.debugWithContext("RPC response received", {
+        ...baseContext,
         statusCode: response.status,
-        fetchDuration,
+        fetchDuration
       });
 
       if (!response.ok) {
-        logger.error("HTTP error from blockchain RPC", {
-          component: "BlockchainService",
-          requestId,
-          statusCode: response.status,
-          statusText: response.statusText,
-          duration: Date.now() - startTime,
-        });
-
+        const duration = Date.now() - startTime;
+        
         // Add metric for failed RPC calls
         logger.metric("near_rpc_calls", fetchDuration, {
           result: "http_error",
           status_code: response.status,
           method: "block",
         });
+        
+        logErrorWithMetrics(
+          "HTTP error from blockchain RPC",
+          {
+            ...baseContext,
+            statusCode: response.status,
+            statusText: response.statusText,
+            duration
+          },
+          new Error(`HTTP error! status: ${response.status}`),
+          "near_rpc_http_error",
+          {
+            result: "error",
+            status_code: response.status,
+            method: "block",
+            duration
+          }
+        );
 
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -162,25 +185,37 @@ const PayloadNEP413Schema = {
       const parsedJson = await response.json();
       const parseDuration = Date.now() - parseStartTime;
 
-      logger.debug("RPC response parsed", {
-        requestId,
-        parseDuration,
+      logger.debugWithContext("RPC response parsed", {
+        ...baseContext,
+        parseDuration
       });
 
       if (parsedJson.error) {
-        logger.error("RPC error response", {
-          component: "BlockchainService",
-          requestId,
-          rpcError: parsedJson.error.message,
-          rpcErrorCode: parsedJson.error.code,
-          duration: Date.now() - startTime,
-        });
-
+        const duration = Date.now() - startTime;
+        
         // Add metric for RPC errors
         logger.metric("near_rpc_errors", 1, {
           error_code: parsedJson.error.code || "unknown",
           method: "block",
         });
+        
+        logErrorWithMetrics(
+          "RPC error response",
+          {
+            ...baseContext,
+            rpcError: parsedJson.error.message,
+            rpcErrorCode: parsedJson.error.code,
+            duration
+          },
+          new Error(`Error 017: ${parsedJson.error.message}`),
+          "near_rpc_error_response",
+          {
+            result: "error",
+            error_code: parsedJson.error.code || "unknown",
+            method: "block",
+            duration
+          }
+        );
 
         throw new Error(`Error 017: ${parsedJson.error.message}`);
       }
@@ -188,14 +223,12 @@ const PayloadNEP413Schema = {
       const timestamp = parsedJson.result?.header?.timestamp;
       const totalDuration = Date.now() - startTime;
 
-      logger.info("Blockchain timestamp fetched successfully", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_timestamp",
-        requestId,
+      logger.infoWithContext("Blockchain timestamp fetched successfully", {
+        ...baseContext,
         duration: totalDuration,
         fetchDuration,
         parseDuration,
-        timestamp: timestamp || "0",
+        timestamp: timestamp || "0"
       });
 
       // Add metric for successful RPC calls
@@ -208,23 +241,26 @@ const PayloadNEP413Schema = {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error("Error fetching blockchain timestamp", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_timestamp",
-        requestId,
-        duration,
-        rpcUrl: NEAR_RPC_URL,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-
       // Add metrics for timestamp errors
       logger.metric("near_rpc_timestamp_errors", 1, {
         error_type: error.name || "Unknown",
       });
+      
+      logErrorWithMetrics(
+        "Error fetching blockchain timestamp",
+        {
+          ...baseContext,
+          duration,
+          rpcUrl: NEAR_RPC_URL
+        },
+        error,
+        "near_rpc_timestamp",
+        {
+          result: "error",
+          error_type: error.name || "Unknown",
+          duration
+        }
+      );
 
       throw error;
     }
@@ -239,27 +275,27 @@ const PayloadNEP413Schema = {
   async function nearorg_rpc_tokenfromroditid(roditid) {
     const requestId = ulid();
     const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "BlockchainService",
+      "nearorg_rpc_tokenfromroditid",
+      {
+        requestId,
+        roditId: roditid
+      }
+    );
 
     // Security check: Handle null, undefined, or invalid roditid
     // This is important for security tests that intentionally send invalid tokens
     if (!roditid) {
-      logger.warn("Attempted to fetch RODiT with null/undefined ID", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_tokenfromroditid",
-        requestId,
-      });
+      logger.warnWithContext("Attempted to fetch RODiT with null/undefined ID", baseContext);
       
       // Return an empty RODiT object instead of throwing an error
       // This allows the authentication flow to continue and properly reject the invalid token
       return new RODiT();
     }
 
-    logger.debug("Fetching RODiT token by ID", {
-      component: "BlockchainService",
-      method: "nearorg_rpc_tokenfromroditid",
-      requestId,
-      roditId: roditid,
-    });
+    logger.debugWithContext("Fetching RODiT token by ID", baseContext);
 
     try {
       const args = { token_id: roditid };
@@ -286,27 +322,38 @@ const PayloadNEP413Schema = {
       });
       const fetchDuration = Date.now() - fetchStartTime;
 
-      logger.debug("RPC response received", {
-        requestId,
+      logger.debugWithContext("RPC response received", {
+        ...baseContext,
         statusCode: response.status,
-        fetchDuration,
+        fetchDuration
       });
 
       if (!response.ok) {
-        logger.error("HTTP error from blockchain RPC", {
-          component: "BlockchainService",
-          requestId,
-          roditId: roditid,
-          statusCode: response.status,
-          duration: Date.now() - startTime,
-        });
-
+        const duration = Date.now() - startTime;
+        
         // Add metric for failed RPC calls
         logger.metric("near_rpc_calls", fetchDuration, {
           result: "http_error",
           status_code: response.status,
           method: "rodit_token",
         });
+        
+        logErrorWithMetrics(
+          "HTTP error from blockchain RPC",
+          {
+            ...baseContext,
+            statusCode: response.status,
+            duration
+          },
+          new Error(`HTTP error! status: ${response.status}`),
+          "near_rpc_http_error",
+          {
+            result: "error",
+            status_code: response.status,
+            method: "rodit_token",
+            duration
+          }
+        );
 
         return new RODiT();
       }
@@ -316,46 +363,67 @@ const PayloadNEP413Schema = {
       const parsedJson = JSON.parse(responseText);
       const parseDuration = Date.now() - parseStartTime;
 
-      logger.debug("RPC response parsed", {
-        requestId,
+      logger.debugWithContext("RPC response parsed", {
+        ...baseContext,
         parseDuration,
-        hasResult: !!parsedJson.result,
+        hasResult: !!parsedJson.result
       });
 
       if (parsedJson.result && parsedJson.result.error) {
-        logger.error("WASM execution error", {
-          component: "BlockchainService",
-          requestId,
-          roditId: roditid,
-          wasmError: parsedJson.result.error,
-          duration: Date.now() - startTime,
-        });
-
+        const duration = Date.now() - startTime;
+        
         // Add metric for WASM errors
         logger.metric("near_rpc_wasm_errors", 1, {
           method: "rodit_token",
           rodit_id: roditid,
         });
+        
+        logErrorWithMetrics(
+          "WASM execution error",
+          {
+            ...baseContext,
+            wasmError: parsedJson.result.error,
+            duration
+          },
+          new Error(`WASM execution error: ${parsedJson.result.error}`),
+          "near_rpc_wasm_error",
+          {
+            method: "rodit_token",
+            rodit_id: roditid,
+            duration
+          }
+        );
 
         return new RODiT();
       }
 
       const resultArray = parsedJson.result.result;
       if (!Array.isArray(resultArray)) {
-        logger.error("Invalid result format", {
-          component: "BlockchainService",
-          requestId,
-          roditId: roditid,
-          resultType: typeof resultArray,
-          duration: Date.now() - startTime,
-        });
-
+        const duration = Date.now() - startTime;
+        
         // Add metric for format errors
         logger.metric("near_rpc_format_errors", 1, {
           method: "rodit_token",
           rodit_id: roditid,
           error_type: "invalid_array",
         });
+        
+        logErrorWithMetrics(
+          "Invalid result format",
+          {
+            ...baseContext,
+            resultType: typeof resultArray,
+            duration
+          },
+          new Error("Result is not an array"),
+          "near_rpc_format_error",
+          {
+            method: "rodit_token",
+            rodit_id: roditid,
+            error_type: "invalid_array",
+            duration
+          }
+        );
 
         return new RODiT();
       }
@@ -367,20 +435,28 @@ const PayloadNEP413Schema = {
       try {
         parsed = JSON.parse(resultString);
       } catch (error) {
-        logger.error("Failed to parse RODiT data", {
-          component: "BlockchainService",
-          requestId,
-          error: error.message,
-        });
+        logErrorWithMetrics(
+          "Failed to parse RODiT data",
+          {
+            ...baseContext,
+            error: error.message
+          },
+          error,
+          "rodit_parse_error",
+          {
+            error_type: error.name || "Unknown",
+            rodit_id: roditid
+          }
+        );
         return new RODiT();
       }
       
       const decodeDuration = Date.now() - decodeStartTime;
 
-      logger.debug("RODiT data decoded", {
-        requestId,
+      logger.debugWithContext("RODiT data decoded", {
+        ...baseContext,
         decodeDuration,
-        hasTokenId: parsed && !!parsed.token_id,
+        hasTokenId: parsed && !!parsed.token_id
       });
 
       const rodit = new RODiT();
@@ -391,16 +467,13 @@ const PayloadNEP413Schema = {
       const totalDuration = Date.now() - startTime;
       const hasValidData = !!rodit.token_id && !!rodit.owner_id;
 
-      logger.info("RODiT token fetched", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_tokenfromroditid",
-        requestId,
+      logger.infoWithContext("RODiT token fetched", {
+        ...baseContext,
         duration: totalDuration,
-        roditId: roditid,
         retrieved: hasValidData,
         fetchDuration,
         parseDuration,
-        decodeDuration,
+        decodeDuration
       });
 
       // Add metrics for successful RPC calls
@@ -414,24 +487,27 @@ const PayloadNEP413Schema = {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error("Failed to fetch RODiT token", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_tokenfromroditid",
-        requestId,
-        duration,
-        roditId: roditid,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        },
-      });
-
       // Add metrics for token fetch errors
       logger.metric("near_rpc_token_errors", 1, {
         error_type: error.name || "Unknown",
         rodit_id: roditid,
       });
+      
+      logErrorWithMetrics(
+        "Failed to fetch RODiT token",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "near_rpc_token_fetch",
+        {
+          result: "error",
+          error_type: error.name || "Unknown",
+          rodit_id: roditid,
+          duration
+        }
+      );
 
       return new RODiT();
     }
@@ -446,14 +522,18 @@ const PayloadNEP413Schema = {
   async function nearorg_rpc_state(accountId) {
     const requestId = ulid();
     const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "BlockchainService",
+      "nearorg_rpc_state",
+      {
+        requestId,
+        accountId,
+        contractId: CONSTANTS.NEAR_CONTRACT_ID
+      }
+    );
 
-    logger.debug("Checking account state on blockchain", {
-      component: "BlockchainService",
-      method: "nearorg_rpc_state",
-      requestId,
-      accountId,
-      contractId: CONSTANTS.NEAR_CONTRACT_ID,
-    });
+    logger.debugWithContext("Checking account state on blockchain", baseContext);
 
     try {
       const jsonData = {
@@ -467,11 +547,9 @@ const PayloadNEP413Schema = {
         },
       };
 
-      logger.debug("Sending RPC request for account state", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_state",
-        requestId,
-        rpcMethod: "view_account",
+      logger.debugWithContext("Sending RPC request for account state", {
+        ...baseContext,
+        rpcMethod: "view_account"
       });
 
       const response = await fetch(NEAR_RPC_URL, {
@@ -487,13 +565,10 @@ const PayloadNEP413Schema = {
       if (JSON.stringify(responseText).includes("does not exist while viewing")) {
         const duration = Date.now() - startTime;
 
-        logger.warn("Account does not exist in blockchain", {
-          component: "BlockchainService",
-          method: "nearorg_rpc_state",
-          requestId,
+        logger.warnWithContext("Account does not exist in blockchain", {
+          ...baseContext,
           duration,
-          accountId,
-          needsFunding: true,
+          needsFunding: true
         });
 
         // Emit metrics for Grafana dashboards
@@ -511,13 +586,10 @@ const PayloadNEP413Schema = {
       }
 
       const duration = Date.now() - startTime;
-      logger.debug("Account state verification complete", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_state",
-        requestId,
+      logger.debugWithContext("Account state verification complete", {
+        ...baseContext,
         duration,
-        accountId,
-        accountExists: true,
+        accountExists: true
       });
 
       // Emit metrics for Grafana dashboards
@@ -531,16 +603,6 @@ const PayloadNEP413Schema = {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error("Failed to check account state", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_state",
-        requestId,
-        duration,
-        accountId,
-        errorMessage: error.message,
-        stack: error.stack,
-      });
-
       // Emit metrics for Grafana dashboards
       logger.metric("account_state_check_duration_ms", duration, {
         component: "BlockchainService",
@@ -552,6 +614,21 @@ const PayloadNEP413Schema = {
         method: "account_state",
         error: error.constructor.name,
       });
+      
+      logErrorWithMetrics(
+        "Failed to check account state",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "account_state_check",
+        {
+          result: "error",
+          error_type: error.constructor.name,
+          duration
+        }
+      );
 
       throw error;
     }
@@ -566,14 +643,18 @@ const PayloadNEP413Schema = {
   async function nearorg_rpc_tokensfromaccountid(account_id) {
     const requestId = ulid();
     const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "BlockchainService",
+      "nearorg_rpc_tokensfromaccountid",
+      {
+        requestId,
+        accountId: account_id,
+        contractId: CONSTANTS.NEAR_CONTRACT_ID
+      }
+    );
 
-    logger.debug("Fetching RODiT tokens for account", {
-      component: "BlockchainService",
-      method: "nearorg_rpc_tokensfromaccountid",
-      requestId,
-      accountId: account_id,
-      contractId: CONSTANTS.NEAR_CONTRACT_ID,
-    });
+    logger.debugWithContext("Fetching RODiT tokens for account", baseContext);
 
     try {
       const args = JSON.stringify({
@@ -595,11 +676,9 @@ const PayloadNEP413Schema = {
         },
       };
 
-      logger.debug("Sending RPC request for account tokens", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_tokensfromaccountid",
-        requestId,
-        rpcMethod: "rodit_tokens_for_owner",
+      logger.debugWithContext("Sending RPC request for account tokens", {
+        ...baseContext,
+        rpcMethod: "rodit_tokens_for_owner"
       });
 
       const response = await fetch(NEAR_RPC_URL, {
@@ -614,15 +693,6 @@ const PayloadNEP413Schema = {
       if (parsedJson.result && parsedJson.result.error) {
         const duration = Date.now() - startTime;
 
-        logger.error("WASM execution error", {
-          component: "BlockchainService",
-          method: "nearorg_rpc_tokensfromaccountid",
-          requestId,
-          duration,
-          accountId: account_id,
-          wasmError: parsedJson.result.error,
-        });
-
         // Emit metrics for Grafana dashboards
         logger.metric("account_tokens_fetch_duration_ms", duration, {
           component: "BlockchainService",
@@ -634,6 +704,22 @@ const PayloadNEP413Schema = {
           method: "tokens_from_account",
           error: "WASM_ERROR",
         });
+        
+        logErrorWithMetrics(
+          "WASM execution error",
+          {
+            ...baseContext,
+            duration,
+            wasmError: parsedJson.result.error
+          },
+          new Error(`Smart contract execution failed: ${parsedJson.result.error}`),
+          "account_tokens_fetch",
+          {
+            result: "error",
+            error_type: "WASM_ERROR",
+            duration
+          }
+        );
 
         throw new Error(
           `Smart contract execution failed: ${parsedJson.result.error}`
@@ -644,15 +730,6 @@ const PayloadNEP413Schema = {
       if (!Array.isArray(resultArray)) {
         const duration = Date.now() - startTime;
 
-        logger.error("Invalid result format from blockchain", {
-          component: "BlockchainService",
-          method: "nearorg_rpc_tokensfromaccountid",
-          requestId,
-          duration,
-          accountId: account_id,
-          resultType: typeof resultArray,
-        });
-
         // Emit metrics for Grafana dashboards
         logger.metric("account_tokens_fetch_duration_ms", duration, {
           component: "BlockchainService",
@@ -664,6 +741,22 @@ const PayloadNEP413Schema = {
           method: "tokens_from_account",
           error: "INVALID_RESULT_FORMAT",
         });
+        
+        logErrorWithMetrics(
+          "Invalid result format from blockchain",
+          {
+            ...baseContext,
+            duration,
+            resultType: typeof resultArray
+          },
+          new Error("Result is not an array"),
+          "account_tokens_fetch",
+          {
+            result: "error",
+            error_type: "INVALID_RESULT_FORMAT",
+            duration
+          }
+        );
 
         throw new Error("Result is not an array");
       }
@@ -674,13 +767,10 @@ const PayloadNEP413Schema = {
       if (!Array.isArray(resultStruct) || resultStruct.length === 0) {
         const duration = Date.now() - startTime;
 
-        logger.warn("No RODiT instances found for account", {
-          component: "BlockchainService",
-          method: "nearorg_rpc_tokensfromaccountid",
-          requestId,
+        logger.warnWithContext("No RODiT instances found for account", {
+          ...baseContext,
           duration,
-          accountId: account_id,
-          tokenCount: 0,
+          tokenCount: 0
         });
 
         // Emit metrics for Grafana dashboards
@@ -702,14 +792,11 @@ const PayloadNEP413Schema = {
       Object.assign(rodit, resultStruct[0]);
 
       const duration = Date.now() - startTime;
-      logger.debug("Successfully retrieved RODiT tokens", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_tokensfromaccountid",
-        requestId,
+      logger.debugWithContext("Successfully retrieved RODiT tokens", {
+        ...baseContext,
         duration,
-        accountId: account_id,
         tokenCount: resultStruct.length,
-        firstTokenId: rodit.token_id,
+        firstTokenId: rodit.token_id
       });
 
       // Emit metrics for Grafana dashboards
@@ -723,16 +810,6 @@ const PayloadNEP413Schema = {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error("Failed to fetch RODiT tokens", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_tokensfromaccountid",
-        requestId,
-        duration,
-        accountId: account_id,
-        errorMessage: error.message,
-        stack: error.stack,
-      });
-
       // Emit metrics for Grafana dashboards
       logger.metric("account_tokens_fetch_duration_ms", duration, {
         component: "BlockchainService",
@@ -744,6 +821,21 @@ const PayloadNEP413Schema = {
         method: "tokens_from_account",
         error: error.constructor.name,
       });
+      
+      logErrorWithMetrics(
+        "Failed to fetch RODiT tokens",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "account_tokens_fetch",
+        {
+          result: "error",
+          error_type: error.constructor.name,
+          duration
+        }
+      );
 
       throw error;
     }
@@ -758,37 +850,33 @@ const PayloadNEP413Schema = {
   async function nearorg_rpc_fetchpublickeybytes(accountId) {
     const requestId = ulid();
     const startTime = Date.now();
+    
+    const baseContext = createLogContext(
+      "BlockchainService",
+      "nearorg_rpc_fetchpublickeybytes",
+      {
+        requestId,
+        accountId
+      }
+    );
 
-    logger.debug("Fetching public key bytes", {
-      component: "BlockchainService",
-      method: "nearorg_rpc_fetchpublickeybytes",
-      requestId,
-      accountId,
-    });
+    logger.debugWithContext("Fetching public key bytes", baseContext);
 
     try {
       const isImplicitAccount = /^[0-9a-f]{64}$/.test(accountId);
 
       if (isImplicitAccount) {
-        logger.debug("Account is implicit, using direct hex encoding", {
-          component: "BlockchainService",
-          method: "nearorg_rpc_fetchpublickeybytes",
-          requestId,
-          accountId,
-        });
+        logger.debugWithContext("Account is implicit, using direct hex encoding", baseContext);
 
         const result = new Uint8Array(Buffer.from(accountId, "hex"));
 
         const duration = Date.now() - startTime;
-        logger.debug(
+        logger.debugWithContext(
           "Successfully retrieved public key bytes from implicit account",
           {
-            component: "BlockchainService",
-            method: "nearorg_rpc_fetchpublickeybytes",
-            requestId,
-            accountId,
+            ...baseContext,
             duration,
-            keyLength: result.length,
+            keyLength: result.length
           }
         );
 
@@ -802,12 +890,7 @@ const PayloadNEP413Schema = {
         return result;
       }
 
-      logger.debug("Account is named, fetching RODiT token", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_fetchpublickeybytes",
-        requestId,
-        accountId,
-      });
+      logger.debugWithContext("Account is named, fetching RODiT token", baseContext);
 
       const rodit = await this.nearorg_rpc_tokensfromaccountid(
         CONSTANTS.NEAR_CONTRACT_ID,
@@ -816,15 +899,7 @@ const PayloadNEP413Schema = {
 
       if (!rodit || !rodit.owner_id) {
         const duration = Date.now() - startTime;
-        logger.error("No valid RODiT found for account", {
-          component: "BlockchainService",
-          method: "nearorg_rpc_fetchpublickeybytes",
-          requestId,
-          accountId,
-          duration,
-          error: "NO_VALID_RODIT",
-        });
-
+        
         // Emit metrics for Grafana dashboards
         logger.metric("public_key_fetch_duration_ms", duration, {
           method: "rodit_lookup",
@@ -837,6 +912,23 @@ const PayloadNEP413Schema = {
           component: "BlockchainService",
           error: "NO_VALID_RODIT",
         });
+        
+        logErrorWithMetrics(
+          "No valid RODiT found for account",
+          {
+            ...baseContext,
+            duration,
+            error: "NO_VALID_RODIT"
+          },
+          new Error(`No valid RODiT found for account: ${accountId}`),
+          "public_key_fetch",
+          {
+            result: "error",
+            error_type: "NO_VALID_RODIT",
+            method: "rodit_lookup",
+            duration
+          }
+        );
 
         throw new Error(`No valid RODiT found for account: ${accountId}`);
       }
@@ -844,13 +936,10 @@ const PayloadNEP413Schema = {
       const result = new Uint8Array(Buffer.from(rodit.owner_id, "hex"));
 
       const duration = Date.now() - startTime;
-      logger.debug("Successfully retrieved public key bytes from RODiT", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_fetchpublickeybytes",
-        requestId,
-        accountId,
+      logger.debugWithContext("Successfully retrieved public key bytes from RODiT", {
+        ...baseContext,
         duration,
-        keyLength: result.length,
+        keyLength: result.length
       });
 
       // Emit metrics for Grafana dashboards
@@ -864,16 +953,6 @@ const PayloadNEP413Schema = {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error("Failed to fetch public key bytes", {
-        component: "BlockchainService",
-        method: "nearorg_rpc_fetchpublickeybytes",
-        requestId,
-        accountId,
-        duration,
-        errorMessage: error.message,
-        stack: error.stack,
-      });
-
       // Emit metrics for Grafana dashboards
       logger.metric("public_key_fetch_duration_ms", duration, {
         component: "BlockchainService",
@@ -884,6 +963,21 @@ const PayloadNEP413Schema = {
         component: "BlockchainService",
         error: error.constructor.name,
       });
+      
+      logErrorWithMetrics(
+        "Failed to fetch public key bytes",
+        {
+          ...baseContext,
+          duration
+        },
+        error,
+        "public_key_fetch",
+        {
+          result: "error",
+          error_type: error.constructor.name,
+          duration
+        }
+      );
 
       throw new Error(`Error retrieving public key: ${error.message}`);
     }

@@ -1,8 +1,8 @@
-FROM node:18
+FROM node:18-alpine
 
-# Install tini
+# Install tini for Alpine
 ENV TINI_VERSION v0.19.0
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static /tini
 RUN chmod +x /tini
 
 WORKDIR /app
@@ -18,8 +18,8 @@ RUN npm install --production \
 # Copy application files
 COPY . .
 
-# Create non-root user for better security
-RUN adduser --disabled-password --gecos "" nodeuser && \
+# Create non-root user for better security (Alpine syntax)
+RUN adduser -D -H -s /sbin/nologin nodeuser && \
     chown -R nodeuser:nodeuser /app
 
 USER nodeuser

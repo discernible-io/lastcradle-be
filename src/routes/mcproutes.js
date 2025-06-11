@@ -7,9 +7,11 @@
 
 const express = require('express');
 const router = express.Router();
+const { ulid } = require('ulid');
 const { authenticate_apicall } = require('../../sdk/lib/middleware/authenticationmw');
-const mcpService = require('../../config/mcpservice');
-const logger = require('../../config/logger');
+const mcpService = require('../../sdk/services/mcpservice');
+const logger = require('../../sdk/services/logger');
+const { createLogContext, logErrorWithMetrics } = logger;
 
 /**
  * @swagger
@@ -38,6 +40,23 @@ const logger = require('../../config/logger');
  *         description: Unauthorized
  */
 router.get('/resources', async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const startTime = Date.now();
+  
+  const baseContext = createLogContext({
+    requestId,
+    component: 'MCPRoutes',
+    method: 'listResources',
+    endpoint: '/api/mcp/resources',
+    httpMethod: req.method,
+    userId: req.user?.id,
+    ip: req.ip,
+    limit: req.query.limit,
+    hasCursor: !!req.query.cursor
+  });
+  
+  logger.debugWithContext('Processing MCP resources list request', baseContext);
+  
   try {
     // Extract pagination parameters from query
     const options = {
@@ -48,16 +67,46 @@ router.get('/resources', async (req, res) => {
     // Get resources with pagination
     const result = await mcpService.listAvailableResources(req, options);
     
-    res.json(result);
+    const duration = Date.now() - startTime;
+    logger.infoWithContext('MCP resources listed successfully', {
+      ...baseContext,
+      resourceCount: result.resources?.length || 0,
+      hasNextCursor: !!result.nextCursor,
+      duration
+    });
+    
+    // Add metric for successful operation
+    logger.metric('mcp_operations', duration, {
+      operation: 'listResources',
+      result: 'success'
+    });
+    
+    res.json({
+      ...result,
+      requestId
+    });
   } catch (error) {
-    logger.errorWithContext('Error listing MCP resources', {
-      component: 'MCPRoutes',
-      method: 'GET /resources'
-    }, error);
+    const duration = Date.now() - startTime;
+    
+    logErrorWithMetrics(
+      'Error listing MCP resources',
+      {
+        ...baseContext,
+        duration
+      },
+      error,
+      'mcp_error',
+      {
+        operation: 'listResources',
+        result: 'error',
+        duration
+      }
+    );
     
     res.status(500).json({
       error: 'Failed to list resources',
-      message: error.message
+      message: error.message,
+      requestId
     });
   }
 });
@@ -87,42 +136,117 @@ router.get('/resources', async (req, res) => {
  *         description: Resource not found
  */
 router.get('/resource/:uri(*)', authenticate_apicall, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const startTime = Date.now();
+  const uri = req.params.uri;
+  
+  const baseContext = createLogContext({
+    requestId,
+    component: 'MCPRoutes',
+    method: 'getResource',
+    endpoint: '/api/mcp/resource/:uri',
+    httpMethod: req.method,
+    userId: req.user?.id,
+    ip: req.ip,
+    resourceUri: uri
+  });
+  
+  logger.debugWithContext('Processing MCP resource request', baseContext);
+  
   try {
-    const uri = req.params.uri;
     const resource = await mcpService.getResource(uri, req);
     
     if (!resource) {
+      logger.warnWithContext('MCP resource not found', {
+        ...baseContext,
+        status: 404
+      });
+      
       return res.status(404).json({
         error: 'Resource not found',
-        uri
+        uri,
+        requestId
       });
     }
     
-    res.json(resource);
+    const duration = Date.now() - startTime;
+    logger.infoWithContext('MCP resource retrieved successfully', {
+      ...baseContext,
+      resourceType: resource.type || 'unknown',
+      resourceSize: JSON.stringify(resource).length,
+      duration
+    });
+    
+    // Add metric for successful operation
+    logger.metric('mcp_operations', duration, {
+      operation: 'getResource',
+      resourceUri: uri,
+      result: 'success'
+    });
+    
+    res.json({
+      ...resource,
+      requestId
+    });
   } catch (error) {
-    logger.errorWithContext('Error retrieving MCP resource', {
-      component: 'MCPRoutes',
-      method: 'GET /resource/:uri',
-      uri: req.params.uri
-    }, error);
+    const duration = Date.now() - startTime;
+    const errorContext = {
+      ...baseContext,
+      duration,
+      errorMessage: error.message
+    };
     
     if (error.message.includes('Unauthorized')) {
+      logger.warnWithContext('Unauthorized access to MCP resource', errorContext);
+      
+      // Add metric for unauthorized access
+      logger.metric('mcp_operations', duration, {
+        operation: 'getResource',
+        resourceUri: uri,
+        result: 'unauthorized'
+      });
+      
       return res.status(401).json({
         error: 'Unauthorized access to resource',
-        message: error.message
+        message: error.message,
+        requestId
       });
     }
     
     if (error.message.includes('Unknown') || error.message.includes('not found')) {
+      logger.warnWithContext('MCP resource not found', errorContext);
+      
+      // Add metric for not found
+      logger.metric('mcp_operations', duration, {
+        operation: 'getResource',
+        resourceUri: uri,
+        result: 'not_found'
+      });
+      
       return res.status(404).json({
         error: 'Resource not found',
-        message: error.message
+        message: error.message,
+        requestId
       });
     }
     
+    logErrorWithMetrics(
+      'Error retrieving MCP resource',
+      errorContext,
+      error,
+      'mcp_error',
+      {
+        operation: 'getResource',
+        resourceUri: uri,
+        result: 'error',
+        duration
+      }
+    );
+    
     res.status(500).json({
       error: 'Failed to retrieve resource',
-      message: error.message
+      message: error.message,
+      requestId
     });
   }
 });
@@ -139,19 +263,64 @@ router.get('/resource/:uri(*)', authenticate_apicall, async (req, res) => {
  *         description: MCP schema
  */
 router.get('/schema', async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const startTime = Date.now();
+  
+  const baseContext = createLogContext({
+    requestId,
+    component: 'MCPRoutes',
+    method: 'getSchema',
+    endpoint: '/api/mcp/schema',
+    httpMethod: req.method,
+    userId: req.user?.id,
+    ip: req.ip
+  });
+  
+  logger.debugWithContext('Processing MCP schema request', baseContext);
+  
   try {
     // Reuse the schema resource to avoid duplication
     const schema = await mcpService.getSchemaResource(req);
-    res.json(schema);
+    
+    const duration = Date.now() - startTime;
+    logger.infoWithContext('MCP schema retrieved successfully', {
+      ...baseContext,
+      schemaSize: JSON.stringify(schema).length,
+      duration
+    });
+    
+    // Add metric for successful operation
+    logger.metric('mcp_operations', duration, {
+      operation: 'getSchema',
+      result: 'success'
+    });
+    
+    res.json({
+      ...schema,
+      requestId
+    });
   } catch (error) {
-    logger.errorWithContext('Error retrieving MCP schema', {
-      component: 'MCPRoutes',
-      method: 'GET /schema'
-    }, error);
+    const duration = Date.now() - startTime;
+    
+    logErrorWithMetrics(
+      'Error retrieving MCP schema',
+      {
+        ...baseContext,
+        duration
+      },
+      error,
+      'mcp_error',
+      {
+        operation: 'getSchema',
+        result: 'error',
+        duration
+      }
+    );
     
     res.status(500).json({
       error: 'Failed to retrieve schema',
-      message: error.message
+      message: error.message,
+      requestId
     });
   }
 });

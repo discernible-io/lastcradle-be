@@ -1,12 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const logger = require("../../config/logger");
+const logger = require("../../sdk/services/logger");
 const config = require("config");
 const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
 const { ulid } = require("ulid"); // Adding ulid for request IDs
 const stateManager = require("../../sdk/lib/blockchain/statemanager");
-const { send_webhook, logEvent } = require("../../sdk/lib/auth/authentication");
+const { send_webhook } = require("../../sdk/lib/webhook/webhookhandler");
+const { createLogContext, logEvent, logErrorWithMetrics, debugWithContextIf } = logger;
 
 const DB_PATH = config.get("API_DEFAULT_OPTIONS.DB_PATH");
 
@@ -15,14 +16,19 @@ let db;
 
 // Initialize database and export a function that can be awaited by app.js
 const initializeDatabase = async () => {
+  const requestId = ulid();
+  const startTime = Date.now();
+  
+  const baseContext = createLogContext({
+    requestId,
+    component: 'CRUDARouter',
+    method: 'initializeDatabase',
+    dbPath: DB_PATH
+  });
+  
+  logger.debugWithContext("Starting database initialization", baseContext);
+  
   try {
-    // Create context for database initialization
-    const dbContext = {
-      operation: "db_initialization",
-      dbPath: DB_PATH,
-      module: "cruda_router"
-    };
-
     // Initialize SQLite database
     db = await open({
       filename: DB_PATH,
@@ -35,16 +41,37 @@ const initializeDatabase = async () => {
       title TEXT,
       content TEXT
     )`);
-
-    logger.infoWithContext("SQLite database initialized successfully", dbContext);
+    
+    const duration = Date.now() - startTime;
+    logger.infoWithContext("SQLite database initialized successfully", {
+      ...baseContext,
+      duration
+    });
+    
+    // Add metric for successful operation
+    logger.metric('database_operations', duration, {
+      operation: 'initializeDatabase',
+      result: 'success'
+    });
+    
     return db;
   } catch (error) {
-    const errorContext = {
-      operation: "db_initialization",
-      dbPath: DB_PATH,
-      module: "cruda_router"
-    };
-    logger.errorWithContext("Error initializing SQLite database", errorContext, error);
+    const duration = Date.now() - startTime;
+    
+    logErrorWithMetrics(
+      "Error initializing SQLite database",
+      {
+        ...baseContext,
+        duration
+      },
+      error,
+      'database_error',
+      {
+        operation: 'initializeDatabase',
+        result: 'error',
+        duration
+      }
+    );
     throw error;
   }
 };
@@ -65,19 +92,33 @@ const logAndSendWebhook = async (event, data, isError = false, isTest = false, r
 // Initialize the database when this module is loaded
 initializeDatabase()
   .then(() => {
-    logger.infoWithContext("CRUDA Router database initialized successfully", {
-      module: "cruda_router",
-      status: "ready"
-    });
+    const requestId = ulid();
+    logger.infoWithContext(
+      "CRUDA Router database initialized successfully", 
+      createLogContext({
+        requestId,
+        component: 'CRUDARouter',
+        method: 'moduleInitialization',
+        status: "ready"
+      })
+    );
   })
   .catch((error) => {
-    logger.errorWithContext(
-      "Failed to initialize database", 
-      {
-        module: "cruda_router",
+    const requestId = ulid();
+    logErrorWithMetrics(
+      "Failed to initialize database",
+      createLogContext({
+        requestId,
+        component: 'CRUDARouter',
+        method: 'moduleInitialization',
         status: "failed"
-      },
-      error
+      }),
+      error,
+      'database_error',
+      {
+        operation: 'moduleInitialization',
+        result: 'error'
+      }
     );
     // Don't exit the process - let app.js handle errors
   });
@@ -86,30 +127,49 @@ initializeDatabase()
 const itemExists = async (req, res, next) => {
   const id = parseInt(req.body.id);
   const requestId = req.headers['x-request-id'] || ulid();
+  const startTime = Date.now();
   
-  const itemContext = {
-    operation: "item_exists_check",
+  const baseContext = createLogContext({
     requestId,
+    component: 'CRUDARouter',
+    method: 'itemExists',
+    endpoint: req.path,
+    httpMethod: req.method,
+    userId: req.user?.id,
+    ip: req.ip,
     itemId: id,
-    method: req.method,
-    path: req.path,
-    ip: req.ip
-  };
+    headers: Object.keys(req.headers)
+  });
   
-  logger.debugWithContext("Checking if item exists", itemContext);
+  // Use debugWithContextIf to only log in non-production environments
+  debugWithContextIf(
+    process.env.NODE_ENV !== "production", 
+    "Checking if item exists", 
+    baseContext
+  );
   
   try {
     const comment = await db.get("SELECT * FROM comments WHERE id = ?", id);
     if (!comment) {
       const errorMessage = `Comment not found: ${id}`;
+      const duration = Date.now() - startTime;
       
+      // Use standard logger.warnWithContext since this is important in all environments
       logger.warnWithContext(
         "Comment not found", 
         {
-          ...itemContext,
-          status: "not_found"
+          ...baseContext,
+          status: "not_found",
+          duration
         }
       );
+      
+      // Add metric for not found
+      logger.metric('cruda_operations', duration, {
+        operation: 'itemExists',
+        result: 'not_found',
+        itemId: id
+      });
       
       // Determine if this is part of a test
       const isTest = req.headers['x-webhook-test'] === 'true';
@@ -121,28 +181,58 @@ const itemExists = async (req, res, next) => {
         test_id: isTest ? requestId : undefined
       }, true, isTest, req);
       
-      return res.status(404).json({ error: errorMessage });
+      return res.status(404).json({ 
+        error: errorMessage,
+        requestId 
+      });
     }
+    
+    const duration = Date.now() - startTime;
     
     logger.debugWithContext(
       "Comment found", 
       {
-        ...itemContext,
+        ...baseContext,
         status: "found",
-        commentTitle: comment.title
+        commentTitle: comment.title,
+        duration
       }
     );
     
+    // Add metric for successful operation
+    logger.metric('cruda_operations', duration, {
+      operation: 'itemExists',
+      result: 'success',
+      itemId: id
+    });
+    
     req.comment = comment;
     req.requestId = requestId;
+    req.startTime = startTime; // Track when the request started
     next();
   } catch (error) {
-    logger.errorWithContext(
+    const duration = Date.now() - startTime;
+    
+    // Use logErrorWithMetrics to standardize error logging and metrics
+    logErrorWithMetrics(
       "Error checking if item exists", 
-      itemContext,
-      error
+      {
+        ...baseContext,
+        duration
+      },
+      error,
+      "cruda_error",
+      { 
+        operation: "itemExists", 
+        result: "error",
+        duration
+      }
     );
-    res.status(500).json({ error: "Internal server error" });
+    
+    res.status(500).json({ 
+      error: "Internal server error",
+      requestId 
+    });
   }
 };
 
@@ -152,47 +242,70 @@ router.post(
   (req, res, next) => {
     req.logAction = "create_item";
     req.requestId = req.headers['x-request-id'] || ulid();
+    req.startTime = Date.now();
     req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   async (req, res) => {
+    const requestId = req.requestId;
+    const startTime = req.startTime || Date.now();
+    const routeStartTime = Date.now();
     const { title, content } = req.body;
     
-    // Create context for create operation
-    const createContext = {
-      operation: "create_comment",
-      requestId: req.requestId,
+    // Create context for create operation using the helper function
+    const baseContext = createLogContext({
+      requestId,
+      component: 'CRUDARouter',
+      method: 'createComment',
+      endpoint: req.path,
+      httpMethod: req.method,
+      userId: req.user?.id,
+      ip: req.ip,
       action: req.logAction,
       hasTitle: !!title,
       hasContent: !!content,
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      isTest: req.isWebhookTest
-    };
+      isTest: req.isWebhookTest,
+      headers: Object.keys(req.headers),
+      bodyKeys: Object.keys(req.body || {}),
+      bodySize: req.body ? JSON.stringify(req.body).length : 0
+    });
     
-    logger.infoWithContext("Processing create comment request", createContext);
+    logger.debugWithContext("Processing create comment request", baseContext);
     
     if (!title || !content) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
       const errorMessage = "Invalid create request: missing title or content";
       
       logger.warnWithContext(
         "Invalid create request", 
         {
-          ...createContext,
+          ...baseContext,
           validation: "failed",
           missingTitle: !title,
-          missingContent: !content
+          missingContent: !content,
+          duration,
+          routeDuration
         }
       );
+      
+      // Add metric for validation failure
+      logger.metric('cruda_operations', duration, {
+        operation: 'createComment',
+        result: 'validation_error',
+        statusCode: 400
+      });
       
       // Pass the request object to logAndSendWebhook
       await logAndSendWebhook("create_comment_error", { 
         error: errorMessage,
-        test_id: req.isWebhookTest ? req.requestId : undefined
+        test_id: req.isWebhookTest ? requestId : undefined
       }, true, req.isWebhookTest, req);
       
-      return res.status(400).json({ error: errorMessage });
+      return res.status(400).json({ 
+        error: errorMessage,
+        requestId
+      });
     }
     
     try {
@@ -205,23 +318,37 @@ router.post(
         id: result.lastID,
         title,
         content,
+        requestId
       };
       
       // Add test_id for webhook tracking if this is a test
       if (req.isWebhookTest) {
-        newItem.test_id = req.requestId;
+        newItem.test_id = requestId;
       }
+      
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
       
       logger.infoWithContext(
         "Comment created successfully", 
         {
-          ...createContext,
+          ...baseContext,
           status: "success",
           commentId: result.lastID,
           titleLength: title.length,
-          contentLength: content.length
+          contentLength: content.length,
+          duration,
+          routeDuration
         }
       );
+      
+      // Add metric for successful operation
+      logger.metric('cruda_operations', duration, {
+        operation: 'createComment',
+        result: 'success',
+        titleLength: title.length,
+        contentLength: content.length
+      });
       
       // Send the webhook with additional test flag and pass the request object
       const webhookResult = await logAndSendWebhook("comment_created", newItem, false, req.isWebhookTest, req);
@@ -242,7 +369,7 @@ router.post(
         logger.debugWithContext(
           "Added JWT token to response", 
           {
-            ...createContext,
+            ...baseContext,
             tokenAdded: true
           }
         );
@@ -250,12 +377,29 @@ router.post(
       
       res.status(201).json(response);
     } catch (error) {
-      logger.errorWithContext(
-        "Error creating comment", 
-        createContext,
-        error
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      
+      logErrorWithMetrics(
+        "Error creating comment",
+        {
+          ...baseContext,
+          duration,
+          routeDuration
+        },
+        error,
+        'cruda_error',
+        {
+          operation: 'createComment',
+          result: 'error',
+          duration
+        }
       );
-      res.status(500).json({ error: "Internal server error" });
+      
+      res.status(500).json({ 
+        error: "Internal server error",
+        requestId
+      });
     }
   }
 );
@@ -266,45 +410,70 @@ router.post(
   (req, res, next) => {
     req.logAction = "read_all_items";
     req.requestId = req.headers['x-request-id'] || ulid();
+    req.startTime = Date.now();
     req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   async (req, res) => {
-    // Create context for list operation
-    const listContext = {
-      operation: "list_comments",
-      requestId: req.requestId,
-      action: req.logAction,
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      isTest: req.isWebhookTest
-    };
+    const requestId = req.requestId;
+    const startTime = req.startTime || Date.now();
+    const routeStartTime = Date.now();
     
-    logger.infoWithContext("Processing list comments request", listContext);
+    // Create context for list operation
+    const baseContext = createLogContext({
+      requestId,
+      component: 'CRUDARouter',
+      method: 'listComments',
+      endpoint: req.path,
+      httpMethod: req.method,
+      userId: req.user?.id,
+      ip: req.ip,
+      action: req.logAction,
+      isTest: req.isWebhookTest,
+      headers: Object.keys(req.headers),
+      bodyKeys: Object.keys(req.body || {}),
+      bodySize: req.body ? JSON.stringify(req.body).length : 0
+    });
+    
+    logger.debugWithContext("Processing list comments request", baseContext);
     
     try {
       const comments = await db.all("SELECT * FROM comments");
       const itemCount = comments.length;
       
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      
       logger.infoWithContext(
         "Comments retrieved successfully", 
         {
-          ...listContext,
+          ...baseContext,
           status: "success",
-          count: itemCount
+          count: itemCount,
+          duration,
+          routeDuration
         }
       );
+      
+      // Add metric for successful operation
+      logger.metric('cruda_operations', duration, {
+        operation: 'listComments',
+        result: 'success',
+        count: itemCount
+      });
       
       // Send webhook with test flag if needed and pass the request object
       const webhookPayload = { 
         count: itemCount,
-        test_id: req.isWebhookTest ? req.requestId : undefined
+        test_id: req.isWebhookTest ? requestId : undefined
       };
       
       const webhookResult = await logAndSendWebhook("comments_listed", webhookPayload, false, req.isWebhookTest, req);
       
-      const response = { comments };
+      const response = { 
+        comments,
+        requestId 
+      };
       
       // If this is a test, include webhook result info
       if (req.isWebhookTest) {
@@ -320,7 +489,7 @@ router.post(
         logger.debugWithContext(
           "Added JWT token to response", 
           {
-            ...listContext,
+            ...baseContext,
             tokenAdded: true
           }
         );
@@ -328,12 +497,29 @@ router.post(
       
       res.json(response);
     } catch (error) {
-      logger.errorWithContext(
-        "Error listing comments", 
-        listContext,
-        error
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      
+      logErrorWithMetrics(
+        "Error retrieving comments",
+        {
+          ...baseContext,
+          duration,
+          routeDuration
+        },
+        error,
+        'cruda_error',
+        {
+          operation: 'listComments',
+          result: 'error',
+          duration
+        }
       );
-      res.status(500).json({ error: "Internal server error" });
+      
+      res.status(500).json({ 
+        error: "Internal server error",
+        requestId 
+      });
     }
   }
 );
@@ -343,71 +529,120 @@ router.post(
   "/read",
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
+    req.startTime = Date.now();
     req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   itemExists,
   (req, res, next) => {
     req.logAction = "read_item";
+    req.routeStartTime = Date.now(); // Track when route handler started after middleware
     next();
   },
   async (req, res) => {
+    const requestId = req.requestId;
+    const startTime = req.startTime || Date.now();
+    const routeStartTime = req.routeStartTime || Date.now();
+    
     // Create context for read operation
-    const readContext = {
-      operation: "read_comment",
-      requestId: req.requestId,
+    const baseContext = createLogContext({
+      requestId,
+      component: 'CRUDARouter',
+      method: 'readComment',
+      endpoint: req.path,
+      httpMethod: req.method,
+      userId: req.user?.id,
+      ip: req.ip,
       action: req.logAction,
       commentId: req.comment.id,
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      isTest: req.isWebhookTest
-    };
+      isTest: req.isWebhookTest,
+      headers: Object.keys(req.headers),
+      bodyKeys: Object.keys(req.body || {}),
+      bodySize: req.body ? JSON.stringify(req.body).length : 0
+    });
     
-    logger.infoWithContext("Processing read comment request", readContext);
+    logger.debugWithContext("Processing read comment request", baseContext);
     
-    // Add test_id for webhook tracking if this is a test
-    const commentData = { ...req.comment };
-    if (req.isWebhookTest) {
-      commentData.test_id = req.requestId;
-    }
-    
-    // Send the webhook with test flag if needed and pass the request object
-    const webhookResult = await logAndSendWebhook("comment_read", commentData, false, req.isWebhookTest, req);
-    
-    logger.infoWithContext(
-      "Comment retrieved successfully", 
-      {
-        ...readContext,
-        status: "success",
-        commentTitle: req.comment.title,
-        webhookSent: webhookResult.isValid
+    try {
+      // Add test_id for webhook tracking if this is a test
+      const commentData = { ...req.comment, requestId };
+      if (req.isWebhookTest) {
+        commentData.test_id = requestId;
       }
-    );
-    
-    const response = { ...req.comment };
-    
-    // If this is a test, include webhook result info
-    if (req.isWebhookTest) {
-      response.webhook_result = {
-        success: webhookResult.isValid,
-        correlation_id: webhookResult.requestId,
-        error: webhookResult.error ? webhookResult.error.message : null
-      };
-    }
-    
-    if (req.new_jwt_token) {
-      response.new_jwt_token = req.new_jwt_token;
-      logger.debugWithContext(
-        "Added JWT token to response", 
+      
+      // Send the webhook with test flag if needed and pass the request object
+      const webhookResult = await logAndSendWebhook("comment_read", commentData, false, req.isWebhookTest, req);
+      
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      
+      logger.infoWithContext(
+        "Comment retrieved successfully", 
         {
-          ...readContext,
-          tokenAdded: true
+          ...baseContext,
+          status: "success",
+          commentTitle: req.comment.title,
+          webhookSent: webhookResult.isValid,
+          duration,
+          routeDuration
         }
       );
+      
+      // Add metric for successful operation
+      logger.metric('cruda_operations', duration, {
+        operation: 'readComment',
+        result: 'success',
+        commentId: req.comment.id
+      });
+      
+      const response = { ...req.comment, requestId };
+      
+      // If this is a test, include webhook result info
+      if (req.isWebhookTest) {
+        response.webhook_result = {
+          success: webhookResult.isValid,
+          correlation_id: webhookResult.requestId,
+          error: webhookResult.error ? webhookResult.error.message : null
+        };
+      }
+      
+      if (req.new_jwt_token) {
+        response.new_jwt_token = req.new_jwt_token;
+        logger.debugWithContext(
+          "Added JWT token to response", 
+          {
+            ...baseContext,
+            tokenAdded: true
+          }
+        );
+      }
+      
+      res.json(response);
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      
+      logErrorWithMetrics(
+        "Error retrieving comment",
+        {
+          ...baseContext,
+          duration,
+          routeDuration
+        },
+        error,
+        'cruda_error',
+        {
+          operation: 'readComment',
+          result: 'error',
+          duration
+        }
+      );
+      
+      res.status(500).json({ 
+        error: "Internal server error",
+        requestId 
+      });
     }
-    
-    res.json(response);
   }
 );
 
@@ -416,33 +651,43 @@ router.post(
   "/update",
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
+    req.startTime = Date.now();
     req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   itemExists,
   (req, res, next) => {
     req.logAction = "update_item";
+    req.routeStartTime = Date.now(); // Track when route handler started after middleware
     next();
   },
   async (req, res) => {
+    const requestId = req.requestId;
+    const startTime = req.startTime || Date.now();
+    const routeStartTime = req.routeStartTime || Date.now();
     const { id, title, content } = req.body;
     const oldComment = { ...req.comment };
     
     // Create context for update operation
-    const updateContext = {
-      operation: "update_comment",
-      requestId: req.requestId,
+    const baseContext = createLogContext({
+      requestId,
+      component: 'CRUDARouter',
+      method: 'updateComment',
+      endpoint: req.path,
+      httpMethod: req.method,
+      userId: req.user?.id,
+      ip: req.ip,
       action: req.logAction,
       commentId: id,
       titleUpdated: title !== undefined,
       contentUpdated: content !== undefined,
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      isTest: req.isWebhookTest
-    };
+      isTest: req.isWebhookTest,
+      headers: Object.keys(req.headers),
+      bodyKeys: Object.keys(req.body || {}),
+      bodySize: req.body ? JSON.stringify(req.body).length : 0
+    });
     
-    logger.infoWithContext("Processing update comment request", updateContext);
+    logger.debugWithContext("Processing update comment request", baseContext);
     
     try {
       await db.run(
@@ -455,36 +700,47 @@ router.post(
         id
       );
       
-      logger.infoWithContext(
-        "Comment updated successfully", 
-        {
-          ...updateContext,
-          status: "success",
-          oldTitleLength: oldComment.title.length,
-          newTitleLength: updatedComment.title.length,
-          oldContentLength: oldComment.content.length,
-          newContentLength: updatedComment.content.length
-        }
-      );
-      
-      // Prepare webhook payload
-      const webhookPayload = {
-        id: updatedComment.id,
-        oldTitle: oldComment.title,
-        newTitle: updatedComment.title,
-        oldContent: oldComment.content,
-        newContent: updatedComment.content,
+      // Add test_id for webhook tracking if this is a test
+      const webhookData = {
+        id,
+        old: oldComment,
+        new: updatedComment,
+        requestId
       };
       
-      // Add test_id for webhook tracking if this is a test
       if (req.isWebhookTest) {
-        webhookPayload.test_id = req.requestId;
+        webhookData.test_id = requestId;
       }
       
       // Send the webhook with test flag if needed and pass the request object
-      const webhookResult = await logAndSendWebhook("comment_updated", webhookPayload, false, req.isWebhookTest, req);
+      const webhookResult = await logAndSendWebhook("comment_updated", webhookData, false, req.isWebhookTest, req);
       
-      const response = { ...updatedComment };
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      
+      logger.infoWithContext(
+        "Comment updated successfully", 
+        {
+          ...baseContext,
+          status: "success",
+          titleChanged: oldComment.title !== updatedComment.title,
+          contentChanged: oldComment.content !== updatedComment.content,
+          webhookSent: webhookResult.isValid,
+          duration,
+          routeDuration
+        }
+      );
+      
+      // Add metric for successful operation
+      logger.metric('cruda_operations', duration, {
+        operation: 'updateComment',
+        result: 'success',
+        commentId: id,
+        titleChanged: oldComment.title !== updatedComment.title,
+        contentChanged: oldComment.content !== updatedComment.content
+      });
+      
+      const response = { ...updatedComment, requestId };
       
       // If this is a test, include webhook result info
       if (req.isWebhookTest) {
@@ -500,7 +756,7 @@ router.post(
         logger.debugWithContext(
           "Added JWT token to response", 
           {
-            ...updateContext,
+            ...baseContext,
             tokenAdded: true
           }
         );
@@ -508,12 +764,29 @@ router.post(
       
       res.json(response);
     } catch (error) {
-      logger.errorWithContext(
-        "Error updating comment", 
-        updateContext,
-        error
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      
+      logErrorWithMetrics(
+        "Error updating comment",
+        {
+          ...baseContext,
+          duration,
+          routeDuration
+        },
+        error,
+        'cruda_error',
+        {
+          operation: 'updateComment',
+          result: 'error',
+          duration
+        }
       );
-      res.status(500).json({ error: "Internal server error" });
+      
+      res.status(500).json({ 
+        error: "Internal server error",
+        requestId 
+      });
     }
   }
 );
@@ -523,57 +796,78 @@ router.post(
   "/destroy",
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
+    req.startTime = Date.now();
     req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   itemExists,
   (req, res, next) => {
     req.logAction = "destroy_item";
+    req.routeStartTime = Date.now(); // Track when route handler started after middleware
     next();
   },
   async (req, res) => {
+    const requestId = req.requestId;
+    const startTime = req.startTime || Date.now();
+    const routeStartTime = req.routeStartTime || Date.now();
     const { id } = req.body;
     
     // Create context for destroy operation
-    const destroyContext = {
-      operation: "destroy_comment",
-      requestId: req.requestId,
+    const baseContext = createLogContext({
+      requestId,
+      component: 'CRUDARouter',
+      method: 'destroyComment',
+      endpoint: req.path,
+      httpMethod: req.method,
+      userId: req.user?.id,
+      ip: req.ip,
       action: req.logAction,
       commentId: id,
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      isTest: req.isWebhookTest
-    };
+      isTest: req.isWebhookTest,
+      headers: Object.keys(req.headers),
+      bodyKeys: Object.keys(req.body || {}),
+      bodySize: req.body ? JSON.stringify(req.body).length : 0
+    });
     
-    logger.infoWithContext("Processing destroy comment request", destroyContext);
+    logger.debugWithContext("Processing destroy comment request", baseContext);
     
     try {
       const deletedComment = { ...req.comment };
       await db.run("DELETE FROM comments WHERE id = ?", id);
       
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      
       logger.infoWithContext(
         "Comment destroyed successfully", 
         {
-          ...destroyContext,
+          ...baseContext,
           status: "success",
-          commentTitle: deletedComment.title
+          commentTitle: deletedComment.title,
+          duration,
+          routeDuration
         }
       );
       
+      // Add metric for successful operation
+      logger.metric('cruda_operations', duration, {
+        operation: 'destroyComment',
+        result: 'success',
+        commentId: id
+      });
+      
       // Add test_id for webhook tracking if this is a test
+      const webhookData = { ...deletedComment, requestId };
       if (req.isWebhookTest) {
-        deletedComment.test_id = req.requestId;
+        webhookData.test_id = requestId;
       }
       
       // Send the webhook with test flag if needed and pass the request object
-      const webhookResult = await logAndSendWebhook("comment_destroyed", deletedComment, false, req.isWebhookTest, req);
+      const webhookResult = await logAndSendWebhook("comment_destroyed", webhookData, false, req.isWebhookTest, req);
       
-     // DESTROY - Destroy a comment (continued)
-      // In the previous section, we ended at this point
-      const response = {
-        message: "Comment successfully deleted",
-        deletedComment,
+      const response = { 
+        success: true,
+        requestId
       };
       
       // If this is a test, include webhook result info
@@ -590,20 +884,37 @@ router.post(
         logger.debugWithContext(
           "Added JWT token to response", 
           {
-            ...destroyContext,
+            ...baseContext,
             tokenAdded: true
           }
         );
       }
       
-      res.status(200).json(response);
+      res.json(response);
     } catch (error) {
-      logger.errorWithContext(
-        "Error destroying comment", 
-        destroyContext,
-        error
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      
+      logErrorWithMetrics(
+        "Error destroying comment",
+        {
+          ...baseContext,
+          duration,
+          routeDuration
+        },
+        error,
+        'cruda_error',
+        {
+          operation: 'destroyComment',
+          result: 'error',
+          duration
+        }
       );
-      res.status(500).json({ error: "Internal server error" });
+      
+      res.status(500).json({ 
+        error: "Internal server error",
+        requestId 
+      });
     }
   }
 );

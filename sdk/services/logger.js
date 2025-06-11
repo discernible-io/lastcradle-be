@@ -95,6 +95,24 @@ logger.logWithContext = (level, message, context = {}, error = null) => {
   logger[`${level}WithContext`] = (message, context = {}, error = null) => {
     logger.logWithContext(level, message, context, error);
   };
+  
+  // Add conditional logging helpers to avoid verbose if-statements
+  logger[`${level}If`] = (condition, message, context = {}, error = null) => {
+    if (condition) {
+      if (level === 'error') {
+        logger[level](message, context, error);
+      } else {
+        logger[level](message, context);
+      }
+    }
+  };
+  
+  // Add conditional context-based logging helpers
+  logger[`${level}WithContextIf`] = (condition, message, context = {}, error = null) => {
+    if (condition) {
+      logger[`${level}WithContext`](message, context, error);
+    }
+  };
 });
 
 // Add metric function for Grafana/Prometheus style metrics
@@ -113,6 +131,74 @@ logger.metric = (name, value, labels = {}) => {
   // This is a minimal implementation to resolve the error
 };
 
+// Add helper to log error and metrics in a standardized way to avoid duplication
+logger.logErrorWithMetrics = (message, context = {}, error = null, metricName = 'error_count', metricLabels = {}) => {
+  // Log the error with context
+  logger.errorWithContext(message, context, error);
+  
+  // Record the metric
+  logger.metric(metricName, 1, {
+    error_type: error?.name || "Unknown",
+    error_message: error?.message?.substring(0, 100) || "Unknown",
+    ...metricLabels
+  });
+};
+
+/**
+ * Creates a standardized context object for logging
+ * 
+ * @param {string} component - The component/module name
+ * @param {string} event - The event name/description
+ * @param {Object} data - Additional data to include in the context
+ * @param {Error|string|null} error - Optional error object or message
+ * @returns {Object} - Standardized context object
+ */
+logger.createLogContext = function(component, event, data = {}, error = null) {
+  return {
+    component,
+    event,
+    ...(error && { error: typeof error === 'string' ? error : error.message }),
+    ...data
+  };
+};
+
+/**
+ * Helper function to log events with standardized format
+ * Consolidated from authentication.js
+ * 
+ * @param {string} event - Event name
+ * @param {Object} data - Event data
+ * @param {boolean} isError - Whether this is an error event
+ */
+logger.logEvent = function(event, data, isError = false) {
+  try {
+    const logLevel = isError ? "error" : "info";
+    const context = logger.createLogContext(
+      "EventLogger",
+      event,
+      {
+        isError,
+        dataType: typeof data,
+        dataKeys: typeof data === 'object' && data !== null ? Object.keys(data) : null,
+        ...(typeof data === 'object' && data !== null ? data : { value: data })
+      }
+    );
+    
+    logger[`${logLevel}WithContext`](event, context);
+  } catch (error) {
+    logger.errorWithContext("Error logging event", logger.createLogContext("EventLogger", event, {}, error));
+  }
+};
+
 // Export both the logger and the SERVICE_NAME constant
 module.exports = logger;
 module.exports.SERVICE_NAME = SERVICE_NAME;
+
+// Export helper functions from the consolidated loghelpers
+module.exports.createLogContext = logger.createLogContext;
+module.exports.logEvent = logger.logEvent;
+module.exports.logErrorWithMetrics = logger.logErrorWithMetrics;
+module.exports.debugWithContextIf = logger.debugWithContextIf;
+module.exports.infoWithContextIf = logger.infoWithContextIf;
+module.exports.warnWithContextIf = logger.warnWithContextIf;
+module.exports.errorWithContextIf = logger.errorWithContextIf;
