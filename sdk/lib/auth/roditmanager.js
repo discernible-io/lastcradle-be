@@ -328,6 +328,26 @@ async initializeCredentialsStore() {
       // Validate private key format before storing in config object
       let privateKeyToUse = credentials.signing_bytes_key;
       
+      // DEVELOPMENT ENVIRONMENT ONLY - Add extremely detailed private key debugging
+      logger.debugWithContext("PRIVATE KEY DEBUG - Initial State in RoditManager", {
+        ...baseContext,
+        keyType: typeof privateKeyToUse,
+        isUint8Array: privateKeyToUse instanceof Uint8Array,
+        isBuffer: Buffer.isBuffer(privateKeyToUse),
+        keyLength: privateKeyToUse ? privateKeyToUse.length : 0,
+        keyConstructor: privateKeyToUse ? privateKeyToUse.constructor.name : 'undefined',
+        keyIsNull: privateKeyToUse === null,
+        keyIsUndefined: privateKeyToUse === undefined,
+        keyToString: privateKeyToUse ? String(privateKeyToUse).substring(0, 100) : 'N/A',
+        keyHasOwnProperty: privateKeyToUse ? Object.getOwnPropertyNames(privateKeyToUse).join(',') : 'N/A',
+        keyPrototype: privateKeyToUse ? Object.getPrototypeOf(privateKeyToUse)?.constructor?.name : 'N/A',
+        // DEV ONLY - Show actual key bytes for debugging
+        keyFirstBytes: privateKeyToUse && privateKeyToUse.length > 0 ? 
+          Array.from(privateKeyToUse.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ') : 'N/A',
+        credentialsSource: typeof credentials,
+        step: "privateKeyValidation"
+      });
+      
       // Detailed private key format validation and logging
       logger.debugWithContext("Private key format validation", {
         ...baseContext,
@@ -343,9 +363,82 @@ async initializeCredentialsStore() {
         if (Buffer.isBuffer(privateKeyToUse)) {
           logger.debugWithContext("Converting Buffer to Uint8Array for private key", {
             ...baseContext,
-            step: "privateKeyConversion"
+            step: "privateKeyConversion",
+            bufferLength: privateKeyToUse.length,
+            bufferFirstBytes: Array.from(privateKeyToUse.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ')
           });
+          
+          // Store original buffer for comparison
+          const originalBuffer = Buffer.from(privateKeyToUse);
+          
+          // Convert to Uint8Array
           privateKeyToUse = new Uint8Array(privateKeyToUse);
+          
+          // Verify conversion was successful with detailed logging
+          logger.debugWithContext("Buffer to Uint8Array conversion result", {
+            ...baseContext,
+            step: "privateKeyConversionResult",
+            originalType: "Buffer",
+            convertedType: privateKeyToUse.constructor.name,
+            isUint8Array: privateKeyToUse instanceof Uint8Array,
+            originalLength: originalBuffer.length,
+            convertedLength: privateKeyToUse.length,
+            originalFirstBytes: Array.from(originalBuffer.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' '),
+            convertedFirstBytes: Array.from(privateKeyToUse.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' '),
+            bytesMatch: Buffer.compare(
+              Buffer.from(privateKeyToUse.slice(0, 8)), 
+              originalBuffer.slice(0, 8)
+            ) === 0 ? "yes" : "no"
+          });
+        } else if (typeof privateKeyToUse === 'object' && privateKeyToUse !== null) {
+          // Try to recover from a JSON-serialized Uint8Array or similar object
+          logger.warnWithContext("Attempting to recover private key from non-standard format", {
+            ...baseContext,
+            recoveryAttempt: true,
+            objectKeys: Object.keys(privateKeyToUse).join(','),
+            hasLength: privateKeyToUse.length !== undefined,
+            lengthType: typeof privateKeyToUse.length
+          });
+          
+          try {
+            // If it's an array-like object, try to convert it to Uint8Array
+            if (Array.isArray(privateKeyToUse) || 
+                (privateKeyToUse.length !== undefined && typeof privateKeyToUse.length === 'number')) {
+              const originalData = privateKeyToUse;
+              privateKeyToUse = new Uint8Array(
+                Array.isArray(privateKeyToUse) ? 
+                  privateKeyToUse : 
+                  Array.from(privateKeyToUse)
+              );
+              
+              logger.infoWithContext("Successfully recovered private key from array-like object", {
+                ...baseContext,
+                recoveredKeyLength: privateKeyToUse.length,
+                recoveredIsUint8Array: privateKeyToUse instanceof Uint8Array,
+                originalType: originalData.constructor.name,
+                // DEV ONLY - Show first few bytes
+                recoveredFirstBytes: Array.from(privateKeyToUse.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ')
+              });
+            } else {
+              throw new Error("Cannot recover key - not an array-like object");
+            }
+          } catch (recoveryError) {
+            logErrorWithMetrics({
+              error: new Error(`Private key recovery failed: ${recoveryError.message}`),
+              context: {
+                ...baseContext,
+                keyType: typeof privateKeyToUse,
+                step: "privateKeyRecoveryFailed",
+                recoveryError: recoveryError.message
+              },
+              metrics: [{
+                name: "private_key_recovery_failures",
+                value: 1,
+                tags: { configType: type }
+              }]
+            });
+            throw new Error("Private key must be a Uint8Array or Buffer");
+          }
         } else {
           logErrorWithMetrics({
             error: new Error("Private key must be a Uint8Array or Buffer"),
@@ -363,6 +456,20 @@ async initializeCredentialsStore() {
           throw new Error("Private key must be a Uint8Array or Buffer");
         }
       }
+      
+      // DEVELOPMENT ENVIRONMENT ONLY - Log private key right before storing in config
+      logger.debugWithContext("PRIVATE KEY DEBUG - Before storing in config", {
+        ...baseContext,
+        keyType: typeof privateKeyToUse,
+        isUint8Array: privateKeyToUse instanceof Uint8Array,
+        isBuffer: Buffer.isBuffer(privateKeyToUse),
+        keyLength: privateKeyToUse ? privateKeyToUse.length : 0,
+        keyConstructor: privateKeyToUse ? privateKeyToUse.constructor.name : 'undefined',
+        // DEV ONLY - Show actual key bytes for debugging
+        keyFirstBytes: privateKeyToUse && privateKeyToUse.length > 0 ? 
+          Array.from(privateKeyToUse.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ') : 'N/A',
+        step: "preConfigStorage"
+      });
       
       const configObject = {
         own_rodit,

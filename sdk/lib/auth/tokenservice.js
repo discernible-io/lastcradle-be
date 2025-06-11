@@ -373,6 +373,25 @@ const {
       }
     );
     
+    // DEVELOPMENT ENVIRONMENT ONLY - Add detailed private key debugging
+    logger.debugWithContext("PRIVATE KEY DEBUG - Function Entry", {
+      ...baseContext,
+      keyType: typeof own_rodit_bytes_private_key,
+      isUint8Array: own_rodit_bytes_private_key instanceof Uint8Array,
+      isBuffer: Buffer.isBuffer(own_rodit_bytes_private_key),
+      keyLength: own_rodit_bytes_private_key ? own_rodit_bytes_private_key.length : 0,
+      keyConstructor: own_rodit_bytes_private_key ? own_rodit_bytes_private_key.constructor.name : 'undefined',
+      keyIsNull: own_rodit_bytes_private_key === null,
+      keyIsUndefined: own_rodit_bytes_private_key === undefined,
+      keyToString: own_rodit_bytes_private_key ? String(own_rodit_bytes_private_key).substring(0, 100) : 'N/A',
+      keyHasOwnProperty: own_rodit_bytes_private_key ? Object.getOwnPropertyNames(own_rodit_bytes_private_key).join(',') : 'N/A',
+      keyPrototype: own_rodit_bytes_private_key ? Object.getPrototypeOf(own_rodit_bytes_private_key)?.constructor?.name : 'N/A',
+      // DEV ONLY - Show actual key bytes for debugging
+      keyFirstBytes: own_rodit_bytes_private_key && own_rodit_bytes_private_key.length > 0 ? 
+        Array.from(own_rodit_bytes_private_key.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ') : 'N/A',
+      keySource: 'tokenservice.generate_jwt_token.entry'
+    });
+    
     logger.debugWithContext("Starting JWT token generation", baseContext);
 
     try {
@@ -448,13 +467,30 @@ const {
         ...baseContext,
         encodeDuration,
         roditIdLength: own_rodit.token_id.length,
-        timestampLength: timeString.length,
+        timestampLength: now.toString().length,
         totalLength: roditidandtimestamp.length
       });
 
       const signatureStart = Date.now();
       
-      // Handle different private key formats
+      // DEVELOPMENT ENVIRONMENT ONLY - Add detailed private key debugging before signing
+      logger.debugWithContext("PRIVATE KEY DEBUG - Before Signing", {
+        ...baseContext,
+        keyType: typeof own_rodit_bytes_private_key,
+        isUint8Array: own_rodit_bytes_private_key instanceof Uint8Array,
+        isBuffer: Buffer.isBuffer(own_rodit_bytes_private_key),
+        keyLength: own_rodit_bytes_private_key ? own_rodit_bytes_private_key.length : 0,
+        keyConstructor: own_rodit_bytes_private_key ? own_rodit_bytes_private_key.constructor.name : 'undefined',
+        keyIsNull: own_rodit_bytes_private_key === null,
+        keyIsUndefined: own_rodit_bytes_private_key === undefined,
+        keySource: 'tokenservice.generate_jwt_token.before_signing',
+        // DEV ONLY - Show actual key bytes for debugging
+        keyFirstBytes: own_rodit_bytes_private_key && own_rodit_bytes_private_key.length > 0 ? 
+          Array.from(own_rodit_bytes_private_key.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ') : 'N/A',
+        dataToSign: roditidandtimestamp.toString('hex').substring(0, 50) + '...'
+      });
+      
+      // Check if the private key is a Uint8Array, which is required for nacl.sign.detached
       let privateKeyToUse = own_rodit_bytes_private_key;
       
       // Add diagnostic logging to help identify the issue
@@ -466,26 +502,76 @@ const {
           isNull: own_rodit_bytes_private_key === null,
           isUndefined: own_rodit_bytes_private_key === undefined,
           isBuffer: Buffer.isBuffer(own_rodit_bytes_private_key),
-          constructor: own_rodit_bytes_private_key ? own_rodit_bytes_private_key.constructor.name : 'null',
-          // If it's an object, log its keys to understand its structure
-          keys: typeof own_rodit_bytes_private_key === 'object' && own_rodit_bytes_private_key !== null ? 
-                Object.keys(own_rodit_bytes_private_key) : [],
-          // Try to safely stringify the value for inspection
-          stringValue: typeof own_rodit_bytes_private_key === 'string' ? 
-                      own_rodit_bytes_private_key.substring(0, 20) + '...' : 'not a string',
-          // Check if it's an array-like object
-          isArrayLike: own_rodit_bytes_private_key && typeof own_rodit_bytes_private_key.length === 'number',
-          length: own_rodit_bytes_private_key && typeof own_rodit_bytes_private_key.length === 'number' ? 
-                 own_rodit_bytes_private_key.length : 'N/A'
+          keyLength: own_rodit_bytes_private_key ? own_rodit_bytes_private_key.length : 0,
+          keyConstructor: own_rodit_bytes_private_key ? own_rodit_bytes_private_key.constructor.name : 'undefined',
+          // DEV ONLY - Show actual key representation for debugging
+          keyStringified: own_rodit_bytes_private_key ? 
+            JSON.stringify(own_rodit_bytes_private_key).substring(0, 100) + '...' : 'N/A',
+          keySource: 'tokenservice.generate_jwt_token'
         };
         
         // Log the detailed information
-        logger.debugWithContext("Private key is not a Uint8Array", keyInfo);
+        logger.debugWithContext("Private key is not a Uint8Array - Detailed Analysis", keyInfo);
         
         // If it's a Buffer, we can convert it to a Uint8Array
         if (Buffer.isBuffer(own_rodit_bytes_private_key)) {
           logger.infoWithContext("Converting Buffer to Uint8Array", baseContext);
           privateKeyToUse = new Uint8Array(own_rodit_bytes_private_key);
+          
+          // Verify the conversion was successful
+          logger.debugWithContext("Buffer conversion result", {
+            ...baseContext,
+            convertedIsUint8Array: privateKeyToUse instanceof Uint8Array,
+            convertedLength: privateKeyToUse.length,
+            originalLength: own_rodit_bytes_private_key.length,
+            // DEV ONLY - Show first few bytes to verify integrity
+            convertedFirstBytes: Array.from(privateKeyToUse.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' '),
+            originalFirstBytes: Array.from(own_rodit_bytes_private_key.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ')
+          });
+        } else if (typeof own_rodit_bytes_private_key === 'object' && own_rodit_bytes_private_key !== null) {
+          // Try to recover from a JSON-serialized Uint8Array or similar object
+          logger.warnWithContext("Attempting to recover private key from non-standard format", {
+            ...baseContext,
+            recoveryAttempt: true
+          });
+          
+          try {
+            // If it's an array-like object, try to convert it to Uint8Array
+            if (Array.isArray(own_rodit_bytes_private_key) || 
+                (own_rodit_bytes_private_key.length !== undefined && typeof own_rodit_bytes_private_key.length === 'number')) {
+              privateKeyToUse = new Uint8Array(
+                Array.isArray(own_rodit_bytes_private_key) ? 
+                  own_rodit_bytes_private_key : 
+                  Array.from(own_rodit_bytes_private_key)
+              );
+              
+              logger.infoWithContext("Successfully recovered private key from array-like object", {
+                ...baseContext,
+                recoveredKeyLength: privateKeyToUse.length,
+                recoveredIsUint8Array: privateKeyToUse instanceof Uint8Array,
+                // DEV ONLY - Show first few bytes
+                recoveredFirstBytes: Array.from(privateKeyToUse.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ')
+              });
+            } else {
+              throw new Error("Cannot recover key - not an array-like object");
+            }
+          } catch (recoveryError) {
+            logErrorWithMetrics({
+              error: new Error(`Private key recovery failed: ${recoveryError.message}`),
+              context: {
+                ...keyInfo,
+                recoveryError: recoveryError.message
+              },
+              metrics: [
+                {
+                  name: "private_key_recovery_failures",
+                  value: 1,
+                  tags: { keyType: typeof own_rodit_bytes_private_key }
+                }
+              ]
+            });
+            throw new Error("Private key must be a Uint8Array or Buffer for nacl.sign.detached");
+          }
         } else {
           logErrorWithMetrics({
             error: new Error("Private key must be a Uint8Array or Buffer for nacl.sign.detached"),
