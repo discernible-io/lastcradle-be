@@ -23,7 +23,7 @@ const {
 const stateManager = require("../blockchain/statemanager");
 
 
-const baseModuleContext = createLogContext("ModuleLoader", "roditmanager", {
+const baseModuleContext = createLogContext("ModuleLoader", "RoditManager", {
   loadedAt: new Date().toISOString()
 });
 
@@ -35,26 +35,25 @@ logger.debugWithContext("Loading roditmanager.js module", baseModuleContext);
 class RoditManager {
   constructor() {
     const instanceId = ulid();
-    
-    const baseContext = createLogContext("RoditManager", "constructor", {
+
+    const constructorContext = createLogContext("RoditManager", "constructor", {
       instanceId,
       hasExistingInstance: !!RoditManager.instance,
       existingInstanceId: RoditManager.instance ? RoditManager.instance._instanceId : null
     });
     
-    logger.debugWithContext("RoditManager constructor called", baseContext);
-    
+    logger.debugWithContext("RoditManager constructor called", constructorContext);
     if (RoditManager.instance) {
       logger.debugWithContext("Returning existing RoditManager instance", {
-        ...baseContext,
+        ...constructorContext,
         instanceId: RoditManager.instance._instanceId
       });
       return RoditManager.instance;
     }
 
     this._instanceId = instanceId; // Store the instance ID
-    logger.infoWithContext("Creating new RoditManager instance", {
-      ...baseContext,
+    logger.debug("Creating new RoditManager instance", {
+      component: "RoditManager",
       instanceId: this._instanceId
     });
 
@@ -65,67 +64,34 @@ class RoditManager {
 
 async initializeCredentialsStore() {
   const requestId = ulid();
-  const startTime = Date.now();
-  
-  const baseContext = createLogContext(
-    "RoditManager",
-    "initializeCredentialsStore",
-    {
-      requestId,
-      instanceId: this._instanceId
-    }
-  );
-  
-  logger.infoWithContext("Initializing CredentialManager", baseContext);
+  logger.debug("Initializing CredentialManager", {
+    component: "RoditManager",
+    method: "initializeCredentialsStore",
+    requestId,
+    instanceId: this._instanceId
+  });
   
   try {
     const credentialstoreInstance = await initializeProductionCredentialStore();
     await setupTokenRenewal(credentialstoreInstance);
     
-    const duration = Date.now() - startTime;
-    
-    logger.infoWithContext("CredentialStore initialization completed", {
-      ...baseContext,
-      duration
-    });
-    
-    // Emit metrics for Grafana dashboards
-    logger.metric("credential_store_initialization_ms", duration, {
+    logger.debug("CredentialStore initialization completed through CredentialManager", {
       component: "RoditManager",
-      success: true
+      method: "initializeCredentialsStore",
+      requestId,
+      instanceId: this._instanceId
     });
     
     return credentialstoreInstance;
   } catch (error) {
-    const duration = Date.now() - startTime;
-    
-    // Emit metrics for Grafana dashboards
-    logger.metric("credential_store_initialization_ms", duration, {
+    logger.error("Error during CredentialStore initialization", {
       component: "RoditManager",
-      success: false,
-      error: error.name || "Unknown"
+      method: "initializeCredentialsStore",
+      requestId,
+      errorMessage: error.message,
+      errorCode: error.code || "UNKNOWN_ERROR",
+      stack: error.stack
     });
-    logger.metric("credential_store_errors_total", 1, {
-      component: "RoditManager",
-      error_type: error.name || "Unknown"
-    });
-    
-    logErrorWithMetrics(
-      "Error during CredentialStore initialization", 
-      {
-        ...baseContext,
-        duration,
-        errorMessage: error.message,
-        errorCode: error.code || "UNKNOWN_ERROR"
-      },
-      error,
-      "credential_store_initialization",
-      {
-        result: "error",
-        error_type: error.name || "Unknown",
-        duration
-      }
-    );
     
     throw error;
   }
@@ -133,10 +99,9 @@ async initializeCredentialsStore() {
 
   async getCredentials(type) {
     const requestId = ulid();
-    const startTime = Date.now();
     
     const baseContext = createLogContext(
-      "RoditManager",
+      "RoditManager", 
       "getCredentials",
       {
         requestId,
@@ -144,61 +109,31 @@ async initializeCredentialsStore() {
       }
     );
     
-    logger.debugWithContext("Retrieving credentials", baseContext);
+    logger.debugWithContext("Retrieving credentials through CredentialManager", baseContext);
     
     try {
       // Delegate credential retrieval to the CredentialManager
       const credentials = await getCredentials(type);
       
-      const duration = Date.now() - startTime;
-      
-      logger.debugWithContext("Credentials retrieved successfully", {
+      logger.debugWithContext("Credentials retrieved through CredentialManager", {
         ...baseContext,
-        duration,
         hasCredentials: !!credentials
-      });
-      
-      // Emit metrics for Grafana dashboards
-      logger.metric("credential_retrieval_ms", duration, {
-        component: "RoditManager",
-        success: true,
-        credentialType: type
       });
       
       return credentials;
     } catch (error) {
-      const duration = Date.now() - startTime;
-      
-      // Emit metrics for Grafana dashboards
-      logger.metric("credential_retrieval_ms", duration, {
-        component: "RoditManager",
-        success: false,
-        credentialType: type,
-        error: error.name || "Unknown"
-      });
-      logger.metric("credential_retrieval_errors_total", 1, {
-        component: "RoditManager",
-        credentialType: type,
-        error_type: error.name || "Unknown"
-      });
-      
-      logErrorWithMetrics(
-        "Error retrieving credentials", 
-        {
+      logErrorWithMetrics({
+        error,
+        context: {
           ...baseContext,
-          duration,
-          errorMessage: error.message,
           errorCode: error.code || "UNKNOWN_ERROR"
         },
-        error,
-        "credential_retrieval",
-        {
-          result: "error",
-          error_type: error.name || "Unknown",
-          credentialType: type,
-          duration
-        }
-      );
+        metrics: [{
+          name: "credential_retrieval_errors",
+          value: 1,
+          tags: { credentialType: type, errorCode: error.code || "UNKNOWN_ERROR" }
+        }]
+      });
       
       throw error;
     }
@@ -210,59 +145,51 @@ async initializeCredentialsStore() {
     
     // Create a base context for this method
     const baseContext = createLogContext(
-      "RoditManager",
+      "RoditManager", 
       "initializeRoditConfig",
-      { 
+      {
         requestId,
         configType: type
       }
     );
-
-    logger.info("Starting RODiT config initialization", {
-      component: "RoditManager",
-      method: "initializeRoditConfig",
-      requestId,
-      configType: type,
-    });
+    
+    logger.infoWithContext("Starting RODiT config initialization", baseContext);
 
     try {
-      logger.debug("Getting credentials", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
-        step: "fetchCredentials",
+      logger.debugWithContext("Getting credentials", {
+        ...baseContext,
+        step: "fetchCredentials"
       });
 
       const credentials = await this.getCredentials(type);
 
       if (!credentials) {
-        logger.error("Failed to retrieve credentials", {
-          component: "RoditManager",
-          method: "initializeRoditConfig",
-          requestId,
-          configType: type,
-          step: "credentialCheck",
+        logErrorWithMetrics({
+          error: new Error(`Credentials not available for ${type}`),
+          context: {
+            ...baseContext,
+            step: "credentialCheck"
+          },
+          metrics: [{
+            name: "credential_retrieval_failures",
+            value: 1,
+            tags: { configType: type }
+          }]
         });
         throw new Error(`Credentials not available for ${type}`);
       }
 
       const { account_id, implicit_account_id } = credentials;
-      logger.info("Using account for initialization", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
+      logger.infoWithContext("Using account for initialization", {
+        ...baseContext,
         accountId: account_id,
-        step: "accountSetup",
+        step: "accountSetup"
       });
 
-      logger.debug("Checking account state on blockchain", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
+      logger.debugWithContext("Checking account state on blockchain", {
+        ...baseContext,
         accountId: account_id,
-        step: "blockchainCheck",
+        step: "blockchainCheck"
       });
 
       const accountState = await nearorg_rpc_state(
@@ -270,29 +197,23 @@ async initializeCredentialsStore() {
       );
 
       if (!accountState) {
-        logger.warn("Account has no balance in network", {
-          component: "RoditManager",
-          method: "initializeRoditConfig",
-          requestId,
+        logger.warnWithContext("Account has no balance in network", {
+          ...baseContext,
           accountId: account_id,
-          step: "blockchainCheck",
+          step: "blockchainCheck"
         });
       } else {
-        logger.info("Account state verified on blockchain", {
-          component: "RoditManager",
-          method: "initializeRoditConfig",
-          requestId,
+        logger.infoWithContext("Account state verified on blockchain", {
+          ...baseContext,
           accountId: account_id,
-          step: "blockchainCheck",
+          step: "blockchainCheck"
         });
       }
 
-      logger.debug("Fetching RODiT tokens for account", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
+      logger.debugWithContext("Fetching RODiT tokens for account", {
+        ...baseContext,
         accountId: account_id,
-        step: "tokenFetch",
+        step: "tokenFetch"
       });
 
       const own_rodit = await nearorg_rpc_tokensfromaccountid(
@@ -301,14 +222,12 @@ async initializeCredentialsStore() {
 
       // Check if we have a real RODiT token
       if (!own_rodit || !own_rodit.token_id) {
-        logger.warn(
+        logger.warnWithContext(
           "No RODiT instances found, proceeding with partial initialization",
           {
-            component: "RoditManager",
-            method: "initializeRoditConfig",
-            requestId,
+            ...baseContext,
             accountId: account_id,
-            step: "tokenCheck",
+            step: "tokenCheck"
           }
         );
 
@@ -334,49 +253,15 @@ async initializeCredentialsStore() {
           tokenrenewaloptions: config.get("API_DEFAULT_OPTIONS.TOKENRENEWALOPTIONS"),
         };
 
-        const configCopy = JSON.parse(
-          JSON.stringify({
-            ...minimalConfig,
-            // Exclude sensitive data
-            own_rodit_bytes_private_key: "*** REDACTED ***",
-          })
-        );
-
-        logger.info(
-          "Created minimal config object for partial initialization",
-          {
-            component: "RoditManager",
-            method: "initializeRoditConfig",
-            requestId,
-            configType: type,
-            configObject: configCopy,
-            step: "minimalConfig",
-          }
-        );
-
-        logger.debug("Storing minimal configuration in state manager", {
-          component: "RoditManager",
-          method: "initializeRoditConfig",
-          requestId,
-          configType: type,
-          step: "storeConfig",
-        });
-
         await this.stateManager.setConfigOwnRodit(minimalConfig);
 
-        logger.debug("Converting implicit account ID to base64url", {
-          component: "RoditManager",
-          method: "initializeRoditConfig",
-          requestId,
-          configType: type,
+        logger.debugWithContext("Converting implicit account ID to base64url", {
+          ...baseContext,
           step: "keyConversion",
         });
 
-        logger.debug("Setting session base64url JWK public key", {
-          component: "RoditManager",
-          method: "initializeRoditConfig",
-          requestId,
-          configType: type,
+        logger.debugWithContext("Setting session base64url JWK public key", {
+          ...baseContext,
           step: "setSessionKey",
         });
 
@@ -385,11 +270,8 @@ async initializeCredentialsStore() {
         );
 
         const duration = Date.now() - startTime;
-        logger.info("Partial RODiT configuration completed", {
-          component: "RoditManager",
-          method: "initializeRoditConfig",
-          requestId,
-          configType: type,
+        logger.infoWithContext("RODiT config initialized with minimal configuration", {
+          ...baseContext,
           duration,
           configLevel: "partial",
           step: "complete",
@@ -406,13 +288,10 @@ async initializeCredentialsStore() {
         return minimalConfig;
       }
 
-      logger.info("Successfully retrieved RODiT token", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
-        tokenId: own_rodit.token_id,
-        step: "tokenRetrieved",
+      logger.infoWithContext("RODiT config initialized successfully", {
+        ...baseContext,
+        roditId: own_rodit.token_id,
+        duration: Date.now() - startTime
       });
 
       const SERVERPORT = config.get("SERVERPORT");
@@ -421,11 +300,8 @@ async initializeCredentialsStore() {
         !own_rodit.metadata ||
         !own_rodit.metadata.subjectuniqueidentifier_url
       ) {
-        logger.error("Missing required metadata in RODiT", {
-          component: "RoditManager",
-          method: "initializeRoditConfig",
-          requestId,
-          configType: type,
+        logger.errorWithContext("Missing required metadata in RODiT", {
+          ...baseContext,
           missingField: "subjectuniqueidentifier_url",
           step: "metadataCheck",
         });
@@ -438,26 +314,59 @@ async initializeCredentialsStore() {
       const apiendpoint =
         own_rodit.metadata.subjectuniqueidentifier_url + ":" + SERVERPORT;
 
-      logger.debug("Constructed API endpoint", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
+      logger.debugWithContext("Constructed API endpoint", {
+        ...baseContext,
         apiEndpoint: apiendpoint,
         step: "apiEndpointCreation",
       });
 
-      logger.info("Building full configuration object", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
+      logger.infoWithContext("Building full configuration object", {
+        ...baseContext,
         step: "fullConfigCreation",
       });
 
+      // Validate private key format before storing in config object
+      let privateKeyToUse = credentials.signing_bytes_key;
+      
+      // Detailed private key format validation and logging
+      logger.debugWithContext("Private key format validation", {
+        ...baseContext,
+        keyType: typeof privateKeyToUse,
+        isUint8Array: privateKeyToUse instanceof Uint8Array,
+        isBuffer: Buffer.isBuffer(privateKeyToUse),
+        length: privateKeyToUse?.length,
+        step: "privateKeyValidation"
+      });
+      
+      // Ensure private key is in the correct format (Uint8Array)
+      if (privateKeyToUse && !(privateKeyToUse instanceof Uint8Array)) {
+        if (Buffer.isBuffer(privateKeyToUse)) {
+          logger.debugWithContext("Converting Buffer to Uint8Array for private key", {
+            ...baseContext,
+            step: "privateKeyConversion"
+          });
+          privateKeyToUse = new Uint8Array(privateKeyToUse);
+        } else {
+          logErrorWithMetrics({
+            error: new Error("Private key must be a Uint8Array or Buffer"),
+            context: {
+              ...baseContext,
+              keyType: typeof privateKeyToUse,
+              step: "privateKeyValidation"
+            },
+            metrics: [{
+              name: "private_key_format_errors",
+              value: 1,
+              tags: { configType: type }
+            }]
+          });
+          throw new Error("Private key must be a Uint8Array or Buffer");
+        }
+      }
+      
       const configObject = {
         own_rodit,
-        own_rodit_bytes_private_key: credentials.signing_bytes_key,
+        own_rodit_bytes_private_key: privateKeyToUse, // Use validated private key
         apiendpoint,
         port: SERVERPORT,
         iso639: config.get("API_DEFAULT_OPTIONS.ISO639"),
@@ -467,46 +376,27 @@ async initializeCredentialsStore() {
         tokenrenewaloptions: config.get("API_DEFAULT_OPTIONS.TOKENRENEWALOPTIONS"),
       };
 
-      const configCopy = JSON.parse(
-        JSON.stringify({
-          ...configObject,
-          // Exclude sensitive data
-          own_rodit_bytes_private_key: "*** REDACTED ***",
-        })
-      );
-
-      logger.info("Created full config object", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
-        configObject: configCopy,
-        step: "fullConfig",
+      logger.debugWithContext("Using RODiT token for configuration", {
+        ...baseContext,
+        roditId: own_rodit.token_id,
+        accountId: account_id,
+        step: "tokenUse"
       });
 
-      logger.debug("Storing configuration in state manager", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
+      logger.debugWithContext("Storing configuration in state manager", {
+        ...baseContext,
         step: "storeConfig",
       });
 
       await this.stateManager.setConfigOwnRodit(configObject);
 
-      logger.info("Configuration stored successfully", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
+      logger.infoWithContext("Configuration stored successfully", {
+        ...baseContext,
         step: "configStored",
       });
 
-      logger.debug("Converting implicit account ID to base64url", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
+      logger.debugWithContext("Converting implicit account ID to base64url", {
+        ...baseContext,
         step: "keyConversion",
       });
 
@@ -515,11 +405,8 @@ async initializeCredentialsStore() {
         "hex"
       ).toString("base64url");
 
-      logger.debug("Setting session base64url JWK public key", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
+      logger.debugWithContext("Setting session base64url JWK public key", {
+        ...baseContext,
         step: "setSessionKey",
       });
 
@@ -532,11 +419,8 @@ async initializeCredentialsStore() {
       // during the handshake or authentication process
 
       const duration = Date.now() - startTime;
-      logger.info("RODiT configuration completed", {
-        component: "RoditManager",
-        method: "initializeRoditConfig",
-        requestId,
-        configType: type,
+      logger.infoWithContext("RODiT configuration completed", {
+        ...baseContext,
         duration,
         configLevel: "full",
         step: "complete",
@@ -553,7 +437,20 @@ async initializeCredentialsStore() {
       return configObject;
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
+      logErrorWithMetrics({
+        error,
+        context: {
+          ...baseContext,
+          duration
+        },
+        metrics: [{
+          name: "rodit_config_initialization_errors",
+          value: 1,
+          tags: { configType: type, errorType: error.name || "Unknown" }
+        }]
+      });
+
       // Emit metrics for Grafana dashboards
       logger.metric("rodit_initialization_duration_ms", duration, {
         success: false,
@@ -567,29 +464,6 @@ async initializeCredentialsStore() {
         component: "RoditManager",
         step: error.step || "unknown",
       });
-
-      const errorContext = {
-        ...baseContext,
-        duration,
-        configType: type,
-        errorMessage: error.message,
-        errorCode: error.code || "UNKNOWN_ERROR",
-        step: error.step || "unknown"
-      };
-      
-      logErrorWithMetrics(
-        "Error initializing RODiT config",
-        errorContext,
-        error,
-        "rodit_initialization",
-        {
-          result: "error",
-          error_type: error.code || "UNKNOWN_ERROR",
-          configType: type,
-          step: error.step || "unknown",
-          duration
-        }
-      );
 
       throw error;
     }

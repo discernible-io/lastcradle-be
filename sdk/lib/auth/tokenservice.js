@@ -5,6 +5,7 @@
 
 const { ulid } = require("ulid");
 const logger = require("../../services/logger");
+const { createLogContext, logErrorWithMetrics } = logger;
 const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
 const nacl = require("tweetnacl");
 const crypto = require("crypto");
@@ -29,12 +30,15 @@ const {
   async function base64url2jwk_public_key(base64url_public_key) {
     const startTime = Date.now();
     const requestId = ulid();
-
-    logger.debug("Converting base64url to JWK public key", {
-      component: "Transformer",
-      method: "base64url2jwk_public_key",
-      requestId,
-    });
+    
+    // Create a base context that will be used throughout this function
+    const baseContext = createLogContext(
+      "Transformer",
+      "base64url2jwk_public_key",
+      { requestId }
+    );
+    
+    logger.debugWithContext("Converting base64url to JWK public key", baseContext);
 
     try {
       const jwk_public_key = {
@@ -59,41 +63,41 @@ const {
       const session_jwk_public_key = await importJWK(jwk_public_key, "EdDSA");
 
       const duration = Date.now() - startTime;
-      logger.debug("JWK public key import successful", {
-        component: "Transformer",
-        method: "base64url2jwk_public_key",
-        requestId,
-        duration,
+      
+      logger.debugWithContext("JWK public key import successful", {
+        ...baseContext,
+        duration
       });
 
       // Emit metrics for Grafana dashboards
       logger.metric("jwk_import_duration_ms", duration, {
         component: "Transformer",
-        success: true,
+        success: true
       });
 
       return session_jwk_public_key;
     } catch (error) {
       const duration = Date.now() - startTime;
-
-      logger.error("JWK public key import failed", {
-        component: "Transformer",
-        method: "base64url2jwk_public_key",
-        requestId,
-        duration,
-        errorMessage: error.message,
-        stack: error.stack,
-      });
-
-      // Emit metrics for Grafana dashboards
-      logger.metric("jwk_import_duration_ms", duration, {
-        component: "Transformer",
-        success: false,
-        error: error.constructor.name,
-      });
-      logger.metric("jwk_import_errors_total", 1, {
-        component: "Transformer",
-        errorType: error.constructor.name,
+      
+      // Use logErrorWithMetrics for standardized error logging and metrics
+      logErrorWithMetrics({
+        error,
+        context: {
+          ...baseContext,
+          duration
+        },
+        metrics: [
+          {
+            name: "jwk_import_duration_ms",
+            value: duration,
+            tags: { success: false, error: error.constructor.name }
+          },
+          {
+            name: "jwk_import_errors_total",
+            value: 1,
+            tags: { errorType: error.constructor.name }
+          }
+        ]
       });
 
       throw error;
@@ -355,16 +359,21 @@ const {
   ) {
     const requestId = ulid();
     const startTime = Date.now();
-
-    logger.debug("Starting JWT token generation", {
-      component: "JwtAuth",
-      method: "generate_jwt_token",
-      requestId,
-      peerRoditId: peer_rodit?.token_id,
-      peerTimestamp: peer_timestamp,
-      ownRoditId: own_rodit?.token_id,
-      sessionStatus: session_status,
-    });
+    
+    // Create a base context that will be used throughout this function
+    const baseContext = createLogContext(
+      "JwtAuth",
+      "generate_jwt_token",
+      {
+        requestId,
+        peerRoditId: peer_rodit?.token_id,
+        peerTimestamp: peer_timestamp,
+        ownRoditId: own_rodit?.token_id,
+        sessionStatus: session_status
+      }
+    );
+    
+    logger.debugWithContext("Starting JWT token generation", baseContext);
 
     try {
       const now = peer_timestamp;
@@ -387,32 +396,32 @@ const {
       let tokenExpiration = now + tokenDuration;
       let sessionExpiration = now + sessionDuration;
 
-      logger.debug("Calculated token parameters", {
-        requestId,
+      logger.debugWithContext("Calculated token parameters", {
+        ...baseContext,
         now,
         notafter,
         tokenDuration,
         sessionDuration,
-        notafterDuration,
+        notafterDuration
       });
 
       // Validate token expiration doesn't exceed RODiT validity
       if (tokenExpiration > notafter) {
         tokenExpiration = notafter;
-        logger.debug("Token expiration capped by RODiT validity", {
-          requestId,
+        logger.debugWithContext("Token expiration capped by RODiT validity", {
+          ...baseContext,
           tokenExpiration,
-          notafter,
+          notafter
         });
       }
 
       // Validate session expiration doesn't exceed RODiT validity
       if (sessionExpiration > notafter) {
         sessionExpiration = notafter;
-        logger.debug("Session expiration capped by RODiT validity", {
-          requestId,
+        logger.debugWithContext("Session expiration capped by RODiT validity", {
+          ...baseContext,
           sessionExpiration,
-          notafter,
+          notafter
         });
       }
 
@@ -422,10 +431,10 @@ const {
       );
       const notbeforeDuration = Date.now() - notbeforeStart;
 
-      logger.debug("Retrieved not-before time", {
-        requestId,
+      logger.debugWithContext("Retrieved not-before time", {
+        ...baseContext,
         notbefore,
-        notbeforeDuration,
+        notbeforeDuration
       });
 
       const encodeStart = Date.now();
@@ -435,12 +444,12 @@ const {
       );
       const encodeDuration = Date.now() - encodeStart;
 
-      logger.debug("Encoded RODiT ID and timestamp", {
-        requestId,
+      logger.debugWithContext("Encoded RODiT ID and timestamp", {
+        ...baseContext,
         encodeDuration,
         roditIdLength: own_rodit.token_id.length,
         timestampLength: timeString.length,
-        totalLength: roditidandtimestamp.length,
+        totalLength: roditidandtimestamp.length
       });
 
       const signatureStart = Date.now();
@@ -452,7 +461,7 @@ const {
       if (!(own_rodit_bytes_private_key instanceof Uint8Array)) {
         // Capture detailed information about the key
         const keyInfo = {
-          requestId,
+          ...baseContext,
           type: typeof own_rodit_bytes_private_key,
           isNull: own_rodit_bytes_private_key === null,
           isUndefined: own_rodit_bytes_private_key === undefined,
@@ -471,14 +480,24 @@ const {
         };
         
         // Log the detailed information
-        logger.debug("Private key is not a Uint8Array", keyInfo);
+        logger.debugWithContext("Private key is not a Uint8Array", keyInfo);
         
         // If it's a Buffer, we can convert it to a Uint8Array
         if (Buffer.isBuffer(own_rodit_bytes_private_key)) {
-          logger.info("Converting Buffer to Uint8Array", { requestId });
+          logger.infoWithContext("Converting Buffer to Uint8Array", baseContext);
           privateKeyToUse = new Uint8Array(own_rodit_bytes_private_key);
         } else {
-          logger.error("Private key must be a Uint8Array or Buffer for nacl.sign.detached", keyInfo);
+          logErrorWithMetrics({
+            error: new Error("Private key must be a Uint8Array or Buffer for nacl.sign.detached"),
+            context: keyInfo,
+            metrics: [
+              {
+                name: "private_key_format_errors_total",
+                value: 1,
+                tags: { keyType: typeof own_rodit_bytes_private_key }
+              }
+            ]
+          });
           throw new Error("Private key must be a Uint8Array or Buffer for nacl.sign.detached");
         }
       }
@@ -489,10 +508,10 @@ const {
       );
       const signatureDuration = Date.now() - signatureStart;
 
-      logger.debug("Created signature", {
-        requestId,
+      logger.debugWithContext("Created signature", {
+        ...baseContext,
         signatureDuration,
-        signatureLength: own_rodit_bytes_signature.length,
+        signatureLength: own_rodit_bytes_signature.length
       });
 
       const base64Start = Date.now();
@@ -501,10 +520,10 @@ const {
       ).toString("base64url");
       const base64Duration = Date.now() - base64Start;
 
-      logger.debug("Converted signature to base64url", {
-        requestId,
+      logger.debugWithContext("Converted signature to base64url", {
+        ...baseContext,
         base64Duration,
-        base64Length: own_roditid_base64url_signature.length,
+        base64Length: own_roditid_base64url_signature.length
       });
 
       const keyStart = Date.now();
@@ -518,9 +537,9 @@ const {
       });
       const keyDuration = Date.now() - keyStart;
 
-      logger.debug("Created private key object", {
-        requestId,
-        keyDuration,
+      logger.debugWithContext("Created private key object", {
+        ...baseContext,
+        keyDuration
       });
 
       // Generate session ID using SessionManager
@@ -544,17 +563,13 @@ const {
       try {
         // Check if sessionManager is defined and has createSession method
         if (!sessionManager) {
-          logger.warn("Session manager is undefined, skipping session creation", {
-            component: "JwtAuth",
-            method: "generate_jwt_token",
-            requestId,
-            roditId: peer_rodit.token_id,
+          logger.warnWithContext("Session manager is undefined, skipping session creation", {
+            ...baseContext,
+            roditId: peer_rodit.token_id
           });
         } else if (typeof sessionManager.createSession !== 'function') {
-          logger.warn("Session manager createSession method is not available", {
-            component: "JwtAuth",
-            method: "generate_jwt_token",
-            requestId,
+          logger.warnWithContext("Session manager createSession method is not available", {
+            ...baseContext,
             roditId: peer_rodit.token_id,
             sessionManagerType: typeof sessionManager,
             hasCreateSession: sessionManager ? 'createSession' in sessionManager : false
@@ -564,22 +579,20 @@ const {
           const session = sessionManager.createSession(sessionData);
           const sessionCreateDuration = Date.now() - sessionCreateStart;
 
-          logger.debug("Session created in session manager", {
-            requestId,
+          logger.debugWithContext("Session created in session manager", {
+            ...baseContext,
             sessionId: session.id,
             roditId: peer_rodit.token_id,
-            sessionCreateDuration,
+            sessionCreateDuration
           });
         }
       } catch (sessionError) {
-        logger.warn(
+        logger.warnWithContext(
           "Failed to register session, continuing with token generation",
           {
-            component: "JwtAuth",
-            method: "generate_jwt_token",
-            requestId,
+            ...baseContext,
             error: sessionError.message,
-            roditId: peer_rodit.token_id,
+            roditId: peer_rodit.token_id
           }
         );
         // Proceed even if session registration fails
@@ -624,10 +637,8 @@ const {
 
       const totalDuration = Date.now() - startTime;
 
-      logger.info("JWT token generation successful", {
-        component: "JwtAuth",
-        method: "generate_jwt_token",
-        requestId,
+      logger.infoWithContext("JWT token generation successful", {
+        ...baseContext,
         duration: totalDuration,
         notafterDuration,
         notbeforeDuration,
@@ -642,7 +653,7 @@ const {
         sessionId: session_id,
         sessionStatus: session_status,
         tokenValidFor: tokenExpiration - now,
-        sessionValidFor: sessionExpiration - now,
+        sessionValidFor: sessionExpiration - now
       });
 
       // Add metrics for successful token generation
@@ -656,25 +667,25 @@ const {
       return token;
     } catch (error) {
       const duration = Date.now() - startTime;
-
-      logger.error("Failed to generate JWT token", {
-        component: "JwtAuth",
-        method: "generate_jwt_token",
-        requestId,
-        duration,
-        peerRoditId: peer_rodit?.token_id,
-        ownRoditId: own_rodit?.token_id,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
+      
+      logErrorWithMetrics({
+        error,
+        context: {
+          ...baseContext,
+          duration,
+          peerRoditId: peer_rodit?.token_id,
+          ownRoditId: own_rodit?.token_id
         },
-      });
-
-      // Add metrics for token generation errors
-      logger.metric("jwt_token_generation_errors", 1, {
-        error_type: error.name || "Unknown",
-        peer_rodit_id: peer_rodit?.token_id || "unknown",
+        metrics: [
+          {
+            name: "jwt_token_generation_errors",
+            value: 1,
+            tags: {
+              error_type: error.name || "Unknown",
+              peer_rodit_id: peer_rodit?.token_id || "unknown"
+            }
+          }
+        ]
       });
 
       throw error;
