@@ -107,8 +107,8 @@ async function login_client(req, res) {
           requestId
         });
       } else {
-        // Just return a generic 400 without details
-        return res.status(400).end();
+        // Completely silent - no response at all
+        return;
       }
     }
     
@@ -138,8 +138,8 @@ async function login_client(req, res) {
           requestId
         });
       } else {
-        // Just return a generic 400 without details
-        return res.status(400).end();
+        // Completely silent - no response at all
+        return;
       }
     }
 
@@ -225,8 +225,8 @@ async function login_client(req, res) {
           requestId,
         });
       } else {
-        // Just return a generic 401 without details
-        return res.status(401).end();
+        // Completely silent - no response at all
+        return;
       }
     }
 
@@ -297,8 +297,8 @@ async function login_client(req, res) {
         requestId,
       });
     } else {
-      // Just return a generic 401 without details
-      return res.status(401).end();
+      // Completely silent - no response at all
+      return;
     }
   }
 }
