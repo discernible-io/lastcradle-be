@@ -8,6 +8,20 @@
     "SERVERORCLIENT": "SERVER-INITIATED",
     "SILENCE_LOGIN_FAILURES": false
   },
+  "PERMISSIONS": {
+    "METHOD_PERMISSION_MAP": {
+      "create": ["entityAndProperties"],
+      "destroy": ["entityAndProperties"],
+      "read": ["entityAndProperties", "entityOnly"],
+      "update": ["entityAndProperties", "entityOnly"],
+      "list": ["entityAndProperties", "entityOnly"],
+      "list_all": ["entityAndProperties", "entityOnly"],
+      "sessions": ["entityAndProperties"],
+      "delete": ["entityAndProperties"],
+      "cleanup": ["entityAndProperties"],
+      "logout": ["entityAndProperties"]
+    }
+  },
  "API_DEFAULT_OPTIONS": {
   "ISO639": "es",
   "ISO3166": "ES",

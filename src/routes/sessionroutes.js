@@ -68,12 +68,12 @@ router.post('/logout', authenticate_apicall, (req, res) => {
 });
 
 /**
- * GET /api/sessions - Get all sessions
+ * GET /api/sessions/list_all - Get all sessions
  * 
  * Admin route - Get information about all active sessions
  * Protected: Requires authentication and permissions
  */
-router.get('/', authenticate_apicall, validatepermissions, (req, res) => {
+router.get('/list_all', authenticate_apicall, validatepermissions, (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   
