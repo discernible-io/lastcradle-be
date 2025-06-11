@@ -481,16 +481,20 @@ async function startServer() {
         result: "success"
       });
       
-      console.log(`\nRODiT Authentication API Server running on port ${port}`);
-      console.log('');
-      console.log('Available endpoints:');
-      console.log('  GET  / - Public welcome page');
-      console.log('  POST /api/login - Login with RODiT credentials');
-      console.log('  POST /api/logout - Logout (requires authentication)');
-      console.log('  GET  /api/echo - Echo service (requires authentication)');
-      console.log('  GET  /api/cruda - CRUD operations (requires authentication + permissions)');
-      console.log('  GET  /api-docs - Swagger API documentation');
-      console.log('');
+      logger.info(`\nRODiT Authentication API Server running on port ${port}`);
+      
+      const endpoints = [
+        '  GET  / - Public welcome page',
+        '  POST /api/login - Login with RODiT credentials',
+        '  POST /api/logout - Logout (requires authentication)',
+        '  GET  /api/echo - Echo service (requires authentication)',
+        '  GET  /api/cruda - CRUD operations (requires authentication + permissions)',
+        '  GET  /api-docs - Swagger API documentation'
+      ];
+      
+      logger.info('Available endpoints:');
+      endpoints.forEach(endpoint => logger.info(endpoint));
+      logger.info('');
     });
     
     // Graceful shutdown handling

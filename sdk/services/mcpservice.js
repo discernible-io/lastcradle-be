@@ -703,8 +703,7 @@ const keyPair = KeyPair.fromRandom('ed25519');
 const publicKey = keyPair.getPublicKey().toString();
 const privateKey = keyPair.toString();
 
-console.log('Public Key:', publicKey);
-console.log('Private Key:', privateKey);`,
+// Keys are generated but not logged for security reasons`,
                     documentation: "https://docs.near.org/api/javascript-library"
                   }
                 ],

@@ -1207,14 +1207,10 @@ function base64urlToBase64(base64url) {
  * @returns {Object} JWK formatted public key using jose's importJWK
  */
 async function base64url2jwk_public_key(base64url_public_key) {
-  console.log('[base64url2jwk_public_key] Starting with input:', base64url_public_key);
-  console.log('[base64url2jwk_public_key] Input length:', base64url_public_key.length);
-  
   try {
     // Check if the input is a valid base64url string
     const validBase64UrlRegex = /^[A-Za-z0-9_-]*$/;
     const isValidFormat = validBase64UrlRegex.test(base64url_public_key);
-    console.log('[base64url2jwk_public_key] Is valid base64url format:', isValidFormat);
     
     // Create the JWK object
     const jwk_public_key = {
@@ -1223,25 +1219,20 @@ async function base64url2jwk_public_key(base64url_public_key) {
       x: base64url_public_key,
       use: "sig",
     };
-    console.log('[base64url2jwk_public_key] Created JWK public key object');
-    
     // Let's also try to decode the base64url to see if it's the right length for Ed25519
     try {
       const bytes = bufferUtils.base64urlToUint8Array(base64url_public_key);
-      console.log('[base64url2jwk_public_key] Decoded bytes length:', bytes.length, '(should be 32 for Ed25519)');
+      // Validate bytes length silently
     } catch (decodeError) {
-      console.error('[base64url2jwk_public_key] Error decoding base64url:', decodeError);
+      logger.error('[base64url2jwk_public_key] Error decoding base64url');
     }
     
     // Import the JWK
-    console.log('[base64url2jwk_public_key] Importing JWK with jose library...');
     const { importJWK } = require("jose");
     const session_jwk_public_key = await importJWK(jwk_public_key, "EdDSA");
-    console.log('[base64url2jwk_public_key] Successfully imported JWK');
-    
     return session_jwk_public_key;
   } catch (error) {
-    console.error('[base64url2jwk_public_key] Error:', error.message, error);
+    logger.errorWithContext('[base64url2jwk_public_key] Error', { message: error.message }, error);
     throw error;
   }
 }
@@ -1255,16 +1246,11 @@ async function base64url2jwk_public_key(base64url_public_key) {
  * @returns {Object} Verification result with payload, protectedHeader
  */
 async function jwtVerify_fe(token, publicKey, options = {}) {
-  console.log('[jwtVerify_fe] Starting JWT verification');
-  console.log('[jwtVerify_fe] Token (first 30 chars):', token.substring(0, 30) + '...');
-  console.log('[jwtVerify_fe] Public key type:', typeof publicKey);
-  console.log('[jwtVerify_fe] Public key properties:', Object.keys(publicKey));
-  console.log('[jwtVerify_fe] Options:', options);
+  // JWT verification starting
   
   try {
     // Let's examine the token structure
     const parts = token.split('.');
-    console.log('[jwtVerify_fe] Token parts count:', parts.length);
     
     if (parts.length === 3) {
       try {
@@ -1272,24 +1258,22 @@ async function jwtVerify_fe(token, publicKey, options = {}) {
         const headerStr = parts[0].replace(/-/g, '+').replace(/_/g, '/');
         const paddedHeader = headerStr.padEnd(headerStr.length + ((4 - (headerStr.length % 4)) % 4), '=');
         const header = JSON.parse(atob(paddedHeader));
-        console.log('[jwtVerify_fe] Token header:', header);
+        // Header parsed but not logged
       } catch (decodeError) {
-        console.error('[jwtVerify_fe] Error decoding header:', decodeError);
+        logger.errorWithContext('[jwtVerify_fe] Error decoding header', {}, decodeError);
       }
     }
     
     const { jwtVerify } = require("jose");
-    console.log('[jwtVerify_fe] Calling jose.jwtVerify...');
     const result = await jwtVerify(token, publicKey, options);
-    console.log('[jwtVerify_fe] JWT verification successful');
     return result;
   } catch (error) {
-    console.error(`[jwtVerify_fe] Error: ${error.message}`, error);
+    logger.errorWithContext(`[jwtVerify_fe] Error`, { message: error.message }, error);
     
     // Additional diagnostics for specific errors
     if (error.message.includes('bad public key size')) {
-      console.error('[jwtVerify_fe] Bad public key size error detected. This typically means the key is not the correct format or length for Ed25519.');
-      console.error('[jwtVerify_fe] Public key details:', {
+      logger.errorWithContext('[jwtVerify_fe] Bad public key size error detected', { message: 'This typically means the key is not the correct format or length for Ed25519.' });
+      logger.debugWithContext('[jwtVerify_fe] Public key details', {
         type: typeof publicKey,
         constructor: publicKey.constructor?.name,
         properties: Object.keys(publicKey),
@@ -1312,7 +1296,7 @@ async function jwtVerify_fe(token, publicKey, options = {}) {
  * @returns {boolean} True if signature is valid
  */
 async function verifyRoditSignature(rodit, signerPublicKey, type) {
-  console.debug(`[DEBUG] Starting ${type} RODiT signature verification:`, {
+  logger.debugWithContext(`Starting ${type} RODiT signature verification`, {
     roditId: rodit.token_id,
     signerPubKeyLength: signerPublicKey?.length,
   });
@@ -1414,7 +1398,7 @@ function verifyHashInputs(portalData, sanctumData) {
  * @param {Object} hashInput - Hash input object
  */
 function debugCanonicalHash(hashInput) {
-  console.debug("Hash input structure:", {
+  logger.debugWithContext("Hash input structure", {
     rawInput: hashInput,
     sorted: Object.keys(hashInput).sort(),
     canonicalized: canonicalizeObject(hashInput),

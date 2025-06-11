@@ -11,6 +11,7 @@ const express = require('express');
 const { ulid } = require('ulid');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
+const logger = require('../services/logger');
 
 // Import rate limiting middleware
 // In a real app, this would be: const ratelimitmw = require('rodit-auth/lib/middleware/ratelimit');
@@ -101,16 +102,16 @@ const webhookEventHandlerFactory = new auth.webhook.WebhookEventHandlerFactory({
   // Mock dependencies for demonstration
   configManager: {
     updateConfig: async (config) => {
-      console.log('Mock config update:', config);
+      logger.infoWithContext('Config update', { config });
       return true;
     }
   },
   runTestSuite: async (apiEndpoint, suiteName) => {
-    console.log(`Mock running test suite ${suiteName} against ${apiEndpoint}`);
+    logger.infoWithContext(`Running test suite`, { suiteName, apiEndpoint });
     return { success: true };
   },
   runSingleTest: async (apiEndpoint, suiteName, testName) => {
-    console.log(`Mock running test ${testName} from suite ${suiteName} against ${apiEndpoint}`);
+    logger.infoWithContext(`Running test`, { testName, suiteName, apiEndpoint });
     return { success: true };
   }
 });
@@ -124,21 +125,12 @@ app.use((req, res, next) => {
   req.requestId = req.headers['x-request-id'] || ulid();
   res.on('finish', () => {
     const duration = Date.now() - req.startTime;
-    console.log(`${req.method} ${req.path} - ${res.statusCode} - ${duration}ms`);
+    logger.infoWithContext(`Request completed`, { method: req.method, path: req.path, statusCode: res.statusCode, duration: `${duration}ms` });
   });
   next();
 });
 
-// Setup logger
-const logger = {
-  debug: (message, context) => console.log(`DEBUG: ${message}`, context),
-  info: (message, context) => console.log(`INFO: ${message}`, context),
-  warn: (message, context) => console.log(`WARN: ${message}`, context),
-  error: (message, context) => console.log(`ERROR: ${message}`, context),
-  errorWithContext: (message, context, error) => console.log(`ERROR: ${message}`, context, error),
-  infoWithContext: (message, context) => console.log(`INFO: ${message}`, context),
-  metric: (name, value, tags) => console.log(`METRIC: ${name}=${value}`, tags)
-};
+// Use the imported logger directly - no need for a wrapper
 
 // Apply rate limiting to all routes
 app.use((req, res, next) => ratelimiter(req, res, next));
@@ -389,24 +381,36 @@ async function startServer() {
         swagger: "http://localhost:" + PORT + "/api-docs"
       });
       
-      console.log(`\nRODiT authentication example server running on port ${PORT}`);
-      console.log('');
-      console.log('Available endpoints:');
-      console.log('  GET  / - Public welcome page');
-      console.log('  POST /api/login - Login with RODiT credentials');
-      console.log('  POST /api/logout - Logout (requires authentication)');
-      console.log('  GET  /api/protected - Protected route (requires authentication)');
-      console.log('  GET  /api/entities/:entityId - Protected route with permission validation');
-      console.log('  GET  /api-docs - Swagger API documentation');
-      console.log('');
-      console.log('To login, send a POST request to /api/login with:');
-      console.log('  - roditid: Your RODiT ID');
-      console.log('  - timestamp: Current timestamp (optional)');
-      console.log('  - roditid_base64url_signature: Base64URL signature');
-      console.log('');
-      console.log('RODiT Configuration:');
-      console.log('  - All configuration values are automatically extracted from the blockchain-sourced RODiT');
-      console.log('  - No manual configuration is needed as values come directly from the blockchain');
+      logger.info(`\nRODiT authentication example server running on port ${PORT}`);
+      
+      const endpoints = [
+        '  GET  / - Public welcome page',
+        '  POST /api/login - Login with RODiT credentials',
+        '  POST /api/logout - Logout (requires authentication)',
+        '  GET  /api/protected - Protected route (requires authentication)',
+        '  GET  /api/entities/:entityId - Protected route with permission validation',
+        '  GET  /api-docs - Swagger API documentation'
+      ];
+      
+      const loginInstructions = [
+        '  - roditid: Your RODiT ID',
+        '  - timestamp: Current timestamp (optional)',
+        '  - roditid_base64url_signature: Base64URL signature'
+      ];
+      
+      const configInfo = [
+        '  - All configuration values are automatically extracted from the blockchain-sourced RODiT',
+        '  - No manual configuration is needed as values come directly from the blockchain'
+      ];
+      
+      logger.info('Available endpoints:');
+      endpoints.forEach(endpoint => logger.info(endpoint));
+      
+      logger.info('\nTo login, send a POST request to /api/login with:');
+      loginInstructions.forEach(instruction => logger.info(instruction));
+      
+      logger.info('\nRODiT Configuration:');
+      configInfo.forEach(info => logger.info(info));
     });
     
     // Graceful shutdown handling
