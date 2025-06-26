@@ -216,8 +216,18 @@ router.post("/signclient", async (req, res) => {
       const loginResult = await login_portal(config_own_rodit, portalPort);
 
       if (!loginResult.jwt_token) {
-        logger.errorWithContext("Failed to obtain JWT token", jwtContext);
-        throw new Error("Failed to obtain JWT token from SignPortal");
+        // Enhanced error logging with clear cause and effect
+        const errorDetails = loginResult.error || "Unknown error";
+        const errorReason = loginResult.reason || "Connection to SignPortal failed";
+        
+        logger.errorWithContext("Failed to obtain JWT token: Authentication with SignPortal failed", {
+          ...jwtContext,
+          errorDetails,
+          errorReason,
+          impact: "Cannot proceed with client authentication flow"
+        });
+        
+        throw new Error(`Failed to obtain JWT token from SignPortal: ${errorReason}`);
       }
 
       await stateManager.setSignPortalJwtToken(loginResult.jwt_token);
@@ -291,12 +301,20 @@ router.post("/signclient", async (req, res) => {
   } catch (error) {
     const duration = Date.now() - startTime;
     
+    // Extract the root cause from the error chain
+    const rootCause = error.cause ? error.cause.message : error.message;
+    const errorType = error.name || error.constructor.name;
+    
+    // Enhanced error logging with clear cause and effect
     logErrorWithMetrics(
-      "Error in signclient endpoint",
+      `Error in signclient endpoint: ${errorType}`,
       {
         ...baseContext,
         errorMessage: error.message,
-        errorName: error.name,
+        errorName: errorType,
+        rootCause,
+        reason: error.reason || "Request processing failed",
+        impact: "Client request cannot be completed",
         duration
       },
       error,
@@ -308,9 +326,12 @@ router.post("/signclient", async (req, res) => {
       }
     );
 
+    // Return a structured error response
     res.status(500).json({
       error: "Failed to sign client request",
+      reason: errorType,
       details: error.message,
+      impact: "Unable to complete the requested operation",
       requestId,
     });
   }

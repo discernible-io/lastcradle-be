@@ -1172,7 +1172,8 @@ async function login_portal(config_own_rodit, port) {
         if (!response.ok) {
           const duration = Date.now() - startTime;
 
-          logger.error("Portal login request failed", {
+          // Enhanced error logging with clear cause and effect
+          logger.error(`Portal login request failed: HTTP ${response.status} response from SignPortal`, {
             component: "AuthenticationService",
             method: "login_portal",
             requestId,
@@ -1180,6 +1181,8 @@ async function login_portal(config_own_rodit, port) {
             status: response.status,
             statusText: response.statusText,
             endpoint: fetchUrl,
+            reason: `SignPortal server returned error status ${response.status} (${response.statusText})`,
+            impact: "Cannot obtain authentication token due to server-side error"
           });
 
           // Emit metrics for Grafana dashboards
@@ -1264,13 +1267,17 @@ async function login_portal(config_own_rodit, port) {
         } catch (validationError) {
           const duration = Date.now() - startTime;
 
-          logger.error("JWT token validation failed", {
+          // Enhanced error logging with clear cause and effect
+          logger.error("JWT token validation failed: Token received from portal is invalid", {
             component: "AuthenticationService",
             method: "login_portal",
             requestId,
             duration,
             errorMessage: validationError.message,
+            errorType: validationError.name,
             stack: validationError.stack,
+            reason: `JWT validation error: ${validationError.message}`,
+            impact: "Cannot use the received token for authentication"
           });
 
           // Emit metrics for Grafana dashboards
@@ -1316,14 +1323,18 @@ async function login_portal(config_own_rodit, port) {
       } catch (fetchError) {
         const duration = Date.now() - startTime;
 
-        logger.error("Portal fetch operation failed", {
+        // Enhanced error logging with clear cause and effect
+        logger.error("Portal fetch operation failed: Unable to connect to SignPortal endpoint", {
           component: "AuthenticationService",
           method: "login_portal",
           requestId,
           duration,
           errorMessage: fetchError.message,
+          errorType: fetchError.name,
           stack: fetchError.stack,
           endpoint: fetchUrl,
+          reason: "Network connectivity issue or service unavailable",
+          impact: "Authentication process cannot proceed without portal connection"
         });
 
         // Emit metrics for Grafana dashboards
@@ -1343,14 +1354,21 @@ async function login_portal(config_own_rodit, port) {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error("Portal login process failed", {
+      // Enhanced error logging with clear cause and effect
+      const errorType = error.name || error.constructor.name;
+      const errorReason = error.message || 'Unknown error';
+      
+      logger.error(`Portal login process failed: ${errorType}`, {
         component: "AuthenticationService",
         method: "login_portal",
         requestId,
         duration,
         errorMessage: error.message,
+        errorType: errorType,
         stack: error.stack,
         roditId: own_rodit?.token_id,
+        reason: errorReason,
+        impact: "Unable to authenticate with SignPortal, client operations requiring authentication will fail"
       });
 
       // Emit metrics for Grafana dashboards
@@ -1364,8 +1382,12 @@ async function login_portal(config_own_rodit, port) {
         error: error.constructor.name,
       });
 
+      // Return structured error information
       return {
         error: `Failed to login to portal: ${error.message}`,
+        reason: error.name || error.constructor.name,
+        details: error.message,
+        impact: "Authentication with SignPortal failed, client operations requiring authentication will fail",
         requestId,
       };
     }
