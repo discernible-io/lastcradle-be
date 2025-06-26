@@ -1,6 +1,6 @@
 {
 "SERVICE_NAME": "servertest-api",
-  "NEAR_CONTRACT_ID": "10975-cableguard-org.testnet",
+  "NEAR_CONTRACT_ID": "20260616-rodit-org.testnet",
   "SECURITY_OPTIONS": {
     "LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY": "0.99",
     "THRESHOLD_VALIDATION_TYPE": "0.10",
