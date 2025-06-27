@@ -8,5 +8,5 @@
  "SERVERPORT":8080,
  "NEAR_NETWORK_ID": ".mainnet",
  "NEAR_RPC_URL": "https://rpc.fastnear.com/",
- "NEAR_CONTRACT_ID": "10975-cableguard-org.near"
+ "NEAR_CONTRACT_ID": "20260616-rodit-org.near"
 }

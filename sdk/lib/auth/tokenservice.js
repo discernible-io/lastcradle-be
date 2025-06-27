@@ -1134,6 +1134,7 @@ const {
   async function validate_jwt_token_be(token, rodit) {
     const requestId = ulid();
     const startTime = Date.now();
+    let isExpired = false;
 
     logger.debug("Starting JWT token validation", {
       component: "JwtAuth",
@@ -1145,6 +1146,7 @@ const {
     });
 
     try {
+      // Decode the token without verification to get the payload
       const unverifiedpayload = decodeJwt(token);
 
       logger.debug("Decoded JWT payload", {
@@ -1196,10 +1198,36 @@ const {
   
       logger.debug("Converted to JWK public key", { requestId });
   
-      const jwtVerifyStartTime = Date.now();
-      const { payload, _ } = await jwtVerify(token, sp_public_key, {
-        algorithms: ["EdDSA"],
-      });
+      let payload;
+      try {
+        // Try to verify the token signature
+        const jwtVerifyStartTime = Date.now();
+        const verifyResult = await jwtVerify(token, sp_public_key, {
+          algorithms: ["EdDSA"],
+        });
+        payload = verifyResult.payload;
+        
+        logger.debug("JWT signature verified", {
+          requestId,
+          jwtVerifyDuration: Date.now() - jwtVerifyStartTime,
+        });
+      } catch (jwtError) {
+        // Check if this is an expiration error
+        if (jwtError.name === "JWTExpired") {
+          logger.info("JWT token expired, will attempt renewal", {
+            component: "JwtAuth",
+            method: "validate_jwt_token_be",
+            requestId,
+            errorName: jwtError.name,
+            errorMessage: jwtError.message
+          });
+          isExpired = true;
+          payload = unverifiedpayload; // Use the unverified payload for renewal
+        } else {
+          // For other JWT errors, rethrow
+          throw jwtError;
+        }
+      }
   
       logger.debug("JWT signature verified", {
         requestId,
@@ -1233,9 +1261,9 @@ const {
         throw new Error("Error 009: Invalid peer RODiT verification");
       }
   
-      // Token expiration check
+      // Token expiration check - only perform if we haven't already detected expiration
       const now = Math.floor(Date.now() / 1000);
-      if (payload.exp <= now) {
+      if (!isExpired && payload.exp <= now) {
         logger.warn("Token validation failed - Token expired", {
           component: "JwtAuth",
           requestId,
@@ -1243,8 +1271,8 @@ const {
           now,
           difference: now - payload.exp,
         });
-  
-        throw new Error("Error 007: Token has expired");
+        
+        isExpired = true;
       }
   
       // Token not-before check
@@ -1416,8 +1444,20 @@ const {
         webhookUrl: payload.rodit_webhookurl
       };
   
-      // Check if token needs renewal
-      const { newToken } = await checkandrenew_jwt_token(payload, Math.floor(Date.now() / 1000), requestId);
+      // Check if token needs renewal or is expired
+      const { newToken } = await checkandrenew_jwt_token(payload, Math.floor(Date.now() / 1000), requestId, isExpired);
+      
+      // If token is expired but we got a new token, consider it valid
+      if (isExpired && !newToken) {
+        logger.warn("Token expired and renewal failed", {
+          component: "JwtAuth",
+          method: "validate_jwt_token_be",
+          requestId,
+          jti: payload.jti
+        });
+        
+        throw new Error("Error 007: Token has expired and renewal failed");
+      }
   
       return { 
         payload, 
@@ -1968,7 +2008,7 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
    * @param {string} requestId - Request ID for tracking
    * @returns {Promise<Object>} Renewal result with new token if renewed
    */
-  async function checkandrenew_jwt_token(payload, timestamp, requestId) {
+  async function checkandrenew_jwt_token(payload, timestamp, requestId, forceRenewal = false) {
     const startTime = Date.now();
     const config_own_rodit = await stateManager.getConfigOwnRodit();
 
@@ -2012,8 +2052,9 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
       ...sessionInfo,
     });
 
-    // No renewal needed if above threshold
+    // No renewal needed if above threshold and not forced
     if (
+      !forceRenewal &&
       durationLeftpct / 100 >=
       1.0 - LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY
     ) {
@@ -2042,7 +2083,7 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
     }
 
     // Token needs renewal
-    logger.info("Token eligible for proactive renewal", {
+    logger.info(forceRenewal ? "Token expired, attempting renewal" : "Token eligible for proactive renewal", {
       component: "TokenRenewalService",
       method: "checkandrenew_jwt_token",
       requestId,
