@@ -1199,9 +1199,11 @@ const {
       logger.debug("Converted to JWK public key", { requestId });
   
       let payload;
+      // Define jwtVerifyStartTime outside the try block so it's accessible in both try and catch
+      const jwtVerifyStartTime = Date.now();
+      
       try {
         // Try to verify the token signature
-        const jwtVerifyStartTime = Date.now();
         const verifyResult = await jwtVerify(token, sp_public_key, {
           algorithms: ["EdDSA"],
         });
@@ -1229,10 +1231,13 @@ const {
         }
       }
   
-      logger.debug("JWT signature verified", {
-        requestId,
-        jwtVerifyDuration: Date.now() - jwtVerifyStartTime,
-      });
+      // Only log JWT verification success if we didn't hit an error
+      if (!isExpired) {
+        logger.debug("JWT signature verified", {
+          requestId,
+          jwtVerifyDuration: Date.now() - jwtVerifyStartTime,
+        });
+      }
     
       const { verify_peerrodit_getrodit } = require("./authentication");
       
