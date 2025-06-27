@@ -286,10 +286,25 @@ router.post("/signclient", async (req, res) => {
       ...baseContext,
       token_id: signResult.token_id,
       status: "success",
-      duration
+      duration,
+      has_fee_signature: !!signResult.fee_signature_base64url
     };
     
     logger.infoWithContext("Successfully created new RODiT token", successContext);
+    
+    // Log fee signature information
+    if (signResult.fee_signature_base64url) {
+      logger.debugWithContext("Fee signature received from SignPortal", {
+        ...baseContext,
+        token_id: signResult.token_id,
+        fee_signature_length: signResult.fee_signature_base64url.length
+      });
+    } else {
+      logger.warnWithContext("No fee signature received from SignPortal", {
+        ...baseContext,
+        token_id: signResult.token_id
+      });
+    }
     
     // Add metric for successful operation
     logger.metric("signclient_operations", duration, {
