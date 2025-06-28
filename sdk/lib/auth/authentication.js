@@ -11,6 +11,7 @@ const crypto = require("crypto");
 const { Resolver } = require("dns").promises;
 const { calculateCanonicalHash, unixTimeToDateString } = require("../../utils");
 const stateManager = require("../blockchain/statemanager");
+const borsh = require("borsh");
 const { 
   nearorg_rpc_timestamp, 
   nearorg_rpc_tokenfromroditid, 
