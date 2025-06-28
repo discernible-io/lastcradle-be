@@ -659,8 +659,8 @@ const PayloadNEP413Schema = {
     try {
       const args = JSON.stringify({
         account_id: account_id,
-        from_index: null,
-        limit: null,
+        from_index: "0",  // String format for U128
+        limit: 1          // Only retrieve the first token
       });
 
       const jsonData = {
