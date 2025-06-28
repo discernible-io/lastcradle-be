@@ -892,10 +892,7 @@ const PayloadNEP413Schema = {
 
       logger.debugWithContext("Account is named, fetching RODiT token", baseContext);
 
-      const rodit = await this.nearorg_rpc_tokensfromaccountid(
-        CONSTANTS.NEAR_CONTRACT_ID,
-        accountId
-      );
+      const rodit = await nearorg_rpc_tokensfromaccountid(accountId);
 
       if (!rodit || !rodit.owner_id) {
         const duration = Date.now() - startTime;
