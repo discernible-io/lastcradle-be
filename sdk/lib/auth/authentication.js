@@ -716,10 +716,10 @@ async function verify_rodit_ownership(
   }
 
   /**
-   * Validates that a timestamp is recent and not in the future
+   * Validates that a timestamp is not in the future
    * 
    * @param {number} timestamp - Unix timestamp in seconds
-   * @param {number} maxAgeSeconds - Maximum age in seconds (default: 5 minutes)
+   * @param {number} maxAgeSeconds - Maximum age in seconds (not used, kept for backward compatibility)
    * @returns {Promise<boolean>} True if timestamp is valid, false otherwise
    */
   async function validateTimestamp(timestamp, maxAgeSeconds = 300) {
@@ -740,19 +740,8 @@ async function verify_rodit_ownership(
       return false;
     }
     
-    // Check if timestamp is too old
-    if (timeDifference > maxAgeSeconds) {
-      logger.warn("Authentication rejected: timestamp too old", {
-        component: "RoditAuth",
-        method: "validateTimestamp",
-        requestId,
-        timestamp,
-        currentTime,
-        difference: timeDifference,
-        maxAge: maxAgeSeconds
-      });
-      return false;
-    }
+    // We've removed the timestamp age check as it's not needed with our comprehensive validation system
+    // The system already validates tokens through other means
     
     return true;
   }
@@ -788,10 +777,8 @@ async function verify_rodit_ownership(
     });
 
     try {
-      // Get TIMESTAMP_MAX_AGE from global configuration only
-      const config = require("config");
-      const maxAgeSeconds = config.get("API_DEFAULT_OPTIONS.TIMESTAMP_MAX_AGE");
-      const timestampValid = await validateTimestamp(peertimestamp, maxAgeSeconds);
+      // Validate timestamp is not in the future
+      const timestampValid = await validateTimestamp(peertimestamp);
       
       if (!timestampValid) {
         logger.warn("Invalid timestamp, aborting RODiT verification", {

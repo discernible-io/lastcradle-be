@@ -2100,7 +2100,7 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
     });
 
     // Determine verification method
-    const randomNumber = Math.random()();
+    const randomNumber = Math.random();
     const shouldDoFullVerification =
       randomNumber < THRESHOLD_VALIDATION_TYPE ||
       newduration >
