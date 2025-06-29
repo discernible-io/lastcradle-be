@@ -741,7 +741,9 @@ async function login_client(req, res) {
       }
 
       // Clear auth headers if they exist
-      res.removeHeader("Authorization");
+      if (typeof res.removeHeader === 'function') {
+        res.removeHeader("Authorization");
+      }
       
       // Set the final token in the response header if available
       if (finalToken) {
