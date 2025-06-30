@@ -8,8 +8,9 @@ const router = express.Router();
 const { ulid } = require('ulid');
 const logger = require('../../sdk/services/logger');
 const { createLogContext, logErrorWithMetrics } = logger;
+const sdk = require('../../sdk/roditclient')();
 const performanceService = require('../../sdk/services/performanceservice');
-const { authenticate_apicall } = require('../../sdk/lib/middleware/authenticationmw');
+const { authenticate_apicall } = sdk;
 
 /**
  * GET /api/metrics

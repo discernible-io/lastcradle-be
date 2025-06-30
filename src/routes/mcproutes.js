@@ -8,7 +8,8 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const { authenticate_apicall } = require('../../sdk/lib/middleware/authenticationmw');
+const sdk = require('../../sdk/roditclient')();
+const { authenticate_apicall } = sdk;
 const mcpService = require('../../sdk/services/mcpservice');
 const logger = require('../../sdk/services/logger');
 const { createLogContext, logErrorWithMetrics } = logger;

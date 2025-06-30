@@ -13,6 +13,11 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const logger = require('../services/logger');
 
+// In a real application you would install the SDK from npm, e.g.:
+//   const auth = require('rodit-sdk');
+// For this local example we import the authentication module directly.
+const auth = require('../index');
+
 // Import rate limiting middleware
 // In a real app, this would be: const ratelimitmw = require('rodit-auth/lib/middleware/ratelimit');
 // For this example, we'll define a simple version inline
@@ -44,10 +49,7 @@ const ratelimitmw = (maxRequests, windowSeconds) => {
   };
 };
 
-// In a real application, you would use the npm package
-// const auth = require('rodit-auth');
-// For this example, we're using the local package
-const auth = require('../index');
+// The example below uses the core authentication helpers directly (no façade).
 
 // Example of client-side versioning setup
 // Configure the version manager with specific version

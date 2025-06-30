@@ -1744,11 +1744,113 @@ function getClientState() {
   };
 }
 
-// Export the SDK components
-module.exports = {
+// -----------------------------------------------------------------------------
+// SDK Facade – provides a clean, instance-based API while preserving
+//              backward-compatible named exports for existing code.
+// -----------------------------------------------------------------------------
+
+// Helper modules (imported once for reuse throughout this file)
+const sessionMgr           = require('./lib/auth/sessionmanager');
+const validatepermissions  = require('./lib/middleware/validatepermissions');
+const ratelimitmw          = require('./lib/middleware/ratelimit');
+const { send_webhook }     = require('./lib/webhook/webhookhandler');
+
+//              backward-compatible named exports for existing code.
+// -----------------------------------------------------------------------------
+
+class RoditSDK {
+  constructor(options = {}) {
+    this.client = new RoditClient(options);
+    // Expose authentication middleware helpers directly on the SDK instance
+    Object.assign(this, authMw);
+
+    // Expose commonly used managers / utilities
+    this.stateManager   = stateManager;
+    this.roditManager   = roditManager;
+    this.sessionManager = sessionMgr.sessionManager;
+    this.validatepermissions = validatepermissions;
+    this.validatePermissions = validatepermissions;
+    this.runManualCleanup = sessionMgr.runManualCleanup;
+
+    // Alias commonly-used middleware for convenience / backward compatibility
+    this.authenticate = authMw.authenticate_apicall;
+    this.login        = authMw.login_client;
+    this.logout       = authMw.logout_client;
+
+    // Expose versioning helpers
+    const versioningMiddleware = require('./lib/middleware/versioningmw');
+    const { versionManager, VersionManager } = require('./lib/versioning/versionmanager');
+    this.versioning = {
+      middleware: versioningMiddleware,
+      manager: versionManager,
+      VersionManager
+    };
+
+    // Expose webhook utilities
+    const webhookHandler = require('./lib/webhook/webhookhandler');
+    this.webhook = {
+      ...webhookHandler
+    };
+  }
+
+  /* ------------- high-level client helpers ------------- */
+  init(options = {})       { return this.client.init(options); }
+  login(options = {})      { return this.client.login(options); }
+  request(method, path, data = null, options = {}) {
+    return this.client.request(method, path, data, options);
+  }
+  logout() { return this.client.logout ? this.client.logout() : null; }
+
+  /* ------------- express middleware ------------- */
+  auth()            { return authMw.authenticate_apicall; }
+  permissions()     { return validatepermissions; }
+  rateLimit(max = 100, windowMins = 15) {
+    return ratelimitmw(max, windowMins);
+  }
+
+  /* ------------- session helpers ------------- */
+  invalidateToken(token, reason = 'manual') {
+    return sessionMgr.sessionManager.invalidateToken(token, reason);
+  }
+  sessions() { return sessionMgr.sessionManager; }
+
+  /* ------------- webhook helper ------------- */
+  sendWebhook(event, data, isError = false, isTest = false, req = null) {
+    return send_webhook(event, data, isError, isTest, req);
+  }
+
+  /* ------------- misc ------------- */
+  get state() { return getClientState(); }
+}
+
+function createSDK(options = {}) {
+  return new RoditSDK(options);
+}
+
+// Attach the legacy / named exports so existing code keeps working.
+Object.assign(createSDK, {
+  // Constructors / factories
+  RoditSDK,
   RoditClient,
   createClient,
   getClientState,
-  // Export the logger for SDK users who want to customize logging
-  logger
-};
+  // Logger
+  logger,
+  // Authentication helpers (spread)
+  ...authMw,
+  // Session helpers
+  sessionManager: sessionMgr.sessionManager,
+  runManualCleanup: sessionMgr.runManualCleanup,
+  // Other middleware / utilities
+  validatepermissions,
+  stateManager,
+  roditManager,
+  ratelimitmw,
+  send_webhook,
+});
+
+module.exports = createSDK;
+
+
+
+

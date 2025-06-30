@@ -17,13 +17,15 @@ const config = require('config');
 // In a real app with npm package, this would be: const auth = require('rodit-auth');
 const auth = require('../sdk');
 
+// Instantiate SDK facade for app-wide use
+const sdk = require('../sdk/roditclient')();
+
 // Import logger from config
 const logger = require('../sdk/services/logger'); // Path is correct as app.js is in src directory
 const { createLogContext, logErrorWithMetrics } = logger;
 
-// Import required services
-const roditManager = require('../sdk/lib/auth/roditmanager');
-const stateManager = require('../sdk/lib/blockchain/statemanager');
+// Import required services via SDK instance
+const { roditManager, stateManager } = sdk;
 
 // Import routes
 const echoprotectedRoute = require('./protected/echo');
@@ -34,11 +36,10 @@ const mcpRoutes = require('./routes/mcproutes');
 const homeRoute = require('./routes/home');
 const sessionRoutes = require('./routes/sessionroutes');
 
-// Import rate limiting middleware
-const ratelimitmw = require('../sdk/lib/middleware/ratelimit');
+// Use SDK-provided rate limiting helper
 
 // Default rate limits - will be updated from RODiT metadata
-let ratelimiter = ratelimitmw(100, 15);
+let ratelimiter = sdk.rateLimit(100, 15);
 
 // Swagger API documentation setup
 const swaggerOptions = {
@@ -388,7 +389,7 @@ function updateRateLimit(maxRequests, maxRqWindow) {
   });
   
   try {
-    ratelimiter = ratelimitmw(maxRequests, maxRqWindow);
+    ratelimiter = sdk.rateLimit(maxRequests, maxRqWindow);
     
     const duration = Date.now() - startTime;
     logger.infoWithContext("Rate limit settings updated", {

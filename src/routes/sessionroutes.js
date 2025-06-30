@@ -10,9 +10,15 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const { sessionManager, runManualCleanup } = require('../../sdk/lib/auth/sessionmanager');
-const { authenticate_apicall, login_client, logout_client } = require('../../sdk/lib/middleware/authenticationmw');
-const validatepermissions = require('../../sdk/lib/middleware/validatepermissions');
+const sdk = require('../../sdk/roditclient')();
+const {
+  sessionManager,
+  runManualCleanup,
+  authenticate_apicall,
+  login_client,
+  logout_client,
+  validatepermissions
+} = sdk;
 const logger = require('../../sdk/services/logger');
 
 /**

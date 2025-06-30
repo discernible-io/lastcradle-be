@@ -4,11 +4,8 @@ const router = express.Router();
 const { ulid } = require("ulid");
 const logger = require("../../sdk/services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
-const stateManager = require("../../sdk/lib/blockchain/statemanager");
-const {
-  login_portal,
-} = require("../../sdk/lib/middleware/authenticationmw");
-const roditManager = require("../../sdk/lib/auth/roditmanager");
+const sdk = require('../../sdk/roditclient')();
+const { stateManager, login_portal, roditManager } = sdk;
 
 async function signPortalRodit(
   port,

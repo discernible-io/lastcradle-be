@@ -3,7 +3,8 @@ const router = express.Router();
 const { ulid } = require("ulid");
 const logger = require("../../sdk/services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
-const { login_client } = require("../../sdk/lib/middleware/authenticationmw");
+const sdk = require('../../sdk/roditclient')();
+const { login_client } = sdk;
 
 // Handling login request
 router.post("/login", (req, res) => {

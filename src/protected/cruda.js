@@ -5,8 +5,8 @@ const config = require("config");
 const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
 const { ulid } = require("ulid"); // Adding ulid for request IDs
-const stateManager = require("../../sdk/lib/blockchain/statemanager");
-const { send_webhook } = require("../../sdk/lib/webhook/webhookhandler");
+const sdk = require('../../sdk/roditclient')();
+const { stateManager, send_webhook } = sdk;
 const { createLogContext, logEvent, logErrorWithMetrics, debugWithContextIf } = logger;
 
 const DB_PATH = config.get("API_DEFAULT_OPTIONS.DB_PATH");
