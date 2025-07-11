@@ -1791,6 +1791,14 @@ class RoditSDK {
     this.webhook = {
       ...webhookHandler
     };
+
+    // ---------------------------------------------------------------------
+    // Backward compatibility: expose snake_case alias directly on the instance
+    // Some legacy modules still expect `sdk.send_webhook(...)` to exist.  
+    // We therefore attach it here so it references the same implementation  
+    // as the newer camel-case `sendWebhook` helper below.
+    // ---------------------------------------------------------------------
+    this.send_webhook = send_webhook;
   }
 
   /* ------------- high-level client helpers ------------- */
