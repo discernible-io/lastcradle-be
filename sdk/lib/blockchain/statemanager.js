@@ -1,6 +1,6 @@
 /**
  * Authentication State Manager for RODiT operations
- * Copyright (c) 2024 Ayayai, Inc. All rights reserved.
+ * Copyright (c) 2025 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");
@@ -1074,7 +1074,7 @@ class AuthStateManager {
       const domainPart = scParts[0];
       const domainComponents = domainPart.split("-");
 
-      // Find domain and TLD in the components (format: 10975-ayayai-org)
+      // Find domain and TLD in the components (format: 10975-Discernible-org)
       if (domainComponents.length < 3) {
         const error = new Error("Invalid domain format in smart contract");
         
@@ -1097,7 +1097,7 @@ class AuthStateManager {
         throw error;
       }
 
-      const domain = domainComponents[1]; // ayayai
+      const domain = domainComponents[1]; // Discernible
       const tld = domainComponents[2]; // org
 
       // Build the API endpoint

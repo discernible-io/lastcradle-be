@@ -1,6 +1,6 @@
 /**
  * Service for interacting with the blockchain network
- * Copyright (c) 2024 Ayayai, Inc. All rights reserved.
+ * Copyright (c) 2025 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");
@@ -28,8 +28,8 @@ const CONSTANTS = {
 
 const NEAR_RPC_URL = config.get("NEAR_RPC_URL");
 /**
- * Data models for RODiT authentication
- * Copyright (c) 2024 Ayayai, Inc. All rights reserved.
+ * Data models for Discernible ID Authentication
+ * Copyright (c) 2024 Discernible, Inc. All rights reserved.
  */
 
 /**
@@ -288,14 +288,21 @@ const PayloadNEP413Schema = {
     // Security check: Handle null, undefined, or invalid roditid
     // This is important for security tests that intentionally send invalid tokens
     if (!roditid) {
-      logger.warnWithContext("Attempted to fetch RODiT with null/undefined ID", baseContext);
-      
+      logger.warnWithContext("Attempted to fetch RODiT with null/undefined ID", {
+        ...baseContext,
+        result: 'failure',
+        reason: 'Null or undefined RODiT ID'
+      });
       // Return an empty RODiT object instead of throwing an error
       // This allows the authentication flow to continue and properly reject the invalid token
       return new RODiT();
     }
 
-    logger.debugWithContext("Fetching RODiT token by ID", baseContext);
+    logger.infoWithContext("Fetching RODiT token by ID", {
+      ...baseContext,
+      result: 'call',
+      reason: 'Fetch RODiT token by ID requested'
+    }); // Function call log
 
     try {
       const args = { token_id: roditid };
@@ -333,7 +340,8 @@ const PayloadNEP413Schema = {
         
         // Add metric for failed RPC calls
         logger.metric("near_rpc_calls", fetchDuration, {
-          result: "http_error",
+          result: "failure",
+          reason: `HTTP error from blockchain RPC: status ${response.status}`,
           status_code: response.status,
           method: "rodit_token",
         });
@@ -343,12 +351,15 @@ const PayloadNEP413Schema = {
           {
             ...baseContext,
             statusCode: response.status,
-            duration
+            duration,
+            result: 'failure',
+            reason: `HTTP error from blockchain RPC: status ${response.status}`
           },
           new Error(`HTTP error! status: ${response.status}`),
           "near_rpc_http_error",
           {
-            result: "error",
+            result: "failure",
+            reason: `HTTP error from blockchain RPC: status ${response.status}`,
             status_code: response.status,
             method: "rodit_token",
             duration
@@ -376,6 +387,8 @@ const PayloadNEP413Schema = {
         logger.metric("near_rpc_wasm_errors", 1, {
           method: "rodit_token",
           rodit_id: roditid,
+          result: 'failure',
+          reason: `WASM execution error: ${parsedJson.result.error}`
         });
         
         logErrorWithMetrics(
@@ -383,14 +396,18 @@ const PayloadNEP413Schema = {
           {
             ...baseContext,
             wasmError: parsedJson.result.error,
-            duration
+            duration,
+            result: 'failure',
+            reason: `WASM execution error: ${parsedJson.result.error}`
           },
           new Error(`WASM execution error: ${parsedJson.result.error}`),
           "near_rpc_wasm_error",
           {
             method: "rodit_token",
             rodit_id: roditid,
-            duration
+            duration,
+            result: 'failure',
+            reason: `WASM execution error: ${parsedJson.result.error}`
           }
         );
 
@@ -406,6 +423,8 @@ const PayloadNEP413Schema = {
           method: "rodit_token",
           rodit_id: roditid,
           error_type: "invalid_array",
+          result: 'failure',
+          reason: 'Invalid result format: not an array'
         });
         
         logErrorWithMetrics(
@@ -413,7 +432,9 @@ const PayloadNEP413Schema = {
           {
             ...baseContext,
             resultType: typeof resultArray,
-            duration
+            duration,
+            result: 'failure',
+            reason: 'Invalid result format: not an array'
           },
           new Error("Result is not an array"),
           "near_rpc_format_error",
@@ -421,7 +442,9 @@ const PayloadNEP413Schema = {
             method: "rodit_token",
             rodit_id: roditid,
             error_type: "invalid_array",
-            duration
+            duration,
+            result: 'failure',
+            reason: 'Invalid result format: not an array'
           }
         );
 
@@ -439,13 +462,17 @@ const PayloadNEP413Schema = {
           "Failed to parse RODiT data",
           {
             ...baseContext,
-            error: error.message
+            error: error.message,
+            result: 'failure',
+            reason: `Failed to parse RODiT data: ${error.message}`
           },
           error,
           "rodit_parse_error",
           {
             error_type: error.name || "Unknown",
-            rodit_id: roditid
+            rodit_id: roditid,
+            result: 'failure',
+            reason: `Failed to parse RODiT data: ${error.message}`
           }
         );
         return new RODiT();
@@ -457,7 +484,7 @@ const PayloadNEP413Schema = {
         ...baseContext,
         decodeDuration,
         hasTokenId: parsed && !!parsed.token_id
-      });
+      }); // Context-only debug log, does not expose secrets
 
       const rodit = new RODiT();
       if (parsed) {
@@ -473,14 +500,17 @@ const PayloadNEP413Schema = {
         retrieved: hasValidData,
         fetchDuration,
         parseDuration,
-        decodeDuration
+        decodeDuration,
+        result: 'success',
+        reason: hasValidData ? 'RODiT token successfully fetched' : 'RODiT token fetch returned empty or incomplete data'
       });
 
       // Add metrics for successful RPC calls
       logger.metric("near_rpc_calls", totalDuration, {
         result: "success",
+        reason: hasValidData ? 'RODiT token successfully fetched' : 'RODiT token fetch returned empty or incomplete data',
         method: "rodit_token",
-        data_found: hasValidData ? "true" : "false",
+        data_found: hasValidData ? "true" : "false"
       });
 
       return rodit;
@@ -491,18 +521,23 @@ const PayloadNEP413Schema = {
       logger.metric("near_rpc_token_errors", 1, {
         error_type: error.name || "Unknown",
         rodit_id: roditid,
+        result: 'failure',
+        reason: `Failed to fetch RODiT token: ${error.message}`
       });
       
       logErrorWithMetrics(
         "Failed to fetch RODiT token",
         {
           ...baseContext,
-          duration
+          duration,
+          result: 'failure',
+          reason: `Failed to fetch RODiT token: ${error.message}`
         },
         error,
         "near_rpc_token_fetch",
         {
-          result: "error",
+          result: 'failure',
+          reason: `Failed to fetch RODiT token: ${error.message}`,
           error_type: error.name || "Unknown",
           rodit_id: roditid,
           duration
@@ -533,7 +568,11 @@ const PayloadNEP413Schema = {
       }
     );
 
-    logger.debugWithContext("Checking account state on blockchain", baseContext);
+    logger.infoWithContext("Checking account state on blockchain", {
+      ...baseContext,
+      result: 'call',
+      reason: 'Account state check requested'
+    }); // Function call log
 
     try {
       const jsonData = {
@@ -543,14 +582,9 @@ const PayloadNEP413Schema = {
         params: {
           request_type: "view_account",
           finality: "final",
-          account_id: accountId,
-        },
+          account_id: accountId
+        }
       };
-
-      logger.debugWithContext("Sending RPC request for account state", {
-        ...baseContext,
-        rpcMethod: "view_account"
-      });
 
       const response = await fetch(NEAR_RPC_URL, {
         method: "POST",
@@ -568,69 +602,71 @@ const PayloadNEP413Schema = {
         logger.warnWithContext("Account does not exist in blockchain", {
           ...baseContext,
           duration,
-          needsFunding: true
+          needsFunding: true,
+          result: 'failure',
+          reason: 'Account does not exist in blockchain'
         });
 
         // Emit metrics for Grafana dashboards
         logger.metric("account_state_check_duration_ms", duration, {
           component: "BlockchainService",
-          success: true,
+          success: false,
           accountExists: false,
+          result: 'failure',
+          reason: 'Account does not exist in blockchain'
         });
         logger.metric("non_existent_accounts_total", 1, {
           component: "BlockchainService",
           accountId,
+          result: 'failure',
+          reason: 'Account does not exist in blockchain'
         });
-
         return false;
       }
 
+      // If account exists
       const duration = Date.now() - startTime;
-      logger.debugWithContext("Account state verification complete", {
+      logger.infoWithContext("Account exists in blockchain", {
         ...baseContext,
         duration,
-        accountExists: true
+        result: 'success',
+        reason: 'Account exists in blockchain'
       });
-
-      // Emit metrics for Grafana dashboards
       logger.metric("account_state_check_duration_ms", duration, {
         component: "BlockchainService",
         success: true,
         accountExists: true,
+        result: 'success',
+        reason: 'Account exists in blockchain'
       });
-
       return true;
     } catch (error) {
       const duration = Date.now() - startTime;
-
-      // Emit metrics for Grafana dashboards
       logger.metric("account_state_check_duration_ms", duration, {
         component: "BlockchainService",
         success: false,
-        error: error.constructor.name,
+        accountExists: false,
+        result: 'failure',
+        reason: error.message || 'Unknown error during account state check'
       });
-      logger.metric("blockchain_rpc_errors_total", 1, {
-        component: "BlockchainService",
-        method: "account_state",
-        error: error.constructor.name,
-      });
-      
       logErrorWithMetrics(
-        "Failed to check account state",
+        "Error checking account state on blockchain",
         {
           ...baseContext,
-          duration
+          duration,
+          result: 'failure',
+          reason: error.message || 'Unknown error during account state check'
         },
         error,
         "account_state_check",
         {
-          result: "error",
-          error_type: error.constructor.name,
+          result: 'failure',
+          reason: error.message || 'Unknown error during account state check',
+          error_type: error.constructor?.name || 'Error',
           duration
         }
       );
-
-      throw error;
+      return false;
     }
   }
 
@@ -654,7 +690,11 @@ const PayloadNEP413Schema = {
       }
     );
 
-    logger.debugWithContext("Fetching RODiT tokens for account", baseContext);
+    logger.infoWithContext("Fetching RODiT tokens for account", {
+      ...baseContext,
+      result: 'call',
+      reason: 'Fetch RODiT tokens for account requested'
+    }); // Function call log
 
     try {
       const args = JSON.stringify({
@@ -697,12 +737,14 @@ const PayloadNEP413Schema = {
         logger.metric("account_tokens_fetch_duration_ms", duration, {
           component: "BlockchainService",
           success: false,
-          error: "WASM_ERROR",
+          result: 'failure',
+          reason: `WASM execution error: ${parsedJson.result.error}`
         });
         logger.metric("blockchain_rpc_errors_total", 1, {
           component: "BlockchainService",
           method: "tokens_from_account",
-          error: "WASM_ERROR",
+          result: 'failure',
+          reason: `WASM execution error: ${parsedJson.result.error}`
         });
         
         logErrorWithMetrics(
@@ -710,12 +752,15 @@ const PayloadNEP413Schema = {
           {
             ...baseContext,
             duration,
-            wasmError: parsedJson.result.error
+            wasmError: parsedJson.result.error,
+            result: 'failure',
+            reason: `WASM execution error: ${parsedJson.result.error}`
           },
           new Error(`Smart contract execution failed: ${parsedJson.result.error}`),
           "account_tokens_fetch",
           {
-            result: "error",
+            result: 'failure',
+            reason: `WASM execution error: ${parsedJson.result.error}`,
             error_type: "WASM_ERROR",
             duration
           }
@@ -814,24 +859,29 @@ const PayloadNEP413Schema = {
       logger.metric("account_tokens_fetch_duration_ms", duration, {
         component: "BlockchainService",
         success: false,
-        error: error.constructor.name,
+        result: 'failure',
+        reason: `Failed to fetch RODiT tokens: ${error.message}`
       });
       logger.metric("blockchain_rpc_errors_total", 1, {
         component: "BlockchainService",
         method: "tokens_from_account",
-        error: error.constructor.name,
+        result: 'failure',
+        reason: `Failed to fetch RODiT tokens: ${error.message}`
       });
       
       logErrorWithMetrics(
         "Failed to fetch RODiT tokens",
         {
           ...baseContext,
-          duration
+          duration,
+          result: 'failure',
+          reason: `Failed to fetch RODiT tokens: ${error.message}`
         },
         error,
         "account_tokens_fetch",
         {
-          result: "error",
+          result: 'failure',
+          reason: `Failed to fetch RODiT tokens: ${error.message}`,
           error_type: error.constructor.name,
           duration
         }
@@ -980,7 +1030,162 @@ const PayloadNEP413Schema = {
     }
   }
 
-  module.exports = {
+  async function nearorg_rpc_listpublicagents(options = {}) {
+  const { limit = 20, cursor } = options;
+  const requestId = ulid();
+  const startTime = Date.now();
+  const baseContext = createLogContext(
+    "BlockchainService",
+    "nearorg_rpc_listpublicagents",
+    {
+      requestId,
+      limit,
+      cursor
+    }
+  );
+  logger.debugWithContext("Fetching public agents list", baseContext);
+  try {
+    const args = { limit, cursor };
+    const argsBase64 = Buffer.from(JSON.stringify(args)).toString("base64");
+    const json_data = {
+      jsonrpc: "2.0",
+      id: CONSTANTS.NEAR_CONTRACT_ID,
+      method: "query",
+      params: {
+        request_type: "call_function",
+        finality: "final",
+        account_id: CONSTANTS.NEAR_CONTRACT_ID,
+        method_name: "list_public_agents",
+        args_base64: argsBase64
+      }
+    };
+
+    const rpcStart = Date.now();
+    const response = await fetch(NEAR_RPC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(json_data)
+    });
+    const rpcDuration = Date.now() - rpcStart;
+
+    if (!response.ok) {
+      logger.metric("near_rpc_calls", rpcDuration, { result: "failure", method: "list_public_agents", status_code: response.status });
+      throw new Error(`HTTP error ${response.status}`);
+    }
+
+    const parsed = await response.json();
+    const resultBase64 = parsed.result?.result;
+    if (!resultBase64) {
+      return { list_agents: [], nextCursor: null };
+    }
+
+    const buf = Buffer.from(resultBase64, "base64");
+    const decoded = new TextDecoder().decode(buf);
+    const payload = JSON.parse(decoded);
+
+    const totalDuration = Date.now() - startTime;
+    logger.metric("near_rpc_calls", totalDuration, { result: "success", method: "list_public_agents" });
+    return payload;
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.metric("near_rpc_errors", 1, { method: "list_public_agents" });
+    logErrorWithMetrics(
+      "Error listing public agents",
+      { ...baseContext, duration },
+      error,
+      "near_rpc_listpublicagents",
+      { result: "error", duration }
+    );
+    throw error;
+  }
+}
+
+/**
+ * Fetches list of access keys for an account
+ * @param {string} accountId
+ */
+async function nearorg_rpc_accesskeys(accountId) {
+  const requestId = ulid();
+  const startTime = Date.now();
+  const baseContext = createLogContext("BlockchainService","nearorg_rpc_accesskeys",{requestId,accountId});
+  logger.debugWithContext("Fetching access keys", baseContext);
+  const json_data = {
+    jsonrpc:"2.0", id:CONSTANTS.NEAR_CONTRACT_ID, method:"query", params:{request_type:"view_access_key_list", finality:"final", account_id:accountId}
+  };
+  const response = await fetch(NEAR_RPC_URL,{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(json_data)});
+  const duration = Date.now() - startTime;
+  if(!response.ok){ logger.metric("near_rpc_calls", duration,{result:"failure",method:"view_access_key_list",status_code:response.status}); throw new Error(`HTTP ${response.status}`);} 
+  const parsed = await response.json();
+  logger.metric("near_rpc_calls", duration,{result:"success",method:"view_access_key_list"});
+  return parsed.result;
+}
+
+/**
+ * Fetches owner (account ID) of a RODiT token
+ * @param {string} token_id
+ */
+async function nearorg_rpc_rodit_owner(token_id){
+  const requestId = ulid();
+  const startTime = Date.now();
+  const baseContext = createLogContext("BlockchainService","nearorg_rpc_rodit_owner",{requestId,token_id});
+  logger.debugWithContext("Fetching RODiT owner", baseContext);
+  const args = { token_id };
+  const argsBase64 = Buffer.from(JSON.stringify(args)).toString("base64");
+  const json_data = {jsonrpc:"2.0", id:CONSTANTS.NEAR_CONTRACT_ID, method:"query", params:{request_type:"call_function", finality:"final", account_id:CONSTANTS.NEAR_CONTRACT_ID, method_name:"rodit_token_owner", args_base64:argsBase64 }};
+  const response = await fetch(NEAR_RPC_URL,{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(json_data)});
+  const duration = Date.now()-startTime;
+  if(!response.ok){ logger.metric("near_rpc_calls",duration,{result:"failure",method:"rodit_token_owner",status_code:response.status}); throw new Error(`HTTP ${response.status}`);} 
+  const parsed = await response.json();
+  logger.metric("near_rpc_calls",duration,{result:"success",method:"rodit_token_owner"});
+  if(parsed.result && parsed.result.result){ const buf = Buffer.from(parsed.result.result,"base64"); return JSON.parse(new TextDecoder().decode(buf)); }
+  return null;
+}
+
+/**
+ * Retrieves a nonce for a RODiT token from the agent-auth contract
+ * @param {string} token_id
+ * @returns {Promise<string>} nonce
+ */
+async function nearorg_rpc_getnonce(token_id) {
+  const requestId = ulid();
+  const startTime = Date.now();
+  const baseContext = createLogContext("BlockchainService","nearorg_rpc_getnonce",{requestId,token_id});
+  const args = { token_id };
+  const argsBase64 = Buffer.from(JSON.stringify(args)).toString("base64");
+  const json_data = {jsonrpc:"2.0", id:CONSTANTS.NEAR_CONTRACT_ID, method:"query", params:{request_type:"call_function", finality:"final", account_id:CONSTANTS.NEAR_CONTRACT_ID, method_name:"get_nonce", args_base64:argsBase64 }};
+  const response = await fetch(NEAR_RPC_URL,{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(json_data)});
+  const duration = Date.now()-startTime;
+  if(!response.ok){ logger.metric("near_rpc_calls", duration,{result:"failure",method:"get_nonce",status_code:response.status}); throw new Error(`HTTP ${response.status}`);} 
+  const parsed = await response.json();
+  logger.metric("near_rpc_calls", duration,{result:"success",method:"get_nonce"});
+  if(parsed.result && parsed.result.result){ return Buffer.from(parsed.result.result,"base64").toString(); }
+  return null;
+}
+
+/**
+ * Verifies a signature for Discernible ID Authentication
+ * @param {string} token_id
+ * @param {string} nonce
+ * @param {string} sig - base58 or hex signature
+ * @returns {Promise<boolean>} verification result
+ */
+async function nearorg_rpc_verifysignature(token_id, nonce, sig) {
+  const requestId = ulid();
+  const startTime = Date.now();
+  const baseContext = createLogContext("BlockchainService","nearorg_rpc_verifysignature",{requestId,token_id});
+  const args = { token_id, nonce, sig };
+  const argsBase64 = Buffer.from(JSON.stringify(args)).toString("base64");
+  const json_data = {jsonrpc:"2.0", id:CONSTANTS.NEAR_CONTRACT_ID, method:"query", params:{request_type:"call_function", finality:"final", account_id:CONSTANTS.NEAR_CONTRACT_ID, method_name:"verify_signature", args_base64:argsBase64 }};
+  const response = await fetch(NEAR_RPC_URL,{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(json_data)});
+  const duration = Date.now()-startTime;
+  if(!response.ok){ logger.metric("near_rpc_calls", duration,{result:"failure",method:"verify_signature",status_code:response.status}); throw new Error(`HTTP ${response.status}`);} 
+  const parsed = await response.json();
+  logger.metric("near_rpc_calls", duration,{result:"success",method:"verify_signature"});
+  if(parsed.result && parsed.result.result){ return Buffer.from(parsed.result.result,"base64").toString() === 'true'; }
+  return false;
+}
+
+module.exports = {
     RODiT,
     PayloadNEP413,
     PayloadNEP413Schema,
@@ -989,5 +1194,10 @@ const PayloadNEP413Schema = {
     nearorg_rpc_tokenfromroditid,
     nearorg_rpc_state,
     nearorg_rpc_tokensfromaccountid,
-    nearorg_rpc_fetchpublickeybytes
-  };
+    nearorg_rpc_fetchpublickeybytes,
+    nearorg_rpc_accesskeys,
+    nearorg_rpc_rodit_owner,
+    nearorg_rpc_getnonce,
+    nearorg_rpc_verifysignature,
+    nearorg_rpc_listpublicagents
+};

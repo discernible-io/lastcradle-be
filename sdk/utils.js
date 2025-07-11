@@ -1,6 +1,6 @@
 /**
- * Utility functions for RODiT authentication
- * Copyright (c) 2024 Ayayai, Inc. All rights reserved.
+ * Utility functions for Discernible Authentication
+ * Copyright (c) 2025 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");

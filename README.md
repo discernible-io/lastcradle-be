@@ -2,7 +2,7 @@
 
 # RODiT Authentication API Server
 
-This repository contains a sample API server that demonstrates the implementation of RODiT-based authentication using the RODiT Authentication SDK. The project is structured with a reusable SDK for RODiT authentication and a sample Express.js API that showcases its usage
+This repository contains a sample API server that demonstrates the implementation of RODiT-based authentication using the RODiT Authentication SDK. The project is structured with a reusable SDK for Discernible Authentication and a sample Express.js API that showcases its usage
 
 ## Repository Structure
 
@@ -55,7 +55,7 @@ setsid npm start >/dev/null 2>&1 < /dev/null &
 
 ## Using the SDK in Your Own Projects
 
-The SDK located in the `/sdk` directory can be used independently in other projects. See the [SDK README](/sdk/README.md) for detailed documentation on how to integrate RODiT authentication into your own applications.
+The SDK located in the `/sdk` directory can be used independently in other projects. See the [SDK README](/sdk/README.md) for detailed documentation on how to integrate Discernible Authentication into your own applications.
 
 ## API Documentation
 

@@ -2,7 +2,7 @@
  * RODiT Authentication System
  * 
  * This module exports the core authentication functions directly from their source files.
- * It provides a simple interface for using the RODiT authentication system without adding
+ * It provides a simple interface for using the Discernible Authentication system without adding
  * unnecessary abstraction layers.
  * 
  * Copyright (c) 2025 Rodit Technologies Inc. All rights reserved.

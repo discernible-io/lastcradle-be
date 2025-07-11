@@ -1,6 +1,6 @@
 /**
- * Authentication service for RODiT authentication
- * Copyright (c) 2024 Ayayai, Inc. All rights reserved.
+ * Authentication service for Discernible Authentication
+ * Copyright (c) 2025 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");

@@ -1,7 +1,7 @@
 /**
- * Basic Express server with RODiT authentication
+ * Basic Express server with Discernible Authentication
  * 
- * This example demonstrates how to use the RODiT authentication system
+ * This example demonstrates how to use the Discernible Authentication system
  * in an Express.js application.
  * 
  * Copyright (c) 2025 Rodit Technologies Inc. All rights reserved.
@@ -64,7 +64,7 @@ const swaggerOptions = {
     info: {
       title: "RODiT Authentication API Example",
       version: "1.0.0",
-      description: "Example API using RODiT authentication system",
+      description: "Example API using Discernible Authentication system",
       contact: {
         name: "Rodit Technologies Inc.",
         url: "https://example.com",
@@ -195,7 +195,7 @@ app.use((req, res, next) => {
  */
 app.get('/', (req, res) => {
   res.json({
-    message: 'Welcome to the RODiT authentication example',
+    message: 'Welcome to the Discernible Authentication example',
     endpoints: {
       login: 'POST /api/login',
       logout: 'POST /api/logout',

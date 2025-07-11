@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Ayayai, Inc. All rights reserved.
+// Copyright (c) 2025 Discernible, Inc. All rights reserved.
 
 /**
  * RODiT Manager Service

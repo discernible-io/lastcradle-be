@@ -48,10 +48,10 @@ const swaggerOptions = {
     info: {
       title: "RODiT Authentication API",
       version: "1.0.0",
-      description: `# API using RODiT authentication system
+      description: `# API using Discernible Authentication system
 
 ## Service Description
-The RODiT Authentication API provides secure authentication services using the RODiT authentication system. This API enables applications to implement robust user authentication, session management, and access control using RODiT's cryptographic identity verification.
+The RODiT Authentication API provides secure authentication services using the Discernible Authentication system. This API enables applications to implement robust user authentication, session management, and access control using RODiT's cryptographic identity verification.
 
 ## Key Features
 - Secure user authentication via RODiT credentials
