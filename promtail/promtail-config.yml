@@ -21,9 +21,9 @@ scrape_configs:
       - targets:
           - localhost
         labels:
-          job: servertestapi
+          job: servertest-api
           hostname: "dev-api.aparejos.net"
-          app: servertestapi
+          app: servertest-app
           __path__: /app/logs/*.log
     pipeline_stages:
       - regex:

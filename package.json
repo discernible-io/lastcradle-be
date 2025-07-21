@@ -23,7 +23,7 @@
     "winston": "^3.13.1",
     "winston-daily-rotate-file": "^4.7.1"
   },
-  "name": "servertestapi",
+  "name": "servertest",
   "version": "1.0.0",
   "description": "Description",
   "main": "app.js",
@@ -32,12 +32,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cableguard/servertestapi.git"
+    "url": "git+https://github.com/cableguard/servertest.git"
   },
   "author": "Vicente Aceituno Canal",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/cableguard/servertestapi/issues"
+    "url": "https://github.com/cableguard/servertest/issues"
   },
-  "homepage": "https://github.com/cableguard/servertestapi#readme"
+  "homepage": "https://github.com/cableguard/servertest#readme"
 }

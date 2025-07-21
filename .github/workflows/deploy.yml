@@ -45,7 +45,7 @@ jobs:
       - name: Setup and Copy Files
         run: |
           echo "Setting up directories..."
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertestapi-app/{certs,logs,data,nginx,promtail}"
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertest-app/{certs,logs,data,nginx,promtail}"
           echo "Copying API files..."
           rsync -avz --delete \
             --exclude '.git' \
@@ -54,61 +54,61 @@ jobs:
             --exclude 'certs' \
             --exclude 'logs' \
             --exclude 'data' \
-            ./ ${{ env.SSH_USER }}@${{ env.SSH_HOST }}:~/servertestapi-app/
+            ./ ${{ env.SSH_USER }}@${{ env.SSH_HOST }}:~/servertest-app/
 
       - name: Deploy Containers
         run: |
           ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
             set -x
-            cd ~/servertestapi-app
+            cd ~/servertest-app
             
             # Clean up existing resources
             echo 'Cleaning up existing resources...'
-            podman pod exists servertestapi-pod && podman pod rm -f servertestapi-pod
-            podman image exists servertestapi-image:latest && podman rmi -f servertestapi-image:latest
-            podman image exists localhost/servertestapi-nginx:latest && podman rmi -f localhost/servertestapi-nginx:latest
-            podman image exists localhost/servertestapi-promtail:latest && podman rmi -f localhost/servertestapi-promtail:latest
+            podman pod exists servertest-pod && podman pod rm -f servertest-pod
+            podman image exists servertest-image:latest && podman rmi -f servertest-image:latest
+            podman image exists localhost/servertest-nginx:latest && podman rmi -f localhost/servertest-nginx:latest
+            podman image exists localhost/servertest-promtail:latest && podman rmi -f localhost/servertest-promtail:latest
             
             # Create new pod
             echo 'Creating API pod...'
-            podman pod create --name servertestapi-pod -p ${API_PORT}:${API_PORT}
+            podman pod create --name servertest-pod -p ${API_PORT}:${API_PORT}
             
             # Build and run API container
             echo 'Building and running API container...'
-            podman build -t servertestapi-image:latest -f api.Dockerfile .
+            podman build -t servertest-image:latest -f api.Dockerfile .
             podman run -d \
-              --pod servertestapi-pod \
-              --name servertestapi-container \
+              --pod servertest-pod \
+              --name servertest-container \
               --restart=unless-stopped \
-              -v ~/servertestapi-app/logs:/app/logs:Z \
-              -v ~/servertestapi-app/data:/app/data:Z \
-              -v ~/servertestapi-app/certs:/app/certs:ro,Z \
-              servertestapi-image:latest
+              -v ~/servertest-app/logs:/app/logs:Z \
+              -v ~/servertest-app/data:/app/data:Z \
+              -v ~/servertest-app/certs:/app/certs:ro,Z \
+              servertest-image:latest
             
             # Build and run nginx
             echo 'Building and running nginx...'
-            podman build -t localhost/servertestapi-nginx:latest -f nginx.Dockerfile .
+            podman build -t localhost/servertest-nginx:latest -f nginx.Dockerfile .
             podman run -d \
-              --pod servertestapi-pod \
-              --name servertestapi-nginx \
+              --pod servertest-pod \
+              --name servertest-nginx \
               --restart=unless-stopped \
-              -v ~/servertestapi-app/certs:/app/certs:ro,Z \
-              localhost/servertestapi-nginx:latest
+              -v ~/servertest-app/certs:/app/certs:ro,Z \
+              localhost/servertest-nginx:latest
 
             # Run promtail directly from Grafana's image
             echo 'Running Promtail...'
             podman run -d \
-              --pod servertestapi-pod \
-              --name servertestapi-promtail \
+              --pod servertest-pod \
+              --name servertest-promtail \
               --restart=unless-stopped \
-              -v ~/servertestapi-app/logs:/app/logs:ro,Z \
-              -v ~/servertestapi-app/promtail/promtail-config.yml:/etc/promtail/config.yml:ro,Z \
+              -v ~/servertest-app/logs:/app/logs:ro,Z \
+              -v ~/servertest-app/promtail/promtail-config.yml:/etc/promtail/config.yml:ro,Z \
               docker.io/grafana/promtail:latest \
               -config.file=/etc/promtail/config.yml
             
             echo 'API logs:'
-            podman logs servertestapi-container || true
+            podman logs servertest-container || true
             
             echo 'Nginx logs:'
-            podman logs servertestapi-nginx || true
+            podman logs servertest-nginx || true
           "
