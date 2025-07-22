@@ -65,29 +65,29 @@ All user data is handled in accordance with our privacy policy. We implement ind
 
 We comply with applicable data protection regulations including GDPR and CCPA. In the event of a data breach, we will notify affected users within 72 hours of discovery.
       `,
-      termsOfService: "https://dev-api.aparejos.net:3443/terms",
+      termsOfService: "https://dev-api.aparejos.net:9443/terms",
       contact: {
         name: "Rodit Technologies Inc.",
-        url: "https://dev-api.aparejos.net:3443/home.js",
+        url: "https://dev-api.aparejos.net:9443/home.js",
         email: "support@rodit-tech.com"
       },
       license: {
         name: "Proprietary",
-        url: "https://dev-api.aparejos.net:3443/license"
+        url: "https://dev-api.aparejos.net:9443/license"
       },
       "x-api-id": "rodit-auth-api-v1"
     },
     servers: [
       {
-        url: "https://dev-api.aparejos.net:3443",
+        url: "https://dev-api.aparejos.net:9443",
         description: "RODiT Development server",
       },
       {
-        url: "https://api.aparejos.net:3443",
+        url: "https://api.aparejos.net:9443",
         description: "RODiT Production server"
       },
       {
-        url: "https://sandbox-api.aparejos.net:3443",
+        url: "https://sandbox-api.aparejos.net:9443",
         description: "RODiT Sandbox environment for testing"
       }
     ],
