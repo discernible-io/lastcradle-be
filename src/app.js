@@ -65,21 +65,21 @@ All user data is handled in accordance with our privacy policy. We implement ind
 
 We comply with applicable data protection regulations including GDPR and CCPA. In the event of a data breach, we will notify affected users within 72 hours of discovery.
       `,
-      termsOfService: "https://dev-api.aparejos.net:9443/terms",
+      termsOfService: "https://discernible.io:9443/terms",
       contact: {
         name: "Rodit Technologies Inc.",
-        url: "https://dev-api.aparejos.net:9443/home.js",
+        url: "https://discernible.io:9443/home.js",
         email: "support@rodit-tech.com"
       },
       license: {
         name: "Proprietary",
-        url: "https://dev-api.aparejos.net:9443/license"
+        url: "https://discernible.io:9443/license"
       },
       "x-api-id": "rodit-auth-api-v1"
     },
     servers: [
       {
-        url: "https://dev-api.aparejos.net:9443",
+        url: "https://discernible.io:9443",
         description: "RODiT Development server",
       },
       {
