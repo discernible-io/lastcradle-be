@@ -197,7 +197,7 @@ router.post("/signclient", async (req, res) => {
       throw new Error("Failed to initialize RODiT configuration");
     }
 
-    const portalPort = 8443;
+    const portalPort = 8080;
     
     // JWT Token management
     const jwtContext = {
