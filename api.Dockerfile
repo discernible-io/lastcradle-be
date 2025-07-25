@@ -18,6 +18,9 @@ RUN npm install --production \
 # Copy application files
 COPY . .
 
+# Create necessary directories for data and logs
+RUN mkdir -p /app/data /app/logs
+
 # Create non-root user for better security (Alpine syntax)
 RUN adduser -D -H -s /sbin/nologin nodeuser && \
     chown -R nodeuser:nodeuser /app
