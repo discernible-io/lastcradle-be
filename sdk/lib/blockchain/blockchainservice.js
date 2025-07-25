@@ -19,7 +19,7 @@ logger.debugWithContext("Loading blockchainservice.js module", baseModuleContext
  */
 const CONSTANTS = {
   NEAR_CONTRACT_ID: config.get("NEAR_CONTRACT_ID"),
-  SMART_CONTRACT_REVOKED: "10975-revoked-cableguard-org.testnet",
+  SMART_CONTRACT_REVOKED: "20260616-rodit-org.testnet",
   RODIT_ID_SZ: 128,
   RODIT_ID_PK_SZ: 32,
   RODIT_ID_SIGNATURE_SZ: 64,

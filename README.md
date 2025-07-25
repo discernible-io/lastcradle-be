@@ -1,8 +1,8 @@
-![cableguard logo banner](./banner.png)
+![rodit logo banner](./banner.png)
 
 # RODiT Authentication API Server
 
-This repository contains a sample API server that demonstrates the implementation of RODiT-based authentication using the RODiT Authentication SDK. The project is structured with a reusable SDK for Discernible Authentication and a sample Express.js API that showcases its usage.
+This repository contains a sample API server that demonstrates the implementation of RODiT-based authentication using the RODiT Authentication SDK. The project is structured with a reusable SDK for Discernible Authentication and a sample Express.js API that showcases its usage
 
 ## Repository Structure
 

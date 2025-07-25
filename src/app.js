@@ -83,11 +83,11 @@ We comply with applicable data protection regulations including GDPR and CCPA. I
         description: "RODiT Development server",
       },
       {
-        url: "https://api.aparejos.net:9443",
+        url: "https://api.discernible.io.net:9443",
         description: "RODiT Production server"
       },
       {
-        url: "https://sandbox-api.aparejos.net:9443",
+        url: "https://sandbox-api.discernible.io.net:9443",
         description: "RODiT Sandbox environment for testing"
       }
     ],

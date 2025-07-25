@@ -32,12 +32,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cableguard/servertest.git"
+    "url": "git+https://github.com/rodit/servertest.git"
   },
   "author": "Vicente Aceituno Canal",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/cableguard/servertest/issues"
+    "url": "https://github.com/rodit/servertest/issues"
   },
-  "homepage": "https://github.com/cableguard/servertest#readme"
+  "homepage": "https://github.com/rodit/servertest#readme"
 }

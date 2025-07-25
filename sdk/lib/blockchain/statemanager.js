@@ -1074,7 +1074,7 @@ class AuthStateManager {
       const domainPart = scParts[0];
       const domainComponents = domainPart.split("-");
 
-      // Find domain and TLD in the components (format: 10975-Discernible-org)
+      // Find domain and TLD in the components (format: 20260616-Discernible-org)
       if (domainComponents.length < 3) {
         const error = new Error("Invalid domain format in smart contract");
         
