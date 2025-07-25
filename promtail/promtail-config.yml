@@ -46,3 +46,5 @@ scrape_configs:
       - labels:
           component:
           logtype:
+          level:
+          service_name:
