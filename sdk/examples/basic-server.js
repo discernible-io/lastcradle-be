@@ -346,7 +346,7 @@ app.get('/api/client-example', (req, res) => {
   // Example code to show in the response
   const exampleCode = `
   // Example 1: Using the SDK's built-in version manager
-  const { RoditClient } = require('@cableguard/rodit-sdk');
+  const { RoditClient } = require('@rodit/rodit-sdk');
   
   // Initialize client with version information
   const client = new RoditClient({

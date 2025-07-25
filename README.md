@@ -1,4 +1,4 @@
-![cableguard logo banner](./banner.png)
+![rodit logo banner](./banner.png)
 
 # RODiT Authentication API Server
 

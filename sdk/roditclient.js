@@ -69,7 +69,7 @@ const sdkClientState = {
  * Main client interface for interacting with RODiT API services
  * 
  * @example
- * const { RoditClient } = require('@cableguard/rodit-sdk');
+ * const { RoditClient } = require('@rodit/rodit-sdk');
  * const client = new RoditClient();
  * 
  * // Initialize with custom endpoints (optional)
