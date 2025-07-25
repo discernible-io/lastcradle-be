@@ -7,7 +7,7 @@ on:
     branches: [ refactored ]
 
 env:
-  SSH_HOST: 178.128.173.226
+  SSH_HOST: 174.138.10.2
   SSH_USER: ${{ secrets.SSH_USER }}
   API_DOMAIN: dev-api.aparejos.net
   API_PORT: 3443
