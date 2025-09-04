@@ -14,14 +14,8 @@ This npm package provides the RODiT-based authentication system for Express.js a
 
 ```bash
 npm install rodit-auth
+
 ```
-
-For local development:
-
-```bash
-npm install /path/to/aiagentid/sdk
-```
-
 ## Usage
 
 ### Basic Setup
