@@ -8,6 +8,7 @@
     "sqlite3": "^5.1.7",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "tweetnacl-util": "^0.15.1",
     "ulid": "^2.3.0"
   },
   "name": "servertest",
