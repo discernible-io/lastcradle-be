@@ -16,7 +16,7 @@ const config = require('config');
 // Import the unified auth module and services from SDK root
 // In a real app with npm package, this would be: const auth = require('rodit-auth');
 const auth = require('../sdk');
-const { logger, rateLimit, stateManager, roditManager } = require('../sdk');
+const { logger, ratelimitmw, stateManager, roditManager } = require('../sdk');
 const { createLogContext, logErrorWithMetrics } = logger;
 
 // Import routes
@@ -31,7 +31,7 @@ const sessionRoutes = require('./routes/sessionroutes');
 // Use SDK-provided rate limiting helper
 
 // Default rate limits - will be updated from RODiT metadata
-let ratelimiter = rateLimit(100, 15);
+let ratelimiter = ratelimitmw(100, 15);
 
 // Swagger API documentation setup
 const swaggerOptions = {
