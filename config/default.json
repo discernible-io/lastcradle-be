@@ -1,7 +1,6 @@
 {
   "API_DEFAULT_OPTIONS": {
-    "DB_PATH": "/app/data/servertest.db",
-    "LOG_DIR": "/app/logs"
+    "DB_PATH": "/app/data/database.sqlite"
   },
   "METHOD_PERMISSION_MAP": {
     "create": ["entityAndProperties"],
