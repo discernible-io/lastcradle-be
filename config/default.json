@@ -1,4 +1,8 @@
 {
+  "API_DEFAULT_OPTIONS": {
+    "DB_PATH": "/app/data/servertest.db",
+    "LOG_DIR": "/app/logs"
+  },
   "METHOD_PERMISSION_MAP": {
     "create": ["entityAndProperties"],
     "destroy": ["entityAndProperties"],
