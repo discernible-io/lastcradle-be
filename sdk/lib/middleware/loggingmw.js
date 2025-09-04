@@ -1,11 +1,11 @@
 /**
  * Request logging middleware
  * Provides standardized request/response logging
- * Copyright (c) 2025 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2024 Discernible, Inc. All rights reserved.
  */
 
 const logger = require("../../services/logger");
-const config = require("../../../config/default.json");
+const config = require('../../services/config');
 
 /**
  * Middleware for logging requests and responses
@@ -35,37 +35,45 @@ const loggingmw = (req, res, next) => {
     // Use duration from performance middleware if available
     const duration = req.duration || (req.startTime ? Date.now() - req.startTime : null);
     
-    // Standard request log entry
-    logger.info("Request completed", {
+    // Standard request result log entry
+    const result = (res.statusCode >= 200 && res.statusCode < 300) ? 'success' : 'failure';
+    const reason = res.statusMessage || (result === 'success' ? 'Request completed successfully' : 'Request failed');
+    logger.infoWithContext("Request completed", {
       component: "API",
       method: req.method,
-      clientIP: req.ip,
-      userId: req.user ? req.user.id : null,
-      roditId: req.user ? req.user.roditId : null,
-      authenticated: !!req.user,
       url: req.originalUrl,
-      service: req.logService || "unspecified service",
-      action: req.logAction || req.requestType || "unspecified action",
-      resource: res.itemid,
       status: res.statusCode,
-      statusMessage: res.statusReason || res.statusMessage,
       requestId: req.requestId,
-      traceId: req.traceId,
-      timestamp: new Date().toISOString(),
+      userId: req.user ? req.user.id : undefined,
+      authenticated: !!req.user,
+      clientIP: req.ip,
       duration,
-      userAgent: req.get('User-Agent'),
-      referer: req.get('Referer')
+      result,
+      reason
+    });
+    // Emit a metric for request completion
+    logger.metric("api_request_duration_ms", duration, {
+      component: "API",
+      method: req.method,
+      url: req.originalUrl,
+      status: res.statusCode,
+      requestId: req.requestId,
+      userId: req.user ? req.user.id : undefined,
+      result,
+      reason
     });
   };
 
-  // Log the incoming request
-  logger.debug("Request received", {
+  // Log the incoming request (function call)
+  logger.info("Request received", {
     component: "API",
     method: req.method,
     url: req.originalUrl,
     clientIP: req.ip,
     requestId: req.requestId,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    result: 'call',
+    reason: 'Request received'
   });
 
   next();

@@ -1,26 +1,27 @@
 /**
  * Performance monitoring service for tracing and metrics collection
- * Copyright (c) 2025 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2024 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require('ulid');
 const logger = require('./logger');
+const config = require('./config');
 const os = require('os');
 
-// Load level constants
-const LOAD_LEVELS = {
+// Load level constants from configuration
+const LOAD_LEVELS = config.get('PERFORMANCE.LOAD_LEVELS', {
   LOW: 'low',
   MEDIUM: 'medium',
   HIGH: 'high',
   CRITICAL: 'critical'
-};
+});
 
-// Load thresholds (requests per minute)
-const LOAD_THRESHOLDS = {
+// Load thresholds (requests per minute) from configuration
+const LOAD_THRESHOLDS = config.get('PERFORMANCE.LOAD_THRESHOLDS', {
   MEDIUM: 500,   // >500 req/min = medium load
   HIGH: 1000,    // >1000 req/min = high load
   CRITICAL: 2000 // >2000 req/min = critical load
-};
+});
 
 class PerformanceService {
   constructor() {
@@ -54,14 +55,14 @@ class PerformanceService {
       options
     });
 
-    // Start monitoring system load
+    // Start monitoring health load
     this._startLoadMonitoring();
 
     return this;
   }
 
   /**
-   * Start monitoring system load
+   * Start monitoring health load
    * 
    * @private
    */
@@ -482,7 +483,7 @@ class PerformanceService {
   }
 
   /**
-   * Get system resource usage metrics
+   * Get health resource usage metrics
    * 
    * @returns {Object} System resource metrics
    */
@@ -493,7 +494,7 @@ class PerformanceService {
     return {
       cpu: {
         user: cpuUsage.user,
-        system: cpuUsage.system,
+        health: cpuUsage.health,
         loadAvg: os.loadavg()
       },
       memory: {

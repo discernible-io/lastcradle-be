@@ -1,6 +1,6 @@
 /**
  * Authentication middleware for web API
- * Copyright (c) 2025 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2024 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");
@@ -8,7 +8,6 @@ const config = require('config');
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
 const nacl = require("tweetnacl");
-const { decodeJwt } = require("jose");
 // Import specific functions directly to avoid circular dependencies
 const { 
   validate_jwt_token_be,
@@ -29,6 +28,15 @@ const stateManager = require("../blockchain/statemanager");
 const utils = require("../../utils");
 const { unixTimeToDateString } = utils;
 const { sessionManager } = require("../auth/sessionmanager");
+
+// Dynamic import for ESM 'jose' in CommonJS context
+let _josePromise;
+async function getJose() {
+  if (!_josePromise) {
+    _josePromise = import("jose");
+  }
+  return _josePromise;
+}
 
 // Import validation utilities or define them if not available
 const validationResult = { isEmpty: () => true }; // Default implementation if not available
@@ -59,7 +67,9 @@ async function login_client(req, res) {
     }
   );
 
-  logger.infoWithContext("Client login request received", baseContext);
+  logger.infoWithContext("Client login request received", baseContext); // Function call log
+  // Determines whether login failures should be silent, configurable via SECURITY_OPTIONS.SILENT_LOGIN_FAILURES
+  let silenceLoginFailures = false;
 
   try {
     // Extract parameters from request body
@@ -76,9 +86,7 @@ async function login_client(req, res) {
 
     // Validate required parameters
     // Get the silence flag from config (default to false if not set)
-    const silenceLoginFailures = config.has('SECURITY_OPTIONS.SILENCE_LOGIN_FAILURES') 
-      ? config.get('SECURITY_OPTIONS.SILENCE_LOGIN_FAILURES') 
-      : false;
+    silenceLoginFailures = config.get('SECURITY_OPTIONS.SILENT_LOGIN_FAILURES');
       
     if (!peer_roditid) {
       const duration = Date.now() - startTime;
@@ -87,18 +95,22 @@ async function login_client(req, res) {
       logger.warnWithContext("Missing RODiT ID in login request", {
         ...baseContext,
         duration,
+        result: 'failure',
+        reason: 'Missing RODiT ID',
         bodyKeys: Object.keys(req.body)
       });
-      
       // Emit metrics for Grafana dashboards
       logger.metric("login_attempt_duration_ms", duration, {
         component: "RoditAuth",
         success: false,
+        result: 'failure',
+        reason: 'Missing RODiT ID',
         error: "MISSING_RODIT_ID"
       });
       logger.metric("failed_login_attempts_total", 1, {
         component: "RoditAuth",
-        reason: "MISSING_RODIT_ID"
+        result: 'failure',
+        reason: "Missing RODiT ID"
       });
       
       if (!silenceLoginFailures) {
@@ -118,18 +130,22 @@ async function login_client(req, res) {
       logger.warnWithContext("Missing signature in login request", {
         ...baseContext,
         duration,
+        result: 'failure',
+        reason: 'Missing signature',
         bodyKeys: Object.keys(req.body)
       });
-      
       // Emit metrics for Grafana dashboards
       logger.metric("login_attempt_duration_ms", duration, {
         component: "RoditAuth",
         success: false,
+        result: 'failure',
+        reason: 'Missing signature',
         error: "MISSING_SIGNATURE"
       });
       logger.metric("failed_login_attempts_total", 1, {
         component: "RoditAuth",
-        reason: "MISSING_SIGNATURE"
+        result: 'failure',
+        reason: "Missing signature"
       });
       
       if (!silenceLoginFailures) {
@@ -204,18 +220,22 @@ async function login_client(req, res) {
       logger.warnWithContext("Invalid RODiT credentials", {
         ...baseContext,
         duration,
+        result: 'failure',
+        reason: 'Invalid credentials',
         roditId: peer_roditid
       });
-
       // Emit metrics for Grafana dashboards
       logger.metric("login_attempt_duration_ms", duration, {
         component: "RoditAuth",
         success: false,
+        result: 'failure',
+        reason: 'Invalid credentials',
         error: "INVALID_CREDENTIALS",
       });
       logger.metric("failed_login_attempts_total", 1, {
         component: "RoditAuth",
-        reason: "INVALID_CREDENTIALS",
+        result: 'failure',
+        reason: "Invalid credentials",
       });
 
       if (!silenceLoginFailures) {
@@ -246,16 +266,21 @@ async function login_client(req, res) {
     logger.infoWithContext("Login successful", {
       ...baseContext,
       duration,
+      result: 'success',
+      reason: 'Authenticated successfully',
       roditId: peer_rodit.token_id
     });
-
     // Emit metrics for Grafana dashboards
     logger.metric("login_attempt_duration_ms", duration, {
       component: "RoditAuth",
       success: true,
+      result: 'success',
+      reason: 'Authenticated successfully'
     });
     logger.metric("successful_logins_total", 1, {
       component: "RoditAuth",
+      result: 'success',
+      reason: 'Authenticated successfully'
     });
 
     // Set the token in the response header
@@ -273,22 +298,26 @@ async function login_client(req, res) {
       {
         ...baseContext,
         duration,
+        result: 'failure',
+        reason: error.message || error.code || 'Unknown error',
         errorCode: error.code || "UNKNOWN_ERROR"
       },
       error,
       "login_error",
       { error_type: "authentication_error" }
     );
-
     // Emit metrics for Grafana dashboards
     logger.metric("login_attempt_duration_ms", duration, {
       component: "RoditAuth",
       success: false,
+      result: 'failure',
+      reason: error.message || error.code || 'Unknown error',
       error: error.code || "UNKNOWN_ERROR",
     });
     logger.metric("failed_login_attempts_total", 1, {
       component: "RoditAuth",
-      reason: error.code || "UNKNOWN_ERROR",
+      result: 'failure',
+      reason: error.message || error.code || 'Unknown error',
     });
 
     if (!silenceLoginFailures) {
@@ -375,14 +404,24 @@ async function login_client(req, res) {
 
     logger.infoWithContext("API authentication started", {
       ...baseContext,
-      hasToken: !!token
-    });
+      hasToken: !!token,
+      result: 'call',
+      reason: 'API authentication started'
+    }); // Function call log
 
     try {
       if (!token) {
         logger.warnWithContext("No token provided in request", {
           ...baseContext,
+          result: 'failure',
+          reason: 'No token provided',
           headers: Object.keys(req.headers)
+        });
+        // Add metric for missing token
+        logger.metric('auth_operations', Date.now() - startTime, {
+          operation: 'authenticate_apicall',
+          result: 'failure',
+          reason: 'No token provided'
         });
         return res.status(401).json({
           error: {
@@ -399,9 +438,16 @@ async function login_client(req, res) {
         
         logger.warnWithContext("Attempt to use invalidated token", {
           ...baseContext,
+          result: 'failure',
+          reason: invalidationInfo?.reason || 'Token has been invalidated',
           invalidationInfo
         });
-        
+        // Add metric for invalidated token
+        logger.metric('auth_operations', Date.now() - startTime, {
+          operation: 'authenticate_apicall',
+          result: 'failure',
+          reason: invalidationInfo?.reason || 'Token has been invalidated'
+        });
         return res.status(401).json({
           error: {
             code: "INVALIDATED_TOKEN",
@@ -440,6 +486,7 @@ async function login_client(req, res) {
       try {
         // Before validation, log token information (safely)
         try {
+          const { decodeJwt } = await getJose();
           const unverifiedPayload = decodeJwt(token);
           logger.debugWithContext("Token payload before validation", {
             ...baseContext,
@@ -473,11 +520,18 @@ async function login_client(req, res) {
         // Handle specific validation errors
         logger.warnWithContext("Token validation failed", {
           ...baseContext,
+          result: 'failure',
+          reason: validationError.message || 'Token validation failed',
           error: validationError.message,
           errorName: validationError.name,
           errorCode: validationError.code
         });
-        
+        // Add metric for token validation failure
+        logger.metric('auth_operations', Date.now() - startTime, {
+          operation: 'authenticate_apicall',
+          result: 'failure',
+          reason: validationError.message || 'Token validation failed'
+        });
         // Return 403 for invalid tokens
         return res.status(403).json({
           error: {
@@ -492,7 +546,15 @@ async function login_client(req, res) {
       if (!validationResult.valid) {
         logger.warnWithContext("Invalid token provided", {
           ...baseContext,
+          result: 'failure',
+          reason: validationResult.error || 'Invalid token',
           error: validationResult.error
+        });
+        // Add metric for invalid token
+        logger.metric('auth_operations', Date.now() - startTime, {
+          operation: 'authenticate_apicall',
+          result: 'failure',
+          reason: validationResult.error || 'Invalid token'
         });
         // Return 403 for invalid tokens
         return res.status(403).json({
@@ -523,7 +585,15 @@ async function login_client(req, res) {
       logger.infoWithContext("Authentication successful", {
         ...baseContext,
         userId: req.user.sub, // Use sub from raw payload
-        duration
+        duration,
+        result: 'success',
+        reason: 'Authentication successful'
+      });
+      // Add metric for successful authentication
+      logger.metric('auth_operations', duration, {
+        operation: 'authenticate_apicall',
+        result: 'success',
+        reason: 'Authentication successful'
       });
 
       next();
@@ -533,12 +603,20 @@ async function login_client(req, res) {
         "Authentication error",
         {
           ...baseContext,
-          duration
+          duration,
+          result: 'failure',
+          reason: error.message || 'Authentication failed'
         },
         error,
         "auth_error",
         { error_type: "authentication_error" }
       );
+      // Add metric for authentication error
+      logger.metric('auth_operations', duration, {
+        operation: 'authenticate_apicall',
+        result: 'failure',
+        reason: error.message || 'Authentication failed'
+      });
 
       return res.status(500).json({
         error: {
@@ -654,7 +732,7 @@ async function login_client(req, res) {
       if (decodedToken.session_id) {
         try {
           // Get the reason from request body or use default
-          const reason = req.body.reason || "user_logout";
+          const reason = (req.body && req.body.reason) || "user_logout";
 
           // Always invalidate the token directly first
           tokenInvalidated = sessionManager.invalidateToken(token, reason, decodedToken.session_id);
@@ -1218,6 +1296,7 @@ async function login_portal(config_own_rodit, port) {
         // Validate JWT token
         try {
           // First, decode the JWT without verification to get the rodit_id
+          const { decodeJwt } = await getJose();
           const unverifiedPayload = decodeJwt(jwt_token);
           const peerRoditId = unverifiedPayload.rodit_id;
           
@@ -1545,6 +1624,7 @@ async function login_portal(config_own_rodit, port) {
       let peer_bytes_ed25519_public_key;
       try {
         // First, decode the JWT without verification to get the rodit_id
+        const { decodeJwt } = await getJose();
         const unverifiedPayload = decodeJwt(jwt_token);
         const peerRoditId = unverifiedPayload.rodit_id;
         

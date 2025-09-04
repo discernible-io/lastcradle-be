@@ -1,25 +1,70 @@
-const { decodeJwt } = require("jose");
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
 const crypto = require("crypto");
 const { ulid } = require("ulid");
+const config = require("config");
+
+// Dynamic import for ESM 'jose' in CommonJS context
+let _josePromise;
+async function getJose() {
+  if (!_josePromise) {
+    _josePromise = import("jose");
+  }
+  return _josePromise;
+}
 
 class PermissionValidator {
   constructor() {
-    this.methodPermissionMap = {
-      create: ["entityAndProperties"],
-      destroy: ["entityAndProperties"],
-      read: ["entityAndProperties", "entityOnly"],
-      update: ["entityAndProperties", "entityOnly"],
-      list: ["entityAndProperties", "entityOnly"],
-      list_all: ["entityAndProperties", "entityOnly"],
-      sessions: ["entityAndProperties"],
-      delete: ["entityAndProperties"],
-      cleanup: ["entityAndProperties"],
-      logout: ["entityAndProperties"],
-    };
+    // Load method permission map from config or use default if not available
+    this.methodPermissionMap = config.get('METHOD_PERMISSION_MAP');
   }
 
+  /**
+   * Parse the rate value from the permission string
+   * 
+   * @param {string} rateValue - The permission value from the token (e.g., "+0")
+   * @returns {Object} An object containing the rate limit and whether it's unlimited
+   *                  { limit: number|null, unlimited: boolean }
+   */
+  parseRateLimit(rateValue) {
+    // Skip if no value or not a string
+    if (!rateValue || typeof rateValue !== 'string') {
+      return { limit: null, unlimited: false };
+    }
+    
+    // Remove the permission prefix (+ or -)
+    let rateString = rateValue;
+    if (rateString.startsWith('+') || rateString.startsWith('-')) {
+      rateString = rateString.substring(1);
+    }
+    
+    // Try to parse the rate as a number (could be in scientific notation)
+    try {
+      const rate = parseFloat(rateString);
+      
+      // Check if it's a valid number
+      if (isNaN(rate)) {
+        return { limit: null, unlimited: false };
+      }
+      
+      // Special case: 0 indicates no limits
+      if (rate === 0) {
+        return { limit: null, unlimited: true };
+      }
+      
+      // Return the actual rate limit
+      return { limit: rate, unlimited: false };
+    } catch (e) {
+      return { limit: null, unlimited: false };
+    }
+  }
+
+  /**
+   * Determine the permission scope from the rate value prefix
+   * 
+   * @param {string} rateValue - The permission value from the token (e.g., "+0")
+   * @returns {string} The permission scope (entityAndProperties, propertiesOnly, or entityOnly)
+   */
   getPermissionScope(rateValue) {
     if (rateValue.startsWith("+")) {
       return "entityAndProperties";
@@ -120,63 +165,21 @@ class PermissionValidator {
       });
 
       if (isPermitted) {
+        // Parse the rate limit from the permission value
+        const rateLimitInfo = this.parseRateLimit(rateValue);
+        
         return {
           isPermitted: true,
           commentsRate: rateValue,
           permissionScope,
+          rateLimit: rateLimitInfo.limit,
+          unlimited: rateLimitInfo.unlimited,
+          operation, // Add the operation name for future rate limiting
         };
       }
     }
     
-    // For session routes, map them to specific operations
-    // This is a fallback for when the exact path is not in methods
-    // Ideally, these paths should be added to the methods object in the token
-    const sessionRouteMappings = {
-      '/api/sessions': 'sessions',
-      '/api/sessions/logout': 'logout',
-      '/api/sessions/cleanup': 'cleanup',
-      '/api/sessions/close': 'delete'  // Static path for session termination
-    };
-    
-    if (sessionRouteMappings[fullPath]) {
-      const operation = sessionRouteMappings[fullPath];
-      const rateValue = '+sessions'; // Default permission value
-      
-      // Create a session-specific context
-      const sessionContext = createLogContext(
-        "PermissionValidator",
-        "findMatchingEntity",
-        {
-          requestId: contextRequestId,
-          fullPath,
-          entity: 'sessions',
-          requestedMethod: operation
-        }
-      );
-      
-      logger.infoWithContext("Processing session permission request", sessionContext);
-      
-      const permissionScope = this.getPermissionScope(rateValue);
-      const isPermitted = this.isMethodAllowed(operation, permissionScope);
-      
-      logger.debugWithContext("Session permission check result", {
-        ...sessionContext,
-        entity: 'sessions',
-        permissionScope,
-        rateValue,
-        isPermitted,
-        duration: Date.now() - startTime,
-        requestId,
-      });
-      
-      if (isPermitted) {
-        return {
-          isPermitted: true,
-          commentsRate: rateValue,
-          permissionScope,
-        };
-      }
-    }
+    // No special handling for session routes - all routes must be explicitly defined in the token
 
     logger.warnWithContext("No matching permission found", {
       ...baseContext,
@@ -222,6 +225,7 @@ class PermissionValidator {
     }
 
     try {
+      const { decodeJwt } = await getJose();
       const decodedToken = decodeJwt(token);
       
       // Update context with user information
@@ -266,7 +270,13 @@ class PermissionValidator {
       
       // Construct the full path for permission checking
       // This must exactly match what's defined in the RODiT token
-      const fullPath = req.baseUrl + req.path;
+      let fullPath = req.baseUrl + req.path;
+      
+      // Normalize path by removing trailing slashes (except for root path)
+      // This handles common URL variations like /api/list_agents vs /api/agents/
+      if (fullPath.length > 1 && fullPath.endsWith('/')) {
+        fullPath = fullPath.slice(0, -1);
+      }
       
       logger.debugWithContext("Validating permission for full path", {
         ...contextWithUser,
@@ -275,7 +285,7 @@ class PermissionValidator {
         fullPath
       });
       
-      const { isPermitted, commentsRate, permissionScope } =
+      const { isPermitted, commentsRate, permissionScope, rateLimit, operation } =
         this.findMatchingEntity(entities, fullPath, requestId);
 
       if (!isPermitted) {
@@ -307,6 +317,8 @@ class PermissionValidator {
         isValid: true,
         commentsRate,
         permissionScope,
+        rateLimit,
+        operation
       };
     } catch (error) {
       // Use logErrorWithMetrics for better error tracking
@@ -388,8 +400,18 @@ async function validatepermissions(req, res, next) {
 
   if (result.commentsRate) {
     req.commentsRate = result.commentsRate;
-    req.permissionScope = result.permissionScope;
   }
+  
+  // Make rate limit information available for future implementation
+  req.rateLimit = {
+    value: result.rateLimit,
+    unlimited: result.unlimited === true,
+    operation: result.operation,
+    path: req.path,
+    timeWindow: 60 // Default time window in seconds
+  };
+  
+  req.permissionScope = result.permissionScope;
 
   logger.debugWithContext("Permission validation successful", {
     ...baseContext,

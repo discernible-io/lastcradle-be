@@ -1,10 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const { ulid } = require("ulid");
-const logger = require("../../sdk/services/logger");
+const { logger, login: login_client } = require("../../sdk");
 const { createLogContext, logErrorWithMetrics } = logger;
-const sdk = require('../../sdk/roditclient')();
-const { login_client } = sdk;
 
 // Handling login request
 router.post("/login", (req, res) => {

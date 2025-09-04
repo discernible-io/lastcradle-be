@@ -6,11 +6,8 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const logger = require('../../sdk/services/logger');
+const { logger, authenticate, performanceService } = require('../../sdk');
 const { createLogContext, logErrorWithMetrics } = logger;
-const sdk = require('../../sdk/roditclient')();
-const performanceService = require('../../sdk/services/performanceservice');
-const { authenticate_apicall } = sdk;
 
 /**
  * GET /api/metrics
@@ -18,7 +15,7 @@ const { authenticate_apicall } = sdk;
  * Get current performance metrics
  * Protected: Requires authentication
  */
-router.get('/', authenticate_apicall, (req, res) => {
+router.get('/', authenticate, (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
   
@@ -89,7 +86,7 @@ router.get('/', authenticate_apicall, (req, res) => {
  * Get system resource metrics (CPU, memory, etc.)
  * Protected: Requires authentication
  */
-router.get('/system', authenticate_apicall, (req, res) => {
+router.get('/system', authenticate, (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
   
@@ -160,7 +157,7 @@ router.get('/system', authenticate_apicall, (req, res) => {
  * Reset performance metrics counters
  * Protected: Requires authentication and admin permissions
  */
-router.post('/reset', authenticate_apicall, (req, res) => {
+router.post('/reset', authenticate, (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
   

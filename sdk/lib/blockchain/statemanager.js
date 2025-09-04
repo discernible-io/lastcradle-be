@@ -1,6 +1,6 @@
 /**
  * Authentication State Manager for RODiT operations
- * Copyright (c) 2025 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2024 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");
@@ -1074,7 +1074,7 @@ class AuthStateManager {
       const domainPart = scParts[0];
       const domainComponents = domainPart.split("-");
 
-      // Find domain and TLD in the components (format: 20260616-Discernible-org)
+      // Find domain and TLD in the components (format: 10975-discernible-org)
       if (domainComponents.length < 3) {
         const error = new Error("Invalid domain format in smart contract");
         
@@ -1097,7 +1097,7 @@ class AuthStateManager {
         throw error;
       }
 
-      const domain = domainComponents[1]; // Discernible
+      const domain = domainComponents[1]; // discernible
       const tld = domainComponents[2]; // org
 
       // Build the API endpoint
@@ -1151,7 +1151,7 @@ class AuthStateManager {
 async fetchWithErrorHandling(url, options, retryCount = 0) {
   const requestId = ulid();
   const startTime = Date.now();
-  const operation = options?.method || "GET";
+  const operation = options?.method || "POST";
   const urlObj = new URL(url);
   const endpoint = urlObj.pathname;
   const MAX_AUTH_RETRIES = 1; // Retries for expired tokens
@@ -1368,7 +1368,7 @@ async fetchWithErrorHandling(url, options, retryCount = 0) {
 async fetchWithErrorHandlingSignPortal(url, options, retryCount = 0) {
   const requestId = ulid();
   const startTime = Date.now();
-  const operation = options?.method || "GET";
+  const operation = options?.method || "POST";
   const urlObj = new URL(url);
   const endpoint = urlObj.pathname;
   const MAX_RETRIES = 1; // Only retry once for expired tokens

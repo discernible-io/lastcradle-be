@@ -2,7 +2,7 @@
  * File-based credential storage system
  * Alternative to Vault for storing RODiT credentials
  * 
- * Copyright (c) 2025 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2024 Discernible, Inc. All rights reserved.
  */
 
 const fs = require('fs').promises;
@@ -10,7 +10,7 @@ const bs58 = require("bs58");
 const path = require("path");
 const crypto = require('crypto');
 const { ulid } = require("ulid");
-const config = require("config");
+const config = require('../../services/config');
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
 const { validateAndExtractCredentials, validateCredentialParameters } = require("../../utils");
@@ -65,7 +65,7 @@ class FileCredentialStore {
 
     try {
       // Get configuration path from options or config
-      this.configPath = config.get('RODIT_CONFIGURATION_FILE_PATH');
+      this.configPath = config.get('credentials.filePath');
       
       // Ensure directory exists
       const configDir = path.dirname(this.configPath);

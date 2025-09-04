@@ -1,12 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const logger = require("../../sdk/services/logger");
+const { stateManager, webhook, logger } = require("../../sdk");
 const config = require("config");
 const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
 const { ulid } = require("ulid"); // Adding ulid for request IDs
-const sdk = require('../../sdk/roditclient')();
-const { stateManager, send_webhook } = sdk;
 const { createLogContext, logEvent, logErrorWithMetrics, debugWithContextIf } = logger;
 
 const DB_PATH = config.get("API_DEFAULT_OPTIONS.DB_PATH");
@@ -41,19 +39,33 @@ const initializeDatabase = async () => {
       title TEXT,
       content TEXT
     )`);
-    
+
+    // Create webhook_tests table for SDK webhook test recording
+    await db.run(`CREATE TABLE IF NOT EXISTS webhook_tests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      correlation_id TEXT,
+      event_type TEXT,
+      payload TEXT,
+      success BOOLEAN,
+      timestamp TEXT,
+      error_message TEXT
+    )`);
+
+    // Expose DB globally for SDK to record webhook test results
+    global.db = db;
+
     const duration = Date.now() - startTime;
     logger.infoWithContext("SQLite database initialized successfully", {
       ...baseContext,
       duration
     });
-    
+
     // Add metric for successful operation
     logger.metric('database_operations', duration, {
       operation: 'initializeDatabase',
       result: 'success'
     });
-    
+
     return db;
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -82,11 +94,9 @@ const getDatabase = () => db;
 // We now use the logEvent function imported from authentication.js
 // This comment is kept to document the change
 
-// Forward function to use the enhanced send_webhook that now includes all logAndSendWebhook functionality
+// Forward function to use the SDK's webhook sender (includes logging and test tracking)
 const logAndSendWebhook = async (event, data, isError = false, isTest = false, req = null) => {
-  // Simply forward to the enhanced send_webhook function in authentication.js
-  // which now includes all the logging, test tracking, and database functionality
-  return await send_webhook(event, data, isError, isTest, req);
+  return await webhook.send_webhook(event, data, isError, isTest, req);
 };
 
 // Initialize the database when this module is loaded

@@ -10,16 +10,15 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const sdk = require('../../sdk/roditclient')();
 const {
   sessionManager,
   runManualCleanup,
-  authenticate_apicall,
-  login_client,
-  logout_client,
-  validatepermissions
-} = sdk;
-const logger = require('../../sdk/services/logger');
+  authenticate: authenticate_apicall,
+  login: login_client,
+  logout: logout_client,
+  validatePermissions,
+  logger
+} = require('../../sdk');
 
 /**
  * POST /api/sessions/login - Create a new session (login)
@@ -79,7 +78,7 @@ router.post('/logout', authenticate_apicall, (req, res) => {
  * Admin route - Get information about all active sessions
  * Protected: Requires authentication and permissions
  */
-router.get('/list_all', authenticate_apicall, validatepermissions, (req, res) => {
+router.get('/list_all', authenticate_apicall, validatePermissions, (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   
@@ -143,7 +142,7 @@ router.get('/list_all', authenticate_apicall, validatepermissions, (req, res) =>
  * - sessionId: ID of the session to terminate
  * - reason: (optional) Reason for termination
  */
-router.post('/close', authenticate_apicall, validatepermissions, (req, res) => {
+router.post('/close', authenticate_apicall, validatePermissions, (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   const { sessionId } = req.body;
@@ -233,7 +232,7 @@ router.post('/close', authenticate_apicall, validatepermissions, (req, res) => {
  * Admin route - Force cleanup of expired sessions
  * Protected: Requires authentication and permissions
  */
-router.post('/cleanup', authenticate_apicall, validatepermissions, (req, res) => {
+router.post('/cleanup', authenticate_apicall, validatePermissions, (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   

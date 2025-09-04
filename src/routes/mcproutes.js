@@ -8,10 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const sdk = require('../../sdk/roditclient')();
-const { authenticate_apicall } = sdk;
-const mcpService = require('../../sdk/services/mcpservice');
-const logger = require('../../sdk/services/logger');
+const { authenticate, mcpService, logger } = require('../../sdk');
 const { createLogContext, logErrorWithMetrics } = logger;
 
 /**
@@ -136,7 +133,7 @@ router.get('/resources', async (req, res) => {
  *       404:
  *         description: Resource not found
  */
-router.get('/resource/:uri(*)', authenticate_apicall, async (req, res) => {
+router.get('/resource/:uri(*)', authenticate, async (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
   const uri = req.params.uri;

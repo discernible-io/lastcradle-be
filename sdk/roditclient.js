@@ -2,7 +2,7 @@
  * RODiT Client Interface
  * Provides a clean API for interacting with RODiT services
  * 
- * Copyright (c) 2025 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2024 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");
@@ -66,7 +66,7 @@ const sdkClientState = {
 
 /**
  * RoditClient class
- * Main client interface for interacting with RODiT API services
+ * Main client interface for interacting with Discernible ID API services
  * 
  * @example
  * const { RoditClient } = require('@rodit/rodit-sdk');
@@ -234,7 +234,7 @@ class RoditClient {
   }
 
   /**
-   * Make an authenticated request to the RODiT API
+   * Make an authenticated request to the Discernible ID API
    * @param {string} method - HTTP method
    * @param {string} path - API path
    * @param {Object} [data] - Request data
@@ -467,7 +467,7 @@ class RoditClient {
     
     return true;
   }
-  
+
   /**
    * Get the RODiT token metadata (deprecated, use getRoditMetadata instead)
    * @deprecated Use getRoditMetadata instead
@@ -571,7 +571,7 @@ class RoditClient {
   }
   
   /**
-   * Login to the RODiT API
+   * Login to the Discernible ID API
    * 
    * @param {Object} options - Login options
    * @param {string} options.roditId - Optional RODiT ID to use for login
@@ -748,7 +748,7 @@ class RoditClient {
   }
   
   /**
-   * Logout from the RODiT API
+   * Logout from the Discernible ID API
    * 
    * @returns {Promise<boolean>} True if logout was successful
    */
@@ -1042,7 +1042,7 @@ class RoditClient {
       method: 'request',
       requestId,
       endpoint,
-      method: options.method || 'GET'
+      method: options.method || 'POST'
     });
     
     // Check if authenticated
@@ -1059,7 +1059,7 @@ class RoditClient {
     // Prepare the request options
     const requestOptions = {
       ...options,
-      method: options.method || 'GET',
+      method: options.method || 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.token}`,
@@ -1125,14 +1125,14 @@ class RoditClient {
       logger.metric && logger.metric('api_request_errors', 1, {
         component: 'RoditClient',
         endpoint: path,
-        method: options.method || 'GET',
+        method: options.method || 'POST',
         error: error.name
       });
       
       logger.metric && logger.metric('api_request_duration_ms', duration, {
         component: 'RoditClient',
         endpoint: path,
-        method: options.method || 'GET',
+        method: options.method || 'POST',
         success: false
       });
       
@@ -1744,121 +1744,11 @@ function getClientState() {
   };
 }
 
-// -----------------------------------------------------------------------------
-// SDK Facade – provides a clean, instance-based API while preserving
-//              backward-compatible named exports for existing code.
-// -----------------------------------------------------------------------------
-
-// Helper modules (imported once for reuse throughout this file)
-const sessionMgr           = require('./lib/auth/sessionmanager');
-const validatepermissions  = require('./lib/middleware/validatepermissions');
-const ratelimitmw          = require('./lib/middleware/ratelimit');
-const { send_webhook }     = require('./lib/webhook/webhookhandler');
-
-//              backward-compatible named exports for existing code.
-// -----------------------------------------------------------------------------
-
-class RoditSDK {
-  constructor(options = {}) {
-    this.client = new RoditClient(options);
-    // Expose authentication middleware helpers directly on the SDK instance
-    Object.assign(this, authMw);
-
-    // Expose commonly used managers / utilities
-    this.stateManager   = stateManager;
-    this.roditManager   = roditManager;
-    this.sessionManager = sessionMgr.sessionManager;
-    this.validatepermissions = validatepermissions;
-    this.validatePermissions = validatepermissions;
-    this.runManualCleanup = sessionMgr.runManualCleanup;
-
-    // Alias commonly-used middleware for convenience / backward compatibility
-    this.authenticate = authMw.authenticate_apicall;
-    this.login        = authMw.login_client;
-    this.logout       = authMw.logout_client;
-
-    // Expose versioning helpers
-    const versioningMiddleware = require('./lib/middleware/versioningmw');
-    const { versionManager, VersionManager } = require('./lib/versioning/versionmanager');
-    this.versioning = {
-      middleware: versioningMiddleware,
-      manager: versionManager,
-      VersionManager
-    };
-
-    // Expose webhook utilities
-    const webhookHandler = require('./lib/webhook/webhookhandler');
-    this.webhook = {
-      ...webhookHandler
-    };
-
-    // ---------------------------------------------------------------------
-    // Backward compatibility: expose snake_case alias directly on the instance
-    // Some legacy modules still expect `sdk.send_webhook(...)` to exist.  
-    // We therefore attach it here so it references the same implementation  
-    // as the newer camel-case `sendWebhook` helper below.
-    // ---------------------------------------------------------------------
-    this.send_webhook = send_webhook;
-  }
-
-  /* ------------- high-level client helpers ------------- */
-  init(options = {})       { return this.client.init(options); }
-  login(options = {})      { return this.client.login(options); }
-  request(method, path, data = null, options = {}) {
-    return this.client.request(method, path, data, options);
-  }
-  logout() { return this.client.logout ? this.client.logout() : null; }
-
-  /* ------------- express middleware ------------- */
-  auth()            { return authMw.authenticate_apicall; }
-  permissions()     { return validatepermissions; }
-  rateLimit(max = 100, windowMins = 15) {
-    return ratelimitmw(max, windowMins);
-  }
-
-  /* ------------- session helpers ------------- */
-  invalidateToken(token, reason = 'manual') {
-    return sessionMgr.sessionManager.invalidateToken(token, reason);
-  }
-  sessions() { return sessionMgr.sessionManager; }
-
-  /* ------------- webhook helper ------------- */
-  sendWebhook(event, data, isError = false, isTest = false, req = null) {
-    return send_webhook(event, data, isError, isTest, req);
-  }
-
-  /* ------------- misc ------------- */
-  get state() { return getClientState(); }
-}
-
-function createSDK(options = {}) {
-  return new RoditSDK(options);
-}
-
-// Attach the legacy / named exports so existing code keeps working.
-Object.assign(createSDK, {
-  // Constructors / factories
-  RoditSDK,
+// Export the SDK components
+module.exports = {
   RoditClient,
   createClient,
   getClientState,
-  // Logger
-  logger,
-  // Authentication helpers (spread)
-  ...authMw,
-  // Session helpers
-  sessionManager: sessionMgr.sessionManager,
-  runManualCleanup: sessionMgr.runManualCleanup,
-  // Other middleware / utilities
-  validatepermissions,
-  stateManager,
-  roditManager,
-  ratelimitmw,
-  send_webhook,
-});
-
-module.exports = createSDK;
-
-
-
-
+  // Export the logger for SDK users who want to customize logging
+  logger
+};

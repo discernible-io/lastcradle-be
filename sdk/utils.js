@@ -1,6 +1,6 @@
 /**
- * Utility functions for Discernible Authentication
- * Copyright (c) 2025 Discernible, Inc. All rights reserved.
+ * Utility functions for Discernible ID Authentication
+ * Copyright (c) 2024 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");
@@ -9,7 +9,16 @@ const crypto = require("crypto");
 const nacl = require("tweetnacl");
 nacl.util = require("tweetnacl-util");
 const { decodeUTF8 } = require("tweetnacl-util");
-const config = require("config");
+const config = require('./services/config');
+
+// Dynamic import for ESM 'jose' in CommonJS context
+let _josePromise;
+async function getJose() {
+  if (!_josePromise) {
+    _josePromise = import("jose");
+  }
+  return _josePromise;
+}
 
 /**
  * Debug utility that logs the type and value of a variable
@@ -1228,7 +1237,7 @@ async function base64url2jwk_public_key(base64url_public_key) {
     }
     
     // Import the JWK
-    const { importJWK } = require("jose");
+    const { importJWK } = await getJose();
     const session_jwk_public_key = await importJWK(jwk_public_key, "EdDSA");
     return session_jwk_public_key;
   } catch (error) {
@@ -1264,7 +1273,7 @@ async function jwtVerify_fe(token, publicKey, options = {}) {
       }
     }
     
-    const { jwtVerify } = require("jose");
+    const { jwtVerify } = await getJose();
     const result = await jwtVerify(token, publicKey, options);
     return result;
   } catch (error) {

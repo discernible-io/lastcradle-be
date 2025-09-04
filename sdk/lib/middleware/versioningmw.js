@@ -82,6 +82,11 @@ function versioningMiddleware(options = {}) {
   return (req, res, next) => {
     const requestId = req.headers['x-request-id'] || 'unknown';
     const logContext = { component: 'versioningMiddleware', requestId };
+    logger.infoWithContext('API versioning middleware engaged', {
+      ...logContext,
+      result: 'call',
+      reason: 'Versioning middleware called'
+    });
     
     // Check for version in headers (multiple possible formats)
     const acceptHeader = req.headers['accept'];
@@ -92,7 +97,12 @@ function versioningMiddleware(options = {}) {
     
     // Check if version is supported
     if (!isVersionSupported(requestedVersion)) {
-      logger.warn(`Unsupported API version requested: ${requestedVersion}`, logContext);
+      logger.warnWithContext('Unsupported API version requested', {
+        ...logContext,
+        version: requestedVersion,
+        result: 'failure',
+        reason: `API version ${requestedVersion} is not supported.`
+      });
       
       if (strict) {
         return res.status(400).json({
@@ -120,7 +130,12 @@ function versioningMiddleware(options = {}) {
     // Set response version header
     res.setHeader('X-API-Version', requestedVersion);
     
-    logger.debug(`API request using version: ${requestedVersion}`, logContext);
+    logger.infoWithContext('API request using version', {
+      ...logContext,
+      version: requestedVersion,
+      result: 'success',
+      reason: `API request using version ${requestedVersion}`
+    });
     next();
   };
 }

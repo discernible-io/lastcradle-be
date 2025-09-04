@@ -28,7 +28,11 @@ function ratelimitmw(maxRequests = 100, windowMinutes = 15) {
     }
   );
   
-  logger.infoWithContext('Rate limiting middleware initialized', baseContext);
+  logger.infoWithContext('Rate limiting middleware initialized', {
+    ...baseContext,
+    result: 'call',
+    reason: 'Rate limiting middleware initialized'
+  }); // Function call log
 
   try {
     const limiter = rateLimit({
@@ -68,14 +72,18 @@ function ratelimitmw(maxRequests = 100, windowMinutes = 15) {
         );
         
         // Log rate limit exceeded events
-        logger.warnWithContext('Rate limit exceeded', exceedContext);
-        
+        logger.warnWithContext('Rate limit exceeded', {
+          ...exceedContext,
+          result: 'failure',
+          reason: 'Rate limit exceeded'
+        });
         // Add metric for rate limit exceeded
         logger.metric("rate_limit_operations", 0, {
           operation: "limit_exceeded",
           path: req.path,
           method: req.method,
-          result: "blocked"
+          result: "blocked",
+          reason: 'Rate limit exceeded'
         });
         
         // Send error response

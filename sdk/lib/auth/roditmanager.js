@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Discernible, Inc. All rights reserved.
+// Copyright (c) 2024 Ayayai, Inc. All rights reserved.
 
 /**
  * RODiT Manager Service
@@ -6,15 +6,21 @@
  */
 
 const { ulid } = require("ulid");
-const config = require("config");
+const config = require('../../services/config');
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
+// Dynamically select credential store based on config/env (flat key only)
+const CREDENTIALS_SOURCE = config.get('CREDENTIALS_SOURCE');
+logger.debugWithContext('Selecting credential store', createLogContext('RoditManager', 'credentialStoreSelect', { source: CREDENTIALS_SOURCE }));
+const credentialStoreModule = CREDENTIALS_SOURCE === 'file'
+  ? require("../middleware/filecredentialstore")
+  : require("../middleware/vaultcredentialstore");
 const {
   initializeProductionCredentialStore,
   setupTokenRenewal,
   getCredentials,
   vault,
-} = require("../middleware/vaultcredentialstore");
+} = credentialStoreModule;
 const {
   nearorg_rpc_state,
   nearorg_rpc_tokensfromaccountid,
@@ -259,8 +265,8 @@ async initializeCredentialsStore() {
             },
           },
           own_rodit_bytes_private_key: credentials.signing_bytes_key,
-          apiendpoint: "localhost:" + config.get("SERVERPORT"),
-          port: config.get("SERVERPORT"),
+          apiendpoint: "localhost",
+          port: "",
           iso639: config.get("API_DEFAULT_OPTIONS.ISO639"),
           iso3166: config.get("API_DEFAULT_OPTIONS.ISO3166"),
           iso15924: config.get("API_DEFAULT_OPTIONS.ISO15924"),
@@ -269,6 +275,11 @@ async initializeCredentialsStore() {
         };
 
         await this.stateManager.setConfigOwnRodit(minimalConfig);
+
+        const session_base64url_jwk_public_key = Buffer.from(
+          implicit_account_id,
+          "hex"
+        ).toString("base64url");
 
         logger.debugWithContext("Converting implicit account ID to base64url", {
           ...baseContext,
@@ -309,7 +320,7 @@ async initializeCredentialsStore() {
         duration: Date.now() - startTime
       });
 
-      const SERVERPORT = config.get("SERVERPORT");
+      // Port configuration removed as requested
 
       if (
         !own_rodit.metadata ||
@@ -327,7 +338,7 @@ async initializeCredentialsStore() {
       }
 
       const apiendpoint =
-        own_rodit.metadata.subjectuniqueidentifier_url + ":" + SERVERPORT;
+        own_rodit.metadata.subjectuniqueidentifier_url;
 
       logger.debugWithContext("Constructed API endpoint", {
         ...baseContext,
@@ -490,7 +501,7 @@ async initializeCredentialsStore() {
         own_rodit,
         own_rodit_bytes_private_key: privateKeyToUse, // Use validated private key
         apiendpoint,
-        port: SERVERPORT,
+        port: "",
         iso639: config.get("API_DEFAULT_OPTIONS.ISO639"),
         iso3166: config.get("API_DEFAULT_OPTIONS.ISO3166"),
         iso15924: config.get("API_DEFAULT_OPTIONS.ISO15924"),

@@ -1,12 +1,13 @@
 /**
- * Authentication service for Discernible Authentication
- * Copyright (c) 2025 Discernible, Inc. All rights reserved.
+ * Authentication service for RODiT authentication
+ * Copyright (c) 2024 Ayayai, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
 const nacl = require("tweetnacl");
+nacl.util = require("tweetnacl-util");
 const crypto = require("crypto");
 const { Resolver } = require("dns").promises;
 const { calculateCanonicalHash, unixTimeToDateString } = require("../../utils");

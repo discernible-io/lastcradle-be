@@ -1,7 +1,7 @@
 /**
  * Performance monitoring middleware
  * Provides request tracing and performance metrics collection
- * Copyright (c) 2025 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2024 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");
@@ -24,6 +24,17 @@ const performanceMw = (req, res, next) => {
   // Record the start time and make it available for other middleware
   req.startTime = Date.now();
   
+  // Log function call for performance monitoring
+  logger.infoWithContext("Performance middleware engaged", {
+    component: "PerformanceMiddleware",
+    method: req.method,
+    path: req.originalUrl,
+    requestId: req.requestId,
+    clientIP: req.ip,
+    result: 'call',
+    reason: 'Performance monitoring started'
+  });
+
   // Record the request in the performance monitoring service
   performanceService.recordRequest(req);
   
@@ -57,11 +68,15 @@ const performanceMw = (req, res, next) => {
     req.duration = duration;
     
     // Record standard metrics using the logger.metric function
+    const result = (res.statusCode >= 200 && res.statusCode < 300) ? 'success' : 'failure';
+    const reason = (result === 'success') ? 'Request completed successfully' : (res.statusMessage || 'Request failed');
     logger.metric('http_request_duration_ms', duration, {
       method: req.method,
       path: req.originalUrl,
       status: res.statusCode,
-      request_type: req.requestType
+      request_type: req.requestType,
+      result,
+      reason
     });
     
     // Record error metrics if applicable
@@ -70,7 +85,9 @@ const performanceMw = (req, res, next) => {
         method: req.method,
         status: res.statusCode,
         error_type: res.statusCode >= 500 ? 'server_error' : 'client_error',
-        request_type: req.requestType
+        request_type: req.requestType,
+        result: 'failure',
+        reason: res.statusMessage || 'Request failed'
       });
     }
     
@@ -87,19 +104,22 @@ const performanceMw = (req, res, next) => {
     switch (req.requestType) {
       case 'authentication':
         logger.metric('authentication_duration_ms', duration, {
-          status: res.statusCode < 400 ? 'success' : 'failure',
+          result,
+          reason,
           method: req.method
         });
         break;
       case 'blockchain':
         logger.metric('blockchain_duration_ms', duration, {
-          status: res.statusCode < 400 ? 'success' : 'failure',
+          result,
+          reason,
           method: req.method
         });
         break;
       case 'rodit':
         logger.metric('rodit_operation_duration_ms', duration, {
-          status: res.statusCode < 400 ? 'success' : 'failure',
+          result,
+          reason,
           method: req.method
         });
         break;

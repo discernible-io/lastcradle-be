@@ -13,19 +13,11 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const config = require('config');
 
-// Import the unified auth module from SDK
+// Import the unified auth module and services from SDK root
 // In a real app with npm package, this would be: const auth = require('rodit-auth');
 const auth = require('../sdk');
-
-// Instantiate SDK facade for app-wide use
-const sdk = require('../sdk/roditclient')();
-
-// Import logger from config
-const logger = require('../sdk/services/logger'); // Path is correct as app.js is in src directory
+const { logger, rateLimit, stateManager, roditManager } = require('../sdk');
 const { createLogContext, logErrorWithMetrics } = logger;
-
-// Import required services via SDK instance
-const { roditManager, stateManager } = sdk;
 
 // Import routes
 const echoprotectedRoute = require('./protected/echo');
@@ -39,7 +31,7 @@ const sessionRoutes = require('./routes/sessionroutes');
 // Use SDK-provided rate limiting helper
 
 // Default rate limits - will be updated from RODiT metadata
-let ratelimiter = sdk.rateLimit(100, 15);
+let ratelimiter = rateLimit(100, 15);
 
 // Swagger API documentation setup
 const swaggerOptions = {
@@ -389,7 +381,7 @@ function updateRateLimit(maxRequests, maxRqWindow) {
   });
   
   try {
-    ratelimiter = sdk.rateLimit(maxRequests, maxRqWindow);
+    ratelimiter = rateLimit(maxRequests, maxRqWindow);
     
     const duration = Date.now() - startTime;
     logger.infoWithContext("Rate limit settings updated", {
@@ -446,8 +438,7 @@ async function startServer() {
   
   try {
     // Initialize performance service
-    const performanceService = require('../sdk/services/performanceservice');
-    performanceService.initialize();
+    auth.performanceService.initialize();
     
     logger.infoWithContext("Initializing RODiT configuration", {
       ...baseContext,

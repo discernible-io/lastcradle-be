@@ -37,7 +37,11 @@ class ProductionVaultManager {
       { requestId }
     );
     
-    logger.debugWithContext("Attempting Vault authentication", baseContext);
+    logger.infoWithContext("Attempting Vault authentication", {
+      ...baseContext,
+      result: 'call',
+      reason: 'Vault authentication requested'
+    });
     
     try {
       const result = await this.vault.approleLogin({
@@ -45,18 +49,32 @@ class ProductionVaultManager {
         secret_id: this.secretId,
       });
       
-      logger.debugWithContext("Vault authentication successful", {
+      logger.infoWithContext("Vault authentication successful", {
         ...baseContext,
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
+        result: 'success',
+        reason: 'Vault authentication succeeded'
+      });
+      logger.metric("vault_authentication_duration_ms", Date.now() - startTime, {
+        component: "CredentialManager",
+        result: 'success',
+        reason: 'Vault authentication succeeded'
       });
       
       return result.auth.client_token;
     } catch (error) {
+      logger.metric("vault_authentication_duration_ms", Date.now() - startTime, {
+        component: "CredentialManager",
+        result: 'failure',
+        reason: error.message || 'Vault authentication failed'
+      });
       logErrorWithMetrics(
         "Error authenticating with Vault", 
         {
           ...baseContext,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
+          result: 'failure',
+          reason: error.message || 'Vault authentication failed'
         },
         error,
         "vault_authentication_error",
@@ -77,12 +95,18 @@ class ProductionVaultManager {
       { requestId }
     );
 
-    logger.debugWithContext("Starting vault initialization", baseContext);
+    logger.infoWithContext("Starting vault initialization", {
+      ...baseContext,
+      result: 'call',
+      reason: 'Vault initialization requested'
+    });
 
     if (this.vaultInitialized) {
-      logger.debugWithContext("Vault already initialized", {
+      logger.infoWithContext("Vault already initialized", {
         ...baseContext,
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
+        result: 'success',
+        reason: 'Vault was already initialized'
       });
       return this.vault;
     }
@@ -91,14 +115,27 @@ class ProductionVaultManager {
       const token = await this.getProductionVaultToken();
       this.vault.token = token;
       
-      logger.debugWithContext("Checking Vault health status", baseContext);
+      logger.infoWithContext("Checking Vault health status", {
+        ...baseContext,
+        result: 'call',
+        reason: 'Vault health status check requested'
+      });
       
       const health = await this.vault.health();
       if (!health.initialized) {
         const error = new Error("Error 109: Vault is not initialized");
+        logger.metric("vault_initialization_duration_ms", Date.now() - startTime, {
+          component: "CredentialManager",
+          result: 'failure',
+          reason: error.message || 'Vault is not initialized'
+        });
         logErrorWithMetrics(
           "Vault is not initialized", 
-          baseContext,
+          {
+            ...baseContext,
+            result: 'failure',
+            reason: error.message || 'Vault is not initialized'
+          },
           error,
           "vault_initialization_error",
           { error_type: "not_initialized" }
@@ -107,9 +144,18 @@ class ProductionVaultManager {
       }
       if (health.sealed) {
         const error = new Error("Error 110: Vault is sealed");
+        logger.metric("vault_initialization_duration_ms", Date.now() - startTime, {
+          component: "CredentialManager",
+          result: 'failure',
+          reason: error.message || 'Vault is sealed'
+        });
         logErrorWithMetrics(
           "Vault is sealed", 
-          baseContext,
+          {
+            ...baseContext,
+            result: 'failure',
+            reason: error.message || 'Vault is sealed'
+          },
           error,
           "vault_initialization_error",
           { error_type: "sealed" }
@@ -121,15 +167,26 @@ class ProductionVaultManager {
         // Check if config is available and has the required path
         if (config && typeof config.get === 'function') {
           this.vaultPath = config.get("VAULT_RODIT_KEYVALUE_PATH");
-          logger.debugWithContext("Retrieved vault path from config", {
+          logger.infoWithContext("Retrieved vault path from config", {
             ...baseContext,
-            vaultPath: this.vaultPath
+            vaultPath: this.vaultPath,
+            result: 'success',
+            reason: 'Vault path retrieved from config'
           });
         } else {
           const error = new Error("Config object is not properly initialized");
+          logger.metric("vault_initialization_duration_ms", Date.now() - startTime, {
+            component: "CredentialManager",
+            result: 'failure',
+            reason: error.message || 'Vault initialization failed - configuration error'
+          });
           logErrorWithMetrics(
             "Vault initialization failed - configuration error", 
-            baseContext,
+            {
+              ...baseContext,
+              result: 'failure',
+              reason: error.message || 'Vault initialization failed - configuration error'
+            },
             error,
             "vault_initialization_error",
             { error_type: "config_initialization_error" }
@@ -139,10 +196,18 @@ class ProductionVaultManager {
       } catch (configError) {
         // Reset the vaultInitialized flag since initialization failed
         this.vaultInitialized = false;
-        
+        logger.metric("vault_initialization_duration_ms", Date.now() - startTime, {
+          component: "CredentialManager",
+          result: 'failure',
+          reason: configError.message || 'Vault initialization failed - configuration error'
+        });
         logErrorWithMetrics(
           "Vault initialization failed - configuration error", 
-          baseContext,
+          {
+            ...baseContext,
+            result: 'failure',
+            reason: configError.message || 'Vault initialization failed - configuration error'
+          },
           configError,
           "vault_initialization_error",
           { error_type: "config_access_error" }
@@ -154,44 +219,49 @@ class ProductionVaultManager {
 
       this.vaultInitialized = true;
 
-      logger.debugWithContext("Vault initialization flags set", {
+      logger.infoWithContext("Vault initialization flags set", {
         ...baseContext,
         vaultInitialized: this.vaultInitialized,
-        vaultPath: this.vaultPath
+        vaultPath: this.vaultPath,
+        result: 'success',
+        reason: 'Vault initialization flags set'
       });
 
       const duration = Date.now() - startTime;
       logger.infoWithContext("Vault initialized successfully", {
         ...baseContext,
         duration,
-        status: "success"
+        result: 'success',
+        reason: 'Vault initialized successfully'
       });
-      
       // Add metrics for successful initialization
       logger.metric("vault_initialization_duration_ms", duration, {
-        success: true,
-        component: "CredentialManager"
+        component: "CredentialManager",
+        result: 'success',
+        reason: 'Vault initialized successfully'
       });
 
       return this.vault;
     } catch (error) {
       const duration = Date.now() - startTime;
 
+      logger.metric("vault_initialization_duration_ms", duration, {
+        component: "CredentialManager",
+        result: 'failure',
+        reason: error.message || 'Vault initialization failed'
+      });
       logErrorWithMetrics(
         "Vault initialization failed", 
         {
           ...baseContext,
           duration,
-          status: "error"
+          result: 'failure',
+          reason: error.message || 'Vault initialization failed'
         },
         error,
         "vault_initialization_error",
-        { 
-          error_type: error.code || "UNKNOWN_ERROR",
-          component: "CredentialManager"
-        }
+        { error_type: "initialization_failure" }
       );
-
       // Emit metrics for Grafana dashboards
       logger.metric("vault_initialization_duration_ms", duration, {
         success: false,
@@ -662,7 +732,8 @@ class ProductionVaultManager {
   
   publicKeyToImplicitId(publicKey, outputFormat = 'hex') {
     const requestId = ulid();
-    const utils = require('../../../sdk/utils');
+    // When packaged as @rodit/rodit-auth-be, utils lives at package root: ../../utils
+    const utils = require('../../utils');
     
     // Create a base context for this method
     const baseContext = createLogContext(

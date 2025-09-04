@@ -1,8 +1,8 @@
 /**
- * RODiT Authentication System
+ * Discernible ID Authentication System
  * 
  * This module exports the core authentication functions directly from their source files.
- * It provides a simple interface for using the Discernible Authentication system without adding
+ * It provides a simple interface for using the Discernible ID Authentication system without adding
  * unnecessary abstraction layers.
  * 
  * Copyright (c) 2025 Rodit Technologies Inc. All rights reserved.
@@ -40,6 +40,40 @@ const webhookHandler = require('./lib/webhook/webhookhandler');
 const { versioningMiddleware } = require('./lib/middleware/versioningmw');
 const { versionManager, VersionManager } = require('./lib/versioning/versionmanager');
 
+// Public surface additions
+const loggingmw = require('./lib/middleware/loggingmw');
+const ratelimitmw = require('./lib/middleware/ratelimit');
+const utils = require('./utils');
+const {
+  validateAndSetDate,
+  validateAndSetJson,
+  validateAndSetUrl,
+  calculateCanonicalHash,
+} = utils;
+const logger = require('./services/logger');
+const performanceService = require('./services/performanceservice');
+const roditManager = require('./lib/auth/roditmanager');
+
+// Global singleton guard to avoid duplicate instances when the SDK is loaded via different paths
+// (e.g., local '../../sdk' vs '@rodit/rodit-auth-be')
+const __g = (globalThis.__RODIT_SINGLETONS__ ||= {});
+__g.stateManager = __g.stateManager || stateManager;
+__g.roditManager = __g.roditManager || roditManager;
+__g.logger = __g.logger || logger;
+__g.blockchainService = __g.blockchainService || blockchainService;
+const { RoditClient } = require('./roditclient');
+
+// Helper to initialize config for a specific environment role
+// env must be one of: 'portal', 'sanctum', 'client', 'server'
+async function initConfig(env) {
+  const allowed = new Set(['portal', 'sanctum', 'client', 'server']);
+  if (!allowed.has(env)) {
+    throw new Error(`initConfig: invalid env '${env}'. Must be one of portal|sanctum|client|server`);
+  }
+  await __g.roditManager.initializeCredentialsStore();
+  await __g.roditManager.initializeRoditConfig(env);
+}
+
 // Simple export of the authentication system
 module.exports = {
   // Core middleware functions
@@ -63,8 +97,8 @@ module.exports = {
   
   // Services
   sessionManager,
-  blockchainService,
-  stateManager,
+  blockchainService: __g.blockchainService,
+  stateManager: __g.stateManager,
   
   // Webhook functionality
   webhook: {
@@ -80,11 +114,31 @@ module.exports = {
     VersionManager
   },
   
+  // Logging middleware and utilities
+  loggingmw,
+  ratelimitmw,
+  utils,
+  // Individual util functions at top-level for convenience
+  validateAndSetDate,
+  validateAndSetJson,
+  validateAndSetUrl,
+  calculateCanonicalHash,
+  logger: __g.logger,
+  performanceService,
+  
+  // Client & initialization helpers
+  RoditClient,
+  initConfig,
+  roditManager: __g.roditManager,
+  
+  // Session maintenance helpers (top-level convenience exports)
+  runManualCleanup: (...args) => sessionManager.runManualCleanup(...args),
+  
   // Configuration helper
   configure: (config) => {
     // Store configuration in state manager for access by all components
     if (config) {
-      stateManager.setConfig(config);
+      __g.stateManager.setConfig(config);
       
       // Configure versioning if specified
       if (config.apiVersion) {

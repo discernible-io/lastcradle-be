@@ -1,12 +1,11 @@
 /**
  * Service for JWT token operations
- * Copyright (c) 2025 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2024 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
-const { importJWK, jwtVerify, decodeJwt, SignJWT } = require("jose");
 const nacl = require("tweetnacl");
 const crypto = require("crypto");
 const {
@@ -20,6 +19,15 @@ const {
   nearorg_rpc_tokensfromaccountid, 
   nearorg_rpc_fetchpublickeybytes,
 } = require("../blockchain/blockchainservice");
+
+// Dynamic import for ESM 'jose' in CommonJS context
+let _josePromise;
+async function getJose() {
+  if (!_josePromise) {
+    _josePromise = import("jose");
+  }
+  return _josePromise;
+}
 
   /**
    * Converts a base64url string to a JWK public key
@@ -60,6 +68,7 @@ const {
         },
       });
 
+      const { importJWK } = await getJose();
       const session_jwk_public_key = await importJWK(jwk_public_key, "EdDSA");
 
       const duration = Date.now() - startTime;
@@ -124,6 +133,7 @@ const {
     });
 
     try {
+      const { jwtVerify } = await getJose();
       const result = await jwtVerify(token, jwk_public_key, {
         algorithms: ["EdDSA"],
       });
@@ -197,6 +207,7 @@ const {
 
         try {
           const config_own_rodit = await stateManager.getConfigOwnRodit();
+          const { decodeJwt } = await getJose();
           const unverifiedpayload = decodeJwt(token);
 
           // Log session information from expired token
@@ -686,6 +697,7 @@ const {
 
       const jwtId = "jti" + ulid();
       const jwtSignStart = Date.now();
+      const { SignJWT } = await getJose();
       const token = await new SignJWT({
         iss: peer_rodit.metadata.subjectuniqueidentifier_url,
         sub:
@@ -1147,6 +1159,7 @@ const {
 
     try {
       // Decode the token without verification to get the payload
+      const { decodeJwt } = await getJose();
       const unverifiedpayload = decodeJwt(token);
 
       logger.debug("Decoded JWT payload", {
@@ -1204,6 +1217,7 @@ const {
       
       try {
         // Try to verify the token signature
+        const { jwtVerify } = await getJose();
         const verifyResult = await jwtVerify(token, sp_public_key, {
           algorithms: ["EdDSA"],
         });

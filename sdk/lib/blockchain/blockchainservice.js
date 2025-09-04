@@ -1,10 +1,10 @@
 /**
  * Service for interacting with the blockchain network
- * Copyright (c) 2025 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2024 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");
-const config = require("config");
+const config = require('../../services/config');
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
 
@@ -19,10 +19,10 @@ logger.debugWithContext("Loading blockchainservice.js module", baseModuleContext
  */
 const CONSTANTS = {
   NEAR_CONTRACT_ID: config.get("NEAR_CONTRACT_ID"),
-  SMART_CONTRACT_REVOKED: "20260616-rodit-org.testnet",
   RODIT_ID_SZ: 128,
   RODIT_ID_PK_SZ: 32,
   RODIT_ID_SIGNATURE_SZ: 64,
+  NEAR_CONTRACT_ID: config.get("NEAR_CONTRACT_ID"),
   ED25519_KEY_SZ: 64,
 };
 
@@ -1031,21 +1031,24 @@ const PayloadNEP413Schema = {
   }
 
   async function nearorg_rpc_listpublicagents(options = {}) {
-  const { limit = 20, cursor } = options;
-  const requestId = ulid();
-  const startTime = Date.now();
-  const baseContext = createLogContext(
-    "BlockchainService",
-    "nearorg_rpc_listpublicagents",
-    {
-      requestId,
-      limit,
-      cursor
-    }
-  );
-  logger.debugWithContext("Fetching public agents list", baseContext);
+    const { limit = 20, cursor } = options;
+    // Convert cursor to from_index for rodit_tokens method
+    const from_index = cursor ? cursor : null;
+    const requestId = ulid();
+    const startTime = Date.now();
+    const baseContext = createLogContext(
+      "BlockchainService",
+      "nearorg_rpc_listpublicagents",
+      {
+        requestId,
+        limit,
+        cursor
+      }
+    );
+    logger.debugWithContext("Fetching public agents list (using rodit_tokens)", baseContext);
   try {
-    const args = { limit, cursor };
+    logger.debugWithContext("DEBUG: Entered try block", baseContext);
+    const args = { from_index, limit };
     const argsBase64 = Buffer.from(JSON.stringify(args)).toString("base64");
     const json_data = {
       jsonrpc: "2.0",
@@ -1055,12 +1058,13 @@ const PayloadNEP413Schema = {
         request_type: "call_function",
         finality: "final",
         account_id: CONSTANTS.NEAR_CONTRACT_ID,
-        method_name: "list_public_agents",
+        method_name: "rodit_tokens",
         args_base64: argsBase64
       }
     };
 
     const rpcStart = Date.now();
+    logger.debugWithContext("DEBUG: About to make fetch call", baseContext);
     const response = await fetch(NEAR_RPC_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1068,24 +1072,56 @@ const PayloadNEP413Schema = {
     });
     const rpcDuration = Date.now() - rpcStart;
 
+    logger.debugWithContext("DEBUG: Fetch completed", { ...baseContext, status: response.status });
     if (!response.ok) {
       logger.metric("near_rpc_calls", rpcDuration, { result: "failure", method: "list_public_agents", status_code: response.status });
       throw new Error(`HTTP error ${response.status}`);
     }
 
+    logger.debugWithContext("DEBUG: About to parse JSON", baseContext);
     const parsed = await response.json();
+    logger.debugWithContext("DEBUG: JSON parsed", baseContext);
+    logger.debugWithContext("DEBUG: Inspecting parsed response", {
+      ...baseContext,
+      parsedKeys: Object.keys(parsed),
+      hasResult: !!parsed.result,
+      resultKeys: parsed.result ? Object.keys(parsed.result) : null,
+      resultBase64Length: parsed.result?.result?.length || 0
+    });
     const resultBase64 = parsed.result?.result;
     if (!resultBase64) {
+      logger.debugWithContext("DEBUG: No resultBase64 found, returning empty list", {
+        ...baseContext,
+        fullParsedResponse: parsed
+      });
       return { list_agents: [], nextCursor: null };
     }
 
+    logger.debugWithContext("DEBUG: About to decode base64", baseContext);
     const buf = Buffer.from(resultBase64, "base64");
     const decoded = new TextDecoder().decode(buf);
+    logger.debugWithContext("DEBUG: About to parse payload JSON", baseContext);
     const payload = JSON.parse(decoded);
+    logger.debugWithContext("DEBUG: Payload parsed successfully", baseContext);
 
     const totalDuration = Date.now() - startTime;
     logger.metric("near_rpc_calls", totalDuration, { result: "success", method: "list_public_agents" });
-    return payload;
+  
+    // Log the complete response data (rodit_tokens)
+    logger.debugWithContext("Public agents list retrieved (rodit_tokens)", {
+      ...baseContext,
+      duration: totalDuration,
+      tokenCount: payload?.length || 0,
+      tokens: payload
+    });
+    
+    // Transform rodit_tokens response to match expected list_agents format
+    const transformedResponse = {
+      list_agents: payload || [],
+      nextCursor: payload && payload.length === limit ? (from_index || 0) + limit : null
+    };
+  
+    return transformedResponse;
   } catch (error) {
     const duration = Date.now() - startTime;
     logger.metric("near_rpc_errors", 1, { method: "list_public_agents" });
