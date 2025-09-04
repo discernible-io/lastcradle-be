@@ -509,6 +509,7 @@ This project follows a canonical environment variable naming scheme for config k
 Key mappings:
 
 - `API_DEFAULT_OPTIONS.LOG_DIR` → `API_DEFAULT_OPTIONS_LOG_DIR`
+- `API_DEFAULT_OPTIONS.DB_PATH` → `API_DEFAULT_OPTIONS_DB_PATH`
 
 Not mapped:
 
@@ -517,10 +518,37 @@ Not mapped:
 - `VAULT_RODIT_KEYVALUE_PATH`
 - `VAULT_ROLE_ID` (secret)
 - `VAULT_SECRET_ID` (secret)
-- `VAULT_TOKEN_TTL
+- `VAULT_TOKEN_TTL`
 - `SERVICE_NAME`
 - `NEAR_RPC_URL`
 - `NEAR_CONTRACT_ID` (SDK testing default: `rodit-org.near`; override in production)
+
+#### Critical Deployment Requirements
+
+When deploying applications using this SDK, ensure proper environment variable configuration:
+
+**Required for vault-based credentials:**
+- `CREDENTIALS_SOURCE=vault` must be set to use vault instead of file-based credentials
+- All vault-related environment variables must be provided as secrets
+- Missing environment variables will cause authentication failures
+
+**Container deployment example:**
+```bash
+podman run -d \
+  -e CREDENTIALS_SOURCE=vault \
+  -e VAULT_ENDPOINT=$VAULT_ENDPOINT \
+  -e VAULT_ROLE_ID=$VAULT_ROLE_ID \
+  -e VAULT_SECRET_ID=$VAULT_SECRET_ID \
+  -e VAULT_RODIT_KEYVALUE_PATH=$VAULT_RODIT_KEYVALUE_PATH \
+  -e SERVICE_NAME=your-service-name \
+  -e NEAR_CONTRACT_ID=$NEAR_CONTRACT_ID \
+  your-api-image
+```
+
+**Common deployment issues:**
+- Missing `CREDENTIALS_SOURCE` environment variable causes fallback to file-based credentials
+- Vault credentials not passed to container runtime cause authentication errors
+- Missing `API_DEFAULT_OPTIONS.DB_PATH` configuration causes startup failures
 
 Testing default for NEAR_CONTRACT_ID
 

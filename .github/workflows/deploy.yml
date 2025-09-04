@@ -83,6 +83,13 @@ jobs:
               -v ~/servertest-app/logs:/app/logs:Z \
               -v ~/servertest-app/data:/app/data:Z \
               -v ~/servertest-app/certs:/app/certs:ro,Z \
+              -e CREDENTIALS_SOURCE=vault \
+              -e VAULT_ENDPOINT=${{ secrets.VAULT_ENDPOINT }} \
+              -e VAULT_ROLE_ID=${{ secrets.VAULT_ROLE_ID }} \
+              -e VAULT_SECRET_ID=${{ secrets.VAULT_SECRET_ID }} \
+              -e VAULT_RODIT_KEYVALUE_PATH=${{ secrets.VAULT_RODIT_KEYVALUE_PATH }} \
+              -e SERVICE_NAME=servertest-api \
+              -e NEAR_CONTRACT_ID=${{ secrets.NEAR_CONTRACT_ID }} \
               servertest-image:latest
             
             # Build and run nginx
