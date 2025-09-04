@@ -1,5 +1,4 @@
 {
-  "SERVICE_NAME": "servertest-api",
   "METHOD_PERMISSION_MAP": {
     "create": ["entityAndProperties"],
     "destroy": ["entityAndProperties"],
