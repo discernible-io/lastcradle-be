@@ -1,6 +1,6 @@
 {
   "name": "@rodit/rodit-auth-be",
-  "version": "1.0.25",
+  "version": "1.0.24",
   "description": "RODiT-based authentication system for Express.js applications",
   "main": "index.js",
   "module": "dist/index.mjs",
@@ -34,6 +34,7 @@
   "dependencies": {
     "jose": "^6.1.0",
     "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
     "ulid": "^3.0.1"
   },
   "peerDependencies": {
