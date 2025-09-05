@@ -1,34 +1,1026 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Sample API",
-    "description": "Optional multiline or single-line description in [CommonMark](https://commonmark.org/help/) or HTML.",
-    "version": "0.1.9"
+    "title": "RODiT Authentication API",
+    "version": "1.0.0",
+    "description": "# API using Discernible Authentication system\n\n## Service Description\nThe RODiT Authentication API provides secure authentication services using the Discernible Authentication system. This API enables applications to implement robust user authentication, session management, and access control using RODiT's cryptographic identity verification.\n\n## Key Features\n- Secure user authentication via RODiT credentials\n- Session management and token-based authorization\n- User identity verification\n- Access control for protected resources\n- Metrics and monitoring capabilities\n\n## Data Handling and Privacy\nAll user data is handled in accordance with our privacy policy. We implement industry-standard encryption for data in transit and at rest. Personal information is processed only for the purposes of authentication and is not shared with third parties without explicit consent.\n\nWe comply with applicable data protection regulations including GDPR and CCPA. In the event of a data breach, we will notify affected users within 72 hours of discovery.",
+    "termsOfService": "https://discernible.io:9443/terms",
+    "contact": {
+      "name": "Rodit Technologies Inc.",
+      "url": "https://discernible.io:9443/home.js",
+      "email": "support@rodit-tech.com"
+    },
+    "license": {
+      "name": "Proprietary",
+      "url": "https://discernible.io:9443/license"
+    },
+    "x-api-id": "rodit-auth-api-v1"
   },
   "servers": [
     {
-      "url": "https://api.example.com/v1",
-      "description": "Optional server description, e.g. Main (production) server"
+      "url": "https://discernible.io:9443",
+      "description": "RODiT Development server"
+    },
+    {
+      "url": "https://api.discernible.io.net:9443",
+      "description": "RODiT Production server"
+    },
+    {
+      "url": "https://sandbox-api.discernible.io.net:9443",
+      "description": "RODiT Sandbox environment for testing"
     }
   ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token obtained after successful authentication"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Error code"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Unique request identifier"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["roditid", "roditid_base64url_signature"],
+        "properties": {
+          "roditid": {
+            "type": "string",
+            "description": "RODiT ID"
+          },
+          "timestamp": {
+            "type": "integer",
+            "description": "Current timestamp (optional)"
+          },
+          "roditid_base64url_signature": {
+            "type": "string",
+            "description": "Base64URL signature"
+          }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Comment ID"
+          },
+          "title": {
+            "type": "string",
+            "description": "Comment title"
+          },
+          "content": {
+            "type": "string",
+            "description": "Comment content"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Request ID"
+          }
+        }
+      },
+      "Metrics": {
+        "type": "object",
+        "properties": {
+          "metrics": {
+            "type": "object",
+            "description": "Performance metrics data"
+          },
+          "timestamp": {
+            "type": "integer",
+            "description": "Timestamp of metrics collection"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Request ID"
+          }
+        }
+      }
+    }
+  },
   "paths": {
-    "/users": {
+    "/": {
       "get": {
-        "summary": "Returns a list of users.",
-        "description": "Optional extended description in CommonMark or HTML.",
+        "summary": "Welcome page",
+        "description": "Returns information about available endpoints",
+        "tags": ["Public"],
         "responses": {
           "200": {
-            "description": "A JSON array of user names",
+            "description": "Welcome message and endpoint information"
+          }
+        }
+      }
+    },
+    "/home": {
+      "get": {
+        "summary": "Homepage",
+        "description": "Returns homepage content",
+        "tags": ["Public"],
+        "responses": {
+          "200": {
+            "description": "Homepage content"
+          }
+        }
+      }
+    },
+    "/api/login": {
+      "post": {
+        "summary": "User login",
+        "description": "Authenticate using RODiT credentials",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful"
+          },
+          "401": {
+            "description": "Authentication failed",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logout": {
+      "post": {
+        "summary": "User logout",
+        "description": "Invalidate the current session",
+        "tags": ["Authentication"],
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Logout successful"
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "summary": "Legacy login endpoint",
+        "description": "Redirects to /api/login",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "307": {
+            "description": "Temporary redirect to /api/login"
+          }
+        }
+      }
+    },
+    "/logout": {
+      "post": {
+        "summary": "Legacy logout endpoint",
+        "description": "Redirects to /api/logout",
+        "tags": ["Authentication"],
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "307": {
+            "description": "Temporary redirect to /api/logout"
+          }
+        }
+      }
+    },
+    "/api/signclient": {
+      "post": {
+        "summary": "RODiT token signing",
+        "description": "Sign RODiT tokens using the SignPortal service",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["tobesignedValues", "mintingfee", "mintingfeeaccount"],
+                "properties": {
+                  "tobesignedValues": {
+                    "type": "object",
+                    "description": "Values to be signed in the RODiT token"
+                  },
+                  "mintingfee": {
+                    "type": "string",
+                    "description": "Minting fee amount"
+                  },
+                  "mintingfeeaccount": {
+                    "type": "string",
+                    "description": "Account to receive minting fee"
                   }
                 }
               }
             }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Token signed successfully"
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/echo/echo": {
+      "post": {
+        "summary": "Echo service",
+        "description": "Echo back the provided message in uppercase",
+        "tags": ["Protected"],
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["message"],
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "description": "Message to echo back"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message echoed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "echo": {
+                      "type": "string",
+                      "description": "Echoed message in uppercase"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cruda/create": {
+      "post": {
+        "summary": "Create comment",
+        "description": "Create a new comment",
+        "tags": ["CRUD Operations"],
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "content"],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "description": "Comment title"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "Comment content"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Comment created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      }
+    },
+    "/api/cruda/list": {
+      "post": {
+        "summary": "List all comments",
+        "description": "Retrieve all comments",
+        "tags": ["CRUD Operations"],
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Comments retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "comments": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Comment"
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      }
+    },
+    "/api/cruda/read": {
+      "post": {
+        "summary": "Read specific comment",
+        "description": "Retrieve a specific comment by ID",
+        "tags": ["CRUD Operations"],
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "Comment ID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Comment retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comment"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Comment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      }
+    },
+    "/api/cruda/update": {
+      "post": {
+        "summary": "Update comment",
+        "description": "Update an existing comment",
+        "tags": ["CRUD Operations"],
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "Comment ID"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "New comment title"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "New comment content"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Comment updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comment"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Comment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      }
+    },
+    "/api/cruda/destroy": {
+      "post": {
+        "summary": "Delete comment",
+        "description": "Delete an existing comment",
+        "tags": ["CRUD Operations"],
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "Comment ID to delete"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Comment deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Comment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "summary": "Get performance metrics",
+        "description": "Retrieve current performance metrics",
+        "tags": ["Metrics"],
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Metrics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Metrics"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Failed to retrieve metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics/system": {
+      "get": {
+        "summary": "Get system metrics",
+        "description": "Retrieve system resource metrics (CPU, memory, etc.)",
+        "tags": ["Metrics"],
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "System metrics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Metrics"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Failed to retrieve system metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics/reset": {
+      "post": {
+        "summary": "Reset metrics",
+        "description": "Reset performance metrics counters (admin only)",
+        "tags": ["Metrics"],
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Metrics reset successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "integer"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin permission required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mcp/resources": {
+      "get": {
+        "summary": "List MCP resources",
+        "description": "Returns a list of resources available through the MCP interface",
+        "tags": ["MCP"],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Maximum number of resources to return"
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cursor for pagination"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of available resources with pagination info"
+          },
+          "500": {
+            "description": "Failed to list resources",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mcp/resource/{uri}": {
+      "get": {
+        "summary": "Get MCP resource",
+        "description": "Returns the content of a specific resource",
+        "tags": ["MCP"],
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uri",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "URI of the resource to retrieve"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resource content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mcp/schema": {
+      "get": {
+        "summary": "Get MCP schema",
+        "description": "Returns the schema for the MCP interface",
+        "tags": ["MCP"],
+        "responses": {
+          "200": {
+            "description": "MCP schema"
+          },
+          "500": {
+            "description": "Failed to retrieve schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/login": {
+      "post": {
+        "summary": "Create session",
+        "description": "Create a new session (login)",
+        "tags": ["Session Management"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session created successfully"
+          },
+          "401": {
+            "description": "Authentication failed"
+          }
+        }
+      }
+    },
+    "/api/sessions/logout": {
+      "post": {
+        "summary": "End session",
+        "description": "End a session (logout)",
+        "tags": ["Session Management"],
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Session ended successfully"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      }
+    },
+    "/api/sessions/list_all": {
+      "get": {
+        "summary": "List all sessions",
+        "description": "Get information about all active sessions (admin only)",
+        "tags": ["Session Management"],
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Sessions retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "roditId": {
+                            "type": "string"
+                          },
+                          "ownerId": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "expiresAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "lastAccessedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin permission required"
+          }
+        }
+      }
+    },
+    "/api/sessions/close": {
+      "post": {
+        "summary": "Terminate session",
+        "description": "Force terminate a specific session (admin only)",
+        "tags": ["Session Management"],
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["sessionId"],
+                "properties": {
+                  "sessionId": {
+                    "type": "string",
+                    "description": "ID of the session to terminate"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Reason for termination"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session terminated successfully"
+          },
+          "400": {
+            "description": "Missing sessionId",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin permission required"
+          }
+        }
+      }
+    },
+    "/api/sessions/cleanup": {
+      "post": {
+        "summary": "Cleanup sessions",
+        "description": "Run manual session cleanup (admin only)",
+        "tags": ["Session Management"],
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Session cleanup completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "removedCount": {
+                      "type": "integer"
+                    },
+                    "remainingCount": {
+                      "type": "integer"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin permission required"
           }
         }
       }

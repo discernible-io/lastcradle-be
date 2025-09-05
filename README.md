@@ -180,6 +180,73 @@ if (roditToken.metadata.max_requests && roditToken.metadata.maxrq_window) {
 }
 ```
 
+## RODIT Configuration for This API
+
+When creating a RODIT token for this API server, use the following `permissioned_routes` configuration to grant access to all available endpoints:
+
+### Complete RODIT JSON Configuration
+
+```json
+{
+  "entities": {
+    "name": "servertest-api",
+    "methods": {
+      "/": "+0",
+      "/home": "+0",
+      "/api/login": "+0",
+      "/api/logout": "+0",
+      "/login": "+0",
+      "/logout": "+0",
+      "/api/signclient": "+0",
+      "/api/echo/echo": "+0",
+      "/api/cruda/create": "+0",
+      "/api/cruda/list": "+0",
+      "/api/cruda/read": "+0",
+      "/api/cruda/update": "+0",
+      "/api/cruda/destroy": "+0",
+      "/api/metrics": "+0",
+      "/api/metrics/system": "+0",
+      "/api/metrics/reset": "+0",
+      "/api/mcp/resources": "+0",
+      "/api/mcp/resource/*": "+0",
+      "/api/mcp/schema": "+0",
+      "/api/sessions/login": "+0",
+      "/api/sessions/logout": "+0",
+      "/api/sessions/list_all": "+0",
+      "/api/sessions/close": "+0",
+      "/api/sessions/cleanup": "+0",
+      "/api-docs": "+0"
+    }
+  }
+}
+```
+
+### Endpoint Categories
+
+**Public Routes:**
+- `/` - Root/welcome page
+- `/home` - Homepage  
+- `/api-docs` - Swagger API documentation
+
+**Authentication Routes:**
+- `/api/login`, `/login` - User authentication with RODiT credentials
+- `/api/logout`, `/logout` - User logout and session termination
+- `/api/signclient` - RODiT token signing service
+
+**Protected Routes (require authentication):**
+- `/api/echo/echo` - Echo service for testing authenticated requests
+- `/api/cruda/*` - CRUD operations (create, list, read, update, destroy) for comments
+- `/api/metrics/*` - Performance metrics and system monitoring endpoints
+- `/api/mcp/*` - Model Context Protocol endpoints for AI integration
+- `/api/sessions/*` - Administrative session management endpoints
+
+**Rate Limiting:**
+All endpoints are configured with `"+0"` which allows unlimited access at the endpoint level. Global rate limiting is controlled by the RODIT token's `max_requests` and `maxrq_window` metadata fields.
+
+### Usage in RODIT Token Creation
+
+When creating your RODIT token, include this JSON configuration in the `permissioned_routes` field of your token metadata. This ensures that users with valid RODIT tokens can access all API functionality according to their authentication level and permissions.
+
 ## API Documentation
 
 The API server includes Swagger documentation accessible at `/api-docs` when the server is running.
