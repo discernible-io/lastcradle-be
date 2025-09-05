@@ -12,12 +12,107 @@ const { ulid } = require('ulid');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const config = require('config');
+const winston = require('winston');
+const LokiTransport = require('winston-loki');
 
 // Import the unified auth module and services from SDK root
 // In a real app with npm package, this would be: const auth = require('rodit-auth');
 const auth = require('../sdk');
 const { logger, ratelimitmw, stateManager, roditManager } = require('../sdk');
 const { createLogContext, logErrorWithMetrics } = logger;
+
+// Inject a Loki transport into the SDK logger so SDK logs are sent directly to Loki
+// Configuration via environment variables:
+//   LOKI_URL            - e.g., https://grafana.cableguard.net:3100/loki/api/v1/push
+//   LOKI_BASIC_AUTH     - optional, in form "user:pass" or bearer via headers below
+//   LOKI_TLS_SKIP_VERIFY- set to "true" to skip TLS verification (not recommended for production)
+//   LOG_LEVEL           - log level (default: info)
+(() => {
+  try {
+    console.log("=== Enhanced winston-loki debugging ===");
+    const lokiUrl = process.env.LOKI_URL;
+    const logLevel = process.env.LOG_LEVEL || "info";
+    const skipTls = String(process.env.LOKI_TLS_SKIP_VERIFY || "").toLowerCase() === "true";
+    const basicAuth = process.env.LOKI_BASIC_AUTH; // e.g., "user:password"
+
+    console.log("Environment variables:");
+    console.log("  LOKI_URL:", lokiUrl || "NOT SET");
+    console.log("  LOKI_TLS_SKIP_VERIFY:", process.env.LOKI_TLS_SKIP_VERIFY || "NOT SET");
+    console.log("  LOKI_BASIC_AUTH:", basicAuth ? "SET" : "NOT SET");
+    console.log("  LOG_LEVEL:", logLevel);
+
+    const transports = [
+      new winston.transports.Console({ format: winston.format.json(), level: logLevel })
+    ];
+
+    if (lokiUrl) {
+      console.log("Creating winston-loki transport...");
+      const lokiOptions = {
+        host: lokiUrl,
+        labels: { app: "servertest", component: "sdk", service_name: logger.SERVICE_NAME },
+        json: true,
+        level: logLevel,
+        batching: true,
+        gracefulShutdown: true,
+        replaceTimestamp: true,
+        timeout: 5000,
+      };
+
+      if (basicAuth) {
+        lokiOptions.basicAuth = basicAuth;
+        console.log("Added basic auth to Loki options");
+      }
+      if (skipTls) {
+        lokiOptions.ssl = { rejectUnauthorized: false };
+        console.log("Added TLS skip verification to Loki options");
+      }
+
+      console.log("Loki transport options:", JSON.stringify(lokiOptions, null, 2));
+
+      const lokiTransport = new LokiTransport(lokiOptions);
+      
+      // Add error and warning listeners
+      lokiTransport.on('error', (err) => {
+        console.error("❌ winston-loki transport ERROR:", err.message);
+        console.error("Error details:", err);
+      });
+
+      lokiTransport.on('warn', (warn) => {
+        console.warn("⚠️ winston-loki transport WARN:", warn);
+      });
+
+      transports.push(lokiTransport);
+      console.log("✅ winston-loki transport added to transports");
+    } else {
+      console.log("❌ LOKI_URL not set - winston-loki transport will not be created");
+    }
+
+    const customLogger = winston.createLogger({
+      level: logLevel,
+      format: winston.format.json(),
+      transports,
+    });
+
+    console.log("Created custom logger with", transports.length, "transports");
+
+    // Give the SDK our logger
+    logger.setLogger(customLogger);
+    console.log("✅ Custom logger injected into SDK");
+    
+    // Test the logger immediately
+    customLogger.info("winston-loki transport test log", { 
+      timestamp: new Date().toISOString(),
+      test: true,
+      component: "winston-loki-setup"
+    });
+    console.log("✅ Test log sent through custom logger");
+    
+  } catch (e) {
+    // If injection fails, continue with default logger; emit a warning
+    console.warn("❌ SDK Loki logger injection failed:", e?.message || e);
+    console.error("Full error:", e);
+  }
+})();
 
 // Import routes
 const echoprotectedRoute = require('./protected/echo');

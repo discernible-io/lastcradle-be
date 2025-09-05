@@ -9,7 +9,9 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "tweetnacl-util": "^0.15.1",
-    "ulid": "^2.3.0"
+    "ulid": "^2.3.0",
+    "winston": "^3.11.0",
+    "winston-loki": "^6.0.8"
   },
   "name": "servertest",
   "version": "1.0.0",
