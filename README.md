@@ -97,6 +97,89 @@ Then import the required modules:
 const { logger, authenticate, stateManager, roditManager } = require('@rodit/rodit-auth-be');
 ```
 
+## RODIT Token Information Display
+
+During startup, the API server automatically displays comprehensive RODIT token information, similar to the `roditwallet.sh` command output. This includes:
+
+### Startup Information Display
+
+When the server starts, you'll see output like:
+
+```
+=== RODiT Authentication System ===
+Version 1.0.24 running on testnet at Smart Contract 20251001-rodit-org.testnet
+Get help with: npm run help
+
+RODiT Contents
+▹▸▹▹▹ Authentication token information loaded...
+
+{
+  "token_id": "01K43ASJTMA4V81C46WCRADGVD",
+  "metadata": {
+    "allowed_cidr": "0.0.0.0/0",
+    "allowed_iso3166list": "{\"allow\":[\"WLD\"]}",
+    "jwt_duration": "3600",
+    "max_requests": "0",
+    "maxrq_window": "0",
+    "not_after": "2035-09-01",
+    "not_before": "2025-09-01",
+    "openapijson_url": "https://api.discernible.io/api-docs",
+    "permissioned_routes": "{\"entities\":{\"name\":\"api\",\"methods\":{\"/api/login\":\"+0\",\"/api/logout\":\"+0\",\"/login\":\"+0\",\"/logout\":\"+0\",\"/signclient\":\"+0\",\"/info\":\"+0\",\"/list_sessions\":\"+0\",\"/close_session\":\"+0\",\"/cleanup_sessions\":\"+0\",\"/metrics\":\"+0\",\"/reset_metrics\":\"+0\",\"/get_nonce\":\"+0\",\"/verify_signature\":\"+0\",\"/offline_get_nonce\":\"+0\",\"/offline_verify_signature\":\"+0\",\"/face_prompt\":\"+0\",\"/hash_match\":\"+0\",\"/api/list_agents\":\"+0\",\"/api/mcp/list_resources\":\"+0\",\"/api/mcp/resource/health\":\"+0\",\"/api/mcp/resource/subscriptions\":\"+0\",\"/api/mcp/resource/purchase\":\"+0\",\"/api/mcp/schema\":\"+0\"}}}",
+    "serviceprovider_id": "bc=near.org;sc=20251001-rodit-org.testnet;id=01K3XWVNWBRHNKHZ94Q42GTENH;id=01K3XWVNWBWK2QR7BZ8K0HVE2J",
+    "serviceprovider_signature": "IoT6gy6PUDJ_5zXS73Yspdl4otySHYUg7p5T-HpplVHq1-wSpsNG0q1DWyDnpkg2KT_K4NF6_NVT_QEqBXMIAA",
+    "subjectuniqueidentifier_url": "https://api.discernible.io",
+    "userselected_dn": "CN=Discernible,OU=Cloud Engineering,OU=Platform Services,O=Rodit Technologies Inc,L=San Fernando,ST=Cadiz,C=ES",
+    "webhook_cidr": "0.0.0.0/0",
+    "webhook_url": "https://webhook-not-set.example.com"
+  }
+}
+```
+
+### Using RODIT Information in Your API
+
+The RODIT token information displayed during startup can be programmatically accessed in your API code:
+
+```javascript
+const { stateManager } = require('@rodit/rodit-auth-be');
+
+// Get the complete RODIT configuration
+const configObject = await stateManager.getConfigOwnRodit();
+const roditToken = configObject.own_rodit;
+
+// Access token metadata
+const metadata = roditToken.metadata;
+const tokenId = roditToken.token_id;
+
+// Use specific metadata fields
+const allowedRoutes = JSON.parse(metadata.permissioned_routes);
+const jwtDuration = metadata.jwt_duration;
+const allowedCIDR = metadata.allowed_cidr;
+const serviceEndpoint = metadata.subjectuniqueidentifier_url;
+```
+
+### Key Metadata Fields and Their Usage
+
+- **`token_id`**: Unique identifier for the RODIT token
+- **`allowed_cidr`**: IP address ranges allowed to access the API
+- **`jwt_duration`**: Token expiration time in seconds
+- **`permissioned_routes`**: JSON string containing allowed API routes and methods
+- **`serviceprovider_id`**: Blockchain contract and provider information
+- **`subjectuniqueidentifier_url`**: Primary API endpoint URL
+- **`not_before`/`not_after`**: Token validity period
+- **`max_requests`/`maxrq_window`**: Rate limiting configuration
+
+### Automatic Rate Limiting Configuration
+
+The API automatically configures rate limiting based on RODIT token metadata:
+
+```javascript
+// Rate limits are automatically applied from token metadata
+if (roditToken.metadata.max_requests && roditToken.metadata.maxrq_window) {
+  // Rate limiter is automatically updated with these values
+  updateRateLimit(roditToken.metadata.max_requests, roditToken.metadata.maxrq_window);
+}
+```
+
 ## API Documentation
 
 The API server includes Swagger documentation accessible at `/api-docs` when the server is running.

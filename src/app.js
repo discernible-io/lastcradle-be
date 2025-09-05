@@ -515,6 +515,101 @@ function updateRateLimit(maxRequests, maxRqWindow) {
 let server;
 let db;
 
+// Function to display RODIT token information during startup
+async function displayRoditInfo(configObject) {
+  const requestId = ulid();
+  const startTime = Date.now();
+  
+  const baseContext = createLogContext({
+    requestId,
+    component: "RoditInfo",
+    method: "displayRoditInfo"
+  });
+  
+  try {
+    const own_rodit = configObject.own_rodit;
+    const metadata = own_rodit.metadata;
+    const token_id = own_rodit.token_id;
+    
+    // Get SDK version from package.json
+    const packageJson = require('../package.json');
+    const sdkVersion = packageJson.dependencies['@rodit/rodit-auth-be'] || 'unknown';
+    
+    // Extract network and contract from environment or metadata
+    const nearContractId = process.env.NEAR_CONTRACT_ID || metadata.serviceprovider_id?.split(';')[1]?.replace('sc=', '') || 'unknown';
+    const network = nearContractId.includes('testnet') ? 'testnet' : 'mainnet';
+    
+    logger.info('\n=== RODiT Authentication System ===');
+    logger.info(`Version ${sdkVersion.replace('^', '')} running on ${network} at Smart Contract ${nearContractId}`);
+    logger.info('Get help with: npm run help\n');
+    
+    logger.info('RODiT Contents');
+    logger.info('▹▸▹▹▹ Authentication token information loaded...\n');
+    
+    // Display token information in a structured format
+    const roditData = {
+      token_id: token_id,
+      metadata: {
+        allowed_cidr: metadata.allowed_cidr || 'N/A',
+        allowed_iso3166list: metadata.allowed_iso3166list || 'N/A',
+        jwt_duration: metadata.jwt_duration || 'N/A',
+        max_requests: metadata.max_requests || '0',
+        maxrq_window: metadata.maxrq_window || '0',
+        not_after: metadata.not_after || 'N/A',
+        not_before: metadata.not_before || 'N/A',
+        openapijson_url: metadata.openapijson_url || 'N/A',
+        permissioned_routes: metadata.permissioned_routes || 'N/A',
+        serviceprovider_id: metadata.serviceprovider_id || 'N/A',
+        serviceprovider_signature: metadata.serviceprovider_signature || 'N/A',
+        subjectuniqueidentifier_url: metadata.subjectuniqueidentifier_url || 'N/A',
+        userselected_dn: metadata.userselected_dn || 'N/A',
+        webhook_cidr: metadata.webhook_cidr || 'N/A',
+        webhook_url: metadata.webhook_url || 'N/A'
+      }
+    };
+    
+    // Log the RODIT data in JSON format for easy reading
+    logger.info(JSON.stringify(roditData, null, 2));
+    logger.info('');
+    
+    const duration = Date.now() - startTime;
+    logger.infoWithContext("RODIT token information displayed successfully", {
+      ...baseContext,
+      duration,
+      tokenId: token_id,
+      network,
+      contractId: nearContractId
+    });
+    
+    // Add metric for RODIT info display
+    logger.metric("rodit_info_operations", duration, {
+      operation: "display",
+      result: "success"
+    });
+    
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    
+    logErrorWithMetrics(
+      "Failed to display RODIT token information",
+      {
+        ...baseContext,
+        duration
+      },
+      error,
+      "rodit_info_error",
+      {
+        operation: "display",
+        result: "error",
+        duration
+      }
+    );
+    
+    // Don't throw the error - just log it and continue
+    logger.warn("RODIT token information could not be displayed, continuing with startup...");
+  }
+}
+
 // Start the server with proper initialization
 async function startServer() {
   const requestId = ulid();
@@ -554,6 +649,9 @@ async function startServer() {
     if (!configObject) {
       throw new Error("Failed to initialize RODiT configuration");
     }
+
+    // Display RODIT token information
+    await displayRoditInfo(configObject);
 
     // Update rate limits if applicable
     const own_rodit = configObject.own_rodit;

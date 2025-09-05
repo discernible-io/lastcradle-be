@@ -9,6 +9,8 @@ This npm package provides the RODiT-based authentication system for Express.js a
 - Permission validation for protected routes based on RODiT token permissions
 - Session management with secure token handling
 - Comprehensive logging and error handling
+- Automatic RODIT token information display during startup
+- Programmatic access to RODIT token metadata for dynamic configuration
 
 ## Installation
 
@@ -99,6 +101,75 @@ auth.configure({
 - `sessionManager` - Session management service
 - `blockchainService` - Blockchain interaction service
 - `stateManager` - State management service
+
+### RODIT Token Information Access
+
+The SDK provides access to RODIT token information that can be used for dynamic API configuration:
+
+```javascript
+const { stateManager } = require('@rodit/rodit-auth-be');
+
+// Get complete RODIT configuration during or after initialization
+const configObject = await stateManager.getConfigOwnRodit();
+const roditToken = configObject.own_rodit;
+
+// Access token metadata for configuration
+const metadata = roditToken.metadata;
+const tokenId = roditToken.token_id;
+
+// Example: Configure API behavior based on token metadata
+const allowedRoutes = JSON.parse(metadata.permissioned_routes);
+const jwtDuration = parseInt(metadata.jwt_duration);
+const allowedCIDR = metadata.allowed_cidr;
+const apiEndpoint = metadata.subjectuniqueidentifier_url;
+
+// Example: Dynamic rate limiting from token
+if (metadata.max_requests && metadata.maxrq_window) {
+  const maxRequests = parseInt(metadata.max_requests);
+  const windowSeconds = parseInt(metadata.maxrq_window);
+  // Apply rate limiting configuration
+}
+```
+
+#### Available RODIT Metadata Fields
+
+- **`token_id`**: Unique RODIT token identifier
+- **`allowed_cidr`**: Permitted IP address ranges (CIDR format)
+- **`allowed_iso3166list`**: Geographic restrictions (JSON string)
+- **`jwt_duration`**: JWT token lifetime in seconds
+- **`max_requests`**: Rate limit - maximum requests per window
+- **`maxrq_window`**: Rate limit - time window in seconds
+- **`not_before`/`not_after`**: Token validity period
+- **`openapijson_url`**: OpenAPI specification URL
+- **`permissioned_routes`**: Allowed API routes and methods (JSON string)
+- **`serviceprovider_id`**: Blockchain contract and service provider info
+- **`serviceprovider_signature`**: Cryptographic signature for verification
+- **`subjectuniqueidentifier_url`**: Primary API service endpoint
+- **`userselected_dn`**: Distinguished name for the service
+- **`webhook_cidr`**: Allowed IP ranges for webhooks
+- **`webhook_url`**: Webhook endpoint URL
+
+#### Startup Information Display
+
+When using this SDK in your application, it automatically displays comprehensive RODIT token information during startup, similar to the `roditwallet.sh` command:
+
+```
+=== RODiT Authentication System ===
+Version 1.0.24 running on testnet at Smart Contract 20251001-rodit-org.testnet
+Get help with: npm run help
+
+RODiT Contents
+▹▸▹▹▹ Authentication token information loaded...
+
+{
+  "token_id": "01K43ASJTMA4V81C46WCRADGVD",
+  "metadata": {
+    // ... complete token metadata
+  }
+}
+```
+
+This information helps verify proper token configuration and provides visibility into the authentication system's capabilities.
 
 ### Configuration
 
