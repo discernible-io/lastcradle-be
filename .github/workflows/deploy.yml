@@ -98,7 +98,7 @@ jobs:
             echo 'DEBUG: LOKI_URL=${{ vars.LOKI_URL }}'
             echo 'DEBUG: LOKI_TLS_SKIP_VERIFY=${{ vars.LOKI_TLS_SKIP_VERIFY }}'
             echo 'DEBUG: LOKI_BASIC_AUTH length:' \${#LOKI_BASIC_AUTH}
-            echo 'DEBUG: CREDENTIALS_SOURCE (from Actions vars/secrets expected in run args below)'
+            echo 'DEBUG: RODIT_NEAR_CREDENTIALS_SOURCE (from Actions vars/secrets expected in run args below)'
             echo 'DEBUG: SERVICE_NAME=${{ vars.SERVICE_NAME }}'
             echo 'DEBUG: SERVERPORT=${{ vars.SERVERPORT }}'
             echo 'DEBUG: API_DEFAULT_OPTIONS_LOG_DIR=${{ vars.API_DEFAULT_OPTIONS_LOG_DIR }}'
@@ -119,7 +119,7 @@ jobs:
               -e LOKI_URL='${{ vars.LOKI_URL }}' \
               -e LOKI_TLS_SKIP_VERIFY='${{ vars.LOKI_TLS_SKIP_VERIFY }}' \
               -e LOKI_BASIC_AUTH='${{ secrets.LOKI_BASIC_AUTH }}' \
-              -e CREDENTIALS_SOURCE='${{ vars.CREDENTIALS_SOURCE }}' \
+              -e RODIT_NEAR_CREDENTIALS_SOURCE='${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE }}' \
               -e SERVICE_NAME='${{ vars.SERVICE_NAME }}' \
               -e SERVERPORT='${{ vars.SERVERPORT }}' \
               -e API_DEFAULT_OPTIONS_LOG_DIR='${{ vars.API_DEFAULT_OPTIONS_LOG_DIR }}' \
@@ -144,7 +144,7 @@ jobs:
             # Debug: Check environment variables inside the container
             echo 'DEBUG: Container environment variables:'
             podman exec servertest-container env \
-              | grep -E '^(LOKI_|LOG_|CREDENTIALS_SOURCE|SERVICE_NAME|SERVERPORT|API_DEFAULT_OPTIONS_LOG_DIR|NEAR_CONTRACT_ID|VAULT_ENDPOINT|VAULT_RODIT_KEYVALUE_PATH|VAULT_ROLE_ID|VAULT_TOKEN_TTL)' \
+              | grep -E '^(LOKI_|LOG_|RODIT_NEAR_CREDENTIALS_SOURCE|SERVICE_NAME|SERVERPORT|API_DEFAULT_OPTIONS_LOG_DIR|NEAR_CONTRACT_ID|VAULT_ENDPOINT|VAULT_RODIT_KEYVALUE_PATH|VAULT_ROLE_ID|VAULT_TOKEN_TTL)' \
               | sed -E 's/(VAULT_ROLE_ID|VAULT_SECRET_ID)=.*/\1=****/' \
               | sort || echo 'No expected variables found'
             

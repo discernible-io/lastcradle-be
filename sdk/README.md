@@ -507,7 +507,7 @@ Key mappings:
 
 Not mapped:
 
-- `CREDENTIALS_SOURCE`
+- `RODIT_NEAR_CREDENTIALS_SOURCE`
 - `VAULT_ENDPOINT`
 - `VAULT_RODIT_KEYVALUE_PATH`
 - `VAULT_ROLE_ID` (secret)
@@ -522,14 +522,14 @@ Not mapped:
 When deploying applications using this SDK, ensure proper environment variable configuration:
 
 **Required for vault-based credentials:**
-- `CREDENTIALS_SOURCE=vault` must be set to use vault instead of file-based credentials
+- `RODIT_NEAR_CREDENTIALS_SOURCE=vault` must be set to use vault instead of file-based credentials
 - All vault-related environment variables must be provided as secrets
 - Missing environment variables will cause authentication failures
 
 **Container deployment example:**
 ```bash
 podman run -d \
-  -e CREDENTIALS_SOURCE=vault \
+  -e RODIT_NEAR_CREDENTIALS_SOURCE=vault \
   -e VAULT_ENDPOINT=$VAULT_ENDPOINT \
   -e VAULT_ROLE_ID=$VAULT_ROLE_ID \
   -e VAULT_SECRET_ID=$VAULT_SECRET_ID \
@@ -540,7 +540,7 @@ podman run -d \
 ```
 
 **Common deployment issues:**
-- Missing `CREDENTIALS_SOURCE` environment variable causes fallback to file-based credentials
+- Missing `RODIT_NEAR_CREDENTIALS_SOURCE` environment variable causes fallback to file-based credentials
 - Vault credentials not passed to container runtime cause authentication errors
 - Missing `API_DEFAULT_OPTIONS.DB_PATH` configuration causes startup failures
 
@@ -567,7 +567,7 @@ Fallback behavior
 
 The SDK wrapper at `sdk/services/config.js` provides safe fallbacks for several keys so the SDK can run in development without external configuration:
 
-- Has fallbacks: `CREDENTIALS_SOURCE`, `SERVICE_NAME`, `NEAR_RPC_URL`, `NEAR_CONTRACT_ID` (testing default `rodit-org.near`), `API_DEFAULT_OPTIONS.*`, `SECURITY_OPTIONS`, and others noted in `FALLBACK_DEFAULTS`.
+- Has fallbacks: `RODIT_NEAR_CREDENTIALS_SOURCE`, `SERVICE_NAME`, `NEAR_RPC_URL`, `NEAR_CONTRACT_ID` (testing default `rodit-org.near`), `API_DEFAULT_OPTIONS.*`, `SECURITY_OPTIONS`, and others noted in `FALLBACK_DEFAULTS`.
 - Recommendation: Override `NEAR_CONTRACT_ID` in production via environment or configuration.
 - Exclusions by design: Vault credentials (`VAULT_*`) and `METHOD_PERMISSION_MAP` are not supplied by SDK fallbacks.
 
@@ -586,7 +586,7 @@ You have three ergonomic options for providing configuration to the app/SDK:
    - Examples:
 
      ```bash
-     export CREDENTIALS_SOURCE=vault
+     export RODIT_NEAR_CREDENTIALS_SOURCE=vault
      export SERVICE_NAME=signportal-api
      export API_DEFAULT_OPTIONS_LOG_DIR=/app/logs
      export NEAR_RPC_URL=https://rpc.testnet.fastnear.com/
@@ -791,7 +791,7 @@ Use canonical env var names by uppercasing and replacing dots with underscores:
 
 Common variables used by the SDK and host app include:
 
-- `CREDENTIALS_SOURCE`
+- `RODIT_NEAR_CREDENTIALS_SOURCE`
 - `SERVICE_NAME`
 - `API_DEFAULT_OPTIONS_LOG_DIR`
 - `NEAR_RPC_URL`
@@ -848,14 +848,14 @@ const customTimeout = config.get('CUSTOM_TIMEOUT', 5000); // explicit default
 
 The SDK supports file-based and Vault-backed credential stores, selected at runtime (env var takes precedence over config):
 
-- Default: `CREDENTIALS_SOURCE = "file"`
-- Env override: `CREDENTIALS_SOURCE=vault` or `file`
+- Default: `RODIT_NEAR_CREDENTIALS_SOURCE = "file"`
+- Env override: `RODIT_NEAR_CREDENTIALS_SOURCE=vault` or `file`
 
 Config keys:
 
 ```json
 {
-  "CREDENTIALS_SOURCE": "file",
+  "RODIT_NEAR_CREDENTIALS_SOURCE": "file",
   "credentials": { "filePath": "/app/.near-credentials/testnet/your-credentials.json" }
 }
 ```
@@ -864,7 +864,7 @@ For `vault`:
 
 ```json
 {
-  "CREDENTIALS_SOURCE": "vault",
+  "RODIT_NEAR_CREDENTIALS_SOURCE": "vault",
   "VAULT_ENDPOINT": "https://vault.example.com:8200",
   "VAULT_ROLE_ID": "...",
   "VAULT_SECRET_ID": "...",

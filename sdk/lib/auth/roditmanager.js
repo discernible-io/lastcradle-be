@@ -10,9 +10,9 @@ const config = require('../../services/config');
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
 // Dynamically select credential store based on config/env (flat key only)
-const CREDENTIALS_SOURCE = config.get('CREDENTIALS_SOURCE');
-logger.debugWithContext('Selecting credential store', createLogContext('RoditManager', 'credentialStoreSelect', { source: CREDENTIALS_SOURCE }));
-const credentialStoreModule = CREDENTIALS_SOURCE === 'file'
+const RODIT_NEAR_CREDENTIALS_SOURCE = config.get('RODIT_NEAR_CREDENTIALS_SOURCE');
+logger.debugWithContext('Selecting credential store', createLogContext('RoditManager', 'credentialStoreSelect', { source: RODIT_NEAR_CREDENTIALS_SOURCE }));
+const credentialStoreModule = RODIT_NEAR_CREDENTIALS_SOURCE === 'file'
   ? require("../middleware/filecredentialstore")
   : require("../middleware/vaultcredentialstore");
 const {

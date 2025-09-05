@@ -133,7 +133,7 @@ When deploying the API, ensure that environment variables are properly passed to
 - name: Deploy API container
   run: |
     podman run -d \
-      -e CREDENTIALS_SOURCE=vault \
+      -e RODIT_NEAR_CREDENTIALS_SOURCE=vault \
       -e VAULT_ENDPOINT=${{ secrets.VAULT_ENDPOINT }} \
       -e VAULT_ROLE_ID=${{ secrets.VAULT_ROLE_ID }} \
       -e VAULT_SECRET_ID=${{ secrets.VAULT_SECRET_ID }} \
@@ -145,7 +145,7 @@ When deploying the API, ensure that environment variables are properly passed to
 ```
 
 **Critical notes:**
-- Without `CREDENTIALS_SOURCE=vault`, the API will default to file-based credentials and fail to authenticate
+- Without `RODIT_NEAR_CREDENTIALS_SOURCE=vault`, the API will default to file-based credentials and fail to authenticate
 - Vault credentials must be provided as GitHub secrets and passed to the container
 - Missing environment variables will cause deployment failures or runtime authentication errors
 
@@ -187,7 +187,7 @@ When deploying the API, ensure that environment variables are properly passed to
 - __Cannot find module 'tweetnacl-util'__
   - Add `tweetnacl-util` dependency to `package.json`: `"tweetnacl-util": "^0.15.1"`
 - __Deployment fails with credential errors__
-  - Verify `CREDENTIALS_SOURCE=vault` environment variable is passed to container
+  - Verify `RODIT_NEAR_CREDENTIALS_SOURCE=vault` environment variable is passed to container
   - Ensure all vault-related environment variables are properly configured in deployment script
   - Check that GitHub secrets are correctly referenced in the workflow
 
