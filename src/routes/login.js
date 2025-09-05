@@ -1,96 +1,62 @@
 const express = require("express");
 const router = express.Router();
 const { ulid } = require("ulid");
-const { logger, login: login_client } = require("@rodit/rodit-auth-be");
+
+// Import the unified auth module from npm package
+const auth = require('@rodit/rodit-auth-be');
+const { logger } = auth;
 const { createLogContext, logErrorWithMetrics } = logger;
 
-// Handling login request
-router.post("/login", (req, res) => {
-  const requestId = req.headers['x-request-id'] || ulid();
-  const startTime = Date.now();
+/**
+ * @swagger
+ * /api/login:
+ *   post:
+ *     summary: User login
+ *     description: Authenticate using RODiT credentials
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - roditid
+ *               - roditid_base64url_signature
+ *             properties:
+ *               roditid:
+ *                 type: string
+ *                 description: RODiT ID
+ *               timestamp:
+ *                 type: integer
+ *                 description: Current timestamp (optional)
+ *               roditid_base64url_signature:
+ *                 type: string
+ *                 description: Base64URL signature
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Authentication failed
+ */
+router.post('/login', (req, res) => {
   req.logAction = "login-attempt";
-  req.requestId = requestId; // Set requestId for downstream handlers
-  
-  const baseContext = createLogContext({
-    requestId,
-    component: 'LoginRoutes',
-    method: 'login',
-    endpoint: '/api/login',
-    httpMethod: req.method,
+  logger.info("Login request received", {
+    component: "API",
+    method: "login",
+    requestId: req.requestId || ulid(),
+    path: req.path,
     ip: req.ip,
-    userAgent: req.get('User-Agent'),
-    headers: Object.keys(req.headers),
-    bodyKeys: Object.keys(req.body || {}),
-    bodySize: req.body ? JSON.stringify(req.body).length : 0
+    userAgent: req.get('User-Agent')
   });
   
-  logger.debugWithContext("Processing login request", baseContext);
-  
-  try {
-    // Add a wrapper to capture timing and errors
-    const originalEnd = res.end;
-    res.end = function(...args) {
-      const duration = Date.now() - startTime;
-      const statusCode = res.statusCode;
-      const isSuccess = statusCode >= 200 && statusCode < 300;
-      
-      if (isSuccess) {
-        logger.infoWithContext("Login request processed successfully", {
-          ...baseContext,
-          statusCode,
-          duration
-        });
-        
-        // Add metric for successful operation
-        logger.metric('auth_operations', duration, {
-          operation: 'login',
-          result: 'success',
-          statusCode
-        });
-      } else {
-        logger.warnWithContext("Login request failed", {
-          ...baseContext,
-          statusCode,
-          duration
-        });
-        
-        // Add metric for failed operation
-        logger.metric('auth_operations', duration, {
-          operation: 'login',
-          result: 'failure',
-          statusCode
-        });
-      }
-      
-      originalEnd.apply(this, args);
-    };
-    
-    // Pass to the login_client handler directly
-    login_client(req, res);
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    
-    logErrorWithMetrics(
-      'Error processing login request',
-      {
-        ...baseContext,
-        duration
-      },
-      error,
-      'auth_error',
-      {
-        operation: 'login',
-        result: 'error',
-        duration
-      }
-    );
-    
-    res.status(500).json({
-      error: 'Failed to process login request',
-      message: 'An internal server error occurred',
-      requestId
-    });
-  }
+  // Use the SDK's login function
+  auth.login(req, res);
+});
+
+// Legacy login route - redirects to new endpoint
+router.post("/", (req, res) => {
+  req.logAction = "legacy-login-attempt";
+  res.redirect(307, '/api/login');
 });
 
 module.exports = router;

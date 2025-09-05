@@ -249,7 +249,116 @@ When creating your RODIT token, include this JSON configuration in the `permissi
 
 ## API Documentation
 
-The API server includes Swagger documentation accessible at `/api-docs` when the server is running.
+The API server includes Swagger documentation accessible at `/api-docs` when the server is running. The OpenAPI specification is automatically generated and published as a build artifact.
+
+### Swagger/OpenAPI Specification
+
+The `api-docs/swagger.json` file contains the complete OpenAPI 3.0 specification for this API server. This file is:
+
+- **Generated automatically** during the build process via `npm run build:swagger`
+- **Published as an artifact** in GitHub Actions for easy access and distribution
+- **Accessible at runtime** via the `/api-docs` endpoint when the server is running
+- **Used for client generation** and API documentation
+
+The swagger.json includes:
+- Complete endpoint definitions with request/response schemas
+- Authentication requirements for each endpoint
+- Parameter validation rules
+- Response status codes and error handling
+- Example requests and responses
+
+## Infrastructure and Deployment
+
+This project uses a comprehensive containerized deployment strategy with multiple components working together to provide a secure, scalable, and observable API service.
+
+### GitHub Actions Workflow (`.github/workflows/deploy.yml`)
+
+The deployment pipeline automates the entire build and deployment process:
+
+**Key Features:**
+- **Multi-stage deployment** with dependency installation, testing, and containerized deployment
+- **Artifact publishing** - Automatically generates and publishes swagger.json as a build artifact
+- **SSH-based deployment** to remote servers with secure key management
+- **Environment variable injection** for secure configuration management
+- **Multi-container orchestration** using Podman pods for service isolation
+- **Comprehensive logging** and debugging output for troubleshooting
+
+**Deployment Flow:**
+1. **Build Phase**: Installs dependencies, generates Swagger documentation, publishes artifacts
+2. **Setup Phase**: Establishes SSH connection, creates directory structure, syncs files
+3. **Container Phase**: Builds and deploys API, Nginx, and Promtail containers in a pod
+4. **Verification Phase**: Checks container status and displays logs for monitoring
+
+**Environment Configuration:**
+- Uses GitHub Secrets for sensitive data (SSH keys, Vault credentials)
+- Uses GitHub Variables for non-sensitive configuration
+- Supports manual deployment with custom commit SHA selection
+- Includes comprehensive environment variable debugging
+
+### API Container (`api.Dockerfile`)
+
+The main application container built on Node.js Alpine Linux:
+
+**Security Features:**
+- **Non-root user execution** with dedicated `nodeuser` account
+- **Minimal attack surface** using Alpine Linux base image
+- **Process management** via Tini init system for proper signal handling
+- **Dependency optimization** with production-only npm install and cache cleanup
+
+**Container Structure:**
+- **Base**: `node:18-alpine` for small footprint and security
+- **Working Directory**: `/app` with proper ownership and permissions
+- **Exposed Port**: 8080 for internal pod communication
+- **Entry Point**: Tini-managed Node.js process for graceful shutdown
+- **Data Persistence**: Mounted volumes for `/app/data` and `/app/logs`
+
+### Nginx Reverse Proxy (`nginx.Dockerfile` & `nginx/nginx.conf`)
+
+Production-grade reverse proxy with comprehensive security and performance features:
+
+**nginx.Dockerfile Features:**
+- **Minimal container** based on `nginx:mainline-alpine`
+- **SSL/TLS support** with OpenSSL for certificate management
+- **Non-root execution** using nginx user for security
+- **Custom configuration** with security-hardened defaults
+
+**nginx.conf Security Configuration:**
+- **TLS 1.2/1.3 only** with modern cipher suites and HSTS
+- **Comprehensive security headers** (CSP, X-Frame-Options, etc.)
+- **CORS handling** with origin validation and preflight support
+- **Request size limits** to prevent DoS attacks (1M default, 10M for uploads)
+- **Rate limiting** and timeout configuration
+- **Custom error pages** with proper CORS headers
+
+**Proxy Features:**
+- **WebSocket support** with upgrade header handling
+- **Load balancing** ready configuration
+- **Loki proxy endpoint** at `/loki/` for log aggregation
+- **Health check endpoints** with proper error handling
+- **Request/response logging** with detailed format for monitoring
+
+### Log Aggregation (`promtail/promtail-config.yml`)
+
+Centralized logging configuration for observability:
+
+**Promtail Configuration:**
+- **Multi-source log collection** from application and nginx logs
+- **Label extraction** for structured logging (component, logtype, level)
+- **Pipeline processing** with regex parsing and filtering
+- **Loki integration** with retry logic and TLS configuration
+- **Performance optimization** with backoff strategies
+
+**Log Processing Pipeline:**
+- **Filename parsing** to extract component and log type information
+- **Message filtering** to reduce noise (e.g., webhook startup messages)
+- **Label standardization** for consistent querying in Grafana
+- **Error handling** with graceful degradation
+
+**Integration Features:**
+- **Service labeling** using environment-driven service names
+- **Hostname identification** for multi-instance deployments
+- **Job categorization** for different log sources
+- **Path-based collection** with wildcard support
 
 ## Docker Deployment
 

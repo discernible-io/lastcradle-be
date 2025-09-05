@@ -43,6 +43,15 @@ jobs:
             npm install
           fi
 
+      - name: Generate Swagger JSON
+        run: npm run build:swagger
+
+      - name: Upload Swagger artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: swagger-spec
+          path: api-docs/swagger.json
+
       - name: Install SSH key
         uses: shimataro/ssh-key-action@v2
         with:

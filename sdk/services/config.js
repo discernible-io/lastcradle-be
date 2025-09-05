@@ -95,7 +95,7 @@ const FALLBACK_DEFAULTS = {
       CRITICAL: 2000 // >2000 req/min = critical load
     }
   },
-  NEAR_RPC_URL: "https://rpc.testnet.fastnear.com/",
+  NEAR_RPC_URL: "https://rpc.testnet.fastnear.com",
   NEAR_CONTRACT_ID: "rodit-org.near",
   SERVICE_NAME: "service-name-not-set",
 };

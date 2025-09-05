@@ -8,6 +8,8 @@
  */
 
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const { ulid } = require('ulid');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -121,6 +123,7 @@ const metricsRoutes = require('./routes/metricsroutes');
 const mcpRoutes = require('./routes/mcproutes');
 const homeRoute = require('./routes/home');
 const sessionRoutes = require('./routes/sessionroutes');
+const loginRoute = require('./routes/login');
 
 // Use SDK-provided rate limiting helper
 
@@ -256,6 +259,17 @@ We comply with applicable data protection regulations including GDPR and CCPA. I
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
+// Write the generated Swagger spec to /api-docs/swagger.json for external consumption
+try {
+  const docsDir = path.join(__dirname, '..', 'api-docs');
+  const outPath = path.join(docsDir, 'swagger.json');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(swaggerSpec, null, 2));
+  console.log(`Swagger spec written to ${outPath}`);
+} catch (e) {
+  console.warn('Failed to write swagger.json to /api-docs. Continuing without static file.', e?.message || e);
+}
+
 // Create Express app
 const app = express();
 
@@ -274,6 +288,11 @@ app.use(auth.versioning.middleware({
 
 // Setup Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Serve the raw OpenAPI JSON as well
+app.get('/api-docs/swagger.json', (req, res) => {
+  res.json(swaggerSpec);
+});
 
 // Add request ID to all error responses
 app.use((req, res, next) => {
@@ -336,52 +355,7 @@ app.use((req, res, next) => {
 app.use("/", homeRoute);
 
 // Authentication routes
-
-/**
- * @swagger
- * /api/login:
- *   post:
- *     summary: User login
- *     description: Authenticate using RODiT credentials
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - roditid
- *               - roditid_base64url_signature
- *             properties:
- *               roditid:
- *                 type: string
- *                 description: RODiT ID
- *               timestamp:
- *                 type: integer
- *                 description: Current timestamp (optional)
- *               roditid_base64url_signature:
- *                 type: string
- *                 description: Base64URL signature
- *     responses:
- *       200:
- *         description: Login successful
- *       401:
- *         description: Authentication failed
- */
-app.post('/api/login', (req, res) => {
-  req.logAction = "login-attempt";
-  logger.info("Login request received", {
-    component: "API",
-    method: "login",
-    requestId: req.requestId || ulid(),
-    path: req.path,
-    ip: req.ip,
-    userAgent: req.get('User-Agent')
-  });
-  
-  // Use the SDK's login function
-  auth.login(req, res);
-});
+app.use("/api", loginRoute);
 
 /**
  * @swagger
@@ -402,17 +376,6 @@ app.post('/api/logout', auth.authenticate, (req, res) => {
   auth.logout(req, res);
 });
 
-// Legacy login route - redirects to new endpoint
-app.post("/login", (req, res) => {
-  req.logAction = "legacy-login-attempt";
-  res.redirect(307, '/api/login');
-});
-
-// Legacy logout route - redirects to new endpoint
-app.post("/logout", auth.authenticate, (req, res) => {
-  req.logAction = "legacy-logout-attempt";
-  res.redirect(307, '/api/logout');
-});
 
 // Mount session routes for backward compatibility
 app.use("/api/sessions", sessionRoutes);
@@ -425,6 +388,63 @@ app.use("/api/cruda", auth.authenticate, auth.validatePermissions, crudaprotecte
 app.use("/api/metrics", metricsRoutes);
 app.use("/api/mcp", mcpRoutes);
 app.use("/api", signclientRoute);
+
+/**
+ * @swagger
+ * /api/rodit/info:
+ *   get:
+ *     summary: Get current RODiT configuration and metadata
+ *     description: Returns the current RODiT configuration loaded at runtime, including token metadata and service provider info.
+ *     tags: [RODiT]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current RODiT configuration
+ *       401:
+ *         description: Not authenticated
+ */
+app.get('/api/rodit/info', auth.authenticate, async (req, res) => {
+  try {
+    const configObject = await stateManager.getConfigOwnRodit();
+    return res.json({
+      requestId: req.requestId,
+      config: configObject || null
+    });
+  } catch (error) {
+    logger.error('Failed to retrieve RODiT configuration', {
+      method: 'GET /api/rodit/info',
+      error: error.message,
+      requestId: req.requestId
+    });
+    return res.status(500).json({
+      error: 'Failed to retrieve RODiT configuration',
+      requestId: req.requestId
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/token/claims:
+ *   get:
+ *     summary: Inspect current JWT claims
+ *     description: Returns the authenticated user's claims as parsed by the SDK middleware.
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user claims
+ *       401:
+ *         description: Not authenticated
+ */
+app.get('/api/token/claims', auth.authenticate, (req, res) => {
+  return res.json({
+    requestId: req.requestId,
+    user: req.user || null
+  });
+});
 
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
@@ -462,7 +482,8 @@ function updateRateLimit(maxRequests, maxRqWindow) {
   });
   
   try {
-    ratelimiter = rateLimit(maxRequests, maxRqWindow);
+    // Use SDK-exported ratelimitmw to rebuild middleware with new limits
+    ratelimiter = ratelimitmw(maxRequests, maxRqWindow);
     
     const duration = Date.now() - startTime;
     logger.infoWithContext("Rate limit settings updated", {
