@@ -5,7 +5,7 @@
  * It provides a simple interface for using the Discernible ID Authentication system without adding
  * unnecessary abstraction layers.
  * 
- * Copyright (c) 2025 Rodit Technologies Inc. All rights reserved.
+ * Copyright (c) 2025 Discernible Inc. All rights reserved.
  */
 
 // Import authentication middleware functions

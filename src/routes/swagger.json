@@ -4,21 +4,21 @@
     "title": "RODiT Authentication API",
     "version": "1.0.0",
     "description": "# API using Discernible Authentication system\n\n## Service Description\nThe RODiT Authentication API provides secure authentication services using the Discernible Authentication system. This API enables applications to implement robust user authentication, session management, and access control using RODiT's cryptographic identity verification.\n\n## Key Features\n- Secure user authentication via RODiT credentials\n- Session management and token-based authorization\n- User identity verification\n- Access control for protected resources\n- Metrics and monitoring capabilities\n\n## Data Handling and Privacy\nAll user data is handled in accordance with our privacy policy. We implement industry-standard encryption for data in transit and at rest. Personal information is processed only for the purposes of authentication and is not shared with third parties without explicit consent.\n\nWe comply with applicable data protection regulations including GDPR and CCPA. In the event of a data breach, we will notify affected users within 72 hours of discovery.",
-    "termsOfService": "https://discernible.io:9443/terms",
+    "termsOfService": "https://api.discernible.io/terms",
     "contact": {
-      "name": "Rodit Technologies Inc.",
-      "url": "https://discernible.io:9443/home.js",
+      "name": "Discernible Inc.",
+      "url": "https://api.discernible.io/home.js",
       "email": "support@rodit-tech.com"
     },
     "license": {
       "name": "Proprietary",
-      "url": "https://discernible.io:9443/license"
+      "url": "https://api.discernible.io/license"
     },
     "x-api-id": "rodit-auth-api-v1"
   },
   "servers": [
     {
-      "url": "https://discernible.io:9443",
+      "url": "https://api.discernible.io",
       "description": "RODiT Development server"
     },
     {

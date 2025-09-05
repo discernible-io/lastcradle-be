@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Ayayai, Inc. All rights reserved.
+// Copyright (c) 2025 Discernible, Inc. All rights reserved.
 
 /**
  * RODiT Manager Service
@@ -258,7 +258,7 @@ async initializeCredentialsStore() {
             token_id: "",
             owner_id: account_id,
             metadata: {
-              subjectuniqueidentifier_url: "localhost", // Fallback value
+              subjectuniqueidentifier_url: "api-url-not-set.example.com", // Fallback value
               serviceprovider_id: "",
               not_after: "2030-01-01",
               not_before: "2020-01-01",

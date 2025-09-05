@@ -4,7 +4,7 @@
  * Handles API versioning for client-side requests, ensuring proper version headers
  * are included in all API calls.
  * 
- * Copyright (c) 2025 Rodit Technologies Inc. All rights reserved.
+ * Copyright (c) 2025 Discernible Inc. All rights reserved.
  */
 
 // Default version if not specified

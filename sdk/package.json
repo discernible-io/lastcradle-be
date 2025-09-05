@@ -1,6 +1,6 @@
 {
   "name": "@rodit/rodit-auth-be",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "description": "RODiT-based authentication system for Express.js applications",
   "main": "index.js",
   "module": "dist/index.mjs",
@@ -20,7 +20,7 @@
     "jwt",
     "rodit"
   ],
-  "author": "Rodit Technologies Inc.",
+  "author": "Discernible Inc.",
   "license": "UNLICENSED",
   "private": false,
   "files": [

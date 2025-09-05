@@ -4,7 +4,7 @@
  * This application demonstrates the implementation of RODiT-based authentication
  * using the RODiT Authentication SDK.
  * 
- * Copyright (c) 2025 Rodit Technologies Inc. All rights reserved.
+ * Copyright (c) 2025 Discernible Inc. All rights reserved.
  */
 
 const express = require('express');
@@ -151,32 +151,19 @@ All user data is handled in accordance with our privacy policy. We implement ind
 
 We comply with applicable data protection regulations including GDPR and CCPA. In the event of a data breach, we will notify affected users within 72 hours of discovery.
       `,
-      termsOfService: "https://discernible.io:9443/terms",
+      termsOfService: "https://api.discernible.io/terms",
       contact: {
-        name: "Rodit Technologies Inc.",
-        url: "https://discernible.io:9443/home.js",
+        name: "Discernible Inc.",
+        url: "https://api.discernible.io/home.js",
         email: "support@rodit-tech.com"
       },
       license: {
         name: "Proprietary",
-        url: "https://discernible.io:9443/license"
+        url: "https://api.discernible.io/license"
       },
       "x-api-id": "rodit-auth-api-v1"
     },
-    servers: [
-      {
-        url: "https://discernible.io:9443",
-        description: "RODiT Development server",
-      },
-      {
-        url: "https://api.discernible.io.net:9443",
-        description: "RODiT Production server"
-      },
-      {
-        url: "https://sandbox-api.discernible.io.net:9443",
-        description: "RODiT Sandbox environment for testing"
-      }
-    ],
+    servers: [], // Will be populated dynamically from RODIT token
     externalDocs: {
       description: "Additional API Documentation",
       url: "https://docs.rodit-tech.com"
@@ -208,9 +195,9 @@ We comply with applicable data protection regulations including GDPR and CCPA. I
     },
     "x-terms-and-conditions": {
       "usage-rights": "This API is provided for use by authorized clients only. Usage rights are granted upon acceptance of the terms and conditions.",
-      "intellectual-property": "All intellectual property rights in the API, including but not limited to copyright, patents, and trademarks, are owned by Rodit Technologies Inc.",
-      "liability": "Rodit Technologies Inc. shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from the use or inability to use the API.",
-      "termination": "Rodit Technologies Inc. reserves the right to terminate API access for any user who violates these terms and conditions."
+      "intellectual-property": "All intellectual property rights in the API, including but not limited to copyright, patents, and trademarks, are owned by Discernible Inc.",
+      "liability": "Discernible Inc. shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from the use or inability to use the API.",
+      "termination": "Discernible Inc. reserves the right to terminate API access for any user who violates these terms and conditions."
     },
     "x-subscription-plans": {
       "free": {
@@ -515,6 +502,57 @@ function updateRateLimit(maxRequests, maxRqWindow) {
 let server;
 let db;
 
+// Function to update Swagger servers configuration from RODIT token
+function updateSwaggerServers(subjectuniqueidentifier_url) {
+  const requestId = ulid();
+  const baseContext = createLogContext({
+    requestId,
+    component: "SwaggerConfig",
+    method: "updateSwaggerServers",
+    apiUrl: subjectuniqueidentifier_url
+  });
+
+  try {
+    if (subjectuniqueidentifier_url && subjectuniqueidentifier_url !== 'N/A') {
+      // Update the swagger specification with the dynamic URL
+      swaggerSpec.servers = [
+        {
+          url: subjectuniqueidentifier_url,
+          description: "RODiT API Server (from token)"
+        }
+      ];
+      
+      logger.infoWithContext("Swagger servers updated with RODIT token URL", {
+        ...baseContext,
+        serverUrl: subjectuniqueidentifier_url
+      });
+    } else {
+      // Fallback to default servers if no URL in token
+      swaggerSpec.servers = [
+        {
+          url: "https://api-url-not-set.example.com",
+          description: "RODiT Development server (fallback)"
+        }
+      ];
+      
+      logger.warnWithContext("No valid API URL in RODIT token, using fallback servers", baseContext);
+    }
+  } catch (error) {
+    logger.error("Failed to update Swagger servers configuration", {
+      ...baseContext,
+      error: error.message
+    });
+    
+    // Use fallback configuration on error
+    swaggerSpec.servers = [
+      {
+        url: "https://api-url-not-set.example.com",
+        description: "RODiT Development server (error fallback)"
+      }
+    ];
+  }
+}
+
 // Function to display RODIT token information during startup
 async function displayRoditInfo(configObject) {
   const requestId = ulid();
@@ -571,6 +609,9 @@ async function displayRoditInfo(configObject) {
     // Log the RODIT data in JSON format for easy reading
     logger.info(JSON.stringify(roditData, null, 2));
     logger.info('');
+    
+    // Update Swagger servers configuration with the API URL from RODIT token
+    updateSwaggerServers(metadata.subjectuniqueidentifier_url);
     
     const duration = Date.now() - startTime;
     logger.infoWithContext("RODIT token information displayed successfully", {

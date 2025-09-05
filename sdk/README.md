@@ -15,7 +15,7 @@ This npm package provides the RODiT-based authentication system for Express.js a
 ## Installation
 
 ```bash
-npm install rodit-auth
+npm install @rodit/rodit-auth-be
 
 ```
 ## Usage
@@ -25,7 +25,7 @@ npm install rodit-auth
 ```javascript
 const express = require('express');
 const app = express();
-const auth = require('rodit-auth');
+const auth = require('@rodit/rodit-auth-be');
 
 // Configure authentication with default options
 auth.configure({
@@ -58,7 +58,7 @@ app.listen(3000, () => {
 ### Custom Configuration
 
 ```javascript
-const auth = require('rodit-auth');
+const auth = require('@rodit/rodit-auth-be');
 
 // Configure authentication with custom options
 auth.configure({
@@ -155,7 +155,7 @@ When using this SDK in your application, it automatically displays comprehensive
 
 ```
 === RODiT Authentication System ===
-Version 1.0.24 running on testnet at Smart Contract 20251001-rodit-org.testnet
+Version 1.0.26 running on testnet at Smart Contract 20251001-rodit-org.testnet
 Get help with: npm run help
 
 RODiT Contents
@@ -250,7 +250,7 @@ For backward compatibility, the package also exports the original function names
 
 ## License
 
-Copyright (c) 2025 Rodit Technologies Inc. All rights reserved.
+Copyright (c) 2025 Discernible Inc. All rights reserved.
 
 ## Full SDK API Reference (Consolidated)
 

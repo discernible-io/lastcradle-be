@@ -4,7 +4,7 @@
  * This class provides a unified interface for session management including
  * creation, validation, termination of sessions, and scheduled cleanup_sessions tasks.
  * 
- * Copyright (c) 2024 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2025 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require('ulid');

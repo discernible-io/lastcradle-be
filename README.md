@@ -107,7 +107,7 @@ When the server starts, you'll see output like:
 
 ```
 === RODiT Authentication System ===
-Version 1.0.24 running on testnet at Smart Contract 20251001-rodit-org.testnet
+Version 1.0.26 running on testnet at Smart Contract 20251001-rodit-org.testnet
 Get help with: npm run help
 
 RODiT Contents
@@ -128,7 +128,7 @@ RODiT Contents
     "serviceprovider_id": "bc=near.org;sc=20251001-rodit-org.testnet;id=01K3XWVNWBRHNKHZ94Q42GTENH;id=01K3XWVNWBWK2QR7BZ8K0HVE2J",
     "serviceprovider_signature": "IoT6gy6PUDJ_5zXS73Yspdl4otySHYUg7p5T-HpplVHq1-wSpsNG0q1DWyDnpkg2KT_K4NF6_NVT_QEqBXMIAA",
     "subjectuniqueidentifier_url": "https://api.discernible.io",
-    "userselected_dn": "CN=Discernible,OU=Cloud Engineering,OU=Platform Services,O=Rodit Technologies Inc,L=San Fernando,ST=Cadiz,C=ES",
+    "userselected_dn": "CN=Discernible,OU=Cloud Engineering,OU=Platform Services,O=Discernible Inc,L=San Fernando,ST=Cadiz,C=ES",
     "webhook_cidr": "0.0.0.0/0",
     "webhook_url": "https://webhook-not-set.example.com"
   }

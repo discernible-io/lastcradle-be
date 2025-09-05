@@ -1,6 +1,6 @@
 /**
  * Service for interacting with the blockchain network
- * Copyright (c) 2024 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2025 Discernible, Inc. All rights reserved.
  */
 
 const { ulid } = require("ulid");
@@ -29,7 +29,7 @@ const CONSTANTS = {
 const NEAR_RPC_URL = config.get("NEAR_RPC_URL");
 /**
  * Data models for Discernible ID Authentication
- * Copyright (c) 2024 Discernible, Inc. All rights reserved.
+ * Copyright (c) 2025 Discernible, Inc. All rights reserved.
  */
 
 /**
