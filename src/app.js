@@ -49,7 +49,7 @@ const { createLogContext, logErrorWithMetrics } = logger;
       console.log("Creating winston-loki transport...");
       const lokiOptions = {
         host: lokiUrl,
-        labels: { app: "servertest", component: "sdk", service_name: logger.SERVICE_NAME },
+        labels: { app: process.env.SERVICE_NAME || "servertest-api", component: "sdk", service_name: logger.SERVICE_NAME },
         json: true,
         level: logLevel,
         batching: true,
