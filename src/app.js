@@ -15,10 +15,9 @@ const config = require('config');
 const winston = require('winston');
 const LokiTransport = require('winston-loki');
 
-// Import the unified auth module and services from SDK root
-// In a real app with npm package, this would be: const auth = require('rodit-auth');
-const auth = require('../sdk');
-const { logger, ratelimitmw, stateManager, roditManager } = require('../sdk');
+// Import the unified auth module and services from npm package
+const auth = require('@rodit/rodit-auth-be');
+const { logger, ratelimitmw, stateManager, roditManager } = auth;
 const { createLogContext, logErrorWithMetrics } = logger;
 
 // Inject a Loki transport into the SDK logger so SDK logs are sent directly to Loki

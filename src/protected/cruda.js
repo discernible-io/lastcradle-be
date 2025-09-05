@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { stateManager, webhook, logger } = require("../../sdk");
+const { stateManager, webhook, logger } = require("@rodit/rodit-auth-be");
 const config = require("config");
 const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");

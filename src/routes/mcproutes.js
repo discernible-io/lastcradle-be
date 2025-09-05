@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const { authenticate, mcpService, logger } = require('../../sdk');
+const { authenticate, mcpService, logger } = require('@rodit/rodit-auth-be');
 const { createLogContext, logErrorWithMetrics } = logger;
 
 /**

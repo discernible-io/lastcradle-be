@@ -18,7 +18,7 @@ const {
   logout: logout_client,
   validatePermissions,
   logger
-} = require('../../sdk');
+} = require('@rodit/rodit-auth-be');
 
 /**
  * POST /api/sessions/login - Create a new session (login)

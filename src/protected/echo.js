@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { ulid } = require("ulid");
-const { logger } = require("../../sdk");
+const { logger } = require("@rodit/rodit-auth-be");
 const { createLogContext, logErrorWithMetrics } = logger;
 
 // Middleware for logging action - enhanced with structured context

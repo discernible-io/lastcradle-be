@@ -33,15 +33,45 @@ Learn more about this approach in our [technical article](https://vaceituno.medi
 # Install dependencies for the API server
 npm install
 
-# Install dependencies for the SDK
-cd sdk && npm install && cd ..
+# The SDK is now provided via npm package @rodit/rodit-auth-be
+# No separate SDK installation needed
 ```
 
 ### Configuration
 
+The API server requires several environment variables to be configured for proper operation:
+
+#### Environment Variables
+
+| Variable | Default Value | Description |
+|----------|---------------|-------------|
+| `API_DEFAULT_OPTIONS_DB_PATH` | `/app/data/database.sqlite` | Path to the SQLite database file |
+| `API_DEFAULT_OPTIONS_LOG_DIR` | `/app/logs` | Directory for application log files |
+| `LOKI_TLS_SKIP_VERIFY` | `true` | Skip TLS verification for Loki connections (development) |
+| `LOKI_URL` | `https://grafana.cableguard.net:3100` | Loki endpoint URL for centralized logging |
+| `NEAR_CONTRACT_ID` | `20251001-rodit-org.testnet` | NEAR Protocol contract ID for RODiT verification |
+| `RODIT_NEAR_CREDENTIALS_SOURCE` | `vault` | Source for NEAR credentials (vault or file) |
+| `SERVERPORT` | `8080` | Port number for the API server |
+| `SERVICE_NAME` | `servertestapi-api` | Service name for logging and identification |
+| `VAULT_ENDPOINT` | `https://vault.rodit.org:8200` | HashiCorp Vault server endpoint |
+| `VAULT_RODIT_KEYVALUE_PATH` | `signing-keys` | Vault path for RODiT signing keys |
+| `VAULT_TOKEN_TTL` | `0` | Vault token time-to-live (0 = no expiry) |
+
+#### Required Secrets
+
+The following secrets must be configured in your deployment environment:
+
+| Secret | Description |
+|--------|-------------|
+| `VAULT_ROLE_ID` | HashiCorp Vault AppRole ID for authentication |
+| `VAULT_SECRET_ID` | HashiCorp Vault AppRole Secret ID for authentication |
+
+#### Configuration Steps
+
 1. Set up your environment configuration in the `/config` directory
 2. Configure Vault credentials for secure storage
 3. Set up your NEAR Protocol connection details
+4. Ensure all required environment variables are set in your deployment environment
 
 ### Running the API Server
 
@@ -55,7 +85,17 @@ setsid npm start >/dev/null 2>&1 < /dev/null &
 
 ## Using the SDK in Your Own Projects
 
-The SDK located in the `/sdk` directory can be used independently in other projects. See the [SDK README](/sdk/README.md) for detailed documentation on how to integrate Discernible Authentication into your own applications.
+The RODiT Authentication SDK is available as an npm package `@rodit/rodit-auth-be`. Install it in your projects with:
+
+```bash
+npm install @rodit/rodit-auth-be
+```
+
+Then import the required modules:
+
+```javascript
+const { logger, authenticate, stateManager, roditManager } = require('@rodit/rodit-auth-be');
+```
 
 ## API Documentation
 

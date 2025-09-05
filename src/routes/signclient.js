@@ -2,8 +2,8 @@
 const express = require("express");
 const router = express.Router();
 const { ulid } = require("ulid");
-// Use root SDK export to avoid deep imports
-const { logger, stateManager, login_portal, roditManager } = require("../../sdk");
+// Use npm package export
+const { logger, stateManager, login_portal, roditManager } = require("@rodit/rodit-auth-be");
 const { createLogContext, logErrorWithMetrics } = logger;
 
 async function signPortalRodit(

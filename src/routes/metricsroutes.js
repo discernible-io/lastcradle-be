@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const { logger, authenticate, performanceService } = require('../../sdk');
+const { logger, authenticate, performanceService } = require('@rodit/rodit-auth-be');
 const { createLogContext, logErrorWithMetrics } = logger;
 
 /**
