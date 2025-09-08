@@ -43,9 +43,6 @@ jobs:
             npm install
           fi
 
-      - name: Generate Swagger JSON
-        run: npm run build:swagger
-
       - name: Upload Swagger artifact
         uses: actions/upload-artifact@v4
         with:
