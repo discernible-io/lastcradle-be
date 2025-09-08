@@ -13,7 +13,9 @@ const {
   authenticate_apicall,
   login_client,
   logout_client,
-  login_client_withnep413
+  login_client_withnep413,
+  login_portal,
+  login_server
 } = require('./lib/middleware/authenticationmw');
 
 // Import token service functions
@@ -90,6 +92,8 @@ module.exports = {
   login_client,
   logout_client,
   login_client_withnep413,
+  login_portal,
+  login_server,
   
   // Token functions
   validateToken: validate_jwt_token_be,
