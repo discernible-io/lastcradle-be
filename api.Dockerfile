@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Install tini for Alpine
 ENV TINI_VERSION v0.19.0
@@ -27,7 +27,7 @@ RUN adduser -D -H -s /sbin/nologin nodeuser && \
 
 USER nodeuser
 
-EXPOSE 8080
+EXPOSE 8080 9443
 
 ENTRYPOINT ["/tini", "--"]
 
