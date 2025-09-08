@@ -73,6 +73,23 @@ The following secrets must be configured in your deployment environment:
 3. Set up your NEAR Protocol connection details
 4. Ensure all required environment variables are set in your deployment environment
 
+### Database Initialization
+
+Before running the API server for the first time, you need to initialize the SQLite database:
+
+```bash
+# Initialize the database and create required directories
+node scripts/init-database.js
+```
+
+This script will:
+- Create the `data/` directory for the SQLite database file
+- Create the `logs/` directory for application logs  
+- Initialize the SQLite database with required tables (comments, sessions, metrics)
+- Set proper permissions for database operations
+
+**Note**: The database file will be created at `data/database.sqlite`. If you encounter `SQLITE_CANTOPEN` errors, ensure the `data/` directory exists and has proper write permissions.
+
 ### Running the API Server
 
 ```bash
