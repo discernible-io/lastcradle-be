@@ -16,7 +16,12 @@
     },
     "x-api-id": "rodit-auth-api-v1"
   },
-  "servers": [],
+  "servers": [
+    {
+      "url": "https://api-url-not-set.example.com",
+      "description": "RODiT API Server (static build)"
+    }
+  ],
   "externalDocs": {
     "description": "Additional API Documentation",
     "url": "https://docs.rodit-tech.com"
