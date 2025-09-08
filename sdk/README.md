@@ -867,6 +867,7 @@ Common variables used by the SDK and host app include:
 - `API_DEFAULT_OPTIONS_LOG_DIR`
 - `NEAR_RPC_URL`
 - `NEAR_CONTRACT_ID` (testing default exists; override in production)
+- `SECURITY_OPTIONS_SILENT_LOGIN_FAILURES` (controls whether login failures are logged silently)
 - Performance: `PERFORMANCE_LOAD_LEVELS_MEDIUM`, `PERFORMANCE_LOAD_THRESHOLDS_HIGH`, etc.
 - Vault: `VAULT_ENDPOINT`, `VAULT_ROLE_ID`, `VAULT_SECRET_ID`, `VAULT_RODIT_KEYVALUE_PATH`
 
