@@ -18,8 +18,7 @@
   "description": "Description",
   "main": "src/app.js",
   "scripts": {
-    "start": "nodemon src/app.js",
-    "build:swagger": "node scripts/generate-swagger.js"
+    "start": "nodemon src/app.js"
   },
   "repository": {
     "type": "git",
