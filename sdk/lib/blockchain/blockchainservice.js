@@ -491,6 +491,22 @@ const PayloadNEP413Schema = {
         Object.assign(rodit, parsed);
       }
 
+      // DEBUG: Log detailed RODiT object contents for diagnosis
+      logger.debugWithContext("RODiT object created - detailed inspection", {
+        ...baseContext,
+        tokenId: rodit.token_id,
+        ownerIdExists: !!rodit.owner_id,
+        ownerIdType: typeof rodit.owner_id,
+        ownerIdLength: rodit.owner_id ? rodit.owner_id.length : 0,
+        ownerIdValue: rodit.owner_id || 'null/undefined',
+        // Show first/last few chars if owner_id exists and is a string
+        ownerIdPreview: rodit.owner_id && typeof rodit.owner_id === 'string' && rodit.owner_id.length > 8 
+          ? `${rodit.owner_id.substring(0, 4)}...${rodit.owner_id.substring(rodit.owner_id.length - 4)}`
+          : rodit.owner_id,
+        allKeys: Object.keys(rodit),
+        parsedKeys: parsed ? Object.keys(parsed) : []
+      });
+
       const totalDuration = Date.now() - startTime;
       const hasValidData = !!rodit.token_id && !!rodit.owner_id;
 
