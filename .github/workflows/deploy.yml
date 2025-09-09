@@ -140,6 +140,12 @@ jobs:
               -v ~/servertest-app/certs:/app/certs:ro,Z \
               servertest-image:latest
             
+            # Ensure logs and data directories have correct permissions
+            echo 'Setting permissions for logs and data directories...'
+            mkdir -p ~/servertest-app/logs ~/servertest-app/data
+            chmod 0777 ~/servertest-app/logs ~/servertest-app/data
+            podman unshare chown -R 1000:1000 ~/servertest-app/logs ~/servertest-app/data || true
+            
             # Wait for container to fully start
             sleep 5
             
