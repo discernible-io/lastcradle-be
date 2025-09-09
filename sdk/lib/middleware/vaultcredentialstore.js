@@ -1,4 +1,4 @@
-const config = require("config");
+const config = require("../../services/config");
 const bs58 = require("bs58");
 const { ulid } = require("ulid");
 const logger = require("../../services/logger");

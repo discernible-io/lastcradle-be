@@ -1009,8 +1009,9 @@ class RoditClient {
     
     // Handle localhost with port for local testing
     try {
-      if (baseUrl === 'localhost' && require('config').has('SERVERPORT')) {
-        baseUrl = `${baseUrl}:${require('config').get('SERVERPORT')}`;
+      const config = require('./services/config');
+      if (baseUrl === 'localhost' && config.has('SERVERPORT')) {
+        baseUrl = `${baseUrl}:${config.get('SERVERPORT')}`;
       }
     } catch (error) {
       // If config module fails, just use the baseUrl as is

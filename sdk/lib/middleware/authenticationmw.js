@@ -4,7 +4,7 @@
  */
 
 const { ulid } = require("ulid");
-const config = require('config');
+const config = require('../../services/config');
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
 const nacl = require("tweetnacl");

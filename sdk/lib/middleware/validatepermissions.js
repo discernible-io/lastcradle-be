@@ -2,7 +2,7 @@ const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
 const crypto = require("crypto");
 const { ulid } = require("ulid");
-const config = require("config");
+const config = require("../../services/config");
 
 // Dynamic import for ESM 'jose' in CommonJS context
 let _josePromise;
