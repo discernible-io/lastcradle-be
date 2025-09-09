@@ -14,10 +14,86 @@ const { ulid } = require('ulid');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const config = require('config');
+const winston = require('winston');
+const DailyRotateFile = require('winston-daily-rotate-file');
+const LokiTransport = require('winston-loki');
+
 // Import the unified auth module and services from npm package
 const auth = require('@rodit/rodit-auth-be');
 const { logger, loggingmw, ratelimitmw, stateManager, roditManager } = auth;
 const { createLogContext, logErrorWithMetrics } = logger;
+
+// Configure file-based logging using DailyRotateFile
+const logDir = path.join(__dirname, '..', 'logs');
+fs.mkdirSync(logDir, { recursive: true });
+
+// Create file transports for different log levels
+const fileTransports = [
+  new DailyRotateFile({
+    filename: path.join(logDir, 'apiinfo-%DATE%.log'),
+    datePattern: 'YYYY-MM-DD',
+    level: 'info',
+    maxSize: '20m',
+    maxFiles: '14d',
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.json()
+    )
+  }),
+  new DailyRotateFile({
+    filename: path.join(logDir, 'apierror-%DATE%.log'),
+    datePattern: 'YYYY-MM-DD',
+    level: 'error',
+    maxSize: '20m',
+    maxFiles: '14d',
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.json()
+    )
+  })
+];
+
+// Add Loki transport if configured
+const transports = [...fileTransports];
+if (process.env.LOKI_URL) {
+  transports.push(new LokiTransport({
+    host: process.env.LOKI_URL,
+    labels: { 
+      job: 'servertest-api',
+      app: 'servertest-api',
+      hostname: 'api.discernible.io'
+    },
+    json: true,
+    format: winston.format.json(),
+    replaceTimestamp: true,
+    onConnectionError: (err) => console.error('Loki connection error:', err)
+  }));
+}
+
+// Create custom logger with file and Loki transports
+const customLogger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  transports,
+  exitOnError: false
+});
+
+// Add console transport for development
+if (process.env.NODE_ENV !== 'production') {
+  customLogger.add(new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.simple()
+    )
+  }));
+}
+
+// Inject custom logger into SDK
+logger.setLogger(customLogger);
 
 // Import routes
 const echoprotectedRoute = require('./protected/echo');
