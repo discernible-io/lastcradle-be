@@ -80,6 +80,13 @@ Before running the API server for the first time, you need to initialize the SQL
 ```bash
 # Initialize the database and create required directories
 node scripts/init-database.js
+
+# Alternative: Use the shell script version
+./scripts/init-database.sh
+
+# Or manually create the database file
+touch data/database.sqlite
+sqlite3 data/database.sqlite "CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT NOT NULL, author TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT, data TEXT, expires_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT, method TEXT, response_time INTEGER, status_code INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);"
 ```
 
 This script will:
@@ -88,7 +95,7 @@ This script will:
 - Initialize the SQLite database with required tables (comments, sessions, metrics)
 - Set proper permissions for database operations
 
-**Note**: The database file will be created at `data/database.sqlite`. If you encounter `SQLITE_CANTOPEN` errors, ensure the `data/` directory exists and has proper write permissions.
+**Note**: The database file will be created at `data/database.sqlite`. If you encounter `SQLITE_CANTOPEN` errors, ensure the `data/` directory exists and has proper write permissions. The deployment workflow now automatically handles database initialization.
 
 ### Running the API Server
 
