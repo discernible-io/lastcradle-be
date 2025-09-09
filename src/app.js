@@ -28,6 +28,7 @@ const mcpRoutes = require('./routes/mcproutes');
 const homeRoute = require('./routes/home');
 const sessionRoutes = require('./routes/sessionroutes');
 const loginRoute = require('./routes/login');
+const logoutRoute = require('./routes/logout');
 
 // Use SDK-provided rate limiting helper
 
@@ -288,6 +289,7 @@ app.use("/", homeRoute);
 
 // Authentication routes
 app.use("/api", loginRoute);
+app.use("/api", logoutRoute);
 
 /**
  * @swagger
