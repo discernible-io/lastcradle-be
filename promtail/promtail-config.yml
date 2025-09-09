@@ -21,9 +21,9 @@ scrape_configs:
       - targets:
           - localhost
         labels:
-          job: servertestapi-api
-          hostname: "discernible.io"
-          app: servertestapi-api
+          job: servertest-api
+          hostname: "api.discernible.io"
+          app: servertest-api
           __path__: /app/logs/*.log
     pipeline_stages:
       - regex:
@@ -31,6 +31,12 @@ scrape_configs:
       - regex:
           expression: '(?P<component>api|nginx|system)(?P<logtype>error|access|info)'
           source: filename
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+          fallback_formats:
+            - "2006-01-02T15:04:05.000Z"
+            - "2006-01-02T15:04:05Z"
       - match:
           selector: '{filename=~".+"} |~ "Webhook server listening on port 8080"'
           stages:

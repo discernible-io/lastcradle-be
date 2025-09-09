@@ -14,106 +14,10 @@ const { ulid } = require('ulid');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const config = require('config');
-const winston = require('winston');
-const LokiTransport = require('winston-loki');
-
 // Import the unified auth module and services from npm package
 const auth = require('@rodit/rodit-auth-be');
-const { logger, ratelimitmw, stateManager, roditManager } = auth;
+const { logger, loggingmw, ratelimitmw, stateManager, roditManager } = auth;
 const { createLogContext, logErrorWithMetrics } = logger;
-
-// Inject a Loki transport into the SDK logger so SDK logs are sent directly to Loki
-// Configuration via environment variables:
-//   LOKI_URL            - e.g., https://grafana.cableguard.net:3100/loki/api/v1/push
-//   LOKI_BASIC_AUTH     - optional, in form "user:pass" or bearer via headers below
-//   LOKI_TLS_SKIP_VERIFY- set to "true" to skip TLS verification (not recommended for production)
-//   LOG_LEVEL           - log level (default: info)
-(() => {
-  try {
-    console.log("=== Enhanced winston-loki debugging ===");
-    const lokiUrl = process.env.LOKI_URL;
-    const logLevel = process.env.LOG_LEVEL || "info";
-    const skipTls = String(process.env.LOKI_TLS_SKIP_VERIFY || "").toLowerCase() === "true";
-    const basicAuth = process.env.LOKI_BASIC_AUTH; // e.g., "user:password"
-
-    console.log("Environment variables:");
-    console.log("  LOKI_URL:", lokiUrl || "NOT SET");
-    console.log("  LOKI_TLS_SKIP_VERIFY:", process.env.LOKI_TLS_SKIP_VERIFY || "NOT SET");
-    console.log("  LOKI_BASIC_AUTH:", basicAuth ? "SET" : "NOT SET");
-    console.log("  LOG_LEVEL:", logLevel);
-
-    const transports = [
-      new winston.transports.Console({ format: winston.format.json(), level: logLevel })
-    ];
-
-    if (lokiUrl) {
-      console.log("Creating winston-loki transport...");
-      const lokiOptions = {
-        host: lokiUrl,
-        labels: { app: process.env.SERVICE_NAME || "servertest-api", component: "sdk", service_name: logger.SERVICE_NAME },
-        json: true,
-        level: logLevel,
-        batching: true,
-        gracefulShutdown: true,
-        replaceTimestamp: true,
-        timeout: 5000,
-      };
-
-      if (basicAuth) {
-        lokiOptions.basicAuth = basicAuth;
-        console.log("Added basic auth to Loki options");
-      }
-      if (skipTls) {
-        lokiOptions.ssl = { rejectUnauthorized: false };
-        console.log("Added TLS skip verification to Loki options");
-      }
-
-      console.log("Loki transport options:", JSON.stringify(lokiOptions, null, 2));
-
-      const lokiTransport = new LokiTransport(lokiOptions);
-      
-      // Add error and warning listeners
-      lokiTransport.on('error', (err) => {
-        console.error("❌ winston-loki transport ERROR:", err.message);
-        console.error("Error details:", err);
-      });
-
-      lokiTransport.on('warn', (warn) => {
-        console.warn("⚠️ winston-loki transport WARN:", warn);
-      });
-
-      transports.push(lokiTransport);
-      console.log("✅ winston-loki transport added to transports");
-    } else {
-      console.log("❌ LOKI_URL not set - winston-loki transport will not be created");
-    }
-
-    const customLogger = winston.createLogger({
-      level: logLevel,
-      format: winston.format.json(),
-      transports,
-    });
-
-    console.log("Created custom logger with", transports.length, "transports");
-
-    // Give the SDK our logger
-    logger.setLogger(customLogger);
-    console.log("✅ Custom logger injected into SDK");
-    
-    // Test the logger immediately
-    customLogger.info("winston-loki transport test log", { 
-      timestamp: new Date().toISOString(),
-      test: true,
-      component: "winston-loki-setup"
-    });
-    console.log("✅ Test log sent through custom logger");
-    
-  } catch (e) {
-    // If injection fails, continue with default logger; emit a warning
-    console.warn("❌ SDK Loki logger injection failed:", e?.message || e);
-    console.error("Full error:", e);
-  }
-})();
 
 // Import routes
 const echoprotectedRoute = require('./protected/echo');
@@ -281,6 +185,9 @@ app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Apply logging middleware from SDK
+app.use(loggingmw);
+
 // API versioning middleware
 app.use(auth.versioning.middleware({
   strict: false // Set to true to reject requests with unsupported versions
@@ -309,16 +216,35 @@ app.use((req, res, next) => {
 
 // Performance monitoring middleware
 app.use((req, res, next) => {
+  const crypto = require('crypto');
   req.startTime = Date.now();
-  req.requestId = req.headers['x-request-id'] || ulid();
+  req.requestId = req.headers['x-request-id'] || req.headers['x-correlation-id'] || ulid();
+  req.traceId = req.headers['x-trace-id'] || crypto.randomUUID();
+  
   res.on('finish', () => {
     const duration = Date.now() - req.startTime;
-    logger.debug(`${req.method} ${req.path} - ${res.statusCode} - ${duration}ms`, {
+    req.duration = duration;
+    
+    // Use structured logging with context
+    logger.debugWithContext("Request performance metrics", {
+      component: "API",
       method: req.method,
       path: req.path,
       statusCode: res.statusCode,
       duration,
-      requestId: req.requestId
+      requestId: req.requestId,
+      traceId: req.traceId,
+      userAgent: req.get('User-Agent'),
+      referer: req.get('Referer'),
+      contentLength: res.get('Content-Length'),
+      contentType: res.get('Content-Type')
+    });
+    
+    // Log metrics for monitoring systems
+    logger.metric('request_duration_ms', duration, {
+      method: req.method,
+      path: req.path,
+      status: res.statusCode
     });
   });
   next();
@@ -330,13 +256,19 @@ app.use((req, res, next) => {
 // Action logging middleware - tracks user actions
 app.use((req, res, next) => {
   if (req.logAction) {
-    logger.info(`Action executed`, {
+    logger.infoWithContext("Action executed", {
+      component: "API",
       action: req.logAction,
       path: req.path,
       method: req.method,
       ip: req.ip,
       userId: req.user ? req.user.id : "anonymous",
-      requestId: req.requestId
+      roditId: req.user ? req.user.roditId : null,
+      requestId: req.requestId,
+      traceId: req.traceId,
+      timestamp: new Date().toISOString(),
+      service: req.logService || config.get("SERVICE_NAME"),
+      resource: req.resource || req.path
     });
   }
   next();
@@ -448,23 +380,38 @@ app.get('/api/token/claims', auth.authenticate, (req, res) => {
 
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
-  logger.error(
+  const crypto = require('crypto');
+  const requestId = req.requestId || ulid();
+  const traceId = req.traceId || crypto.randomUUID();
+  const isProduction = process.env.NODE_ENV === "production";
+  
+  logger.errorWithContext(
     "Server error occurred",
     {
+      component: "API",
+      message: err.message,
       method: req.method,
       url: req.originalUrl,
       userIP: req.ip,
       userId: req.user ? req.user.id : "anonymous",
-      errorCode: "106",
+      roditId: req.user ? req.user.roditId : null,
+      errorCode: err.code || "106",
       route: req.route ? req.route.path : "unknown",
-      requestId: req.requestId || ulid()
+      requestId: requestId,
+      traceId: traceId,
+      timestamp: new Date().toISOString(),
+      service: req.logService || config.get("SERVICE_NAME"),
+      action: req.logAction || "unspecified",
+      statusCode: err.statusCode || 500,
+      stack: isProduction ? undefined : err.stack
     },
     err // Pass the error object directly
   );
   
   res.status(500).json({ 
     error: "Error 106: Internal Server Error",
-    requestId: req.requestId || ulid()
+    requestId: requestId,
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -696,12 +643,10 @@ async function startServer() {
       status: "initializing"
     });
     
-    // Initialize vault and configuration
-    await roditManager.initializeCredentialsStore();
-    await roditManager.initializeRoditConfig("server");
+    // Initialize credentials store and load RODiT configuration via SDK helper
+    await auth.initConfig('server');
 
-    logger.infoWithContext("Credential store initialization successful", {
-      ...baseContext,
+    logger.info("RODiT configuration initialized", {
       component: "vault",
       status: "initialized"
     });
