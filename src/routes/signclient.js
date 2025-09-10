@@ -190,7 +190,7 @@ router.post("/signclient", async (req, res) => {
     }
 
     // Get configuration from state manager
-    const config_own_rodit = await stateManager.getConfigOwnRodit();
+    const config_own_rodit = stateManager.getConfigOwnRodit();
     if (!config_own_rodit) {
       logger.errorWithContext("Failed to get RODiT configuration", baseContext);
       throw new Error("Failed to initialize RODiT configuration");
