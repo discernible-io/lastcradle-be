@@ -184,14 +184,15 @@ jobs:
               -v ~/servertest-app/logs/nginx:/var/log/nginx:Z,U \
               localhost/servertest-nginx:latest
             
-            # Run promtail directly from Grafana's image
-            echo 'Running Promtail...'
-            podman run -d \
-              --pod servertest-pod \
-              --name servertest-promtail \
-              --restart=unless-stopped \
-              -v ~/servertest-app/logs:/app/logs:ro,Z \
-              -v ~/servertest-app/promtail/promtail-config.yml:/etc/promtail/config.yml:ro,Z \
+            # Promtail container temporarily disabled
+            # echo 'Skipping Promtail container build and run...'
+            # podman build -f promtail.Dockerfile -t localhost/servertest-promtail:latest .
+            # podman run -d --name=promtail-container \
+            #   --pod=servertest-pod \
+            #   -v $(pwd)/promtail:/etc/promtail \
+            #   -v $(pwd)/logs:/app/logs \
+            #   localhost/servertest-promtail:latest \
+            #   -config.file=/etc/promtail/promtail-config.yml:/etc/promtail/config.yml:ro,Z \
               docker.io/grafana/promtail:latest \
               -config.file=/etc/promtail/config.yml
             

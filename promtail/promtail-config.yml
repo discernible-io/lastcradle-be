@@ -5,15 +5,16 @@ server:
 positions:
   filename: /tmp/positions.yaml
 
-clients:
-  - url: https://grafana.cableguard.net:3100/loki/api/v1/push
-    tls_config:
-      insecure_skip_verify: true
-    # The backoff_config section helps with retries
-    backoff_config:
-      min_period: 500ms
-      max_period: 5m
-      max_retries: 10
+# Loki client temporarily disabled
+# clients:
+#   - url: https://grafana.cableguard.net:3100/loki/api/v1/push
+#     tls_config:
+#       insecure_skip_verify: true
+#     # The backoff_config section helps with retries
+#     backoff_config:
+#       min_period: 500ms
+#       max_period: 5m
+#       max_retries: 10
 
 scrape_configs:
   - job_name: node_logs
