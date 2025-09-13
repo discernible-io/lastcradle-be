@@ -102,8 +102,15 @@ jobs:
             # Ensure logs and data directories exist with correct permissions
             echo 'Setting up logs and data directories...'
             mkdir -p ~/servertest-app/logs ~/servertest-app/data
-            chmod 0777 ~/servertest-app/logs ~/servertest-app/data
+            # Set permissions to 0775 for directories and 0664 for files
+            find ~/servertest-app/logs -type d -exec chmod 0775 {} \;
+            find ~/servertest-app/logs -type f -exec chmod 0664 {} \;
+            find ~/servertest-app/data -type d -exec chmod 0775 {} \;
+            find ~/servertest-app/data -type f -exec chmod 0664 {} \;
+            # Set ownership to 1000:1000 (nodeuser:nodeuser in container)
             podman unshare chown -R 1000:1000 ~/servertest-app/logs ~/servertest-app/data || true
+            # Ensure the data directory is writable by the container user
+            podman unshare chmod g+w ~/servertest-app/data
             
             # Build API container with debug information
             echo 'Building API container...'
