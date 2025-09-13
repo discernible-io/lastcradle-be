@@ -7,6 +7,7 @@ set -euo pipefail
 
 APP_DIR=${1:-"${HOME}/servertest-rodit"}
 LOG_DIR="${APP_DIR}/logs"
+APP_LOG_DIR="${HOME}/servertest-app/logs"
 DATA_DIR="${APP_DIR}/data"
 CERTS_DIR="${APP_DIR}/certs"
 PROMTAIL_DIR="${APP_DIR}/promtail"
@@ -19,7 +20,7 @@ API_GID=1000
 # Nginx reads certs as user "nginx" but only needs world-readable files
 # Promtail typically runs as root in the image and reads logs (ro)
 
-mkdir -p "${LOG_DIR}" "${DATA_DIR}" "${CERTS_DIR}" "${PROMTAIL_DIR}" "${NGINX_DIR}"
+mkdir -p "${LOG_DIR}" "${DATA_DIR}" "${CERTS_DIR}" "${PROMTAIL_DIR}" "${NGINX_DIR}" "${APP_LOG_DIR}"
 
 # Permissions
 # - logs: writable by API, readable by promtail -> 0775 on dir, 0664 on files
@@ -27,9 +28,15 @@ mkdir -p "${LOG_DIR}" "${DATA_DIR}" "${CERTS_DIR}" "${PROMTAIL_DIR}" "${NGINX_DI
 # - certs: world-readable (but keep keys restricted if present)
 # - promtail dir: readable
 chmod -R u+rwX,g+rwX,o-rwx "${DATA_DIR}" || true
+# Set permissions for main app logs
 chmod -R u+rwX,g+rwX,o+rX "${LOG_DIR}" || true
 find "${LOG_DIR}" -type d -exec chmod 0775 {} + 2>/dev/null || true
 find "${LOG_DIR}" -type f -exec chmod 0664 {} + 2>/dev/null || true
+
+# Set permissions for servertest-app logs
+chmod -R u+rwX,g+rwX,o+rX "${APP_LOG_DIR}" || true
+find "${APP_LOG_DIR}" -type d -exec chmod 0775 {} + 2>/dev/null || true
+find "${APP_LOG_DIR}" -type f -exec chmod 0664 {} + 2>/dev/null || true
 find "${DATA_DIR}" -type d -exec chmod 0770 {} + 2>/dev/null || true
 find "${DATA_DIR}" -type f -exec chmod 0660 {} + 2>/dev/null || true
 

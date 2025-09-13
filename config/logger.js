@@ -48,6 +48,7 @@ const logger = createLogger({
     // File transport for all logs
     new transports.File({
       filename: path.join(logDir, 'combined.log'),
+      options: { mode: 0o666, flags: 'a' },
       level: 'info',
       maxsize: 10485760, // 10MB
       maxFiles: 5
