@@ -99,13 +99,6 @@ app.use((req, res, next) => {
 });
 
 // Mount routes
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/session", sessionRoutes);
-app.use("/api/health", healthRoutes);
-app.use("/api/version", versionRoutes);
-app.use("/api/status", statusRoutes);
-app.use("/api/rodit", roditRoutes);
 app.use('/api', homeRoute);
 app.use('/api/login', loginRoute);
 app.use('/api/logout', logoutRoute);
