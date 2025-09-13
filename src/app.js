@@ -19,6 +19,9 @@ const config = require('config');
 const auth = require('@rodit/rodit-auth-be');
 const { loggingmw, ratelimitmw, stateManager, roditManager } = auth;
 
+// Import routes
+const homeRoute = require('./routes/home');
+
 // Import custom logger
 const logger = require('../config/logger');
 const { createLogContext } = logger;
