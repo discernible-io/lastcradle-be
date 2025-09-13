@@ -14,100 +14,91 @@ const { ulid } = require('ulid');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const config = require('config');
-const winston = require('winston');
-const DailyRotateFile = require('winston-daily-rotate-file');
-const LokiTransport = require('winston-loki');
 
 // Import the unified auth module and services from npm package
 const auth = require('@rodit/rodit-auth-be');
-const { logger, loggingmw, ratelimitmw, stateManager, roditManager } = auth;
-const { createLogContext, logErrorWithMetrics } = logger;
+const { loggingmw, ratelimitmw, stateManager, roditManager } = auth;
 
-// Configure file-based logging using DailyRotateFile
-const logDir = path.join(__dirname, '..', 'logs');
-fs.mkdirSync(logDir, { recursive: true });
+// Import custom logger
+const logger = require('../config/logger');
+const { createLogContext } = logger;
 
-// Create file transports for different log levels
-const fileTransports = [
-  new DailyRotateFile({
-    filename: path.join(logDir, 'apiinfo-%DATE%.log'),
-    datePattern: 'YYYY-MM-DD',
-    level: 'info',
-    maxSize: '20m',
-    maxFiles: '14d',
-    format: winston.format.combine(
-      winston.format.timestamp(),
-      winston.format.json()
-    )
-  }),
-  new DailyRotateFile({
-    filename: path.join(logDir, 'apierror-%DATE%.log'),
-    datePattern: 'YYYY-MM-DD',
-    level: 'error',
-    maxSize: '20m',
-    maxFiles: '14d',
-    format: winston.format.combine(
-      winston.format.timestamp(),
-      winston.format.json()
-    )
-  })
-];
-
-// Loki transport is disabled
-const transports = [...fileTransports];
-// To enable Loki, uncomment below and set LOKI_URL environment variable
-/*
-if (process.env.LOKI_URL) {
-  transports.push(new LokiTransport({
-    host: process.env.LOKI_URL,
-    labels: { 
-      job: 'servertest-api',
-      app: 'servertest-api',
-      hostname: 'api.discernible.io'
-    },
-    json: true,
-    format: winston.format.json(),
-    replaceTimestamp: true,
-    onConnectionError: (err) => console.error('Loki connection error:', err)
-  }));
-}
-*/
-
-// Create custom logger with file and Loki transports
-const customLogger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  transports,
-  exitOnError: false
+// Log application startup
+logger.info('Starting RODiT Authentication API Server', {
+  nodeEnv: process.env.NODE_ENV || 'development',
+  pid: process.pid,
+  version: process.env.npm_package_version,
+  nodeVersion: process.version
 });
 
-// Add console transport for development
-if (process.env.NODE_ENV !== 'production') {
-  customLogger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
-  }));
+// Log configuration details (sensitive values redacted)
+const configForLogging = { ...config };
+if (configForLogging.credentials) {
+  configForLogging.credentials = '[REDACTED]';
 }
+logger.debug('Application configuration loaded', { config: configForLogging });
 
-// Inject custom logger into SDK
-logger.setLogger(customLogger);
+// Initialize application
+const app = express();
 
-// Import routes
-const echoprotectedRoute = require('./protected/echo');
-const crudaprotectedRoute = require('./protected/cruda');
-const signclientRoute = require('./routes/signclient');
-const metricsRoutes = require('./routes/metricsroutes');
-const mcpRoutes = require('./routes/mcproutes');
-const homeRoute = require('./routes/home');
-const sessionRoutes = require('./routes/sessionroutes');
-const loginRoute = require('./routes/login');
-const logoutRoute = require('./routes/logout');
+// Set up request ID and tracing middleware
+app.use((req, res, next) => {
+  req.requestId = ulid();
+  req.startTime = process.hrtime();
+  next();
+});
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = process.hrtime();
+  const { method, originalUrl, ip } = req;
+  
+  // Log incoming request
+  logger.info('Request received', {
+    requestId: req.requestId,
+    method,
+    url: originalUrl,
+    ip,
+    userAgent: req.get('user-agent'),
+    referrer: req.get('referer')
+  });
+
+  // Override res.end to log the response
+  const originalEnd = res.end;
+  res.end = function(chunk, encoding) {
+    const diff = process.hrtime(start);
+    const responseTimeMs = Math.round((diff[0] * 1e9 + diff[1]) / 1e6);
+    
+    logger.info('Response sent', {
+      requestId: req.requestId,
+      statusCode: res.statusCode,
+      responseTimeMs,
+      contentLength: res.get('content-length') || 0,
+      method,
+      url: originalUrl
+    });
+    
+    originalEnd.call(this, chunk, encoding);
+  };
+  
+  next();
+});
+
+// Mount routes
+app.use('/api', homeRoute);
+app.use('/api/login', loginRoute);
+app.use('/api/logout', logoutRoute);
+app.use('/api/echo', echoprotectedRoute);
+app.use('/api/cruda', crudaprotectedRoute);
+app.use('/api/signclient', signclientRoute);
+app.use('/api/metrics', metricsRoutes);
+app.use('/api/mcp', mcpRoutes);
+app.use('/api/session', sessionRoutes);
+
+// Development environment logging
+if (process.env.NODE_ENV !== 'production') {
+  logger.info('Running in development mode - enhanced logging enabled');
+}
 
 // Use SDK-provided rate limiting helper
 
@@ -249,13 +240,10 @@ try {
   const outPath = path.join(docsDir, 'swagger.json');
   fs.mkdirSync(docsDir, { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(swaggerSpec, null, 2));
-  console.log(`Swagger spec written to ${outPath}`);
+  logger.info(`Swagger spec written to ${outPath}`);
 } catch (e) {
-  console.warn('Failed to write swagger.json to /api-docs. Continuing without static file.', e?.message || e);
+  logger.error('Failed to write swagger.json to /api-docs. Continuing without static file.', e?.message || e);
 }
-
-// Create Express app
-const app = express();
 
 // Configure Express to trust proxies for correct client IP detection
 // Using a specific configuration instead of 'true' to prevent IP spoofing
