@@ -21,6 +21,7 @@ const { loggingmw, ratelimitmw, stateManager, roditManager } = auth;
 
 // Import routes
 const homeRoute = require('./routes/home');
+const loginRoute = require('./routes/login');
 
 // Import custom logger
 const logger = require('../config/logger');
