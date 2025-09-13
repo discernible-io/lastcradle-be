@@ -99,13 +99,23 @@ app.use((req, res, next) => {
 });
 
 // Mount routes
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/session", sessionRoutes);
+app.use("/api/health", healthRoutes);
+app.use("/api/version", versionRoutes);
+app.use("/api/status", statusRoutes);
+app.use("/api/rodit", roditRoutes);
 app.use('/api', homeRoute);
 app.use('/api/login', loginRoute);
 app.use('/api/logout', logoutRoute);
 app.use('/api/signclient', signclientRoute);
 app.use('/api/metrics', metricsRoutes);
 app.use('/api/mcp', mcpRoutes);
-app.use('/api/session', sessionRoutes);
+
+// Import protected routes
+const echoRoutes = require('./protected/echo');
+const crudaRoutes = require('./protected/cruda');
 
 // Development environment logging
 if (process.env.NODE_ENV !== 'production') {
@@ -394,8 +404,8 @@ app.post('/api/logout', auth.authenticate, (req, res) => {
 app.use("/api/sessions", sessionRoutes);
 
 // Protected routes
-app.use("/api/echo", auth.authenticate, echoprotectedRoute);
-app.use("/api/cruda", auth.authenticate, auth.validatePermissions, crudaprotectedRoute);
+app.use("/api/echo", auth.authenticate, echoRoutes);
+app.use("/api/cruda", auth.authenticate, auth.validatePermissions, crudaRoutes);
 
 // Public routes
 app.use("/api/metrics", metricsRoutes);
