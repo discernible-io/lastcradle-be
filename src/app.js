@@ -22,6 +22,13 @@ const { loggingmw, ratelimitmw, stateManager, roditManager } = auth;
 // Import routes
 const homeRoute = require('./routes/home');
 const loginRoute = require('./routes/login');
+const logoutRoute = require('./routes/logout');
+const echoprotectedRoute = require('./routes/echo');
+const crudaprotectedRoute = require('./routes/cruda');
+const signclientRoute = require('./routes/signclient');
+const metricsRoutes = require('./routes/metrics');
+const mcpRoutes = require('./routes/mcp');
+const sessionRoutes = require('./routes/session');
 
 // Import custom logger
 const logger = require('../config/logger');
