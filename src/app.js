@@ -53,8 +53,10 @@ const fileTransports = [
   })
 ];
 
-// Add Loki transport if configured
+// Loki transport is disabled
 const transports = [...fileTransports];
+// To enable Loki, uncomment below and set LOKI_URL environment variable
+/*
 if (process.env.LOKI_URL) {
   transports.push(new LokiTransport({
     host: process.env.LOKI_URL,
@@ -69,6 +71,7 @@ if (process.env.LOKI_URL) {
     onConnectionError: (err) => console.error('Loki connection error:', err)
   }));
 }
+*/
 
 // Create custom logger with file and Loki transports
 const customLogger = winston.createLogger({
