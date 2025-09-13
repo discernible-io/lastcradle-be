@@ -63,7 +63,11 @@ const logger = createLogger({
   ]
 });
 
+// Loki transport has been temporarily disabled
+logger.info('Loki logging is currently disabled. To re-enable, uncomment the Loki transport configuration in config/logger.js');
+
 // Add Loki transport if LOKI_URL is configured
+/*
 if (process.env.LOKI_URL) {
   const lokiConfig = {
     host: process.env.LOKI_URL,
@@ -92,6 +96,7 @@ if (process.env.LOKI_URL) {
 
   logger.add(new LokiTransport(lokiConfig));
 }
+*/
 
 // Helper methods for context logging
 logger.createLogContext = (component, method) => ({
