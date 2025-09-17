@@ -387,7 +387,7 @@ app.use("/api", logoutRoute);
  *       401:
  *         description: Not authenticated
  */
-app.post('/api/logout', auth.authenticate, (req, res) => {
+app.post('/api/logout', auth.authenticate_apicall, (req, res) => {
   req.logAction = "logout-attempt";
   auth.logout(req, res);
 });
@@ -397,8 +397,8 @@ app.post('/api/logout', auth.authenticate, (req, res) => {
 app.use("/api/sessions", sessionRoutes);
 
 // Protected routes
-app.use("/api/echo", auth.authenticate, echoRoutes);
-app.use("/api/cruda", auth.authenticate, auth.validatePermissions, crudaRoutes);
+app.use("/api/echo", auth.authenticate_apicall, echoRoutes);
+app.use("/api/cruda", auth.authenticate_apicall, auth.validatePermissions, crudaRoutes);
 
 // Public routes
 app.use("/api/metrics", metricsRoutes);
@@ -420,7 +420,7 @@ app.use("/api", signclientRoute);
  *       401:
  *         description: Not authenticated
  */
-app.get('/api/rodit/info', auth.authenticate, async (req, res) => {
+app.get('/api/rodit/info', auth.authenticate_apicall, async (req, res) => {
   try {
     const configObject = await stateManager.getConfigOwnRodit();
     return res.json({
@@ -455,7 +455,7 @@ app.get('/api/rodit/info', auth.authenticate, async (req, res) => {
  *       401:
  *         description: Not authenticated
  */
-app.get('/api/token/claims', auth.authenticate, (req, res) => {
+app.get('/api/token/claims', auth.authenticate_apicall, (req, res) => {
   return res.json({
     requestId: req.requestId,
     user: req.user || null

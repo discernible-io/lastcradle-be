@@ -118,7 +118,7 @@ npm install @rodit/rodit-auth-be
 Then import the required modules:
 
 ```javascript
-const { logger, authenticate, stateManager, roditManager } = require('@rodit/rodit-auth-be');
+const { logger, authenticate_apicall, stateManager, roditManager } = require('@rodit/rodit-auth-be');
 ```
 
 ## RODIT Token Information Display

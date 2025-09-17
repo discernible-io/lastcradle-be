@@ -13,7 +13,7 @@ const { ulid } = require('ulid');
 const {
   sessionManager,
   runManualCleanup,
-  authenticate: authenticate_apicall,
+  authenticate_apicall: authenticate_apicall,
   login: login_client,
   logout: logout_client,
   validatePermissions,

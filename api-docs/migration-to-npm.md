@@ -50,7 +50,7 @@ const { logger, roditManager, stateManager, loggingmw } = auth;
 
 ### Package export surface (CommonJS)
 From the package root (`require('@rodit/rodit-auth-be')`), the following are exported:
-- __Core middleware__: `authenticate` (alias `authenticate_apicall`), `login`, `logout`, `loginWithNEP413`
+- __Core middleware__: `authenticate_apicall` (alias `authenticate_apicall`), `login`, `logout`, `loginWithNEP413`
 - __Validation__: `validatePermissions`
 - __Token__: `validateToken`, `generateToken`
 - __Services__: `sessionManager`, `blockchainService`, `stateManager`, `mcpService`, `performanceService`
@@ -145,7 +145,7 @@ When deploying the API, ensure that environment variables are properly passed to
 ```
 
 **Critical notes:**
-- Without `RODIT_NEAR_CREDENTIALS_SOURCE=vault`, the API will default to file-based credentials and fail to authenticate
+- Without `RODIT_NEAR_CREDENTIALS_SOURCE=vault`, the API will default to file-based credentials and fail to authenticate_apicall
 - Vault credentials must be provided as GitHub secrets and passed to the container
 - Missing environment variables will cause deployment failures or runtime authentication errors
 
