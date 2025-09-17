@@ -702,13 +702,15 @@ async function startServer() {
     pid: process.pid
   });
   
-  logger.infoWithContext("Server starting", baseContext);
+  console.infoWithContext("Server starting", baseContext);
   
+
+
   try {
     // Initialize performance service
-    rodtiClient.performanceService.initialize();
+  roditClient = await initializeRoditSdk("portal");
     
-    logger.infoWithContext("Initializing RODiT configuration", {
+    console.infoWithContext("Initializing RODiT configuration", {
       ...baseContext,
       status: "initializing"
     });
@@ -716,7 +718,7 @@ async function startServer() {
     // Initialize credentials store and load RODiT configuration via SDK helper
     await rodtiClient.initConfig('server');
 
-    logger.info("RODiT configuration initialized", {
+    console.info("RODiT configuration initialized", {
       component: "vault",
       status: "initialized"
     });
@@ -752,15 +754,15 @@ async function startServer() {
         swagger: `/api-docs`
       });
       
-      logger.infoWithContext("HTTP server started successfully", serverContext);
+      console.infoWithContext("HTTP server started successfully", serverContext);
       
       // Add metric for server startup
-      logger.metric("server_operations", serverStartDuration, {
+      console.metric("server_operations", serverStartDuration, {
         operation: "startup",
         result: "success"
       });
       
-      logger.info(`\nRODiT Authentication API Server running on port ${port}`);
+      console.info(`\nRODiT Authentication API Server running on port ${port}`);
       
       const endpoints = [
         '  GET  / - Public welcome page',
@@ -771,9 +773,9 @@ async function startServer() {
         '  GET  /api-docs - Swagger API documentation'
       ];
       
-      logger.info('Available endpoints:');
-      endpoints.forEach(endpoint => logger.info(endpoint));
-      logger.info('');
+      console.info('Available endpoints:');
+      endpoints.forEach(endpoint => console.info(endpoint));
+      console.info('');
     });
     
     // Graceful shutdown handling
