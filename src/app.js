@@ -45,6 +45,8 @@ if (configForLogging.credentials) {
 }
 logger.debug('Application configuration loaded', { config: configForLogging });
 
+let roditClient; 
+
 // Initialize application
 const app = express();
 
