@@ -373,9 +373,9 @@ app.use("/api", logoutRoute);
  *       401:
  *         description: Not authenticated
  */
-app.post('/api/logout', rodtiClient.authenticate_apicall, (req, res) => {
+app.post('/api/logout', roditClient.authenticate_apicall, (req, res) => {
   req.logAction = "logout-attempt";
-  rodtiClient.logout(req, res);
+  roditClient.logout(req, res);
 });
 
 
@@ -383,8 +383,8 @@ app.post('/api/logout', rodtiClient.authenticate_apicall, (req, res) => {
 app.use("/api/sessions", sessionRoutes);
 
 // Protected routes
-app.use("/api/echo", rodtiClient.authenticate_apicall, echoRoutes);
-app.use("/api/cruda", rodtiClient.authenticate_apicall, rodtiClient.validatePermissions, crudaRoutes);
+app.use("/api/echo", roditClient.authenticate_apicall, echoRoutes);
+app.use("/api/cruda", roditClient.authenticate_apicall, roditClient.validatePermissions, crudaRoutes);
 
 // Public routes
 app.use("/api/metrics", metricsRoutes);
@@ -406,7 +406,7 @@ app.use("/api", signclientRoute);
  *       401:
  *         description: Not authenticated
  */
-app.get('/api/rodit/info', rodtiClient.authenticate_apicall, async (req, res) => {
+app.get('/api/rodit/info', roditClient.authenticate_apicall, async (req, res) => {
   try {
     const configObject = await stateManager.getConfigOwnRodit();
     return res.json({
@@ -441,7 +441,7 @@ app.get('/api/rodit/info', rodtiClient.authenticate_apicall, async (req, res) =>
  *       401:
  *         description: Not authenticated
  */
-app.get('/api/token/claims', rodtiClient.authenticate_apicall, (req, res) => {
+app.get('/api/token/claims', roditClient.authenticate_apicall, (req, res) => {
   return res.json({
     requestId: req.requestId,
     user: req.user || null
@@ -716,7 +716,7 @@ async function startServer() {
     });
     
     // Initialize credentials store and load RODiT configuration via SDK helper
-    await rodtiClient.initConfig('server');
+    await roditClient.initConfig('server');
 
     console.info("RODiT configuration initialized", {
       component: "vault",

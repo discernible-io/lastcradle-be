@@ -10,7 +10,7 @@ const router = express.Router();
 const { ulid } = require('ulid');
 const auth = require('@rodit/rodit-auth-be');
 const { mcpService, logger } = auth;
-const authenticate_apicall = rodtiClient.authenticate_apicall;
+const authenticate_apicall = roditClient.authenticate_apicall;
 const { createLogContext, logErrorWithMetrics } = logger;
 
 /**
