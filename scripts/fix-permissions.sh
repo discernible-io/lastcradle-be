@@ -58,6 +58,11 @@ if command -v podman >/dev/null 2>&1; then
   echo "Applying userns ownership via podman unshare..."
   podman unshare chown -R ${API_UID}:${API_GID} "${LOG_DIR}" || true
   podman unshare chown -R ${API_UID}:${API_GID} "${DATA_DIR}" || true
+  # Ensure ownership on external app logs used by nginx/promtail as well
+  # This prevents "Operation not permitted" when chmod runs on files created by containers
+  if [ -d "${APP_LOG_DIR}" ]; then
+    podman unshare chown -R ${API_UID}:${API_GID} "${APP_LOG_DIR}" || true
+  fi
 else
   echo "Warning: podman not found. Skipping userns chown step." >&2
 fi
