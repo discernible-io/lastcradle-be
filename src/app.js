@@ -244,21 +244,14 @@ We comply with applicable data protection regulations including GDPR and CCPA. I
       "security": "Regular security audits and penetration testing"
     }
   },
-  apis: ["./src/app.js", "./src/routes/*.js"],
+  apis: ["./src/app.js", "./src/routes/*.js", "./src/protected/*.js"],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Write the generated Swagger spec to /api-docs/swagger.json for external consumption
-try {
-  const docsDir = path.join(__dirname, '..', 'api-docs');
-  const outPath = path.join(docsDir, 'swagger.json');
-  fs.mkdirSync(docsDir, { recursive: true });
-  fs.writeFileSync(outPath, JSON.stringify(swaggerSpec, null, 2));
-  logger.info(`Swagger spec written to ${outPath}`);
-} catch (e) {
-  logger.error('Failed to write swagger.json to /api-docs. Continuing without static file.', e?.message || e);
-}
+// Static swagger.json generation disabled in container environment to avoid file-system errors.
+// The Swagger spec is still served dynamically at /api-docs and /api-docs/swagger.json.
+
 
 // Configure Express to trust proxies for correct client IP detection
 // Using a specific configuration instead of 'true' to prevent IP spoofing
