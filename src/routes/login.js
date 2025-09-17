@@ -50,7 +50,7 @@ router.post('/login', (req, res) => {
   });
   
   // Use the SDK's login function
-  auth.login(req, res);
+  rodtiClient.login(req, res);
 });
 
 // Legacy login route - redirects to new endpoint

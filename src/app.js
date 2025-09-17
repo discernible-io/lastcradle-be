@@ -8,16 +8,11 @@
  */
 
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const { ulid } = require('ulid');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const config = require('config');
-
-// Import the unified auth module and services from npm package
-const auth = require('@rodit/rodit-auth-be');
-const { loggingmw, ratelimitmw, stateManager, roditManager } = auth;
+const { logger, loggingmw, ratelimitmw, stateManager } = require("@rodit/rodit-auth-be");
 
 // Import routes
 const homeRoute = require('./routes/home');
@@ -34,8 +29,6 @@ const sessionRoutes = require('./routes/sessionroutes');
 // These routes might need to be created or the app.use() calls should be removed if not needed.
 
 // Import custom logger
-const logger = require('../config/logger');
-const { createLogContext } = logger;
 
 // Log application startup
 logger.info('Starting RODiT Authentication API Server', {
@@ -265,7 +258,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(loggingmw);
 
 // API versioning middleware
-app.use(auth.versioning.middleware({
+app.use(rodtiClient.versioning.middleware({
   strict: false // Set to true to reject requests with unsupported versions
 }));
 
@@ -380,9 +373,9 @@ app.use("/api", logoutRoute);
  *       401:
  *         description: Not authenticated
  */
-app.post('/api/logout', auth.authenticate_apicall, (req, res) => {
+app.post('/api/logout', rodtiClient.authenticate_apicall, (req, res) => {
   req.logAction = "logout-attempt";
-  auth.logout(req, res);
+  rodtiClient.logout(req, res);
 });
 
 
@@ -390,8 +383,8 @@ app.post('/api/logout', auth.authenticate_apicall, (req, res) => {
 app.use("/api/sessions", sessionRoutes);
 
 // Protected routes
-app.use("/api/echo", auth.authenticate_apicall, echoRoutes);
-app.use("/api/cruda", auth.authenticate_apicall, auth.validatePermissions, crudaRoutes);
+app.use("/api/echo", rodtiClient.authenticate_apicall, echoRoutes);
+app.use("/api/cruda", rodtiClient.authenticate_apicall, rodtiClient.validatePermissions, crudaRoutes);
 
 // Public routes
 app.use("/api/metrics", metricsRoutes);
@@ -413,7 +406,7 @@ app.use("/api", signclientRoute);
  *       401:
  *         description: Not authenticated
  */
-app.get('/api/rodit/info', auth.authenticate_apicall, async (req, res) => {
+app.get('/api/rodit/info', rodtiClient.authenticate_apicall, async (req, res) => {
   try {
     const configObject = await stateManager.getConfigOwnRodit();
     return res.json({
@@ -448,7 +441,7 @@ app.get('/api/rodit/info', auth.authenticate_apicall, async (req, res) => {
  *       401:
  *         description: Not authenticated
  */
-app.get('/api/token/claims', auth.authenticate_apicall, (req, res) => {
+app.get('/api/token/claims', rodtiClient.authenticate_apicall, (req, res) => {
   return res.json({
     requestId: req.requestId,
     user: req.user || null
@@ -713,7 +706,7 @@ async function startServer() {
   
   try {
     // Initialize performance service
-    auth.performanceService.initialize();
+    rodtiClient.performanceService.initialize();
     
     logger.infoWithContext("Initializing RODiT configuration", {
       ...baseContext,
@@ -721,7 +714,7 @@ async function startServer() {
     });
     
     // Initialize credentials store and load RODiT configuration via SDK helper
-    await auth.initConfig('server');
+    await rodtiClient.initConfig('server');
 
     logger.info("RODiT configuration initialized", {
       component: "vault",
