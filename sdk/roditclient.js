@@ -145,16 +145,6 @@ class RoditClient {
     });
   }
 
-  /**
-   * Initialize the RODiT SDK with configuration
-   * @param {Object} [config] - Configuration overrides
-   * @returns {Promise<RoditClient>} This client instance for chaining
-   */
-  async initializeRoditSdk(config = {}) {
-    await roditManager.initializeRoditSdk(config);
-    await this.init(config);
-    return this;
-  }
 
   /**
    * Configure the SDK with settings
@@ -443,7 +433,7 @@ class RoditClient {
   }
 
   /**
-   * Initialize the client with configuration
+   * Initialize the RODiT client with configuration
    * @param {Object} [config] - Configuration overrides
    * @returns {Promise<boolean>} True if initialization was successful
    */
@@ -456,73 +446,20 @@ class RoditClient {
         ...this.config,
         ...config
       };
-      /*
-      // Initialize RoditManager if credentials path is provided
-      if (this.config.credentialsFilePath) {
-        const fs = require('fs').promises;
-        const path = require('path');
-        
-        try {
-          // Resolve the full path to the credentials file
-          const credentialsPath = path.isAbsolute(this.config.credentialsFilePath) 
-            ? this.config.credentialsFilePath 
-            : path.join(process.cwd(), this.config.credentialsFilePath);
-          
-          // Check if file exists and is readable
-          await fs.access(credentialsPath, fs.constants.R_OK);
-          
-          // Read and parse the credentials file
-          const credentialsData = await fs.readFile(credentialsPath, 'utf8');
-          const credentials = JSON.parse(credentialsData);
-          
-          // Set the configuration in the state manager
-          if (typeof stateManager.setConfigOwnRodit === 'function') {
-            await stateManager.setConfigOwnRodit({ own_rodit: credentials });
-            
-            logger.debug('Successfully loaded RODiT configuration', {
-              component: 'RoditClient',
-              method: 'init',
-              requestId,
-              credentialsPath
-            });
-          }
-          
-          // Initialize RoditManager with the config path if needed
-          if (typeof roditManager.setConfigPath === 'function') {
-            await roditManager.setConfigPath(credentialsPath);
-            
-            logger.debug('Initialized RoditManager with credentials', {
-              component: 'RoditClient',
-              method: 'init',
-              requestId,
-              credentialsPath
-            });
-          }
-        } catch (error) {
-          logger.error('Failed to load RODiT configuration', {
-            component: 'RoditClient',
-            method: 'init',
-            requestId,
-            error: error.message,
-            stack: error.stack,
-            credentialsFilePath: this.config.credentialsFilePath
-          });
-          
-          throw new Error(`Failed to load RODiT configuration: ${error.message}`);
-        }
-      } */
 
-      // Verify we can access required configuration
+      // Initialize the RODiT SDK first to load credentials from Vault
+      await roditManager.initializeRoditSdk(config);
+
+      // Get the loaded configuration
       const config_own_rodit = await stateManager.getConfigOwnRodit();
       if (!config_own_rodit) {
-        throw new Error('Failed to load RODiT configuration');
+        throw new Error('Failed to load RODiT configuration from credentials store');
       }
 
-      // Store token metadata for later use
-      // The metadata is nested inside config_own_rodit.own_rodit.metadata based on the AuthStateManager structure
+      // Extract metadata and configure client
       this.roditMetadata = (config_own_rodit.own_rodit && config_own_rodit.own_rodit.metadata) || {};
       
-      // Set default endpoints from config if not provided
+      // Set endpoints from metadata
       if (!this.config.authEndpoint && this.roditMetadata.auth_endpoint) {
         this.config.authEndpoint = ensureProtocol(this.roditMetadata.auth_endpoint);
       }
@@ -531,7 +468,7 @@ class RoditClient {
         this.config.dataEndpoint = ensureProtocol(this.roditMetadata.subjectuniqueidentifier_url);
       }
       
-      // Initialize rate limiting state if max_requests is defined
+      // Configure rate limiting
       if (this.roditMetadata.max_requests && this.roditMetadata.maxrq_window) {
         this.rateLimitState = {
           maxRequests: parseInt(this.roditMetadata.max_requests, 10),
@@ -541,31 +478,14 @@ class RoditClient {
         };
       }
       
-      // Parse JSON fields
-      try {
-        if (this.roditMetadata.allowed_iso3166list) {
-          this.allowedRegions = JSON.parse(this.roditMetadata.allowed_iso3166list);
-        }
-        
-        if (this.roditMetadata.permissioned_routes) {
-          this.permissionedRoutes = JSON.parse(this.roditMetadata.permissioned_routes);
-        }
-      } catch (parseError) {
-        logger.warn('Failed to parse JSON metadata fields', {
-          component: 'RoditClient',
-          method: 'init',
-          requestId,
-          error: parseError.message
-        });
-      }
+      // Parse JSON configuration fields
+      this._parseJsonFields(requestId);
 
-      // Initialize OpenAPI spec if URL is provided
+      // Configure optional URLs
       if (this.roditMetadata.openapijson_url) {
         this.openApiUrl = ensureProtocol(this.roditMetadata.openapijson_url);
-        // We'll fetch this on-demand to avoid slowing down initialization
       }
 
-      // Initialize webhook configuration if URL is provided
       if (this.roditMetadata.webhook_url) {
         this.webhookUrl = ensureProtocol(this.roditMetadata.webhook_url);
         this.webhookCidr = this.roditMetadata.webhook_cidr || '0.0.0.0/0';
@@ -595,6 +515,29 @@ class RoditClient {
         stack: error.stack
       });
       throw error;
+    }
+  }
+
+  /**
+   * Parse JSON configuration fields
+   * @private
+   */
+  _parseJsonFields(requestId) {
+    try {
+      if (this.roditMetadata.allowed_iso3166list) {
+        this.allowedRegions = JSON.parse(this.roditMetadata.allowed_iso3166list);
+      }
+      
+      if (this.roditMetadata.permissioned_routes) {
+        this.permissionedRoutes = JSON.parse(this.roditMetadata.permissioned_routes);
+      }
+    } catch (parseError) {
+      logger.warn('Failed to parse JSON metadata fields', {
+        component: 'RoditClient',
+        method: '_parseJsonFields',
+        requestId,
+        error: parseError.message
+      });
     }
   }
 
@@ -864,11 +807,11 @@ class RoditClient {
   }
   
   /**
-   * Create a new RODiT client and initialize it
+   * Create and initialize a new RODiT client in one step
    * @param {Object} [options] - Client options
-   * @returns {Promise<RoditClient>} Initialized client
+   * @returns {Promise<RoditClient>} Fully initialized client
    */
-  static async createClient(options = {}) {
+  static async create(options = {}) {
     const client = new RoditClient(options);
     await client.init(options);
     return client;

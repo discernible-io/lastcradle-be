@@ -13,12 +13,15 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 const { RoditClient } = require("@rodit/rodit-auth-be");
 
-// Create SDK client instance to access all functionality
-const roditClient = new RoditClient();
-const logger = roditClient.getLogger();
+// Create temporary client instance to access utilities
+const tempClient = new RoditClient();
+const logger = tempClient.getLogger();
 const { createLogContext, logErrorWithMetrics } = logger;
-const loggingmw = roditClient.getLoggingMiddleware();
-const ratelimitmw = roditClient.getRateLimitMiddleware();
+const loggingmw = tempClient.getLoggingMiddleware();
+const ratelimitmw = tempClient.getRateLimitMiddleware();
+
+// Will be set to fully initialized client later
+let roditClient;
 
 // Get authentication middleware from roditClient
 const authenticate_apicall = (req, res, next) => roditClient.authenticateApiCall(req, res, next);
@@ -860,11 +863,19 @@ async function startServer() {
       status: "initializing",
     });
 
-    // RoditClient constructor handles initialization automatically
+    // Initialize RODiT SDK properly
     logger.debug("RoditClient constructor completed", {
       component: "AppLifecycle",
       status: "constructor_done",
     });
+
+    logger.debug("Creating and initializing RODiT client", {
+      component: "AppLifecycle",
+      status: "creating_client",
+    });
+    
+    // Create and initialize the client in one step
+    roditClient = await RoditClient.create();
 
     // Get and apply configuration
     logger.debug("Attempting to retrieve RODiT configuration", {
