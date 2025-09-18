@@ -1578,10 +1578,20 @@ class RoditClient {
     logger.debug('Getting RODiT configuration', {
       component: 'RoditClient',
       method: 'getConfigOwnRodit',
-      requestId
+      requestId,
+      stateManagerExists: !!stateManager,
+      stateManagerType: typeof stateManager
     });
     
     try {
+      // Add detailed logging before the call
+      logger.debug('Calling stateManager.getConfigOwnRodit()', {
+        component: 'RoditClient',
+        method: 'getConfigOwnRodit',
+        requestId,
+        stateManagerMethods: Object.getOwnPropertyNames(stateManager).filter(name => typeof stateManager[name] === 'function')
+      });
+      
       const config_own_rodit = await stateManager.getConfigOwnRodit();
       
       logger.debug('Retrieved RODiT configuration', {
@@ -1589,7 +1599,10 @@ class RoditClient {
         method: 'getConfigOwnRodit',
         requestId,
         hasConfig: !!config_own_rodit,
-        hasOwnRodit: !!(config_own_rodit && config_own_rodit.own_rodit)
+        hasOwnRodit: !!(config_own_rodit && config_own_rodit.own_rodit),
+        configType: typeof config_own_rodit,
+        configKeys: config_own_rodit ? Object.keys(config_own_rodit) : null,
+        configStringified: config_own_rodit ? JSON.stringify(config_own_rodit, null, 2) : 'null'
       });
       
       return config_own_rodit;

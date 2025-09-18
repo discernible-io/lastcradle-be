@@ -861,17 +861,32 @@ async function startServer() {
     });
 
     // RoditClient constructor handles initialization automatically
-
-    logger.info("RODiT configuration initialized", {
-      component: "vault",
-      status: "initialized",
+    logger.debug("RoditClient constructor completed", {
+      component: "AppLifecycle",
+      status: "constructor_done",
     });
 
     // Get and apply configuration
+    logger.debug("Attempting to retrieve RODiT configuration", {
+      component: "AppLifecycle",
+      status: "getting_config",
+    });
+    
     const configObject = await roditClient.getConfigOwnRodit();
     if (!configObject) {
+      logger.error("RODiT configuration not found - no credentials available", {
+        component: "AppLifecycle",
+        status: "config_missing",
+        suggestion: "Check Vault credentials or RODIT_NEAR_CREDENTIALS_SOURCE setting"
+      });
       throw new Error("Failed to initialize RODiT configuration");
     }
+
+    logger.info("RODiT configuration successfully loaded", {
+      component: "AppLifecycle",
+      status: "config_loaded",
+      hasOwnRodit: !!(configObject && configObject.own_rodit)
+    });
 
     // Display RODIT token information
     await displayRoditInfo(configObject);
