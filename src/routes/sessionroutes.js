@@ -10,15 +10,13 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const {
-  sessionManager,
-  runManualCleanup,
-  authenticate_apicall: authenticate_apicall,
-  login: login_client,
-  logout: logout_client,
-  validatePermissions,
-  logger
-} = require('@rodit/rodit-auth-be');
+const { RoditClient } = require('@rodit/rodit-auth-be');
+
+// Create SDK client instance to access all functionality
+const sdkClient = new RoditClient();
+const authenticate_apicall = (req, res, next) => sdkClient.authenticateApiCall(req, res, next);
+const validatePermissions = (req, res, next) => sdkClient.validatePermissions(req, res, next);
+const logger = sdkClient.getLogger();
 
 /**
  * POST /api/sessions/login - Create a new session (login)
@@ -41,8 +39,11 @@ router.post('/login', (req, res) => {
     userAgent: req.get('User-Agent')
   });
   
-  // Delegate to the existing login_client function
-  login_client(req, res);
+  // Delegate to RoditClient instance
+  if (!req.app.locals.roditClient) {
+    return res.status(503).json({ error: 'Authentication service unavailable' });
+  }
+  req.app.locals.roditClient.login(req, res);
 });
 
 /**
@@ -68,8 +69,10 @@ router.post('/logout', authenticate_apicall, (req, res) => {
     userAgent: req.get('User-Agent')
   });
   
-  // Delegate to the existing logout_client function
-  logout_client(req, res);
+  if (!req.app.locals.roditClient) {
+    return res.status(503).json({ error: 'Authentication service unavailable' });
+  }
+  req.app.locals.roditClient.logout(req, res);
 });
 
 /**

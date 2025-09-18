@@ -118,7 +118,7 @@ npm install @rodit/rodit-auth-be
 Then import the required modules:
 
 ```javascript
-const { logger, authenticate_apicall, stateManager, roditManager } = require('@rodit/rodit-auth-be');
+const { logger, authenticate_apicall, roditClient, roditManager } = require('@rodit/rodit-auth-be');
 ```
 
 ## RODIT Token Information Display
@@ -164,10 +164,10 @@ RODiT Contents
 The RODIT token information displayed during startup can be programmatically accessed in your API code:
 
 ```javascript
-const { stateManager } = require('@rodit/rodit-auth-be');
+const { roditClient } = require('@rodit/rodit-auth-be');
 
 // Get the complete RODIT configuration
-const configObject = await stateManager.getConfigOwnRodit();
+const configObject = await roditClient.getConfigOwnRodit();
 const roditToken = configObject.own_rodit;
 
 // Access token metadata

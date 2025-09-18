@@ -3,8 +3,11 @@ const router = express.Router();
 const { ulid } = require("ulid");
 
 // Import the unified auth module from npm package
-const auth = require('@rodit/rodit-auth-be');
-const { logger } = auth;
+const { RoditClient } = require('@rodit/rodit-auth-be');
+
+// Create SDK client instance to access all functionality
+const sdkClient = new RoditClient();
+const logger = sdkClient.getLogger();
 const { createLogContext, logErrorWithMetrics } = logger;
 
 /**
@@ -49,8 +52,12 @@ router.post('/login', (req, res) => {
     userAgent: req.get('User-Agent')
   });
   
-  // Use the SDK's login function
-  roditClient.login(req, res);
+  // Use the RoditClient stored in app.locals
+  const client = req.app.locals.roditClient;
+  if (!client) {
+    return res.status(503).json({ error: 'Authentication service unavailable' });
+  }
+  client.login(req, res);
 });
 
 // Legacy login route - redirects to new endpoint

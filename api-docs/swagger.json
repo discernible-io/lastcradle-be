@@ -32,20 +32,37 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "JWT token obtained after successful authentication"
+        "description": "JWT token obtained after successful authentication via RODiT credentials"
       }
     },
     "schemas": {
       "Error": {
         "type": "object",
+        "required": ["error", "requestId"],
         "properties": {
-          "code": {
+          "error": {
             "type": "string",
-            "description": "Error code"
+            "description": "Error message describing what went wrong"
           },
-          "message": {
+          "requestId": {
             "type": "string",
-            "description": "Error message"
+            "format": "ulid",
+            "description": "Unique request identifier for tracking"
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional error details (development mode only)"
+          }
+        }
+      },
+      "RequestResponse": {
+        "type": "object",
+        "required": ["requestId"],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "ulid",
+            "description": "Unique request identifier"
           }
         }
       }
@@ -123,11 +140,41 @@
   "paths": {
     "/": {
       "get": {
-        "summary": "Welcome page",
-        "description": "Returns information about available endpoints",
+        "summary": "API Welcome and Health Check",
+        "description": "Returns welcome message with available API endpoints and service status.\nThis endpoint can be used for health checks and service discovery.",
+        "tags": ["System"],
         "responses": {
           "200": {
-            "description": "Welcome message and endpoint information"
+            "description": "Welcome message with endpoint information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Welcome to RODiT Authentication API"
+                    },
+                    "endpoints": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "healthy"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
           }
         }
       }
@@ -135,7 +182,8 @@
     "/api/logout": {
       "post": {
         "summary": "User logout",
-        "description": "Invalidate the current session",
+        "description": "Invalidates the current user session and JWT token.\nAfter logout, the token will no longer be valid for authenticated requests.",
+        "tags": ["Authentication"],
         "security": [
           {
             "bearerAuth": []
@@ -143,10 +191,46 @@
         ],
         "responses": {
           "200": {
-            "description": "Logout successful"
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Logout successful"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "ulid"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
-            "description": "Not authenticated"
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Authentication required"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
           }
         }
       }
@@ -154,10 +238,8 @@
     "/api/rodit/info": {
       "get": {
         "summary": "Get current RODiT configuration and metadata",
-        "description": "Returns the current RODiT configuration loaded at runtime, including token metadata and service provider info.",
-        "tags": [
-          "RODiT"
-        ],
+        "description": "Returns the current RODiT configuration loaded at runtime, including:\n- Token metadata and expiration\n- Service provider information\n- API endpoints and capabilities\n- Rate limiting configuration",
+        "tags": ["RODiT Configuration"],
         "security": [
           {
             "bearerAuth": []
@@ -165,21 +247,64 @@
         ],
         "responses": {
           "200": {
-            "description": "Current RODiT configuration"
+            "description": "Current RODiT configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "format": "ulid"
+                    },
+                    "configuration": {
+                      "type": "object",
+                      "description": "Complete RODiT configuration object",
+                      "properties": {
+                        "own_rodit": {
+                          "type": "object",
+                          "description": "RODiT token information"
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "description": "Service metadata"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
-            "description": "Not authenticated"
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Failed to retrieve configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/token/claims": {
       "get": {
-        "summary": "Inspect current JWT claims",
-        "description": "Returns the authenticated user's claims as parsed by the SDK middleware.",
-        "tags": [
-          "Auth"
-        ],
+        "summary": "Inspect current JWT token claims",
+        "description": "Returns the authenticated user's JWT claims as parsed and validated by the SDK middleware.\nUseful for debugging authentication issues and understanding token contents.",
+        "tags": ["Authentication", "Debug"],
         "security": [
           {
             "bearerAuth": []
@@ -187,10 +312,64 @@
         ],
         "responses": {
           "200": {
-            "description": "Current user claims"
+            "description": "Current user claims from JWT token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "format": "ulid"
+                    },
+                    "user": {
+                      "type": "object",
+                      "description": "Decoded JWT claims",
+                      "properties": {
+                        "sub": {
+                          "type": "string",
+                          "description": "Subject (user ID)"
+                        },
+                        "aud": {
+                          "type": "string",
+                          "description": "Audience"
+                        },
+                        "iss": {
+                          "type": "string",
+                          "description": "Issuer"
+                        },
+                        "exp": {
+                          "type": "integer",
+                          "description": "Expiration timestamp"
+                        },
+                        "iat": {
+                          "type": "integer",
+                          "description": "Issued at timestamp"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
-            "description": "Not authenticated"
+            "description": "Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -328,5 +507,26 @@
       }
     }
   },
-  "tags": []
+  "tags": [
+    {
+      "name": "System",
+      "description": "System health and information endpoints"
+    },
+    {
+      "name": "Authentication", 
+      "description": "User authentication and session management"
+    },
+    {
+      "name": "RODiT Configuration",
+      "description": "RODiT configuration and metadata endpoints"
+    },
+    {
+      "name": "Debug",
+      "description": "Development and debugging utilities"
+    },
+    {
+      "name": "MCP",
+      "description": "Model Context Protocol interface"
+    }
+  ]
 }

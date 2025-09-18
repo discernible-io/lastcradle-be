@@ -2,6 +2,23 @@
 
 This guide enables a one-pass migration from a checked-in `sdk/` (or tarball) to the published npm package. It is designed to be reused across APIs with a similar structure.
 
+## RoditClient interface overhaul (2025-09)
+
+> BREAKING CHANGE – the SDK now expects application code to use the high-level `RoditClient` facade instead of piecemeal helpers.
+>
+> **Key actions**
+> 1. Replace `initializeRoditSdk()` with:
+>    ```js
+>    const { RoditClient } = require('@rodit/rodit-auth-be');
+>    const roditClient = await RoditClient.createClient();
+>    global.roditClient = roditClient; // optional global
+>    ```
+> 2. Remove direct imports of `login_client`, `logout_client`, `login_portal`, `roditClient`, etc. Call the equivalent `roditClient.*` methods instead.
+> 3. Middleware `authenticate_apicall` remains available for route protection.
+> 4. See updated examples in `src/app.js`, `src/routes/login.js`, and `src/routes/sessionroutes.js`.
+
+---
+
 ## 0) One-pass checklist
 
 - [ ] Add `@rodit/rodit-auth-be` to `dependencies` and remove any local tarball refs
@@ -40,12 +57,12 @@ Example in `src/app.js`:
 // const auth = require('../sdk/index');
 // const logger = require('../sdk/services/logger');
 // const roditManager = require('../sdk/lib/auth/roditmanager');
-// const stateManager = require('../sdk/lib/blockchain/statemanager');
+// const roditClient = require('../sdk/lib/blockchain/statemanager');
 // const loggingmw = require('../sdk/lib/middleware/loggingmw');
 
 // After
 const auth = require('@rodit/rodit-auth-be');
-const { logger, roditManager, stateManager, loggingmw } = auth;
+const { logger, roditManager, roditClient, loggingmw } = auth;
 ```
 
 ### Package export surface (CommonJS)
@@ -53,7 +70,7 @@ From the package root (`require('@rodit/rodit-auth-be')`), the following are exp
 - __Core middleware__: `authenticate_apicall` (alias `authenticate_apicall`), `login`, `logout`, `loginWithNEP413`
 - __Validation__: `validatePermissions`
 - __Token__: `validateToken`, `generateToken`
-- __Services__: `sessionManager`, `blockchainService`, `stateManager`, `mcpService`, `performanceService`
+- __Services__: `sessionManager`, `blockchainService`, `roditClient`, `mcpService`, `performanceService`
 - __Logging__: `logger`, `loggingmw`
 - __Utils__: `utils`, `validateAndSetDate`, `validateAndSetJson`, `validateAndSetUrl`, `calculateCanonicalHash`
 - __Versioning__: `versioning.middleware`, `versioning.manager`, `versioning.VersionManager`
@@ -204,5 +221,5 @@ When deploying the API, ensure that environment variables are properly passed to
 
 ## Repo-specific notes (this project)
 
-- `src/` now imports `@rodit/rodit-auth-be` exclusively. Example: `src/app.js` uses `const auth = require('@rodit/rodit-auth-be')` and destructures `logger`, `roditManager`, `stateManager`, `loggingmw` from it.
+- `src/` now imports `@rodit/rodit-auth-be` exclusively. Example: `src/app.js` uses `const auth = require('@rodit/rodit-auth-be')` and destructures `logger`, `roditManager`, `roditClient`, `loggingmw` from it.
 - Use the root export where possible to minimize coupling to internal paths.

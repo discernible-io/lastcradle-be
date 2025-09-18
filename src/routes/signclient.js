@@ -3,14 +3,21 @@ const express = require("express");
 const router = express.Router();
 const { ulid } = require("ulid");
 // Use npm package export
-const { logger, stateManager, login_portal, roditManager } = require("@rodit/rodit-auth-be");
+const { RoditClient } = require("@rodit/rodit-auth-be");
+
+// Create SDK client instance to access all functionality
+const sdkClient = new RoditClient();
+const logger = sdkClient.getLogger();
+const login_portal = (credentials) => sdkClient.loginPortal(credentials);
+const roditManager = sdkClient.getRoditManager();
 const { createLogContext, logErrorWithMetrics } = logger;
 
 async function signPortalRodit(
   port,
   tamperproofedValues,
   mintingfee,
-  mintingfeeaccount
+  mintingfeeaccount,
+  roditClient
 ) {
   const requestId = ulid();
   const startTime = Date.now();
@@ -26,13 +33,13 @@ async function signPortalRodit(
 
   logger.debugWithContext("Sending signportal request", baseContext);
 
-  // Get API endpoint using the stateManager's getPortalUrl method
-  const apiendpoint = stateManager.getPortalUrl(
+  // Get API endpoint using the roditClient's getPortalUrl method
+  const apiendpoint = roditClient.getPortalUrl(
     tamperproofedValues.serviceprovider_id,
     port
   );
 
-  const signportalJwtToken = stateManager.getSignPortalJwtToken();
+  const signportalJwtToken = roditClient.getSignPortalJwtToken();
   const requestBody = {
     tamperproofedValues,
     mintingfee,
@@ -68,7 +75,7 @@ async function signPortalRodit(
   });
 
   try {
-    const result = await stateManager.fetchWithErrorHandlingSignPortal(fetchUrl, {
+    const result = await roditClient.fetchWithErrorHandlingSignPortal(fetchUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),
@@ -189,8 +196,12 @@ router.post("/signclient", async (req, res) => {
       await roditManager.initializeRoditConfig("server");
     }
 
-    // Get configuration from state manager
-    const config_own_rodit = stateManager.getConfigOwnRodit();
+    // Get configuration from rodit client
+    const roditClient = req.app.locals.roditClient;
+    if (!roditClient) {
+      throw new Error('RoditClient not available in app.locals');
+    }
+    const config_own_rodit = await roditClient.getConfigOwnRodit();
     if (!config_own_rodit) {
       logger.errorWithContext("Failed to get RODiT configuration", baseContext);
       throw new Error("Failed to initialize RODiT configuration");
@@ -199,13 +210,14 @@ router.post("/signclient", async (req, res) => {
     const portalPort = 8443;
     
     // JWT Token management
+    // roditClient already defined above
     const jwtContext = {
       ...baseContext,
       portalPort,
-      hasExistingToken: !!stateManager.getSignPortalJwtToken()
+      hasExistingToken: !!roditClient.getSignPortalJwtToken()
     };
     
-    if (!stateManager.getSignPortalJwtToken()) {
+    if (!roditClient.getSignPortalJwtToken()) {
       logger.infoWithContext("Authenticating with SignPortal", jwtContext);
 
       // Pass the full config_own_rodit object to login_portal for consistency
@@ -226,7 +238,7 @@ router.post("/signclient", async (req, res) => {
         throw new Error(`Failed to obtain JWT token from SignPortal: ${errorReason}`);
       }
 
-      await stateManager.setSignPortalJwtToken(loginResult.jwt_token);
+      await roditClient.setSignPortalJwtToken(loginResult.jwt_token);
       logger.infoWithContext("Successfully authenticated with SignPortal", jwtContext);
     }
 
@@ -268,7 +280,8 @@ router.post("/signclient", async (req, res) => {
       portalPort,
       tamperproofedValues,
       mintingfee,
-      mintingfeeaccount
+      mintingfeeaccount,
+      roditClient
     );
 
     if (!signResult) {

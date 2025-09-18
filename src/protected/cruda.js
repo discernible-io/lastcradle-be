@@ -1,6 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const { stateManager, webhook, logger } = require("@rodit/rodit-auth-be");
+const { RoditClient } = require("@rodit/rodit-auth-be");
+
+// Create SDK client instance to access all functionality
+const sdkClient = new RoditClient();
+const webhook = sdkClient.getWebhookHandler();
+const logger = sdkClient.getLogger();
 const config = require("config");
 const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
@@ -96,7 +101,12 @@ const getDatabase = () => db;
 
 // Forward function to use the SDK's webhook sender (includes logging and test tracking)
 const logAndSendWebhook = async (event, data, isError = false, isTest = false, req = null) => {
-  return await webhook.send_webhook(event, data, isError, isTest, req);
+  // Use the roditClient from app.locals instead of direct webhook import
+  const roditClient = req?.app?.locals?.roditClient;
+  if (!roditClient) {
+    throw new Error('RoditClient not available in app.locals');
+  }
+  return await roditClient.send_webhook(event, data, isError, isTest, req);
 };
 
 // Initialize the database when this module is loaded
