@@ -849,20 +849,20 @@ async function startServer() {
     pid: process.pid,
   });
 
-  console.infoWithContext("Server starting", baseContext);
+  logger.infoWithContext("Server starting", baseContext);
 
   try {
     // Make client available to routes via app.locals
     app.locals.roditClient = roditClient;
 
-    console.infoWithContext("Initializing RODiT configuration", {
+    logger.infoWithContext("Initializing RODiT configuration", {
       ...baseContext,
       status: "initializing",
     });
 
     // RoditClient constructor handles initialization automatically
 
-    console.info("RODiT configuration initialized", {
+    logger.info("RODiT configuration initialized", {
       component: "vault",
       status: "initialized",
     });
@@ -898,18 +898,18 @@ async function startServer() {
         swagger: `/api-docs`,
       });
 
-      console.infoWithContext(
+      logger.infoWithContext(
         "HTTP server started successfully",
         serverContext
       );
 
       // Add metric for server startup
-      console.metric("server_operations", serverStartDuration, {
+      logger.metric("server_operations", serverStartDuration, {
         operation: "startup",
         result: "success",
       });
 
-      console.info(`\nRODiT Authentication API Server running on port ${port}`);
+      logger.info(`\nRODiT Authentication API Server running on port ${port}`);
 
       const endpoints = [
         "  GET  / - Public welcome page",
@@ -920,9 +920,9 @@ async function startServer() {
         "  GET  /api-docs - Swagger API documentation",
       ];
 
-      console.info("Available endpoints:");
-      endpoints.forEach((endpoint) => console.info(endpoint));
-      console.info("");
+      logger.info("Available endpoints:");
+      endpoints.forEach((endpoint) => logger.info(endpoint));
+      logger.info("");
     });
 
     // Graceful shutdown handling
