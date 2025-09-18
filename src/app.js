@@ -15,7 +15,8 @@ const { RoditClient } = require("@rodit/rodit-auth-be");
 
 // Create SDK client instance to access all functionality
 const roditClient = new RoditClient();
-const { createLogContext, logErrorWithMetrics } = roditClient.getLogger();
+const logger = roditClient.getLogger();
+const { createLogContext, logErrorWithMetrics } = logger;
 const loggingmw = roditClient.getLoggingMiddleware();
 const ratelimitmw = roditClient.getRateLimitMiddleware();
 
