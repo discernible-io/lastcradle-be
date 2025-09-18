@@ -21,7 +21,7 @@ const ratelimitmw = roditClient.getRateLimitMiddleware();
 
 // Get authentication middleware from roditClient
 const authenticate_apicall = (req, res, next) => roditClient.authenticateApiCall(req, res, next);
-const validatePermissions = roditClient.getValidatePermissions();
+const validatePermissions = (req, res, next) => roditClient.validatePermissions(req, res, next);
 
 // Import routes
 const homeRoute = require("./routes/home");
