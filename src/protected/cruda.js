@@ -10,7 +10,7 @@ const config = require("config");
 const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
 const { ulid } = require("ulid"); // Adding ulid for request IDs
-const { createLogContext, logEvent, logErrorWithMetrics, debugWithContextIf } = logger;
+const { createLogContext, logErrorWithMetrics, debugWithContextIf } = logger;
 
 const DB_PATH = config.get("API_DEFAULT_OPTIONS.DB_PATH");
 
@@ -95,9 +95,6 @@ const initializeDatabase = async () => {
 
 // Expose the database connection for proper cleanup in app.js
 const getDatabase = () => db;
-
-// We now use the logEvent function imported from authentication.js
-// This comment is kept to document the change
 
 // Forward function to use the SDK's webhook sender (includes logging and test tracking)
 const logAndSendWebhook = async (event, data, isError = false, isTest = false, req = null) => {

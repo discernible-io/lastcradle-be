@@ -3,13 +3,6 @@
  * Copyright (c) 2025 Discernible, Inc. All rights reserved.
  */
 
-// Copyright (c) 2025 Discernible, Inc. All rights reserved.
-
-/**
- * RODiT Manager Service
- * Responsible for managing RODiT configurations, credentials, interactions
- */
-
 const { ulid } = require("ulid");
 const config = require('../../services/config');
 const logger = require("../../services/logger");

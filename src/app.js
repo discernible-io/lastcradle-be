@@ -1143,8 +1143,75 @@ async function closeAllDatabases() {
   }
 }
 
+/**
+ * Fetch and parse the OpenAPI specification
+ * @param {RoditClient} client - RODiT client instance
+ * @returns {Promise<Object>} OpenAPI specification
+ */
+async function getOpenApiSpec(client) {
+  if (!client.openApiUrl) {
+    throw new Error('OpenAPI URL not configured');
+  }
+  
+  if (client.openApiSpec) {
+    return client.openApiSpec;
+  }
+  
+  try {
+    const response = await fetch(client.openApiUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch OpenAPI spec: ${response.status}`);
+    }
+    
+    client.openApiSpec = await response.json();
+    return client.openApiSpec;
+  } catch (error) {
+    const logger = client.getLogger();
+    logger.error('Failed to fetch OpenAPI specification', {
+      component: 'App',
+      method: 'getOpenApiSpec',
+      url: client.openApiUrl,
+      error: error.message
+    });
+    throw error;
+  }
+}
+
+/**
+ * Get available API endpoints from the OpenAPI spec
+ * @param {RoditClient} client - RODiT client instance
+ * @returns {Promise<Object>} Map of available endpoints
+ */
+async function getAvailableEndpoints(client) {
+  const spec = await getOpenApiSpec(client);
+  const endpoints = {};
+  
+  // Extract endpoints from the OpenAPI spec
+  const paths = spec.paths || {};
+  
+  for (const [path, methods] of Object.entries(paths)) {
+    endpoints[path] = {};
+    
+    for (const [method, definition] of Object.entries(methods)) {
+      if (method === 'parameters') continue; // Skip non-method properties
+      
+      endpoints[path][method] = {
+        operationId: definition.operationId,
+        summary: definition.summary,
+        description: definition.description,
+        parameters: definition.parameters,
+        requestBody: definition.requestBody,
+        responses: definition.responses
+      };
+    }
+  }
+  
+  return endpoints;
+}
+
 // Start the server
 startServer();
 
 // Export for testing purposes
-module.exports = { app, startServer };
+module.exports = { app, startServer, getOpenApiSpec, getAvailableEndpoints };
