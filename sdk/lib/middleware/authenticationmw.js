@@ -1529,7 +1529,15 @@ async function login_portal(config_own_rodit, port) {
         return { error: "Error 0111: Client configuration not initialized" };
       }
 
-      const apiendpoint = config_own_rodit.apiendpoint;
+      const apiendpoint = config_own_rodit.own_rodit?.metadata?.subjectuniqueidentifier_url;
+
+      logger.info('Resolved API endpoint for login_server', {
+        component: 'AuthenticationService',
+        method: 'login_server',
+        requestId,
+        endpoint: apiendpoint,
+        source: config_own_rodit.own_rodit?.metadata?.subjectuniqueidentifier_url ? 'metadata' : 'config',
+      });
       let roditid = own_rodit.token_id;
       const timestamp = Math.floor(Date.now() / 1000);
 
@@ -1574,6 +1582,7 @@ async function login_portal(config_own_rodit, port) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": "RODiT-SDK",
         },
         body: JSON.stringify({
           roditid,

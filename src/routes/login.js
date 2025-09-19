@@ -58,6 +58,16 @@ router.post('/login', async (req, res) => {
     return res.status(503).json({ error: 'Authentication service unavailable' });
   }
   
+  // Ensure headers exist to prevent SDK errors
+  if (!req.headers) {
+    req.headers = {};
+  }
+  
+  // Ensure user-agent header exists
+  if (!req.headers['user-agent']) {
+    req.headers['user-agent'] = req.get('User-Agent') || 'Unknown';
+  }
+  
   // Use the login_client method that handles Express req/res for client authentication
   await client.login_client(req, res);
 });
