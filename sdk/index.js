@@ -51,27 +51,41 @@ const logger = require('./services/logger');
  * @example
  * const { RoditClient } = require('@rodit/rodit-sdk');
  * const client = new RoditClient();
- *   * // Initialize with custom endpoints (optional)
-   * // await client.init({
-   * //   apiEndpoint: 'https://api.example.com'
-   * // });
+ * // Initialize the client
+ * await client.init();
  */
 class RoditClient {
   /**
    * Create a new RODiT client
    * @param {Object} [options] - Optional configuration
    * @param {string} [options.credentialsFilePath] - Path to credentials file
-   * @param {string} [options.apiEndpoint] - Custom API endpoint
+   * @param {boolean} [options.testMode] - Enable test mode for multiple instances
    */
   constructor(options = {}) {
     this.requestId = ulid();
     this.initialized = false;
+    this.testMode = options.testMode || false;
     
-    // Store endpoint configuration directly as instance properties
-    this.apiEndpoint = options.apiEndpoint;
+    // Store configuration directly as instance properties
     this.credentialsFilePath = options.credentialsFilePath;
     this.apiVersion = options.apiVersion || '0.0.0';
     this.versionHeaderType = options.versionHeaderType || 'both';
+    
+    // Create test instance of stateManager if in test mode
+    if (this.testMode) {
+      const { AuthStateManager } = require('./lib/blockchain/statemanager');
+      this.stateManager = AuthStateManager.createTestInstance();
+      logger.debug('Created test instance of stateManager', {
+        component: 'RoditClient',
+        method: 'constructor',
+        requestId: this.requestId,
+        testMode: true,
+        stateManagerInstanceId: this.stateManager.instanceId
+      });
+    } else {
+      // Use the singleton stateManager for normal operation
+      this.stateManager = stateManager;
+    }
     
     // Configure version manager if custom version is specified
     if (options.apiVersion) {
@@ -86,7 +100,9 @@ class RoditClient {
       component: 'RoditClient',
       method: 'constructor',
       requestId: this.requestId,
-      apiVersion: this.apiVersion
+      apiVersion: this.apiVersion,
+      testMode: this.testMode,
+      hasIndependentStateManager: this.testMode
     });
   }
 
@@ -98,7 +114,7 @@ class RoditClient {
    */
   configure(config) {
     if (config) {
-      stateManager.setConfig(config);
+      this.stateManager.setConfig(config);
       
       if (config.apiVersion) {
         versionManager.setVersion(config.apiVersion);
@@ -228,7 +244,7 @@ class RoditClient {
    * @returns {Object} State manager
    */
   getStateManager() {
-    return stateManager;
+    return this.stateManager;
   }
 
   /**
@@ -387,7 +403,6 @@ class RoditClient {
     
     try {
       // Update configuration from overrides
-      if (config.apiEndpoint) this.apiEndpoint = config.apiEndpoint;
       if (config.credentialsFilePath) this.credentialsFilePath = config.credentialsFilePath;
       if (config.apiVersion) this.apiVersion = config.apiVersion;
       if (config.versionHeaderType) this.versionHeaderType = config.versionHeaderType;
@@ -396,7 +411,7 @@ class RoditClient {
       await roditManager.initializeRoditSdk(config);
 
       // Get the loaded configuration
-      const config_own_rodit = await stateManager.getConfigOwnRodit();
+      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
       if (!config_own_rodit) {
         throw new Error('Failed to load RODiT configuration from credentials store');
       }
@@ -405,9 +420,7 @@ class RoditClient {
       this.roditMetadata = (config_own_rodit.own_rodit && config_own_rodit.own_rodit.metadata) || {};
       
       // Set API endpoint from metadata
-      if (!this.apiEndpoint && this.roditMetadata.subjectuniqueidentifier_url) {
-        this.apiEndpoint = ensureProtocol(this.roditMetadata.subjectuniqueidentifier_url);
-      }
+      this.apiEndpoint = ensureProtocol(this.roditMetadata.subjectuniqueidentifier_url);
       
       // Configure rate limiting
       if (this.roditMetadata.max_requests && this.roditMetadata.maxrq_window) {
@@ -612,7 +625,7 @@ class RoditClient {
    */
   async getSessionToken() {
     try {
-      const session = await stateManager.getSession();
+      const session = await this.stateManager.getSession();
       return session?.token || null;
     } catch (error) {
       logger.error('Failed to get session token', {
@@ -642,7 +655,7 @@ class RoditClient {
     });
     
     // Store token in AuthStateManager
-    stateManager.setJwtToken(token);
+    this.stateManager.setJwtToken(token);
     
     // Also cache locally for quick access
     this.token = token;
@@ -725,22 +738,134 @@ class RoditClient {
     return client;
   }
 
+  /**
+   * Create a test instance of RODiT client with independent state
+   * This is useful for testing multiple concurrent sessions
+   * @param {Object} [options] - Client options
+   * @returns {Promise<RoditClient>} Fully initialized test client
+   */
+  static async createTestInstance(options = {}) {
+    const testOptions = {
+      ...options,
+      testMode: true
+    };
+    const client = new RoditClient(testOptions);
+    await client.init(testOptions);
+    return client;
+  }
+
 
   
   /**
-   * Login to the RODiT ID API
+   * Handle Express login request (for server-side API endpoints)
+   * Extracts credentials from request body and handles the response
+   * 
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   * @returns {Promise<void>}
+   */
+  async login_client(req, res) {
+    const requestId = ulid();
+    const startTime = Date.now();
+    
+    try {
+      logger.debug('Processing Express login request', {
+        component: 'RoditClient',
+        method: 'login_client',
+        requestId,
+        path: req.path,
+        ip: req.ip
+      });
+
+      // Extract credentials from request body
+      const { roditid, roditid_base64url_signature, timestamp } = req.body;
+      
+      if (!roditid) {
+        return res.status(400).json({
+          error: 'Missing required field: roditid',
+          requestId
+        });
+      }
+
+      if (!roditid_base64url_signature) {
+        return res.status(400).json({
+          error: 'Missing required field: roditid_base64url_signature',
+          requestId
+        });
+      }
+
+      // Use the authentication middleware's login_client function
+      const loginResult = await login_client({
+        roditid,
+        roditid_base64url_signature,
+        timestamp: timestamp || Math.floor(Date.now() / 1000)
+      });
+      
+      if (loginResult.error) {
+        logger.error('Login failed in login_client', {
+          component: 'RoditClient',
+          method: 'login_client',
+          requestId,
+          error: loginResult.error
+        });
+        
+        return res.status(401).json({
+          error: 'Authentication failed',
+          message: loginResult.error,
+          requestId
+        });
+      }
+
+      // Success response
+      const duration = Date.now() - startTime;
+      logger.info('Express login successful', {
+        component: 'RoditClient',
+        method: 'login_client',
+        requestId,
+        duration,
+        roditId: roditid
+      });
+
+      return res.status(200).json({
+        success: true,
+        token: loginResult.jwt_token || loginResult.token,
+        message: 'Login successful',
+        requestId
+      });
+
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error('Express login error', {
+        component: 'RoditClient',
+        method: 'login_client',
+        requestId,
+        duration,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return res.status(500).json({
+        error: 'Internal server error',
+        message: 'Login processing failed',
+        requestId
+      });
+    }
+  }
+
+  /**
+   * Login to the RODiT ID API (for client-side usage)
    * 
    * @param {Object} options - Login options
    * @param {string} options.roditId - Optional RODiT ID to use for login
    * @returns {Promise<Object>} Login result with token
    */
-  async login(options = {}) {
+  async login_server(options = {}) {
     const requestId = ulid();
     const startTime = Date.now();
     
     logger.debug('Starting login process', {
       component: 'RoditClient',
-      method: 'login',
+      method: 'login_server',
       requestId,
       options: {
         roditId: options.roditId || 'using default'
@@ -748,13 +873,13 @@ class RoditClient {
     });
     
     try {
-      // Get the RODiT configuration from the AuthStateManager singleton
-      const config_own_rodit = await stateManager.getConfigOwnRodit();
+      // Get the RODiT configuration from the AuthStateManager instance
+      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
       
       if (!config_own_rodit) {
         logger.error('RODiT configuration not set in AuthStateManager', {
           component: 'RoditClient',
-          method: 'login',
+          method: 'login_server',
           requestId
         });
         throw new Error('RODiT configuration not set in AuthStateManager');
@@ -764,7 +889,7 @@ class RoditClient {
       if (!config_own_rodit.own_rodit) {
         logger.error('Valid RODiT configuration not found in AuthStateManager', {
           component: 'RoditClient',
-          method: 'login',
+          method: 'login_server',
           requestId,
           configKeys: Object.keys(config_own_rodit)
         });
@@ -773,7 +898,7 @@ class RoditClient {
       
       logger.debug('Using login_server for authentication to ensure consistent mutual authentication', {
         component: 'RoditClient',
-        method: 'login',
+        method: 'login_server',
         requestId,
         roditId: config_own_rodit.own_rodit.token_id
       });
@@ -789,7 +914,7 @@ class RoditClient {
         
         logger.error(errorMessage, {
           component: 'RoditClient',
-          method: 'login',
+          method: 'login_server',
           requestId,
           error: error.message,
           stack: error.stack
@@ -802,7 +927,7 @@ class RoditClient {
       if (loginResult.error) {
         logger.error('Login failed', {
           component: 'RoditClient',
-          method: 'login',
+          method: 'login_server',
           requestId,
           error: {
             message: 'Failed to login to server',
@@ -814,7 +939,7 @@ class RoditClient {
         // Add more detailed debugging information with safe property access
         logger.debug('Login result details', {
           component: 'RoditClient',
-          method: 'login',
+          method: 'login_server',
           requestId,
           apiEndpoint: config_own_rodit?.apiendpoint || 'unknown',
           roditId: config_own_rodit?.own_rodit?.token_id || 'unknown',
@@ -851,15 +976,15 @@ class RoditClient {
         });
       }
       
+      // Return success result
       const duration = Date.now() - startTime;
       logger.info('Login successful', {
         component: 'RoditClient',
-        method: 'login',
+        method: 'login_server',
         requestId,
         duration,
         roditId: config_own_rodit?.own_rodit?.token_id || 'unknown',
-        hasToken: !!this.token,
-        sessionId: this.sessionId
+        hasToken: !!loginResult.jwt_token
       });
       
       // Track metric
@@ -868,23 +993,23 @@ class RoditClient {
         success: true
       });
       
-      // Return a properly structured result that matches what the calling code expects
       return {
-        token: this.token,
+        success: true,
+        token: loginResult.jwt_token,
         sessionId: this.sessionId
       };
+      
     } catch (error) {
       const duration = Date.now() - startTime;
       
       logger.error('Login failed', {
         component: 'RoditClient',
-        method: 'login',
+        method: 'login_server',
         requestId,
         duration,
         error: {
           message: error.message,
-          stack: error.stack,
-          name: error.name
+          stack: error.stack
         }
       });
       
@@ -932,7 +1057,7 @@ class RoditClient {
     
     try {
       // Get auth endpoint directly from RODiT configuration
-      const config_own_rodit = stateManager.getConfigOwnRodit();
+      const config_own_rodit = this.stateManager.getConfigOwnRodit();
       if (!config_own_rodit?.own_rodit?.metadata) {
         throw new Error('RODiT configuration not available');
       }
@@ -1248,8 +1373,8 @@ class RoditClient {
       component: 'RoditClient',
       method: 'getConfigOwnRodit',
       requestId,
-      stateManagerExists: !!stateManager,
-      stateManagerType: typeof stateManager
+      stateManagerExists: !!this.stateManager,
+      stateManagerType: typeof this.stateManager
     });
     
     try {
@@ -1258,10 +1383,10 @@ class RoditClient {
         component: 'RoditClient',
         method: 'getConfigOwnRodit',
         requestId,
-        stateManagerMethods: Object.getOwnPropertyNames(stateManager).filter(name => typeof stateManager[name] === 'function')
+        stateManagerMethods: Object.getOwnPropertyNames(this.stateManager).filter(name => typeof this.stateManager[name] === 'function')
       });
       
-      const config_own_rodit = await stateManager.getConfigOwnRodit();
+      const config_own_rodit = await this.stateManager.getConfigOwnRodit();
       
       logger.debug('Retrieved RODiT configuration', {
         component: 'RoditClient',
@@ -1366,7 +1491,7 @@ class RoditClient {
    * @returns {boolean} True if subscription is active
    */
   isSubscriptionActive() {
-    const config_own_rodit = stateManager.getConfigOwnRodit();
+    const config_own_rodit = this.stateManager.getConfigOwnRodit();
     
     if (!config_own_rodit?.own_rodit?.metadata) {
       return false;
@@ -1458,12 +1583,10 @@ class RoditClient {
     });
     
     // Re-authenticate to get a fresh token
-    await this.login();
+    await this.login_server();
     
     return this.getSessionToken();
   }
-  
-  
   
   /**
    * Register a webhook callback
@@ -1532,7 +1655,34 @@ class RoditClient {
 }
 
 
-// Export only the RoditClient class
+// Export the RoditClient class and commonly used SDK components
 module.exports = {
-  RoditClient
+  RoditClient,
+  // Core services needed by test modules and applications
+  logger,
+  stateManager,
+  roditManager,
+  sessionManager,
+  blockchainService,
+  utils,
+  config,
+  performanceService,
+  // Authentication functions
+  authenticate_apicall,
+  login_client,
+  logout_client,
+  login_client_withnep413,
+  login_portal,
+  login_server,
+  validate_jwt_token_be,
+  generate_jwt_token,
+  // Middleware
+  validatePermissions,
+  webhookHandler,
+  versioningMiddleware,
+  loggingmw,
+  ratelimitmw,
+  // Version management
+  versionManager,
+  VersionManager
 };

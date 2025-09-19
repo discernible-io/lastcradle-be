@@ -41,7 +41,7 @@ const { createLogContext, logErrorWithMetrics } = logger;
  *       401:
  *         description: Authentication failed
  */
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   req.logAction = "login-attempt";
   logger.info("Login request received", {
     component: "API",
@@ -57,7 +57,9 @@ router.post('/', (req, res) => {
   if (!client) {
     return res.status(503).json({ error: 'Authentication service unavailable' });
   }
-  client.login(req, res);
+  
+  // Use the login method that handles Express req/res (maps to login_client)
+  await client.login(req, res);
 });
 
 module.exports = router;
