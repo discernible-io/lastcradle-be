@@ -41,7 +41,7 @@ const { createLogContext, logErrorWithMetrics } = logger;
  *       401:
  *         description: Authentication failed
  */
-router.post('/login', (req, res) => {
+router.post('/', (req, res) => {
   req.logAction = "login-attempt";
   logger.info("Login request received", {
     component: "API",
@@ -58,12 +58,6 @@ router.post('/login', (req, res) => {
     return res.status(503).json({ error: 'Authentication service unavailable' });
   }
   client.login(req, res);
-});
-
-// Legacy login route - redirects to new endpoint
-router.post("/", (req, res) => {
-  req.logAction = "legacy-login-attempt";
-  res.redirect(307, '/api/login');
 });
 
 module.exports = router;
