@@ -58,8 +58,8 @@ router.post('/', async (req, res) => {
     return res.status(503).json({ error: 'Authentication service unavailable' });
   }
   
-  // Use the login method that handles Express req/res (maps to login_client)
-  await client.login(req, res);
+  // Use the login_client method that handles Express req/res for client authentication
+  await client.login_client(req, res);
 });
 
 module.exports = router;

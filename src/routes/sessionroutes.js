@@ -43,7 +43,7 @@ router.post('/login', (req, res) => {
   if (!req.app.locals.roditClient) {
     return res.status(503).json({ error: 'Authentication service unavailable' });
   }
-  req.app.locals.roditClient.login(req, res);
+  req.app.locals.roditClient.login_client(req, res);
 });
 
 /**
