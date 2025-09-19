@@ -41,7 +41,7 @@ const { createLogContext, logErrorWithMetrics } = logger;
  *       401:
  *         description: Authentication failed
  */
-router.post('/', async (req, res) => {
+router.post('/login', async (req, res) => {
   req.logAction = "login-attempt";
   logger.info("Login request received", {
     component: "API",

@@ -92,9 +92,7 @@ app.use((req, res, next) => {
 
 // Mount routes
 app.use("/api", homeRoute);
-app.use("/api/login", loginRoute);
-app.use("/api/logout", logoutRoute);
-app.use("/api/signclient", signclientRoute);
+app.use("/api", signclientRoute);
 app.use("/api/metrics", metricsRoutes);
 app.use("/api/mcp", mcpRoutes);
 
@@ -450,10 +448,7 @@ app.use("/api/sessions", sessionRoutes);
 app.use("/api/echo", authenticate_apicall, echoRoutes);
 app.use("/api/cruda", authenticate_apicall, validatePermissions, crudaRoutes);
 
-// Public routes
-app.use("/api/metrics", metricsRoutes);
-app.use("/api/mcp", mcpRoutes);
-app.use("/api", signclientRoute);
+// Public routes (already mounted above)
 
 /**
  * @swagger
