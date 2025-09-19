@@ -876,6 +876,9 @@ async function startServer() {
     
     // Create and initialize the client in one step
     roditClient = await RoditClient.create();
+    
+    // Update app.locals with the fully initialized client
+    app.locals.roditClient = roditClient;
 
     // Get and apply configuration
     logger.debug("Attempting to retrieve RODiT configuration", {
