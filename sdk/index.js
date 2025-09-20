@@ -381,7 +381,15 @@ class RoditClient {
       if (config.versionHeaderType) this.versionHeaderType = config.versionHeaderType;
 
       // Initialize the RODiT SDK first to load credentials from Vault
-      await roditManager.initializeRoditSdk(config);
+      // For test instances, we need to initialize configuration in the test instance's stateManager
+      if (this.testMode) {
+        // For test instances, initialize credentials store and config directly in the test stateManager
+        await roditManager.initializeCredentialsStore();
+        await roditManager.initializeRoditConfig(config.role || 'client', this.stateManager);
+      } else {
+        // For normal instances, use the standard initialization
+        await roditManager.initializeRoditSdk(config);
+      }
 
       // Get the loaded configuration
       const config_own_rodit = await this.stateManager.getConfigOwnRodit();
@@ -393,7 +401,7 @@ class RoditClient {
       this.roditMetadata = (config_own_rodit.own_rodit && config_own_rodit.own_rodit.metadata) || {};
       
       // Set API endpoint from metadata
-      this.apiEndpoint = ensureProtocol(this.roditMetadata.subjectuniqueidentifier_url);
+      this.apiendpoint = ensureProtocol(this.roditMetadata.subjectuniqueidentifier_url);
       
       // Configure rate limiting
       if (this.roditMetadata.max_requests && this.roditMetadata.maxrq_window) {
@@ -425,7 +433,7 @@ class RoditClient {
         method: 'init',
         requestId,
         endpoints: {
-          api: this.apiEndpoint,
+          api: this.apiendpoint,
           openApi: this.openApiUrl,
           webhook: this.webhookUrl
         }
@@ -497,7 +505,7 @@ class RoditClient {
       await this.applyRateLimit();
     }
 
-    const url = new URL(path, this.apiEndpoint).toString();
+    const url = new URL(path, this.apiendpoint).toString();
     const headers = {
       'Content-Type': 'application/json',
       'X-Request-ID': requestId,
@@ -1474,34 +1482,34 @@ class RoditClient {
   
   /**
    * Register a webhook callback
-   * @param {string} event - Event type to subscribe to
+   * @param {string} event_type - Event type to subscribe to
    * @param {string} callbackUrl - URL to receive webhook events
    * @returns {Promise<Object>} Registration result
    */
-  async registerWebhook(event, callbackUrl) {
+  async registerWebhook(event_type, callbackUrl) {
     if (!this.webhookUrl) {
       throw new Error('Webhook URL not configured in token metadata');
     }
     
     return this.request('POST', '/webhooks/register', {
-      event,
+      event_type,
       callback_url: callbackUrl
     });
   }
   
   /**
    * Unregister a webhook callback
-   * @param {string} event - Event type to unsubscribe from
+   * @param {string} event_type - Event type to unsubscribe from
    * @param {string} callbackUrl - URL that was registered
    * @returns {Promise<Object>} Unregistration result
    */
-  async unregisterWebhook(event, callbackUrl) {
+  async unregisterWebhook(event_type, callbackUrl) {
     if (!this.webhookUrl) {
       throw new Error('Webhook URL not configured in token metadata');
     }
     
     return this.request('POST', '/webhooks/unregister', {
-      event,
+      event_type,
       callback_url: callbackUrl
     });
   }
