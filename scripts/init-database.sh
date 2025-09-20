@@ -23,7 +23,7 @@ sqlite3 "${DB_PATH}" <<EOF
 -- Comments table for CRUDA operations
 CREATE TABLE IF NOT EXISTS comments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    content TEXT NOT NULL,
+    comment TEXT NOT NULL,
     author TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

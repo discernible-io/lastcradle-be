@@ -41,8 +41,10 @@ const initializeDatabase = async () => {
     // Create comments table if it doesn't exist
     await db.run(`CREATE TABLE IF NOT EXISTS comments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT,
-      content TEXT
+      comment TEXT NOT NULL,
+      author TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
     // Create webhook_tests table for SDK webhook test recording
@@ -211,7 +213,7 @@ const itemExists = async (req, res, next) => {
       {
         ...baseContext,
         status: "found",
-        commentTitle: comment.title,
+        commentText: comment.comment?.substring(0, 50) + '...',
         duration
       }
     );
@@ -267,7 +269,7 @@ router.post(
     const requestId = req.requestId;
     const startTime = req.startTime || Date.now();
     const routeStartTime = Date.now();
-    const { title, content } = req.body;
+    const { comment } = req.body;
     
     // Create context for create operation using the helper function
     const baseContext = createLogContext({
@@ -279,8 +281,7 @@ router.post(
       userId: req.user?.id,
       ip: req.ip,
       action: req.logAction,
-      hasTitle: !!title,
-      hasContent: !!content,
+      hasComment: !!comment,
       isTest: req.isWebhookTest,
       headers: Object.keys(req.headers),
       bodyKeys: Object.keys(req.body || {}),
@@ -289,18 +290,17 @@ router.post(
     
     logger.debugWithContext("Processing create comment request", baseContext);
     
-    if (!title || !content) {
+    if (!comment) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
-      const errorMessage = "Invalid create request: missing title or content";
+      const errorMessage = "Invalid create request: missing comment";
       
       logger.warnWithContext(
         "Invalid create request", 
         {
           ...baseContext,
           validation: "failed",
-          missingTitle: !title,
-          missingContent: !content,
+          missingComment: !comment,
           duration,
           routeDuration
         }
@@ -327,14 +327,13 @@ router.post(
     
     try {
       const result = await db.run(
-        "INSERT INTO comments (title, content) VALUES (?, ?)",
-        [title, content]
+        "INSERT INTO comments (comment) VALUES (?)",
+        [comment]
       );
       
       const newItem = {
         id: result.lastID,
-        title,
-        content,
+        comment,
         requestId
       };
       
@@ -352,8 +351,7 @@ router.post(
           ...baseContext,
           status: "success",
           commentId: result.lastID,
-          titleLength: title.length,
-          contentLength: content.length,
+          commentLength: comment.length,
           duration,
           routeDuration
         }
@@ -363,8 +361,7 @@ router.post(
       logger.metric('cruda_operations', duration, {
         operation: 'createComment',
         result: 'success',
-        titleLength: title.length,
-        contentLength: content.length
+        commentLength: comment.length
       });
       
       // Send the webhook with additional test flag and pass the request object
@@ -598,7 +595,7 @@ router.post(
         {
           ...baseContext,
           status: "success",
-          commentTitle: req.comment.title,
+          commentText: req.comment.comment?.substring(0, 50) + '...',
           webhookSent: webhookResult.isValid,
           duration,
           routeDuration
@@ -682,7 +679,7 @@ router.post(
     const requestId = req.requestId;
     const startTime = req.startTime || Date.now();
     const routeStartTime = req.routeStartTime || Date.now();
-    const { id, title, content } = req.body;
+    const { id, comment: newComment } = req.body;
     const oldComment = { ...req.comment };
     
     // Create context for update operation
@@ -696,8 +693,7 @@ router.post(
       ip: req.ip,
       action: req.logAction,
       commentId: id,
-      titleUpdated: title !== undefined,
-      contentUpdated: content !== undefined,
+      commentUpdated: newComment !== undefined,
       isTest: req.isWebhookTest,
       headers: Object.keys(req.headers),
       bodyKeys: Object.keys(req.body || {}),
@@ -708,8 +704,8 @@ router.post(
     
     try {
       await db.run(
-        "UPDATE comments SET title = COALESCE(?, title), content = COALESCE(?, content) WHERE id = ?",
-        [title, content, id]
+        "UPDATE comments SET comment = COALESCE(?, comment) WHERE id = ?",
+        [newComment, id]
       );
       
       const updatedComment = await db.get(
@@ -740,8 +736,7 @@ router.post(
         {
           ...baseContext,
           status: "success",
-          titleChanged: oldComment.title !== updatedComment.title,
-          contentChanged: oldComment.content !== updatedComment.content,
+          commentChanged: oldComment.comment !== updatedComment.comment,
           webhookSent: webhookResult.isValid,
           duration,
           routeDuration
@@ -753,8 +748,7 @@ router.post(
         operation: 'updateComment',
         result: 'success',
         commentId: id,
-        titleChanged: oldComment.title !== updatedComment.title,
-        contentChanged: oldComment.content !== updatedComment.content
+        commentChanged: oldComment.comment !== updatedComment.comment
       });
       
       const response = { ...updatedComment, requestId };
@@ -860,7 +854,7 @@ router.post(
         {
           ...baseContext,
           status: "success",
-          commentTitle: deletedComment.title,
+          commentText: deletedComment.comment?.substring(0, 50) + '...',
           duration,
           routeDuration
         }
