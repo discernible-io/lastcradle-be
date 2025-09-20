@@ -221,6 +221,25 @@ class RoditClient {
   }
 
   /**
+   * Get client state information
+   * @returns {Object} Client state information
+   */
+  getClientState() {
+    return {
+      initialized: this.initialized,
+      testMode: this.testMode,
+      hasToken: !!this.jwt_token,
+      sessionId: this.sessionId,
+      apiEndpoint: this.apiendpoint,
+      webhookUrl: this.webhookUrl,
+      openApiUrl: this.openApiUrl,
+      isTokenValid: this.isTokenValid(),
+      isSubscriptionActive: this.isSubscriptionActive(),
+      stateManagerId: this.stateManager?.instanceId || 'singleton'
+    };
+  }
+
+  /**
    * Get webhook handler
    * @returns {Object} Webhook handler
    */
@@ -476,7 +495,7 @@ class RoditClient {
   }
 
   /**
-   * Make an authenticated request to the RODiT ID API
+   * Make an authenticated request to the API
    * @param {string} method - HTTP method
    * @param {string} path - API path
    * @param {Object} [data] - Request data
@@ -759,10 +778,10 @@ class RoditClient {
   }
 
   /**
-   * Login to the RODiT ID API (for client-side usage)
+   * Login to the RODiT API (for client-side usage)
    * 
    * @param {Object} lsoptions - Login lsoptions
-   * @param {string} lsoptions.roditId - Optional RODiT ID to use for login
+   * @param {string} lsoptions.roditId - Optional RODiT to use for login
    * @returns {Promise<Object>} Login result with token
    */
   async login_server(lsoptions = {}) {
@@ -856,7 +875,7 @@ class RoditClient {
         let errorMessage = `Login failed: ${loginResult.error}`;
         
         // Add troubleshooting suggestions based on the error
-        if (loginResult.error.includes('server')) {
+        if (loginResult.error.includes('client')) {
           errorMessage += '. The authentication server may be down or experiencing issues. Please try again later or contact support.';
         } else if (loginResult.error.includes('credential') || loginResult.error.includes('authentication')) {
           errorMessage += '. Please check your RODiT credentials and try again.';
@@ -936,7 +955,7 @@ class RoditClient {
   }
   
   /**
-   * Logout from the RODiT ID API
+   * Logout from the RODiT API
    * 
    * @returns {Promise<boolean>} True if logout was successful
    */
@@ -1545,6 +1564,7 @@ class RoditClient {
     }
   }
 }
+
 
 
 // Export the RoditClient class and commonly used SDK components
