@@ -148,6 +148,10 @@ async function signPortalRodit(
   }
 }
 
+// Ensure body parsing for this route specifically
+router.use(express.json());
+router.use(express.urlencoded({ extended: false }));
+
 // The signclient endpoint that the frontend will call
 router.post("/signclient", async (req, res) => {
   const requestId = ulid();
@@ -166,7 +170,37 @@ router.post("/signclient", async (req, res) => {
   
   logger.infoWithContext("Received signclient request", baseContext);
 
+  // Debug request body and headers
+  logger.debugWithContext("Request debugging info", {
+    ...baseContext,
+    hasBody: !!req.body,
+    bodyType: typeof req.body,
+    bodyContent: req.body,
+    contentType: req.get('Content-Type'),
+    contentLength: req.get('Content-Length'),
+    allHeaders: Object.keys(req.headers || {}),
+    rawBody: req.rawBody || 'not available'
+  });
+
   try {
+    // Check if req.body exists before destructuring
+    if (!req.body) {
+      logger.errorWithContext("Request body is undefined", {
+        ...baseContext,
+        contentType: req.get('Content-Type'),
+        contentLength: req.get('Content-Length'),
+        method: req.method,
+        headers: req.headers
+      });
+      
+      return res.status(400).json({
+        error: "Request body is missing or malformed",
+        details: "Expected JSON body with tobesignedValues, mintingfee, and mintingfeeaccount",
+        requestId,
+        contentType: req.get('Content-Type')
+      });
+    }
+
     // Get data from frontend
     const { tobesignedValues, mintingfee, mintingfeeaccount } = req.body;
 
