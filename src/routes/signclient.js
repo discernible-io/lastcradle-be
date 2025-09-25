@@ -254,8 +254,8 @@ router.post("/signclient", async (req, res) => {
     if (!roditClient.getSignPortalJwtToken()) {
       logger.infoWithContext("Authenticating with SignPortal", jwtContext);
 
-      // Pass the full config_own_rodit object to loginPortal for consistency
-      const loginResult = await roditClient.loginPortal(config_own_rodit, portalPort);
+      // Pass the full config_own_rodit object to login_portal for consistency
+      const loginResult = await roditClient.login_portal(config_own_rodit, portalPort);
 
       if (!loginResult.jwt_token) {
         // Enhanced error logging with clear cause and effect
