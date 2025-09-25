@@ -8,7 +8,7 @@ const { RoditClient } = require("@rodit/rodit-auth-be");
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
-// login_portal method is now called directly on the roditClient instance
+// login_portal method is now available on the RoditClient instance
 const roditManager = sdkClient.getRoditManager();
 const { createLogContext, logErrorWithMetrics } = logger;
 
@@ -254,7 +254,7 @@ router.post("/signclient", async (req, res) => {
     if (!roditClient.getSignPortalJwtToken()) {
       logger.infoWithContext("Authenticating with SignPortal", jwtContext);
 
-      // Pass the full config_own_rodit object to login_portal for consistency
+      // Use the login_portal method on the roditClient instance
       const loginResult = await roditClient.login_portal(config_own_rodit, portalPort);
 
       if (!loginResult.jwt_token) {
