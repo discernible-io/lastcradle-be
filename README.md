@@ -666,7 +666,6 @@ node scripts/init-database.js
 ### Health Check Endpoints
 - `GET /` - Basic health check
 - `GET /api-docs` - API documentation availability
-- `GET /api/rodit/info` - RODiT configuration status (requires auth)
 
 ## Contact Information
 
