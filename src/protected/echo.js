@@ -46,8 +46,8 @@ const logActionMiddleware = (req, res, next) => {
 };
 
 // Protected route that echoes the input
-// This route is at "/echo" and will be accessible at "/api/echo" when mounted
-router.post("/echo", logActionMiddleware, (req, res) => {
+// This route is at "/" because it's mounted at "/api/echo" in app.js
+router.post("/", logActionMiddleware, (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = req.startTime || Date.now(); // Use middleware time if available
   const routeStartTime = Date.now(); // Track when route handler started
