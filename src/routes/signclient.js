@@ -276,6 +276,67 @@ router.post("/signclient", async (req, res) => {
       logger.infoWithContext("Successfully authenticated with SignPortal", jwtContext);
     }
 
+    // Filter permissioned_routes to only include routes that exist in config_own_rodit
+    let filteredPermissionedRoutes = tobesignedValues.permissioned_routes;
+    
+    try {
+      // Parse the requested permissions and the configuration permissions
+      const requestedPermissions = JSON.parse(tobesignedValues.permissioned_routes);
+      const configPermissions = JSON.parse(config_own_rodit.own_rodit.metadata.permissioned_routes);
+      
+      // Extract methods from both objects
+      const requestedMethods = requestedPermissions?.entities?.methods || {};
+      const configMethods = configPermissions?.entities?.methods || {};
+      
+      // Filter requested methods to only include those present in config
+      const filteredMethods = {};
+      for (const [route, permission] of Object.entries(requestedMethods)) {
+        if (configMethods.hasOwnProperty(route)) {
+          filteredMethods[route] = permission;
+          logger.debugWithContext("Route permission allowed", {
+            ...baseContext,
+            route,
+            permission,
+            reason: "present_in_config"
+          });
+        } else {
+          logger.warnWithContext("Route permission filtered out", {
+            ...baseContext,
+            route,
+            permission,
+            reason: "not_in_config"
+          });
+        }
+      }
+      
+      // Reconstruct the filtered permissions object
+      const filteredPermissions = {
+        ...requestedPermissions,
+        entities: {
+          ...requestedPermissions.entities,
+          methods: filteredMethods
+        }
+      };
+      
+      filteredPermissionedRoutes = JSON.stringify(filteredPermissions);
+      
+      logger.infoWithContext("Filtered permissioned routes", {
+        ...baseContext,
+        originalRouteCount: Object.keys(requestedMethods).length,
+        filteredRouteCount: Object.keys(filteredMethods).length,
+        removedRouteCount: Object.keys(requestedMethods).length - Object.keys(filteredMethods).length
+      });
+      
+    } catch (error) {
+      logger.warnWithContext("Failed to filter permissioned_routes, using original", {
+        ...baseContext,
+        error: error.message,
+        fallbackAction: "using_original_permissions"
+      });
+      // If parsing fails, use the original permissions as fallback
+      filteredPermissionedRoutes = tobesignedValues.permissioned_routes;
+    }
+
     const tamperproofedValues = {
       openapijson_url: config_own_rodit.own_rodit.metadata.openapijson_url,
       not_after: tobesignedValues.not_after,
@@ -286,7 +347,7 @@ router.post("/signclient", async (req, res) => {
       allowed_cidr: config_own_rodit.own_rodit.metadata.allowed_cidr,
       allowed_iso3166list: config_own_rodit.own_rodit.metadata.allowed_iso3166list,
       jwt_duration: config_own_rodit.own_rodit.metadata.jwt_duration,
-      permissioned_routes: tobesignedValues.permissioned_routes,
+      permissioned_routes: filteredPermissionedRoutes,
       subjectuniqueidentifier_url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
       serviceprovider_id: config_own_rodit.own_rodit.metadata.serviceprovider_id,
       serviceprovider_signature: tobesignedValues.serviceprovider_signature,

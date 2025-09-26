@@ -222,7 +222,7 @@ When creating a RODIT token for this API server, use the following `permissioned
       "/login": "+0",
       "/logout": "+0",
       "/api/signclient": "+0",
-      "/api/echo/echo": "+0",
+      "/api/echo": "+0",
       "/api/cruda/create": "+0",
       "/api/cruda/list": "+0",
       "/api/cruda/read": "+0",
@@ -258,7 +258,7 @@ When creating a RODIT token for this API server, use the following `permissioned
 - `/api/signclient` - RODiT token signing service
 
 **Protected Routes (require authentication):**
-- `/api/echo/echo` - Echo service for testing authenticated requests
+- `/api/echo` - Echo service for testing authenticated requests
 - `/api/cruda/*` - CRUD operations (create, list, read, update, destroy) for comments
 - `/api/metrics/*` - Performance metrics and system monitoring endpoints
 - `/api/mcp/*` - Model Context Protocol endpoints for AI integration
