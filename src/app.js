@@ -936,12 +936,12 @@ async function startServer() {
       logger.info(`\nRODiT Authentication API Server running on port ${port}`);
 
       const endpoints = [
-        "  GET  / - Public welcome page",
-        "  POST /api/login - Login with RODiT credentials",
-        "  POST /api/logout - Logout (requires authentication)",
-        "  GET  /api/echo - Echo service (requires authentication)",
-        "  GET  /api/cruda - CRUD operations (requires authentication + permissions)",
-        "  GET  /api-docs - Swagger API documentation",
+        "  / - Public welcome page",
+        "  /api/login - Login with RODiT credentials",
+        "  /api/logout - Logout (requires authentication)",
+        "  /api/echo - Echo service (requires authentication)",
+        "  /api/cruda - CRUD operations (requires authentication + permissions)",
+        "  /api-docs - Swagger API documentation",
       ];
 
       logger.info("Available endpoints:");
