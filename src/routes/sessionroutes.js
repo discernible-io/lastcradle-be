@@ -73,7 +73,7 @@ router.post('/logout', authenticate_apicall, (req, res) => {
   if (!req.app.locals.roditClient) {
     return res.status(503).json({ error: 'Authentication service unavailable' });
   }
-  req.app.locals.roditClient.logout(req, res);
+  req.app.locals.roditClient.logout_client(req, res);
 });
 
 /**

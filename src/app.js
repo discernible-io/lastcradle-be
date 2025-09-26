@@ -437,7 +437,7 @@ app.use("/api", logoutRoute);
  */
 app.post("/api/logout", authenticate_apicall, (req, res) => {
   req.logAction = "logout-attempt";
-  roditClient.logout(req, res);
+  roditClient.logout_client(req, res);
 });
 
 // Mount session routes for backward compatibility

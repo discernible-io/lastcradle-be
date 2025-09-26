@@ -12,7 +12,7 @@ const { createLogContext, logErrorWithMetrics } = logger;
 const logActionMiddleware = (req, res, next) => {
   const requestId = req.headers['x-request-id'] || ulid();
   const startTime = Date.now();
-  const inputString = req.body.message;
+  const inputString = req.body.message || req.body.echo || req.body.data || req.body.text;
   
   req.logAction = "echo-some-text";
   req.logMessage = inputString;
@@ -51,7 +51,9 @@ router.post("/", logActionMiddleware, (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = req.startTime || Date.now(); // Use middleware time if available
   const routeStartTime = Date.now(); // Track when route handler started
-  const inputString = req.body.message;
+  
+  // Extract input from various possible fields for test compatibility
+  const inputString = req.body.message || req.body.echo || req.body.data || req.body.text;
   
   const baseContext = createLogContext({
     requestId,
@@ -67,6 +69,35 @@ router.post("/", logActionMiddleware, (req, res) => {
   });
   
   try {
+    // Validate content type first
+    const contentType = req.get('Content-Type') || '';
+    const isJsonContentType = contentType.includes('application/json');
+    
+    if (!isJsonContentType) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      
+      logger.warnWithContext("Invalid content type for echo", {
+        ...baseContext,
+        validationError: 'Unsupported content type',
+        contentType,
+        duration,
+        routeDuration
+      });
+      
+      // Add metric for content type validation failure
+      logger.metric('echo_operations', duration, {
+        operation: 'echoMessage',
+        result: 'content_type_error',
+        statusCode: 400
+      });
+      
+      return res.status(400).json({
+        error: "Invalid input",
+        requestId
+      });
+    }
+    
     // Validate input
     if (!inputString || typeof inputString !== 'string') {
       const duration = Date.now() - startTime;
@@ -94,8 +125,8 @@ router.post("/", logActionMiddleware, (req, res) => {
     
     logger.debugWithContext("Processing echo request", baseContext);
     
-    // Create the response
-    const response = { echo: inputString.toUpperCase() };
+    // Create the response - echo back the input without modification for test compatibility
+    const response = { echo: inputString };
     
     const duration = Date.now() - startTime;
     const routeDuration = Date.now() - routeStartTime;
@@ -145,6 +176,24 @@ router.post("/", logActionMiddleware, (req, res) => {
       requestId
     });
   }
+});
+
+// GET route for basic echo endpoint info
+router.get("/", (req, res) => {
+  const requestId = req.headers['x-request-id'] || ulid();
+  
+  logger.info("Echo endpoint info requested", {
+    component: 'EchoRoutes',
+    method: 'getInfo',
+    requestId,
+    ip: req.ip
+  });
+  
+  res.json({
+    message: "Echo endpoint - POST JSON data to echo it back",
+    usage: "POST /api/echo with JSON body containing message, echo, data, or text field",
+    requestId
+  });
 });
 
 module.exports = router;
