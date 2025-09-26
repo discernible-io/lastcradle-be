@@ -100,12 +100,38 @@ const getDatabase = () => db;
 
 // Forward function to use the SDK's webhook sender (includes logging and test tracking)
 const logAndSendWebhook = async (event, data, isError = false, isTest = false, req = null) => {
-  // Use the roditClient from app.locals instead of direct webhook import
-  const roditClient = req?.app?.locals?.roditClient;
-  if (!roditClient) {
-    throw new Error('RoditClient not available in app.locals');
+  try {
+    // Use the roditClient from app.locals instead of direct webhook import
+    const roditClient = req?.app?.locals?.roditClient;
+    if (!roditClient) {
+      logger.warn('RoditClient not available in app.locals, skipping webhook', {
+        component: 'CRUDA',
+        event,
+        requestId: req?.requestId
+      });
+      return { success: false, error: 'RoditClient not available' };
+    }
+    
+    return await roditClient.send_webhook(event, data, isError, isTest, req);
+  } catch (error) {
+    // Log the webhook failure but don't let it crash the application
+    logger.warn('Webhook delivery failed, continuing with request processing', {
+      component: 'CRUDA',
+      event,
+      error: {
+        name: error.name,
+        message: error.message
+      },
+      requestId: req?.requestId
+    });
+    
+    // Return a failure result instead of throwing
+    return { 
+      success: false, 
+      error: error.message,
+      errorType: error.name 
+    };
   }
-  return await roditClient.send_webhook(event, data, isError, isTest, req);
 };
 
 // Initialize the database when this module is loaded

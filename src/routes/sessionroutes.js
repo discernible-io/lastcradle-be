@@ -73,7 +73,41 @@ router.post('/logout', authenticate_apicall, (req, res) => {
   if (!req.app.locals.roditClient) {
     return res.status(503).json({ error: 'Authentication service unavailable' });
   }
-  req.app.locals.roditClient.logout_client(req, res);
+  
+  // Check if the logout_client method exists
+  if (typeof req.app.locals.roditClient.logout_client !== 'function') {
+    logger.error("logout_client method not available on roditClient", {
+      component: "SessionRoutes",
+      method: "terminateSession",
+      requestId,
+      availableMethods: Object.getOwnPropertyNames(req.app.locals.roditClient).filter(name => typeof req.app.locals.roditClient[name] === 'function'),
+      clientType: req.app.locals.roditClient.constructor.name
+    });
+    return res.status(503).json({ 
+      error: 'Logout service unavailable',
+      details: 'logout_client method not found on authentication service'
+    });
+  }
+  
+  try {
+    req.app.locals.roditClient.logout_client(req, res);
+  } catch (error) {
+    logger.error("Error calling logout_client", {
+      component: "SessionRoutes",
+      method: "terminateSession",
+      requestId,
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      }
+    });
+    return res.status(500).json({
+      error: 'Logout failed',
+      message: error.message,
+      requestId
+    });
+  }
 });
 
 /**
