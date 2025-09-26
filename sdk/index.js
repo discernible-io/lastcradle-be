@@ -27,7 +27,7 @@ const {
   generate_jwt_token
 } = require('./lib/auth/tokenservice');
 
-const validatePermissions = require('./lib/middleware/validatepermissions');
+const validatepermissions = require('./lib/middleware/validatepermissions');
 const { sessionManager } = require('./lib/auth/sessionmanager');
 const blockchainService = require('./lib/blockchain/blockchainservice');
 const webhookHandler = require('./lib/middleware/webhookhandler');
@@ -148,8 +148,9 @@ class RoditClient {
    * @returns {Function} Permissions validation middleware function
    */
   get authorize() {
-    return validatePermissions;
+    return validatepermissions;
   }
+
 
   /**
    * Logout client
@@ -1648,7 +1649,7 @@ module.exports = {
   login_server,
   validate_jwt_token_be,
   generate_jwt_token,
-  validatePermissions,
+  validatepermissions,
   webhookHandler,
   versioningMiddleware,
   loggingmw,

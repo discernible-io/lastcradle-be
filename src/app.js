@@ -23,9 +23,8 @@ const ratelimitmw = tempClient.getRateLimitMiddleware();
 // Will be set to fully initialized client later
 let roditClient;
 
-// Get authentication middleware from roditClient
-const authenticate_apicall = (req, res, next) => roditClient.authenticateApiCall(req, res, next);
-const validatePermissions = (req, res, next) => roditClient.validatePermissions(req, res, next);
+// Get authentication middleware from SDK exports
+const { authenticate_apicall, validatepermissions } = require('@rodit/rodit-auth-be');
 
 // Import routes
 const homeRoute = require("./routes/home");
@@ -446,7 +445,7 @@ app.use("/api/sessions", sessionRoutes);
 
 // Protected routes
 app.use("/api/echo", authenticate_apicall, echoRoutes);
-app.use("/api/cruda", authenticate_apicall, validatePermissions, crudaRoutes);
+app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
 
 // Public routes (already mounted above)
 
