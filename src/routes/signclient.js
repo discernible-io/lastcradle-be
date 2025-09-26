@@ -276,9 +276,7 @@ router.post("/signclient", async (req, res) => {
       logger.infoWithContext("Successfully authenticated with SignPortal", jwtContext);
     }
 
-    // Filter permissioned_routes to only include routes that exist in config_own_rodit
-    let filteredPermissionedRoutes = tobesignedValues.permissioned_routes;
-    
+    // Validate that all requested permissions exist in the server's configuration
     try {
       // Parse the requested permissions and the configuration permissions
       const requestedPermissions = JSON.parse(tobesignedValues.permissioned_routes);
@@ -288,53 +286,69 @@ router.post("/signclient", async (req, res) => {
       const requestedMethods = requestedPermissions?.entities?.methods || {};
       const configMethods = configPermissions?.entities?.methods || {};
       
-      // Filter requested methods to only include those present in config
-      const filteredMethods = {};
-      for (const [route, permission] of Object.entries(requestedMethods)) {
-        if (configMethods.hasOwnProperty(route)) {
-          filteredMethods[route] = permission;
-          logger.debugWithContext("Route permission allowed", {
+      // Check for any requested routes that don't exist in the config
+      const invalidRoutes = [];
+      for (const route of Object.keys(requestedMethods)) {
+        if (!configMethods.hasOwnProperty(route)) {
+          invalidRoutes.push(route);
+          logger.warnWithContext("Invalid route permission requested", {
             ...baseContext,
             route,
-            permission,
-            reason: "present_in_config"
+            permission: requestedMethods[route],
+            reason: "not_in_config"
           });
         } else {
-          logger.warnWithContext("Route permission filtered out", {
+          logger.debugWithContext("Valid route permission requested", {
             ...baseContext,
             route,
-            permission,
-            reason: "not_in_config"
+            permission: requestedMethods[route],
+            reason: "present_in_config"
           });
         }
       }
       
-      // Reconstruct the filtered permissions object
-      const filteredPermissions = {
-        ...requestedPermissions,
-        entities: {
-          ...requestedPermissions.entities,
-          methods: filteredMethods
-        }
-      };
+      // If there are any invalid routes, reject the request
+      if (invalidRoutes.length > 0) {
+        const errorMessage = `Invalid permission(s) requested: ${invalidRoutes.join(', ')}`;
+        logger.errorWithContext("Permission validation failed - rejecting signing request", {
+          ...baseContext,
+          invalidRoutes,
+          requestedRouteCount: Object.keys(requestedMethods).length,
+          configRouteCount: Object.keys(configMethods).length,
+          error: errorMessage
+        });
+        
+        return res.status(400).json({
+          error: "Invalid permissions requested",
+          details: {
+            invalidRoutes,
+            message: "One or more requested permissions are not available in the server's configuration",
+            availableRoutes: Object.keys(configMethods)
+          },
+          requestId: req.requestId
+        });
+      }
       
-      filteredPermissionedRoutes = JSON.stringify(filteredPermissions);
-      
-      logger.infoWithContext("Filtered permissioned routes", {
+      logger.infoWithContext("All requested permissions are valid - proceeding with signing", {
         ...baseContext,
-        originalRouteCount: Object.keys(requestedMethods).length,
-        filteredRouteCount: Object.keys(filteredMethods).length,
-        removedRouteCount: Object.keys(requestedMethods).length - Object.keys(filteredMethods).length
+        validatedRouteCount: Object.keys(requestedMethods).length
       });
       
     } catch (error) {
-      logger.warnWithContext("Failed to filter permissioned_routes, using original", {
+      logger.errorWithContext("Failed to validate permissions - rejecting signing request", {
         ...baseContext,
         error: error.message,
-        fallbackAction: "using_original_permissions"
+        permissioned_routes: tobesignedValues.permissioned_routes
       });
-      // If parsing fails, use the original permissions as fallback
-      filteredPermissionedRoutes = tobesignedValues.permissioned_routes;
+      
+      return res.status(400).json({
+        error: "Invalid permission format",
+        details: {
+          message: "Could not parse requested permissions",
+          parseError: error.message
+        },
+        requestId: req.requestId
+      });
     }
 
     const tamperproofedValues = {
@@ -347,7 +361,7 @@ router.post("/signclient", async (req, res) => {
       allowed_cidr: config_own_rodit.own_rodit.metadata.allowed_cidr,
       allowed_iso3166list: config_own_rodit.own_rodit.metadata.allowed_iso3166list,
       jwt_duration: config_own_rodit.own_rodit.metadata.jwt_duration,
-      permissioned_routes: filteredPermissionedRoutes,
+      permissioned_routes: tobesignedValues.permissioned_routes,
       subjectuniqueidentifier_url: config_own_rodit.own_rodit.metadata.subjectuniqueidentifier_url,
       serviceprovider_id: config_own_rodit.own_rodit.metadata.serviceprovider_id,
       serviceprovider_signature: tobesignedValues.serviceprovider_signature,
