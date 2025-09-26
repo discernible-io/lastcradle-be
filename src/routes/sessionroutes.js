@@ -10,13 +10,14 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const { RoditClient } = require('@rodit/rodit-auth-be');
+const { RoditClient, authenticate_apicall, validatepermissions } = require('@rodit/rodit-auth-be');
 
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
-const authenticate_apicall = (req, res, next) => sdkClient.authenticateApiCall(req, res, next);
-const validatePermissions = (req, res, next) => sdkClient.validatePermissions(req, res, next);
 const logger = sdkClient.getLogger();
+
+// Use the imported validatepermissions middleware
+const validatePermissions = validatepermissions;
 
 /**
  * POST /api/sessions/login - Create a new session (login)

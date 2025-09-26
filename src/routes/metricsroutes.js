@@ -6,16 +6,12 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const { RoditClient } = require('@rodit/rodit-auth-be');
+const { RoditClient, authenticate_apicall } = require('@rodit/rodit-auth-be');
 
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
 const performanceService = sdkClient.getPerformanceService();
-const authenticate_apicall = (req, res, next) => sdkClient.authenticateApiCall(req, res, next);
-
-// Directly use SDK's authenticate_apicall middleware
-;
 const { createLogContext, logErrorWithMetrics } = logger;
 
 /**
