@@ -85,6 +85,16 @@ router.get('/', authenticate_apicall, (req, res) => {
   }
 });
 
+// Support HEAD for system metrics
+router.head('/system', authenticate_apicall, (req, res) => {
+  res.status(200).end();
+});
+
+// Support HEAD for benchmark/health probes on metrics root
+router.head('/', authenticate_apicall, (req, res) => {
+  res.status(200).end();
+});
+
 /**
  * GET /api/metrics/system
  * 

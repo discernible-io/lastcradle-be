@@ -389,6 +389,26 @@ app.use((req, res, next) => {
  *       500:
  *         description: Server error
  */
+// Provide actual implementation for root welcome endpoint
+app.get('/', (req, res) => {
+  const endpoints = [
+    '/api/home',
+    '/api/login',
+    '/api/logout',
+    '/api/echo',
+    '/api/cruda',
+    '/api/metrics',
+    '/api/mcp'
+  ];
+  res.json({
+    message: 'Welcome to RODiT Authentication API',
+    endpoints,
+    version: process.env.npm_package_version,
+    status: 'healthy',
+    requestId: req.requestId
+  });
+});
+
 app.use("/", homeRoute);
 
 // Authentication routes

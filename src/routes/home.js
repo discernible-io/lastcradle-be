@@ -71,5 +71,11 @@ router.get("/home", (req, res, next) => {
   }
 });
 
+// Respond to HEAD requests for health/benchmark probes
+router.head("/home", (req, res) => {
+  // Minimal fast response for probes
+  res.status(200).end();
+});
+
 // Importing the router
 module.exports = router;

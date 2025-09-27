@@ -15,6 +15,8 @@ const { RoditClient, authenticate_apicall, validatepermissions } = require('@rod
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
+// Get session manager instance from SDK (avoids ReferenceError)
+const sessionManager = sdkClient.getSessionManager();
 
 // Use the imported validatepermissions middleware
 const validatePermissions = validatepermissions;
@@ -270,7 +272,7 @@ router.post('/close', authenticate_apicall, validatePermissions, (req, res) => {
  * Admin route - Force cleanup of expired sessions
  * Protected: Requires authentication and permissions
  */
-router.post('/cleanup', authenticate_apicall, validatePermissions, (req, res) => {
+router.post('/cleanup', authenticate_apicall, validatePermissions, async (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   
@@ -281,8 +283,8 @@ router.post('/cleanup', authenticate_apicall, validatePermissions, (req, res) =>
       requestId,
       adminUser: req.user.id
     });
-    
-    const result = runManualCleanup();
+    // Use the centralized RoditClient to run cleanup
+    const result = await req.app.locals.roditClient.runManualCleanup();
     
     logger.info("Manual session cleanup completed", {
       component: "SessionRoutes",

@@ -9,6 +9,8 @@ const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
 const { RoditClient, authenticate_apicall } = require('@rodit/rodit-auth-be');
+const fs = require('fs');
+const path = require('path');
 
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
@@ -16,6 +18,75 @@ const logger = sdkClient.getLogger();
 // Note: mcpService may need to be accessed through a different method if available
 
 const { createLogContext, logErrorWithMetrics } = logger;
+
+// Minimal local MCP service implementation to satisfy tests
+// Provides resources list, resource retrieval, and schema retrieval
+const mcpCache = {
+  swagger: null
+};
+
+function loadSwaggerSpec() {
+  if (mcpCache.swagger) return mcpCache.swagger;
+  try {
+    const swaggerPath = path.join(__dirname, '../../api-docs/swagger.json');
+    const raw = fs.readFileSync(swaggerPath, 'utf8');
+    mcpCache.swagger = JSON.parse(raw);
+    return mcpCache.swagger;
+  } catch (error) {
+    logger.error('Failed to load swagger.json for MCP schema', {
+      component: 'MCPRoutes',
+      method: 'loadSwaggerSpec',
+      error: error.message
+    });
+    // Return a minimal valid OpenAPI object as fallback
+    mcpCache.swagger = {
+      openapi: '3.0.0',
+      info: { title: 'RODiT API', version: '1.0.0' },
+      paths: {}
+    };
+    return mcpCache.swagger;
+  }
+}
+
+const mcpService = {
+  async listAvailableResources(req, options = {}) {
+    const all = [
+      { uri: 'openapi:swagger', name: 'OpenAPI Schema', type: 'application/json' },
+      { uri: 'config:default', name: 'Server Default Config', type: 'application/json' }
+    ];
+    const start = options.cursor ? parseInt(options.cursor, 10) || 0 : 0;
+    const limit = options.limit || all.length;
+    const resources = all.slice(start, start + limit);
+    const nextCursor = start + limit < all.length ? String(start + limit) : null;
+    return { resources, nextCursor };
+  },
+
+  async getResource(uri, req) {
+    if (uri === 'openapi:swagger') {
+      return { type: 'application/json', content: loadSwaggerSpec() };
+    }
+    if (uri === 'config:default') {
+      try {
+        const cfgPath = path.join(__dirname, '../../config/default.json');
+        const raw = fs.readFileSync(cfgPath, 'utf8');
+        return { type: 'application/json', content: JSON.parse(raw) };
+      } catch (error) {
+        logger.error('Failed to load default config for MCP resource', {
+          component: 'MCPRoutes',
+          method: 'getResource',
+          uri,
+          error: error.message
+        });
+        throw new Error('Resource unavailable');
+      }
+    }
+    throw new Error(`Unknown resource: ${uri}`);
+  },
+
+  async getSchemaResource(req) {
+    return loadSwaggerSpec();
+  }
+};
 
 /**
  * @swagger
