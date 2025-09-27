@@ -125,9 +125,6 @@ router.post("/", logActionMiddleware, (req, res) => {
     
     logger.debugWithContext("Processing echo request", baseContext);
     
-    // Create the response - echo back the input without modification for test compatibility
-    const response = { echo: inputString };
-    
     const duration = Date.now() - startTime;
     const routeDuration = Date.now() - routeStartTime;
     
@@ -146,8 +143,14 @@ router.post("/", logActionMiddleware, (req, res) => {
       messageLength: inputString.length
     });
     
+    // Create the response in the format expected by client tests
+    // Client expects: response.data.message, response.data.input, or response.data.echo
     res.json({
-      ...response,
+      data: {
+        message: inputString,
+        input: inputString,
+        echo: inputString
+      },
       requestId
     });
   } catch (error) {
