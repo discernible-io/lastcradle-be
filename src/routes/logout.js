@@ -17,8 +17,11 @@ const logger = sdkClient.getLogger();
 const { createLogContext, logErrorWithMetrics } = logger;
 const { ulid } = require("ulid");
 
-// Handling logout request
-router.post("/logout", (req, res) => {
+// Import authentication middleware
+const { authenticate_apicall } = require("@rodit/rodit-auth-be");
+
+// Handling logout request - now processes logout directly instead of redirecting
+router.post("/logout", authenticate_apicall, (req, res) => {
   const requestId = req.headers['x-request-id'] || ulid();
   const startTime = Date.now();
   req.logAction = "logout-attempt";
@@ -35,27 +38,34 @@ router.post("/logout", (req, res) => {
     headers: Object.keys(req.headers)
   });
   
-  logger.debugWithContext("Processing logout request", baseContext);
+  logger.debugWithContext("Processing logout request directly", baseContext);
   
   try {
-    // Forward to the session routes
-    // This is just a redirect to maintain backward compatibility
-    // with existing code that might be using /logout endpoint
-    res.redirect(307, '/api/sessions/logout');
+    // Check if the logout_client method exists on the centralized client
+    if (!req.app.locals.roditClient) {
+      logger.errorWithContext("Authentication service unavailable", baseContext);
+      return res.status(503).json({ 
+        error: 'Authentication service unavailable',
+        requestId
+      });
+    }
     
-    const duration = Date.now() - startTime;
-    logger.infoWithContext("Logout request redirected successfully", {
-      ...baseContext,
-      redirectUrl: '/api/sessions/logout',
-      statusCode: 307,
-      duration
-    });
+    if (typeof req.app.locals.roditClient.logout_client !== 'function') {
+      logger.errorWithContext("logout_client method not available", {
+        ...baseContext,
+        availableMethods: Object.getOwnPropertyNames(req.app.locals.roditClient).filter(name => typeof req.app.locals.roditClient[name] === 'function')
+      });
+      return res.status(503).json({ 
+        error: 'Logout service unavailable',
+        details: 'logout_client method not found on authentication service',
+        requestId
+      });
+    }
     
-    // Add metric for successful operation
-    logger.metric('auth_operations', duration, {
-      operation: 'logout_redirect',
-      result: 'success'
-    });
+    // Process logout directly using the centralized RoditClient
+    logger.infoWithContext("Delegating to centralized logout_client", baseContext);
+    return req.app.locals.roditClient.logout_client(req, res);
+    
   } catch (error) {
     const duration = Date.now() - startTime;
     
@@ -68,7 +78,7 @@ router.post("/logout", (req, res) => {
       error,
       'auth_error',
       {
-        operation: 'logout_redirect',
+        operation: 'logout_direct',
         result: 'error',
         duration
       }
