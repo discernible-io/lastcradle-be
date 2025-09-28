@@ -17,7 +17,7 @@ const sdkClient = new RoditClient();
 
 // Create authentication middleware using the client instance
 const authenticate_apicall = (req, res, next) => {
-  return sdkClient.authenticateApiCall(req, res, next);
+  return sdkClient.authenticate(req, res, next);
 };
 const logger = sdkClient.getLogger();
 // Note: mcpService may need to be accessed through a different method if available

@@ -816,11 +816,11 @@ async function startServer() {
 
     // Create authentication middleware using initialized client
     authenticate_apicall = (req, res, next) => {
-      return roditClient.authenticateApiCall(req, res, next);
+      return roditClient.authenticate(req, res, next);
     };
     
     validatepermissions = (req, res, next) => {
-      return roditClient.validatePermissions(req, res, next);
+      return roditClient.authorize(req, res, next);
     };
 
     logger.info("Authentication middleware initialized", {

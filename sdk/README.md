@@ -112,7 +112,7 @@ app.locals.roditClient = await RoditClient.create('portal');
 // In route modules
 const authenticate = (req, res, next) => {
   const client = req.app.locals.roditClient;
-  return client.authenticateApiCall(req, res, next);
+  return client.authenticate(req, res, next);
 };
 ```
 
@@ -379,19 +379,19 @@ const authenticate = (req, res, next) => {
   if (!client) {
     return res.status(503).json({ error: 'Authentication service unavailable' });
   }
-  return client.authenticateApiCall(req, res, next);
+  return client.authenticate(req, res, next);
 };
 
-const validatePermissions = (req, res, next) => {
+const authorize = (req, res, next) => {
   const client = req.app.locals.roditClient;
   if (!client) {
     return res.status(503).json({ error: 'Authentication service unavailable' });
   }
-  return client.validatePermissions(req, res, next);
+  return client.authorize(req, res, next);
 };
 
 // Protected route with full authentication and authorization
-router.get('/data', authenticate, validatePermissions, async (req, res) => {
+router.get('/data', authenticate, authorize, async (req, res) => {
   const startTime = Date.now();
   
   try {
@@ -559,7 +559,7 @@ const client = await RoditClient.create('portal'); // or 'client'
 
 #### Instance Methods
 
-##### authenticateApiCall(req, res, next)
+##### authenticate(req, res, next)
 
 Express middleware for authenticating API requests.
 
@@ -567,7 +567,7 @@ Express middleware for authenticating API requests.
 app.use('/api/protected', roditClient.authenticate, handler);
 ```
 
-##### validatePermissions(req, res, next)
+##### authorize(req, res, next)
 
 Express middleware for validating route permissions.
 
@@ -767,7 +767,7 @@ Store the client in `app.locals` for access across all routes:
 // ✅ Good - Shared instance
 const authenticate = (req, res, next) => {
   const client = req.app.locals.roditClient;
-  return client.authenticateApiCall(req, res, next);
+  return client.authenticate(req, res, next);
 };
 
 // ❌ Bad - Direct SDK imports in routes
@@ -909,7 +909,7 @@ logger.infoWithContext('Processing request', {
 roditClient.authenticate_apicall
 
 // ❌ Verbose (works but unnecessary)
-roditClient.authenticateApiCall.bind(roditClient)
+roditClient.authenticate.bind(roditClient)
 
 // ✅ Correct (clean and simple)
 roditClient.authenticate

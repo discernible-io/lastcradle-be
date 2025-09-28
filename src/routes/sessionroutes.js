@@ -20,11 +20,11 @@ const sessionManager = sdkClient.getSessionManager();
 
 // Create authentication middleware using the client instance
 const authenticate_apicall = (req, res, next) => {
-  return sdkClient.authenticateApiCall(req, res, next);
+  return sdkClient.authenticate(req, res, next);
 };
 
-const validatePermissions = (req, res, next) => {
-  return sdkClient.validatePermissions(req, res, next);
+const authorize = (req, res, next) => {
+  return sdkClient.authorize(req, res, next);
 };
 
 /**
@@ -124,7 +124,7 @@ router.post('/logout', authenticate_apicall, (req, res) => {
  * Admin route - Get information about all active sessions
  * Protected: Requires authentication and permissions
  */
-router.get('/list_all', authenticate_apicall, validatePermissions, (req, res) => {
+router.get('/list_all', authenticate_apicall, authorize, (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   
@@ -188,7 +188,7 @@ router.get('/list_all', authenticate_apicall, validatePermissions, (req, res) =>
  * - sessionId: ID of the session to terminate
  * - reason: (optional) Reason for termination
  */
-router.post('/close', authenticate_apicall, validatePermissions, (req, res) => {
+router.post('/close', authenticate_apicall, authorize, (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   const { sessionId } = req.body;
@@ -278,7 +278,7 @@ router.post('/close', authenticate_apicall, validatePermissions, (req, res) => {
  * Admin route - Force cleanup of expired sessions
  * Protected: Requires authentication and permissions
  */
-router.post('/cleanup', authenticate_apicall, validatePermissions, async (req, res) => {
+router.post('/cleanup', authenticate_apicall, authorize, async (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   

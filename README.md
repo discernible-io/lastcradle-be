@@ -145,18 +145,76 @@ npm start
 setsid npm start >/dev/null 2>&1 < /dev/null &
 ```
 
-## Using the SDK in Your Own Projects
+## 📦 Using the RODiT SDK in Your Own Projects
 
-The RODiT Authentication SDK is available as an npm package `@rodit/rodit-auth-be`. Install it in your projects with:
+The RODiT Authentication SDK is available as an npm package `@rodit/rodit-auth-be`. This servertest-rodit implementation demonstrates best practices for SDK integration.
 
+### Installation
 ```bash
 npm install @rodit/rodit-auth-be
 ```
 
-Then import the required modules:
-
+### Basic SDK Setup (Recommended Pattern)
 ```javascript
-const { logger, authenticate_apicall, roditClient, roditManager } = require('@rodit/rodit-auth-be');
+const { RoditClient } = require('@rodit/rodit-auth-be');
+
+// Create and initialize client
+const roditClient = await RoditClient.create('server');
+
+// Create authentication middleware using initialized client
+const authenticate_apicall = (req, res, next) => {
+  return roditClient.authenticate(req, res, next);
+};
+
+const authorize = (req, res, next) => {
+  return roditClient.authorize(req, res, next);
+};
+
+// Use in Express routes
+app.use('/api/protected', authenticate_apicall, protectedRoutes);
+app.use('/api/admin', authenticate_apicall, authorize, adminRoutes);
+```
+
+### Key SDK Services
+```javascript
+// Get SDK services
+const logger = roditClient.getLogger();
+const sessionManager = roditClient.getSessionManager();
+const performanceService = roditClient.getPerformanceService();
+
+// Configure session storage (optional)
+const { configureStorageFromConfig } = require('@rodit/rodit-auth-be/lib/auth/sessionmanager');
+configureStorageFromConfig(); // Uses environment variables
+
+// Access RODIT configuration
+const configObject = await roditClient.getConfigOwnRodit();
+const roditToken = configObject.own_rodit;
+```
+
+### Authentication Methods
+```javascript
+// For Express route handlers
+await roditClient.login_client(req, res);     // Handle login requests
+await roditClient.logout_client(req, res);    // Handle logout requests
+
+// For server-to-server authentication
+const loginResult = await roditClient.login_server(options);
+const logoutResult = await roditClient.logout_server();
+
+// For portal authentication  
+const portalResult = await roditClient.login_portal(config, port);
+```
+
+### Session Management
+```javascript
+// Check token status
+const isInvalidated = await sessionManager.isTokenInvalidated(token);
+const tokenInfo = await sessionManager.getTokenInvalidationInfo(token);
+
+// Session operations
+const session = await sessionManager.createSession(userId, sessionData);
+await sessionManager.closeSession(sessionId);
+await sessionManager.cleanupExpiredSessions();
 ```
 
 ## RODIT Token Information Display
@@ -284,22 +342,42 @@ When creating a RODIT token for this API server, use the following `permissioned
 
 ### Endpoint Categories
 
-**Public Routes:**
-- `/` - Root/welcome page
-- `/home` - Homepage  
-- `/api-docs` - Swagger API documentation
+**Public Routes (no authentication required):**
+- `GET /` - Root welcome page and health check
+- `GET /api/home` - API information and available endpoints
+- `POST /api/login` - User authentication with RODiT credentials
+- `POST /api/signclient` - RODiT token signing service for client token creation
+- `GET /api-docs` - Interactive Swagger API documentation
+- `GET /api-docs/swagger.json` - OpenAPI specification JSON
 
-**Authentication Routes:**
-- `/api/login`, `/login` - User authentication with RODiT credentials
-- `/api/logout`, `/logout` - User logout and session termination
-- `/api/signclient` - RODiT token signing service
+**Protected Routes (require JWT authentication):**
+- `POST /api/echo` - Echo service for testing authenticated requests
+- `POST /api/logout` - User logout and session termination
+- `GET /api/token/claims` - Inspect current JWT token claims and user information
 
-**Protected Routes (require authentication):**
-- `/api/echo` - Echo service for testing authenticated requests
-- `/api/cruda/*` - CRUD operations (create, list, read, update, destroy) for comments
-- `/api/metrics/*` - Performance metrics and system monitoring endpoints
-- `/api/mcp/*` - Model Context Protocol endpoints for AI integration
-- `/api/sessions/*` - Administrative session management endpoints
+**CRUD Operations (require authentication + permissions):**
+- `POST /api/cruda/create` - Create new comment entries
+- `GET /api/cruda/list` - List all comments with pagination
+- `GET /api/cruda/read` - Read specific comment by ID
+- `PUT /api/cruda/update` - Update existing comment
+- `DELETE /api/cruda/destroy` - Delete comment by ID
+
+**Metrics & Monitoring (require authentication):**
+- `GET /api/metrics` - Application performance metrics
+- `GET /api/metrics/system` - System resource metrics (CPU, memory, uptime)
+- `POST /api/metrics/reset` - Reset performance counters (admin only)
+
+**Session Management (require authentication):**
+- `POST /api/sessions/login` - Alternative login endpoint
+- `POST /api/sessions/logout` - Alternative logout endpoint  
+- `GET /api/sessions/list_all` - List all active sessions (admin)
+- `POST /api/sessions/close` - Close specific session by ID
+- `POST /api/sessions/cleanup` - Clean up expired sessions
+
+**Model Context Protocol - MCP (require authentication):**
+- `GET /api/mcp/resources` - List available MCP resources
+- `GET /api/mcp/resource/*` - Access specific MCP resource by path
+- `GET /api/mcp/schema` - Get MCP schema definitions
 
 **Rate Limiting:**
 All endpoints are configured with `"+0"` which allows unlimited access at the endpoint level. Global rate limiting is controlled by the RODIT token's `max_requests` and `maxrq_window` metadata fields.
@@ -307,6 +385,90 @@ All endpoints are configured with `"+0"` which allows unlimited access at the en
 ### Usage in RODIT Token Creation
 
 When creating your RODIT token, include this JSON configuration in the `permissioned_routes` field of your token metadata. This ensures that users with valid RODIT tokens can access all API functionality according to their authentication level and permissions.
+
+## 🔐 Authentication Flow
+
+### 1. Login Process
+```bash
+# Authenticate with RODiT credentials
+curl -X POST https://api.discernible.io:9443/api/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "roditid": "YOUR_RODIT_ID",
+    "signature": "YOUR_SIGNATURE", 
+    "timestamp": "CURRENT_TIMESTAMP"
+  }'
+
+# Response includes JWT token
+{
+  "success": true,
+  "jwt_token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...",
+  "sessionId": "sess_01K68H9D..."
+}
+```
+
+### 2. Using Protected Endpoints
+```bash
+# Use JWT token in Authorization header
+curl -X POST https://api.discernible.io:9443/api/echo \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello World"}'
+```
+
+### 3. Logout Process
+```bash
+# Logout and invalidate session
+curl -X POST https://api.discernible.io:9443/api/logout \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Response includes session termination token
+{
+  "success": true,
+  "message": "Logout successful",
+  "sessionClosed": true,
+  "terminationToken": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+### 4. Token Claims Inspection
+```bash
+# Inspect your current JWT token
+curl -X GET https://api.discernible.io:9443/api/token/claims \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+## 🧪 Testing the API
+
+### Health Check
+```bash
+# Basic health check
+curl https://api.discernible.io:9443/
+
+# API documentation
+curl https://api.discernible.io:9443/api-docs/swagger.json
+```
+
+### Complete Authentication Flow Test
+```bash
+# 1. Login
+LOGIN_RESPONSE=$(curl -s -X POST https://api.discernible.io:9443/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"roditid": "YOUR_RODIT_ID", "signature": "YOUR_SIGNATURE", "timestamp": "TIMESTAMP"}')
+
+# 2. Extract token
+JWT_TOKEN=$(echo $LOGIN_RESPONSE | jq -r '.jwt_token')
+
+# 3. Test protected endpoint
+curl -X POST https://api.discernible.io:9443/api/echo \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Authentication test successful"}'
+
+# 4. Logout
+curl -X POST https://api.discernible.io:9443/api/logout \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
 
 ## API Documentation
 
@@ -451,6 +613,14 @@ Output example:
 - From your NEAR wallet send some 0.01 Near to the newly generated implicit account ID to activate it
 
 # Deployment Troubleshooting Guide
+
+## ✅ Recent Fixes Applied (September 2025)
+
+### Authentication Issues - RESOLVED
+- **Fixed middleware initialization order** - Authentication middleware now properly initializes after RODiT client creation
+- **Fixed route mounting** - Protected routes mount after middleware is ready
+- **Fixed session management** - Token invalidation and session closure now work correctly
+- **Fixed 401 errors** - All protected endpoints now properly authenticate valid JWT tokens
 
 ## Pre-Deployment Setup (One-Time Only)
 

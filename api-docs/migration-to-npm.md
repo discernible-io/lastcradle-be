@@ -68,7 +68,7 @@ const { logger, roditManager, roditClient, loggingmw } = auth;
 ### Package export surface (CommonJS)
 From the package root (`require('@rodit/rodit-auth-be')`), the following are exported:
 - __Core middleware__: `authenticate_apicall` (alias `authenticate_apicall`), `login`, `logout`, `loginWithNEP413`
-- __Validation__: `validatePermissions`
+- __Validation__: `authorize`
 - __Token__: `validateToken`, `generateToken`
 - __Services__: `sessionManager`, `blockchainService`, `roditClient`, `mcpService`, `performanceService`
 - __Logging__: `logger`, `loggingmw`
