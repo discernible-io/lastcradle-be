@@ -23,8 +23,9 @@ const ratelimitmw = tempClient.getRateLimitMiddleware();
 // Will be set to fully initialized client later
 let roditClient;
 
-// Get authentication middleware from SDK exports
-const { authenticate_apicall, validatepermissions } = require('@rodit/rodit-auth-be');
+// Authentication middleware will be created after client initialization
+let authenticate_apicall;
+let validatepermissions;
 
 // Import routes
 const homeRoute = require("./routes/home");
@@ -455,17 +456,12 @@ app.use("/api", logoutRoute);
  *       500:
  *         description: Internal server error
  */
-app.post("/api/logout", authenticate_apicall, (req, res) => {
-  req.logAction = "logout-attempt";
-  roditClient.logout_client(req, res);
-});
+// Logout route will be mounted after middleware initialization
 
 // Mount session routes for backward compatibility
 app.use("/api/sessions", sessionRoutes);
 
-// Protected routes
-app.use("/api/echo", authenticate_apicall, echoRoutes);
-app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
+// Protected routes will be mounted after middleware initialization
 
 /**
  * @swagger
@@ -520,12 +516,7 @@ app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
  *                 requestId:
  *                   type: string
  */
-app.get("/api/token/claims", authenticate_apicall, (req, res) => {
-  return res.json({
-    requestId: req.requestId,
-    user: req.user || null,
-  });
-});
+// Token claims endpoint will be mounted after middleware initialization
 
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
@@ -822,6 +813,43 @@ async function startServer() {
     
     // Update app.locals with the fully initialized client
     app.locals.roditClient = roditClient;
+
+    // Create authentication middleware using initialized client
+    authenticate_apicall = (req, res, next) => {
+      return roditClient.authenticateApiCall(req, res, next);
+    };
+    
+    validatepermissions = (req, res, next) => {
+      return roditClient.validatePermissions(req, res, next);
+    };
+
+    logger.info("Authentication middleware initialized", {
+      component: "AppLifecycle",
+      status: "middleware_ready"
+    });
+
+    // Mount protected routes now that middleware is ready
+    app.use("/api/echo", authenticate_apicall, echoRoutes);
+    app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
+    
+    // Mount logout route with authentication
+    app.post("/api/logout", authenticate_apicall, (req, res) => {
+      req.logAction = "logout-attempt";
+      roditClient.logout_client(req, res);
+    });
+    
+    // Mount token claims endpoint
+    app.get("/api/token/claims", authenticate_apicall, (req, res) => {
+      return res.json({
+        requestId: req.requestId,
+        user: req.user || null,
+      });
+    });
+    
+    logger.info("Protected routes mounted", {
+      component: "AppLifecycle", 
+      status: "routes_mounted"
+    });
 
     // Get and apply configuration
     logger.debug("Attempting to retrieve RODiT configuration", {

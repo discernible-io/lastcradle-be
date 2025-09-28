@@ -8,12 +8,17 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const { RoditClient, authenticate_apicall } = require('@rodit/rodit-auth-be');
+const { RoditClient } = require('@rodit/rodit-auth-be');
 const fs = require('fs');
 const path = require('path');
 
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
+
+// Create authentication middleware using the client instance
+const authenticate_apicall = (req, res, next) => {
+  return sdkClient.authenticateApiCall(req, res, next);
+};
 const logger = sdkClient.getLogger();
 // Note: mcpService may need to be accessed through a different method if available
 

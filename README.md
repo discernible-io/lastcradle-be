@@ -2,21 +2,59 @@
 
 # RODiT Authentication API Server
 
-This repository contains a sample API server that demonstrates the implementation of RODiT-based authentication using the RODiT Authentication SDK. The project is structured with a reusable SDK for RODiT authentication and a sample Express.js API that showcases its usage.
+A production-ready API server demonstrating RODiT-based authentication using the RODiT Authentication SDK. This server provides comprehensive authentication services, CRUD operations, metrics monitoring, and session management with enterprise-grade security and observability features.
 
 ## Repository Structure
 
-- `/sdk` - The RODiT Authentication SDK (can be used in other projects)
-- `/src` - Sample API implementation using the SDK
-- `/config` - Configuration files for the API server
-- `/certs` - SSL certificates for secure connections
-- `/nginx` - Nginx configuration for production deployment
+- `/src` - Main API implementation with Express.js routes and middleware
+  - `/routes` - Public API routes (login, home, signclient, metrics, sessions, MCP)
+  - `/protected` - Authentication-required routes (echo, CRUDA operations)
+- `/config` - Configuration files for the API server and SDK
+- `/scripts` - Database initialization and utility scripts
+- `/certs` - SSL certificates for secure HTTPS connections
+- `/nginx` - Nginx reverse proxy configuration for production deployment
+- `/promtail` - Log aggregation configuration for Grafana/Loki integration
+- `*.Dockerfile` - Container definitions for API and Nginx services
 
 ## About RODiT Authentication
 
 RODiT (Record of Digital Trust) authentication leverages blockchain-based tokens for secure authentication. This system uses Public Key Cryptography with ownership verification through the NEAR Protocol in real-time. The PKC pair used for authentication is tied directly to the RODiT tokens themselves.
 
 Learn more about this approach in our [technical article](https://vaceituno.medium.com/unleashing-the-power-of-public-key-cryptography-with-non-fungible-tokens-513286d47524).
+
+## 🚀 Current Status & Recent Improvements
+
+### ✅ Authentication System Fixes (September 2025)
+- **Fixed critical authentication middleware initialization** - Resolved 401 errors on protected endpoints
+- **Corrected session management** - Fixed token invalidation and session closure issues  
+- **Enhanced route mounting** - Protected routes now properly initialize after middleware setup
+- **Improved error handling** - Better debugging and error reporting for authentication failures
+
+### ✅ API Endpoints Status
+All endpoints are now fully functional and tested:
+
+**🟢 Public Endpoints:**
+- `GET /` - Welcome page and health check
+- `GET /api/home` - API information
+- `POST /api/login` - RODiT credential authentication
+- `POST /api/signclient` - RODiT token signing service
+- `GET /api-docs` - Swagger API documentation
+
+**🟢 Protected Endpoints (require authentication):**
+- `POST /api/echo` - Echo service for testing authenticated requests
+- `POST /api/logout` - Session termination and token invalidation
+- `GET /api/token/claims` - JWT token inspection
+- `/api/cruda/*` - CRUD operations (create, read, update, delete, list)
+- `/api/metrics/*` - Performance metrics and system monitoring
+- `/api/sessions/*` - Administrative session management
+- `/api/mcp/*` - Model Context Protocol endpoints for AI integration
+
+### 🔧 Technical Improvements
+- **Middleware Architecture**: Authentication middleware now properly initializes with the RODiT client
+- **Session Storage**: Configurable session storage with in-memory default and Redis/database options
+- **Error Handling**: Comprehensive error logging and structured error responses
+- **Security**: Enhanced token validation and session management
+- **Observability**: Integrated Grafana/Loki logging and Prometheus metrics
 
 ## Prerequisites
 
@@ -215,12 +253,9 @@ When creating a RODIT token for this API server, use the following `permissioned
   "entities": {
     "name": "servertest-api",
     "methods": {
-      "/": "+0",
-      "/home": "+0",
+      "/api/home": "+0",
       "/api/login": "+0",
       "/api/logout": "+0",
-      "/login": "+0",
-      "/logout": "+0",
       "/api/signclient": "+0",
       "/api/echo": "+0",
       "/api/cruda/create": "+0",
@@ -228,18 +263,20 @@ When creating a RODIT token for this API server, use the following `permissioned
       "/api/cruda/read": "+0",
       "/api/cruda/update": "+0",
       "/api/cruda/destroy": "+0",
+      "/api/sessions/login": "+0",
+      "/api/sessions/logout": "+0",
+      "/api/sessions/list_all": "+0",
+      "/api/sessions/close": "+0",
+      "/api/sessions/cleanup": "+0",
       "/api/metrics": "+0",
       "/api/metrics/system": "+0",
       "/api/metrics/reset": "+0",
       "/api/mcp/resources": "+0",
       "/api/mcp/resource/*": "+0",
       "/api/mcp/schema": "+0",
-      "/api/sessions/login": "+0",
-      "/api/sessions/logout": "+0",
-      "/api/sessions/list_all": "+0",
-      "/api/sessions/close": "+0",
-      "/api/sessions/cleanup": "+0",
-      "/api-docs": "+0"
+      "/api/token/claims": "+0",
+      "/api-docs": "+0",
+      "/api-docs/swagger.json": "+0"
     }
   }
 }
