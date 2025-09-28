@@ -1,0 +1,60 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+*
+!*/
+!*.*
+
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+vendor/
+
+# Build outputs
+**/out/
+**/dist/
+**/build/
+**/.parcel-cache/
+/target/
+
+# Package manager logs
+npm-debug.log*
+Cargo.lock
+/cableguard/Cargo.lock
+/cableguard-cli/Cargo.lock
+
+# Keys and credentials
+**/neardev/
+privatekey
+publickey
+dev-account
+*.crt
+*.der
+*.pem
+*.key
+9cf2d3a9d4caa4f269e9ccdddfdb3026dab1d5a085afee0b57e85622e6c4a500.json
+1ab02c4384b1285d0aa8e4b07ccda3d83e278cd4294a822348a14a512f9884aa.json
+roditconfig.server
+roditconfig.client
+account
+account.env
+*.hcl
+
+# Executables
+boringtun-cli
+cableguard-cli
+
+# Testing
+/coverage
+
+# Logs and temporary files
+*.log
+*.out
+*.txt
+nohup.out
+output.txt
+
+# Database
+*.sqlite
+
+# OS generated file
