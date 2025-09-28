@@ -779,6 +779,16 @@ async function login_client(req, res) {
           // Get the reason from request body or use default
           const reason = (req.body && req.body.reason) || "user_logout";
 
+          // Check if session exists before attempting operations
+          const sessionExists = sessionManager.sessions.has(decodedToken.session_id);
+          logger.infoWithContext("Session existence check before logout", {
+            ...baseContext,
+            sessionId: decodedToken.session_id,
+            sessionExists,
+            totalSessions: sessionManager.sessions.size,
+            allSessionIds: Array.from(sessionManager.sessions.keys())
+          });
+
           // Always invalidate the jwt_token directly first
           jwt_tokenInvalidated = sessionManager.invalidateToken(jwt_token, reason, decodedToken.session_id);
           
