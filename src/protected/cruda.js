@@ -99,7 +99,7 @@ const initializeDatabase = async () => {
 const getDatabase = () => db;
 
 // Forward function to use the SDK's webhook sender (includes logging and test tracking)
-const logAndSendWebhook = async (event, data, isError = false, isTest = false, req = null) => {
+const logAndSendWebhook = async (event, data, isError = false, isTest = false, req = null, dataType = 'json') => {
   try {
     // Use the roditClient from app.locals instead of direct webhook import
     const roditClient = req?.app?.locals?.roditClient;
@@ -112,7 +112,8 @@ const logAndSendWebhook = async (event, data, isError = false, isTest = false, r
       return { success: false, error: 'RoditClient not available' };
     }
     
-    return await roditClient.send_webhook(event, data, isError, isTest, req);
+    // Call send_webhook with proper parameters including dataType
+    return await roditClient.send_webhook(event, data, dataType, isError, isTest, req);
   } catch (error) {
     // Log the webhook failure but don't let it crash the application
     logger.warn('Webhook delivery failed, continuing with request processing', {
@@ -224,7 +225,7 @@ const itemExists = async (req, res, next) => {
         id, 
         error: errorMessage,
         test_id: isTest ? requestId : undefined
-      }, true, isTest, req);
+      }, true, isTest, req, 'json');
       
       return res.status(404).json({ 
         error: errorMessage,
@@ -343,7 +344,7 @@ router.post(
       await logAndSendWebhook("create_comment_error", { 
         error: errorMessage,
         test_id: req.isWebhookTest ? requestId : undefined
-      }, true, req.isWebhookTest, req);
+      }, true, req.isWebhookTest, req, 'json');
       
       return res.status(400).json({ 
         error: errorMessage,
@@ -391,7 +392,7 @@ router.post(
       });
       
       // Send the webhook with additional test flag and pass the request object
-      const webhookResult = await logAndSendWebhook("comment_created", newItem, false, req.isWebhookTest, req);
+      const webhookResult = await logAndSendWebhook("comment_created", newItem, false, req.isWebhookTest, req, 'json');
       
       const response = { ...newItem };
       
@@ -508,7 +509,7 @@ router.post(
         test_id: req.isWebhookTest ? requestId : undefined
       };
       
-      const webhookResult = await logAndSendWebhook("comments_listed", webhookPayload, false, req.isWebhookTest, req);
+      const webhookResult = await logAndSendWebhook("comments_listed", webhookPayload, false, req.isWebhookTest, req, 'json');
       
       const response = { 
         comments,
@@ -611,7 +612,7 @@ router.post(
       }
       
       // Send the webhook with test flag if needed and pass the request object
-      const webhookResult = await logAndSendWebhook("comment_read", commentData, false, req.isWebhookTest, req);
+      const webhookResult = await logAndSendWebhook("comment_read", commentData, false, req.isWebhookTest, req, 'json');
       
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
@@ -752,7 +753,7 @@ router.post(
       }
       
       // Send the webhook with test flag if needed and pass the request object
-      const webhookResult = await logAndSendWebhook("comment_updated", webhookData, false, req.isWebhookTest, req);
+      const webhookResult = await logAndSendWebhook("comment_updated", webhookData, false, req.isWebhookTest, req, 'json');
       
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
@@ -900,7 +901,7 @@ router.post(
       }
       
       // Send the webhook with test flag if needed and pass the request object
-      const webhookResult = await logAndSendWebhook("comment_destroyed", webhookData, false, req.isWebhookTest, req);
+      const webhookResult = await logAndSendWebhook("comment_destroyed", webhookData, false, req.isWebhookTest, req, 'json');
       
       const response = { 
         success: true,
