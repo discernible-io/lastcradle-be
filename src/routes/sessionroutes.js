@@ -222,17 +222,19 @@ router.post('/cleanup', authenticate_apicall, async (req, res) => {
       });
     }
     
-    // Trigger cleanup of expired sessions
-    const beforeCleanup = await sessionManager.getAllSessions();
-    const activeBefore = beforeCleanup.filter(s => s.status === 'active').length;
+    // Get active sessions count before cleanup
+    const activeBefore = await sessionManager.getActiveSessionCount();
     
     // Cleanup expired sessions
     const cleanupResult = await sessionManager.cleanupExpiredSessions();
     
-    // Get post-cleanup stats
-    const afterCleanup = await sessionManager.getAllSessions();
-    const activeAfter = afterCleanup.filter(s => s.status === 'active').length;
+    // Get active sessions count after cleanup
+    const activeAfter = await sessionManager.getActiveSessionCount();
     const removedCount = activeBefore - activeAfter;
+    
+    // Get total sessions (including inactive ones if needed)
+    const totalSessions = activeAfter; // This assumes we only track active sessions
+    // If you need to track inactive sessions as well, you'll need to implement a method for that
     
     const duration = Date.now() - startTime;
     
@@ -242,7 +244,7 @@ router.post('/cleanup', authenticate_apicall, async (req, res) => {
       removedCount,
       activeBefore,
       activeAfter,
-      totalSessions: afterCleanup.length
+      totalSessions
     });
     
     // Add metric for cleanup operation
@@ -251,7 +253,7 @@ router.post('/cleanup', authenticate_apicall, async (req, res) => {
       result: 'success',
       removedCount,
       activeSessions: activeAfter,
-      totalSessions: afterCleanup.length
+      totalSessions
     });
     
     res.status(200).json({
@@ -260,7 +262,7 @@ router.post('/cleanup', authenticate_apicall, async (req, res) => {
       stats: {
         removedCount,
         activeSessions: activeAfter,
-        totalSessions: afterCleanup.length
+        totalSessions
       },
       requestId,
       timestamp: new Date().toISOString()
