@@ -112,8 +112,16 @@ const logAndSendWebhook = async (event, data, isError = false, isTest = false, r
       return { success: false, error: 'RoditClient not available' };
     }
     
-    // Call send_webhook with proper parameters including dataType
-    return await roditClient.send_webhook(event, data, dataType, isError, isTest, req);
+    // Call send_webhook with proper webhookData object including request
+    const webhookData = {
+      event,
+      data,
+      dataType,
+      isError,
+      isTest,
+      req  // Include the request object so webhook handler can access req.user
+    };
+    return await roditClient.send_webhook(webhookData);
   } catch (error) {
     // Log the webhook failure but don't let it crash the application
     logger.warn('Webhook delivery failed, continuing with request processing', {
