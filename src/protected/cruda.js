@@ -47,19 +47,7 @@ const initializeDatabase = async () => {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Create webhook_tests table for SDK webhook test recording
-    await db.run(`CREATE TABLE IF NOT EXISTS webhook_tests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      correlation_id TEXT,
-      event_type TEXT,
-      payload TEXT,
-      success BOOLEAN,
-      timestamp TEXT,
-      error_message TEXT
-    )`);
-
-    // Expose DB globally for SDK to record webhook test results
-    global.db = db;
+    // Webhook test DB removed; no test-specific tables needed
 
     const duration = Date.now() - startTime;
     logger.infoWithContext("SQLite database initialized successfully", {
@@ -98,35 +86,28 @@ const initializeDatabase = async () => {
 // Expose the database connection for proper cleanup in app.js
 const getDatabase = () => db;
 
-// Forward function to use the SDK's webhook sender (includes logging and test tracking)
-const logAndSendWebhook = async (event, data, isError = false, isTest = false, req = null, dataType = 'json') => {
+// Forward function to use the SDK's webhook sender with simplified interface (payload, req)
+// payload shape: { event: string, data?: any, isError?: boolean }
+const logAndSendWebhook = async (payload, req = null) => {
   try {
     // Use the roditClient from app.locals instead of direct webhook import
     const roditClient = req?.app?.locals?.roditClient;
     if (!roditClient) {
       logger.warn('RoditClient not available in app.locals, skipping webhook', {
         component: 'CRUDA',
-        event,
+        event: payload?.event,
         requestId: req?.requestId
       });
       return { success: false, error: 'RoditClient not available' };
     }
     
-    // Call send_webhook with proper webhookData object including request
-    const webhookData = {
-      event,
-      data,
-      dataType,
-      isError,
-      isTest,
-      req  // Include the request object so webhook handler can access req.user
-    };
-    return await roditClient.send_webhook(webhookData);
+    // Call send_webhook with payload object and request
+    return await roditClient.send_webhook(payload, req);
   } catch (error) {
     // Log the webhook failure but don't let it crash the application
     logger.warn('Webhook delivery failed, continuing with request processing', {
       component: 'CRUDA',
-      event,
+      event: payload?.event,
       error: {
         name: error.name,
         message: error.message
@@ -225,21 +206,17 @@ const itemExists = async (req, res, next) => {
         itemId: id
       });
       
-      // Determine if this is part of a test
-      const isTest = req.headers['x-webhook-test'] === 'true';
-      
       // Pass the request object to logAndSendWebhook
-      await logAndSendWebhook("comment_not_found", { 
-        id, 
-        error: errorMessage,
-        test_id: isTest ? requestId : undefined
-      }, true, isTest, req, 'json');
+    await logAndSendWebhook({
+      event: "comment_not_found",
+      data: { id, error: errorMessage }
+    }, req);
       
-      return res.status(404).json({ 
-        error: errorMessage,
-        requestId 
-      });
-    }
+    return res.status(404).json({ 
+      error: errorMessage,
+      requestId 
+    });
+  }
     
     const duration = Date.now() - startTime;
     
@@ -297,7 +274,6 @@ router.post(
     req.logAction = "create_item";
     req.requestId = req.headers['x-request-id'] || ulid();
     req.startTime = Date.now();
-    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   async (req, res) => {
@@ -317,7 +293,7 @@ router.post(
       ip: req.ip,
       action: req.logAction,
       hasComment: !!comment,
-      isTest: req.isWebhookTest,
+      
       headers: Object.keys(req.headers),
       bodyKeys: Object.keys(req.body || {}),
       bodySize: req.body ? JSON.stringify(req.body).length : 0
@@ -349,10 +325,11 @@ router.post(
       });
       
       // Pass the request object to logAndSendWebhook
-      await logAndSendWebhook("create_comment_error", { 
-        error: errorMessage,
-        test_id: req.isWebhookTest ? requestId : undefined
-      }, true, req.isWebhookTest, req, 'json');
+      await logAndSendWebhook({
+        event: "create_comment_error",
+        data: { error: errorMessage },
+        isError: true
+      }, req);
       
       return res.status(400).json({ 
         error: errorMessage,
@@ -372,10 +349,6 @@ router.post(
         requestId
       };
       
-      // Add test_id for webhook tracking if this is a test
-      if (req.isWebhookTest) {
-        newItem.test_id = requestId;
-      }
       
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
@@ -399,19 +372,15 @@ router.post(
         commentLength: comment.length
       });
       
-      // Send the webhook with additional test flag and pass the request object
-      const webhookResult = await logAndSendWebhook("comment_created", newItem, false, req.isWebhookTest, req, 'json');
+      // Send the webhook and pass the request object
+      const webhookResult = await logAndSendWebhook({
+        event: "comment_created",
+        data: newItem
+      }, req);
       
       const response = { ...newItem };
       
-      // If this is a test, include webhook result info
-      if (req.isWebhookTest) {
-        response.webhook_result = {
-          success: webhookResult.isValid,
-          correlation_id: webhookResult.requestId,
-          error: webhookResult.error ? webhookResult.error.message : null
-        };
-      }
+      
       
       if (req.new_jwt_token) {
         response.new_jwt_token = req.new_jwt_token;
@@ -460,7 +429,6 @@ router.post(
     req.logAction = "read_all_items";
     req.requestId = req.headers['x-request-id'] || ulid();
     req.startTime = Date.now();
-    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   async (req, res) => {
@@ -478,7 +446,6 @@ router.post(
       userId: req.user?.id,
       ip: req.ip,
       action: req.logAction,
-      isTest: req.isWebhookTest,
       headers: Object.keys(req.headers),
       bodyKeys: Object.keys(req.body || {}),
       bodySize: req.body ? JSON.stringify(req.body).length : 0
@@ -511,13 +478,12 @@ router.post(
         count: itemCount
       });
       
-      // Send webhook with test flag if needed and pass the request object
-      const webhookPayload = { 
-        count: itemCount,
-        test_id: req.isWebhookTest ? requestId : undefined
-      };
-      
-      const webhookResult = await logAndSendWebhook("comments_listed", webhookPayload, false, req.isWebhookTest, req, 'json');
+      // Send webhook and pass the request object
+      const webhookPayload = { count: itemCount };
+      const webhookResult = await logAndSendWebhook({
+        event: "comments_listed",
+        data: webhookPayload
+      }, req);
       
       const response = { 
         comments,
@@ -579,7 +545,6 @@ router.post(
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
     req.startTime = Date.now();
-    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   itemExists,
@@ -604,7 +569,6 @@ router.post(
       ip: req.ip,
       action: req.logAction,
       commentId: req.comment.id,
-      isTest: req.isWebhookTest,
       headers: Object.keys(req.headers),
       bodyKeys: Object.keys(req.body || {}),
       bodySize: req.body ? JSON.stringify(req.body).length : 0
@@ -613,14 +577,14 @@ router.post(
     logger.debugWithContext("Processing read comment request", baseContext);
     
     try {
-      // Add test_id for webhook tracking if this is a test
+      // Prepare comment data
       const commentData = { ...req.comment, requestId };
-      if (req.isWebhookTest) {
-        commentData.test_id = requestId;
-      }
       
-      // Send the webhook with test flag if needed and pass the request object
-      const webhookResult = await logAndSendWebhook("comment_read", commentData, false, req.isWebhookTest, req, 'json');
+      // Send the webhook and pass the request object
+      const webhookResult = await logAndSendWebhook({
+        event: "comment_read",
+        data: commentData
+      }, req);
       
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
@@ -701,7 +665,6 @@ router.post(
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
     req.startTime = Date.now();
-    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   itemExists,
@@ -729,7 +692,6 @@ router.post(
       action: req.logAction,
       commentId: id,
       commentUpdated: newComment !== undefined,
-      isTest: req.isWebhookTest,
       headers: Object.keys(req.headers),
       bodyKeys: Object.keys(req.body || {}),
       bodySize: req.body ? JSON.stringify(req.body).length : 0
@@ -748,7 +710,6 @@ router.post(
         id
       );
       
-      // Add test_id for webhook tracking if this is a test
       const webhookData = {
         id,
         old: oldComment,
@@ -756,12 +717,11 @@ router.post(
         requestId
       };
       
-      if (req.isWebhookTest) {
-        webhookData.test_id = requestId;
-      }
-      
-      // Send the webhook with test flag if needed and pass the request object
-      const webhookResult = await logAndSendWebhook("comment_updated", webhookData, false, req.isWebhookTest, req, 'json');
+      // Send the webhook and pass the request object
+      const webhookResult = await logAndSendWebhook({
+        event: "comment_updated",
+        data: webhookData
+      }, req);
       
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
@@ -843,7 +803,6 @@ router.post(
   (req, res, next) => {
     req.requestId = req.headers['x-request-id'] || ulid();
     req.startTime = Date.now();
-    req.isWebhookTest = req.headers['x-webhook-test'] === 'true';
     next();
   },
   itemExists,
@@ -869,7 +828,6 @@ router.post(
       ip: req.ip,
       action: req.logAction,
       commentId: id,
-      isTest: req.isWebhookTest,
       headers: Object.keys(req.headers),
       bodyKeys: Object.keys(req.body || {}),
       bodySize: req.body ? JSON.stringify(req.body).length : 0
@@ -902,14 +860,13 @@ router.post(
         commentId: id
       });
       
-      // Add test_id for webhook tracking if this is a test
       const webhookData = { ...deletedComment, requestId };
-      if (req.isWebhookTest) {
-        webhookData.test_id = requestId;
-      }
       
-      // Send the webhook with test flag if needed and pass the request object
-      const webhookResult = await logAndSendWebhook("comment_destroyed", webhookData, false, req.isWebhookTest, req, 'json');
+      // Send the webhook and pass the request object
+      const webhookResult = await logAndSendWebhook({
+        event: "comment_destroyed",
+        data: webhookData
+      }, req);
       
       const response = { 
         success: true,
