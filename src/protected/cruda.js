@@ -153,16 +153,6 @@ initializeDatabase()
   });
 });
 
-// 404 handler for undefined routes
-router.use((req, res) => {
-  const requestId = req.requestId || ulid();
-  res.status(404).json({
-    error: "Not Found",
-    message: `Cannot ${req.method} ${req.path}`,
-    requestId
-  });
-});
-
 // Middleware to check if item exists
 const itemExists = async (req, res, next) => {
   const requestId = req.requestId || ulid();
@@ -913,6 +903,16 @@ router.get("/", (req, res) => {
       "POST /update": "Update a comment",
       "POST /destroy": "Delete a comment"
     },
+    requestId
+  });
+});
+
+// 404 handler for undefined routes (must be LAST)
+router.use((req, res) => {
+  const requestId = req.requestId || ulid();
+  res.status(404).json({
+    error: "Not Found",
+    message: `Cannot ${req.method} ${req.path}`,
     requestId
   });
 });
