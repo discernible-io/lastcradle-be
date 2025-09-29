@@ -14,10 +14,30 @@ class InMemorySessionStorage {
   }
 
   async get(sessionId) {
-    return this.sessions.get(sessionId) || null;
+    const session = this.sessions.get(sessionId);
+    if (!session) return null;
+    
+    // Check if session is expired and auto-cleanup
+    const now = Math.floor(Date.now() / 1000);
+    if (session.expiresAt && session.expiresAt < now) {
+      // Session is expired, remove it
+      this.sessions.delete(sessionId);
+      return null;
+    }
+    
+    return session;
   }
 
   async set(sessionId, session) {
+    if (!sessionId || typeof sessionId !== 'string') {
+      throw new Error('sessionId must be a non-empty string');
+    }
+    
+    // Add timestamp for tracking
+    if (session && typeof session === 'object') {
+      session.updatedAt = Math.floor(Date.now() / 1000);
+    }
+    
     this.sessions.set(sessionId, session);
     return true;
   }
@@ -45,7 +65,7 @@ class InMemorySessionStorage {
   }
 
   // Additional helper methods for debugging
-  getAllSessions() {
+  async getAllSessions() {
     const sessions = {};
     for (const [sessionId, session] of this.sessions.entries()) {
       sessions[sessionId] = session;
@@ -53,12 +73,22 @@ class InMemorySessionStorage {
     return sessions;
   }
 
-  getStorageInfo() {
+  async getStorageInfo() {
     return {
       type: 'InMemorySessionStorage',
       sessionCount: this.sessions.size,
-      memoryUsage: process.memoryUsage ? process.memoryUsage() : 'unavailable'
+      memoryUsage: process.memoryUsage ? process.memoryUsage() : 'unavailable',
+      timestamp: new Date().toISOString()
     };
+  }
+
+  // Validate session structure
+  _validateSession(session) {
+    if (!session || typeof session !== 'object') {
+      return false;
+    }
+    const required = ['id', 'status', 'createdAt'];
+    return required.every(prop => prop in session);
   }
 }
 
@@ -136,9 +166,17 @@ class SessionManager {
 
   }
 
-  // Storage facade - delegates to current storage
+  // Storage facade - delegates to current storage with proper binding
   get storage() {
-    return currentStorage;
+    return {
+      get: currentStorage.get.bind(currentStorage),
+      set: currentStorage.set.bind(currentStorage),
+      delete: currentStorage.delete.bind(currentStorage),
+      keys: currentStorage.keys.bind(currentStorage),
+      size: currentStorage.size.bind(currentStorage),
+      clear: currentStorage.clear.bind(currentStorage),
+      getAll: currentStorage.getAll ? currentStorage.getAll.bind(currentStorage) : undefined
+    };
   }
 
 
@@ -646,38 +684,63 @@ class SessionManager {
     const startTime = Date.now();
     const baseContext = createLogContext("SessionManager", "getActiveSessionCount", { requestId });
     
-
-    
     try {
       let count = 0;
       const now = Math.floor(Date.now() / 1000);
       
-      // Get all sessions from storage (support backends without getAll)
+      // Get all sessions from storage with fallback mechanisms
       let allSessions = [];
-      if (typeof this.storage.getAll === 'function') {
-        allSessions = await this.storage.getAll();
-      } else {
-        const ids = await this.storage.keys();
-        for (const id of ids) {
-          const s = await this.storage.get(id);
-          if (s) allSessions.push(s);
+      try {
+        // First try to use getAll if available
+        if (this.storage.getAll) {
+          allSessions = await this.storage.getAll();
+        } else {
+          // Fall back to getting keys and fetching each one
+          const ids = await this.storage.keys();
+          for (const id of ids) {
+            try {
+              const s = await this.storage.get(id);
+              if (s) allSessions.push(s);
+            } catch (err) {
+              // Skip any invalid sessions
+              continue;
+            }
+          }
         }
+      } catch (err) {
+        // If we can't get sessions, return 0
+        logger.error('Error getting sessions', { ...baseContext, error: err.message });
+        return 0;
       }
       
+      // Count active sessions
       for (const session of allSessions) {
-        if (session.status === 'active' && (!session.expiresAt || session.expiresAt > now)) {
-          count++;
+        try {
+          if (session && 
+              typeof session === 'object' && 
+              session.status === 'active' && 
+              (!session.expiresAt || session.expiresAt > now)) {
+            count++;
+          }
+        } catch (err) {
+          // Skip any invalid session objects
+          continue;
         }
       }
       
       const duration = Date.now() - startTime;
+      logger.debug('Active session count calculated', { ...baseContext, count, duration });
       
       return count;
     } catch (error) {
       const duration = Date.now() - startTime;
+      logger.error('Error in getActiveSessionCount', { 
+        ...baseContext, 
+        error: error.message, 
+        duration 
+      });
       
-
-      
+      // Return 0 on any error to ensure the application remains available
       return 0;
     }
   }
