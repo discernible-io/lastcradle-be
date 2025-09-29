@@ -12,6 +12,8 @@ const { ulid } = require("ulid");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 const { RoditClient } = require("@rodit/rodit-auth-be");
+// Configure session storage using SDK's configuration mechanism (defaults to in-memory)
+const { configureStorageFromConfig } = require("@rodit/rodit-auth-be/lib/auth/sessionmanager");
 
 // Create temporary client instance to access utilities
 const tempClient = new RoditClient();
@@ -35,6 +37,13 @@ const signclientRoute = require("./routes/signclient");
 const metricsRoutes = require("./routes/metricsroutes");
 const mcpRoutes = require("./routes/mcproutes");
 const sessionRoutes = require("./routes/sessionroutes");
+
+// Configure session storage from config/environment before further initialization
+try {
+  configureStorageFromConfig();
+} catch (e) {
+  // Safe to continue; SessionManager defaults to in-memory storage
+}
 
 // Log application startup
 logger.info("Starting RODiT Authentication API Server", {

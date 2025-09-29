@@ -676,12 +676,12 @@ const { SignJWT } = require('jose');
           });
         } else {
           // Session manager is available, proceed with session creation
-          const session = sessionManager.createSession(sessionData);
+          const session = await sessionManager.createSession(sessionData);
           const sessionCreateDuration = Date.now() - sessionCreateStart;
 
           logger.debugWithContext("Session created in session manager", {
             ...baseContext,
-            sessionId: session.id,
+            sessionId: session?.id,
             roditId: peer_rodit.token_id,
             sessionCreateDuration
           });

@@ -497,7 +497,7 @@ async function login_client(req, res) {
       }
       
       if (jwt_tokenInvalidated) {
-        const invalidationInfo = sessionManager.getTokenInvalidationInfo(jwt_token);
+        const invalidationInfo = await sessionManager.getTokenInvalidationInfo(jwt_token);
         
         logger.warnWithContext("Attempt to use invalidated jwt_token", {
           ...baseContext,
@@ -804,7 +804,7 @@ async function login_client(req, res) {
           const reason = (req.body && req.body.reason) || "user_logout";
 
           // Invalidate the jwt_token by closing its session
-          jwt_tokenInvalidated = sessionManager.invalidateToken(jwt_token, reason, decodedToken.session_id);
+          jwt_tokenInvalidated = await sessionManager.invalidateToken(jwt_token, reason, decodedToken.session_id);
           
           logger.infoWithContext("Token invalidation result (session-based)", {
             ...baseContext,
@@ -852,7 +852,7 @@ async function login_client(req, res) {
           }
 
           // Then close the session
-          sessionClosed = sessionManager.closeSession(
+          sessionClosed = await sessionManager.closeSession(
             decodedToken.session_id,
             reason,
             null // Don't pass jwt_token here since we've already invalidated it
