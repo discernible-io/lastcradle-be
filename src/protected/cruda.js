@@ -831,7 +831,7 @@ router.post(
   }
 );
 
-// DESTROY - Delete a comment by id
+// DESTROY - Delete a comment by id (POST version)
 router.post(
   "/destroy",
   itemExists,
@@ -899,6 +899,155 @@ router.post(
   }
 );
 
+// UPDATE - Update a comment's text (PUT version for HTTP method compatibility)
+router.put(
+  "/update",
+  (req, res, next) => {
+    req.logAction = "update_item";
+    req.requestId = req.headers['x-request-id'] || ulid();
+    req.startTime = Date.now();
+    next();
+  },
+  validateComment,
+  handleIdempotency,
+  async (req, res) => {
+    const requestId = req.requestId;
+    const startTime = req.startTime || Date.now();
+    const routeStartTime = Date.now();
+    const { id, comment } = req.body || {};
+
+    // Create context for update operation
+    const baseContext = createLogContext({
+      requestId,
+      component: 'CRUDARouter',
+      method: 'updateCommentPUT',
+      endpoint: req.path,
+      httpMethod: req.method,
+      userId: req.user?.id,
+      ip: req.ip,
+      action: req.logAction,
+      headers: Object.keys(req.headers),
+      bodyKeys: Object.keys(req.body || {}),
+      itemId: id
+    });
+
+    logger.debugWithContext("Processing PUT update comment request", baseContext);
+
+    if (!id) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logger.warnWithContext("PUT update validation failed - missing id", { ...baseContext, duration, routeDuration });
+      return res.status(400).json({ error: "ID is required", requestId });
+    }
+
+    if (!comment) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logger.warnWithContext("PUT update validation failed - missing comment", { ...baseContext, duration, routeDuration });
+      return res.status(400).json({ error: "Comment is required", requestId });
+    }
+
+    try {
+      const existing = await db.get("SELECT * FROM comments WHERE id = ?", [id]);
+      if (!existing) {
+        return res.status(404).json({ error: "Comment not found", requestId });
+      }
+
+      await db.run(
+        "UPDATE comments SET comment = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [comment, id]
+      );
+
+      const updated = await db.get("SELECT * FROM comments WHERE id = ?", [id]);
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+
+      logger.infoWithContext("Comment updated successfully via PUT", { ...baseContext, status: 'success', duration, routeDuration });
+      logger.metric('cruda_operations', duration, { operation: 'updateComment', result: 'success', method: 'PUT' });
+
+      return res.json({ comment: updated, requestId });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logErrorWithMetrics(
+        "Error updating comment via PUT",
+        { ...baseContext, duration, routeDuration },
+        error,
+        'cruda_error',
+        { operation: 'updateComment', result: 'error', duration, method: 'PUT' }
+      );
+      return res.status(500).json({ error: "Internal server error", requestId });
+    }
+  }
+);
+
+// DESTROY - Delete a comment by id (DELETE version for HTTP method compatibility)
+router.delete(
+  "/destroy",
+  (req, res, next) => {
+    req.logAction = "delete_item";
+    req.requestId = req.headers['x-request-id'] || ulid();
+    req.startTime = Date.now();
+    next();
+  },
+  handleIdempotency,
+  async (req, res) => {
+    const requestId = req.requestId;
+    const startTime = req.startTime || Date.now();
+    const routeStartTime = Date.now();
+    const { id } = req.body || {};
+    const baseContext = createLogContext({
+      requestId,
+      component: 'CRUDARouter',
+      method: 'deleteCommentDELETE',
+      endpoint: req.path,
+      httpMethod: req.method,
+      userId: req.user?.id,
+      ip: req.ip,
+      action: req.logAction,
+      headers: Object.keys(req.headers),
+      bodyKeys: Object.keys(req.body || {}),
+      itemId: id
+    });
+
+    logger.debugWithContext("Processing DELETE comment request", baseContext);
+
+    if (!id) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logger.warnWithContext("DELETE validation failed - missing id", { ...baseContext, duration, routeDuration });
+      return res.status(400).json({ error: "ID is required", requestId });
+    }
+
+    try {
+      const existing = await db.get("SELECT * FROM comments WHERE id = ?", [id]);
+      if (!existing) {
+        return res.status(404).json({ error: "Comment not found", requestId });
+      }
+
+      await db.run("DELETE FROM comments WHERE id = ?", [id]);
+
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logger.infoWithContext("Comment deleted successfully via DELETE", { ...baseContext, status: 'success', duration, routeDuration });
+      logger.metric('cruda_operations', duration, { operation: 'deleteComment', result: 'success', method: 'DELETE' });
+
+      return res.json({ success: true, id, requestId });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logErrorWithMetrics(
+        "Error deleting comment via DELETE",
+        { ...baseContext, duration, routeDuration },
+        error,
+        'cruda_error',
+        { operation: 'deleteComment', result: 'error', duration, method: 'DELETE' }
+      );
+      return res.status(500).json({ error: "Internal server error", requestId });
+    }
+  }
+);
+
 // GET route for CRUDA endpoint info and health check
 router.get("/", (req, res) => {
   const requestId = req.headers['x-request-id'] || ulid();
@@ -917,8 +1066,11 @@ router.get("/", (req, res) => {
       "POST /list": "List all comments", 
       "GET /list": "List all comments (GET version)",
       "POST /read": "Read a specific comment",
+      "GET /read/:id": "Read a specific comment (GET version)",
       "POST /update": "Update a comment",
-      "POST /destroy": "Delete a comment"
+      "PUT /update": "Update a comment (PUT version)",
+      "POST /destroy": "Delete a comment",
+      "DELETE /destroy": "Delete a comment (DELETE version)"
     },
     requestId
   });
