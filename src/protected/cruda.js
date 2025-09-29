@@ -780,6 +780,23 @@ router.post(
     const routeStartTime = Date.now();
     const { id, comment } = req.body || {};
 
+    // Create context for update operation
+    const baseContext = createLogContext({
+      requestId,
+      component: 'CRUDARouter',
+      method: 'updateComment',
+      endpoint: req.path,
+      httpMethod: req.method,
+      userId: req.user?.id,
+      ip: req.ip,
+      action: req.logAction,
+      headers: Object.keys(req.headers),
+      bodyKeys: Object.keys(req.body || {}),
+      itemId: id
+    });
+
+    logger.debugWithContext("Processing update comment request", baseContext);
+
     try {
       const existing = await db.get("SELECT * FROM comments WHERE id = ?", [id]);
       if (!existing) {
