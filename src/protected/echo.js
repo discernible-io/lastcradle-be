@@ -98,14 +98,16 @@ router.post("/", logActionMiddleware, (req, res) => {
       });
     }
     
-    // Validate input
-    if (!inputString || typeof inputString !== 'string') {
+    // Validate input - allow empty strings but require string type
+    if (inputString === undefined || inputString === null || typeof inputString !== 'string') {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
       
       logger.warnWithContext("Invalid input for echo", {
         ...baseContext,
-        validationError: 'Invalid or missing message',
+        validationError: 'Invalid or missing message - must be a string',
+        inputType: typeof inputString,
+        inputValue: inputString,
         duration,
         routeDuration
       });

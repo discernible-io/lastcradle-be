@@ -56,12 +56,34 @@ router.get('/', authenticate_apicall, async (req, res) => {
     const client = req?.app?.locals?.roditClient || sdkClient;
     const sessionManager = client.getSessionManager();
     let activeSessionCount = 0;
+    let sessionDebugInfo = {};
     
     try {
-      const allSessions = await sessionManager.getAllSessions();
-      activeSessionCount = allSessions.filter(session => session.status === 'active').length;
+      // Try multiple methods to get session count
+      if (sessionManager.getAllSessions) {
+        const allSessions = await sessionManager.getAllSessions();
+        activeSessionCount = allSessions.filter(session => session.status === 'active').length;
+        sessionDebugInfo.totalSessions = allSessions.length;
+        sessionDebugInfo.sessionStatuses = allSessions.map(s => s.status);
+      } else if (sessionManager.getActiveSessionCount) {
+        activeSessionCount = await sessionManager.getActiveSessionCount();
+      } else if (sessionManager.getStorageInfo) {
+        const storageInfo = await sessionManager.getStorageInfo();
+        activeSessionCount = storageInfo.sessionCount || 0;
+        sessionDebugInfo.storageInfo = storageInfo;
+      }
+      
+      sessionDebugInfo.activeSessionCount = activeSessionCount;
+      sessionDebugInfo.sessionManagerType = sessionManager.constructor.name;
+      sessionDebugInfo.availableMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(sessionManager));
+      
     } catch (error) {
-      logger.warn('Could not retrieve session count', { error: error.message });
+      logger.warn('Could not retrieve session count', { 
+        error: error.message,
+        sessionManagerType: sessionManager?.constructor?.name,
+        availableMethods: sessionManager ? Object.getOwnPropertyNames(Object.getPrototypeOf(sessionManager)) : []
+      });
+      sessionDebugInfo.error = error.message;
     }
     
     // Transform metrics to match test expectations
@@ -123,7 +145,10 @@ router.get('/', authenticate_apicall, async (req, res) => {
       // Ensure active sessions are at root for testComponentInteractions
       active: activeSessionCount,
       'sessions.active': activeSessionCount,
-      'sessions.active_count': activeSessionCount
+      'sessions.active_count': activeSessionCount,
+      
+      // Debug information for session tracking
+      sessionDebug: sessionDebugInfo
     };
     
     res.json(response);
@@ -381,28 +406,5 @@ router.get('/debug', authenticate_apicall, (req, res) => {
   }
 });
 
-router.get('/', authenticate_apicall, async (req, res) => {
-  try {
-    const performanceService = getPerformanceService(req);
-    const sessionManager = req.app.locals.roditClient?.getSessionManager();
-    
-    const metrics = {
-      // Existing metrics
-      ...await performanceService.getMetrics(),
-      
-      // Add session metrics
-      sessions: {
-        active: await sessionManager?.getActiveSessionCount() || 0,
-        total: 0, // You'll need to implement getTotalSessions() in SessionManager
-        // Add other session metrics as needed
-      }
-    };
-
-    res.json(metrics);
-  } catch (error) {
-    logger.error('Error getting metrics', { error: error.message });
-    res.status(500).json({ error: 'Failed to retrieve metrics' });
-  }
-});
 
 module.exports = router;

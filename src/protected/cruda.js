@@ -690,7 +690,17 @@ router.post(
         result: 'success'
       });
 
-      return res.json({ comment, requestId });
+      // Ensure comment field is never null - provide empty string as fallback
+      const sanitizedComment = {
+        ...comment,
+        comment: comment.comment || ""
+      };
+      
+      return res.json({ 
+        data: { comment: sanitizedComment },
+        comment: sanitizedComment, // Also provide at root level for compatibility
+        requestId 
+      });
     } catch (error) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
@@ -747,7 +757,18 @@ router.get(
 
       logger.infoWithContext("Comment retrieved successfully via GET", { ...baseContext, status: 'success', duration, routeDuration });
       logger.metric('cruda_operations', duration, { operation: 'readComment', result: 'success', method: 'GET' });
-      return res.json({ comment, requestId });
+      
+      // Ensure comment field is never null - provide empty string as fallback
+      const sanitizedComment = {
+        ...comment,
+        comment: comment.comment || ""
+      };
+      
+      return res.json({ 
+        data: { comment: sanitizedComment },
+        comment: sanitizedComment, // Also provide at root level for compatibility
+        requestId 
+      });
     } catch (error) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
