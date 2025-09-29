@@ -12,8 +12,8 @@ const { ulid } = require("ulid");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 const { RoditClient } = require("@rodit/rodit-auth-be");
-// Configure session storage using SDK's configuration mechanism (defaults to in-memory)
-const { configureStorageFromConfig } = require("@rodit/rodit-auth-be/lib/auth/sessionmanager");
+// Import SessionManager from the public API
+const { SessionManager } = require("@rodit/rodit-auth-be");
 
 // Create temporary client instance to access utilities
 const tempClient = new RoditClient();
@@ -40,8 +40,13 @@ const sessionRoutes = require("./routes/sessionroutes");
 
 // Configure session storage from config/environment before further initialization
 try {
-  configureStorageFromConfig();
+  // This will automatically configure storage based on environment/config
+  const sessionManager = SessionManager.getInstance();
+  logger.info('Session storage initialized', {
+    storageType: sessionManager.storage.constructor.name
+  });
 } catch (e) {
+  logger.error('Error initializing session storage, using in-memory fallback', { error: e.message });
   // Safe to continue; SessionManager defaults to in-memory storage
 }
 
