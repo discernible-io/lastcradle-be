@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@rodit/rodit-auth-be": "^2.4.12",
+    "@rodit/rodit-auth-be": "^2.4.13",
     "config": "^4.0.0",
     "express": "^4.19.2",
     "nodemon": "^3.1.4",
