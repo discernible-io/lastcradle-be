@@ -13,6 +13,14 @@ const {
   unixTimeToDateString
 } = require("../../services/utils");
 const { sessionManager } = require('./sessionmanager');
+
+// Log which SessionManager instance is being used
+logger.infoWithContext("TokenService using SessionManager instance", {
+  component: "TokenService",
+  event: "sessionManager_import",
+  sessionManagerInstanceId: sessionManager._instanceId,
+  timestamp: new Date().toISOString()
+});
 const stateManager = require('../blockchain/statemanager');
 const {  
   nearorg_rpc_tokenfromroditid, 
@@ -679,10 +687,13 @@ const { SignJWT } = require('jose');
           const session = await sessionManager.createSession(sessionData);
           const sessionCreateDuration = Date.now() - sessionCreateStart;
 
-          logger.debugWithContext("Session created in session manager", {
+          logger.infoWithContext("Session created in session manager", {
             ...baseContext,
             sessionId: session?.id,
             roditId: peer_rodit.token_id,
+            sessionStatus: session?.status,
+            sessionExpiresAt: session?.expiresAt,
+            sessionManagerInstanceId: sessionManager._instanceId,
             sessionCreateDuration
           });
         }
