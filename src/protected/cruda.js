@@ -949,6 +949,30 @@ router.closeDatabase = async () => {
   }
 };
 
+// GET route for CRUDA endpoint info and health check
+router.get("/", (req, res) => {
+  const requestId = req.headers['x-request-id'] || ulid();
+  
+  logger.info("CRUDA endpoint info requested", {
+    component: 'CRUDARoutes',
+    method: 'getInfo',
+    requestId,
+    ip: req.ip
+  });
+  
+  res.json({
+    message: "CRUDA API - Create, Read, Update, Delete operations",
+    endpoints: {
+      "POST /create": "Create a new comment",
+      "POST /list": "List all comments", 
+      "POST /read": "Read a specific comment",
+      "POST /update": "Update a comment",
+      "POST /destroy": "Delete a comment"
+    },
+    requestId
+  });
+});
+
 // Webhook test functions removed as they are not needed for the authentication system
 
 // Export the database getter

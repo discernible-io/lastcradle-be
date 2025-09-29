@@ -124,19 +124,22 @@ router.post('/logout', authenticate_apicall, (req, res) => {
  * Admin route - Get information about all active sessions
  * Protected: Requires authentication and permissions
  */
-router.get('/list_all', authenticate_apicall, authorize, (req, res) => {
+router.get('/list_all', authenticate_apicall, authorize, async (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   
   try {
-    // Gather all sessions
+    // Gather all sessions using the proper storage interface
     const sessions = [];
     
-    for (const [sessionId, session] of sessionManager.sessions.entries()) {
+    // Get all sessions from storage
+    const allSessions = await sessionManager.getAllSessions();
+    
+    for (const session of allSessions) {
       // Don't include closed or expired sessions
       if (session.status === 'active') {
         sessions.push({
-          id: sessionId,
+          id: session.id,
           roditId: session.roditId,
           ownerId: session.ownerId,
           createdAt: new Date(session.createdAt * 1000).toISOString(),

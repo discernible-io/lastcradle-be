@@ -319,9 +319,38 @@ app.use((req, res, next) => {
     req.headers["x-request-id"] || req.headers["x-correlation-id"] || ulid();
   req.traceId = req.headers["x-trace-id"] || crypto.randomUUID();
 
+  // Record request start - will be updated after client initialization
+  if (roditClient) {
+    const performanceService = roditClient.getPerformanceService();
+    if (performanceService) {
+      performanceService.recordRequest(req);
+    }
+  }
+
   res.on("finish", () => {
     const duration = Date.now() - req.startTime;
     req.duration = duration;
+
+    // Record metrics in performance service
+    if (roditClient) {
+      const performanceService = roditClient.getPerformanceService();
+      if (performanceService) {
+        performanceService.recordMetric("request_duration_ms", duration, {
+          method: req.method,
+          path: req.path,
+          status: res.statusCode,
+        });
+        
+        // Record error if status code indicates error
+        if (res.statusCode >= 400) {
+          performanceService.recordMetric("error_count", 1, {
+            method: req.method,
+            path: req.path,
+            status: res.statusCode,
+          });
+        }
+      }
+    }
 
     // Use structured logging with context
     logger.debugWithContext("Request performance metrics", {

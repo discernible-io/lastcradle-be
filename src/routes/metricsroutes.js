@@ -13,11 +13,18 @@ const sdkClient = new RoditClient();
 
 // Create authentication middleware using the client instance
 const authenticate_apicall = (req, res, next) => {
-  return sdkClient.authenticate(req, res, next);
+  // Use the centralized client from app.locals if available
+  const client = req.app?.locals?.roditClient || sdkClient;
+  return client.authenticate(req, res, next);
 };
 const logger = sdkClient.getLogger();
-const performanceService = sdkClient.getPerformanceService();
 const { createLogContext, logErrorWithMetrics } = logger;
+
+// Get performance service from centralized client when available
+const getPerformanceService = (req) => {
+  const client = req?.app?.locals?.roditClient || sdkClient;
+  return client.getPerformanceService();
+};
 
 /**
  * GET /api/metrics
@@ -42,6 +49,7 @@ router.get('/', authenticate_apicall, (req, res) => {
   logger.debugWithContext('Processing metrics request', baseContext);
   
   try {
+    const performanceService = getPerformanceService(req);
     const metrics = performanceService.getMetrics();
     
     const duration = Date.now() - startTime;
@@ -123,6 +131,7 @@ router.get('/system', authenticate_apicall, (req, res) => {
   logger.debugWithContext('Processing system metrics request', baseContext);
   
   try {
+    const performanceService = getPerformanceService(req);
     const systemMetrics = performanceService.getSystemMetrics();
     
     const duration = Date.now() - startTime;
@@ -211,6 +220,7 @@ router.post('/reset', authenticate_apicall, (req, res) => {
   }
   
   try {
+    const performanceService = getPerformanceService(req);
     performanceService.resetMetrics();
     
     const duration = Date.now() - startTime;
@@ -252,6 +262,62 @@ router.post('/reset', authenticate_apicall, (req, res) => {
       error: {
         code: 'METRICS_RESET_ERROR',
         message: 'Failed to reset metrics',
+        requestId
+      }
+    });
+  }
+});
+
+/**
+ * GET /api/metrics/debug
+ * 
+ * Debug endpoint to check metrics system status
+ * Protected: Requires authentication
+ */
+router.get('/debug', authenticate_apicall, (req, res) => {
+  const requestId = req.requestId || ulid();
+  const startTime = Date.now();
+  
+  try {
+    const performanceService = getPerformanceService(req);
+    const metrics = performanceService.getMetrics();
+    
+    // Get client information
+    const client = req?.app?.locals?.roditClient || sdkClient;
+    const clientInfo = {
+      hasRoditClient: !!req?.app?.locals?.roditClient,
+      clientType: client.constructor.name,
+      hasPerformanceService: !!performanceService,
+      performanceServiceType: performanceService?.constructor?.name
+    };
+    
+    const duration = Date.now() - startTime;
+    
+    res.json({
+      debug: {
+        ...clientInfo,
+        metricsSnapshot: metrics,
+        timestamp: Date.now(),
+        requestProcessingTime: duration
+      },
+      requestId
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    
+    logger.error('Debug endpoint error', {
+      component: 'MetricsRoutes',
+      method: 'debug',
+      requestId,
+      error: error.message,
+      duration
+    });
+    
+    res.status(500).json({
+      error: {
+        code: 'DEBUG_ERROR',
+        message: 'Failed to retrieve debug information',
+        details: error.message,
         requestId
       }
     });
