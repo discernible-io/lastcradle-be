@@ -150,10 +150,18 @@ initializeDatabase()
       'database_error',
       {
         operation: 'moduleInitialization',
-        result: 'error'
-      }
-    );
   });
+});
+
+// 404 handler for undefined routes
+router.use((req, res) => {
+  const requestId = req.requestId || ulid();
+  res.status(404).json({
+    error: "Not Found",
+    message: `Cannot ${req.method} ${req.path}`,
+    requestId
+  });
+});
 
 // Middleware to check if item exists
 const itemExists = async (req, res, next) => {
@@ -217,6 +225,73 @@ const itemExists = async (req, res, next) => {
   }
 };
 
+// In-memory store for idempotency keys (in production, use Redis or database)
+const idempotencyStore = new Map();
+
+// Middleware to handle idempotency
+const handleIdempotency = (req, res, next) => {
+  const idempotencyKey = req.headers['idempotency-key'];
+  
+  if (!idempotencyKey) {
+    return next();
+  }
+  
+  // Check if we've seen this key before
+  const cachedResponse = idempotencyStore.get(idempotencyKey);
+  if (cachedResponse) {
+    // If the request is still being processed, wait for it
+    if (cachedResponse.status === 'processing') {
+      return new Promise(resolve => {
+        const checkStatus = () => {
+          const current = idempotencyStore.get(idempotencyKey);
+          if (current.status !== 'processing') {
+            res.status(current.statusCode).json(current.body);
+            resolve();
+          } else {
+            setTimeout(checkStatus, 100);
+          }
+        };
+        checkStatus();
+      });
+    }
+    
+    // Return cached response
+    return res.status(cachedResponse.statusCode).json(cachedResponse.body);
+  }
+  
+  // Mark as processing
+  idempotencyStore.set(idempotencyKey, { status: 'processing' });
+  
+  // Add response handler to cache the response
+  const originalJson = res.json;
+  res.json = function(body) {
+    idempotencyStore.set(idempotencyKey, {
+      status: 'completed',
+      statusCode: res.statusCode,
+      body: body
+    });
+    originalJson.call(this, body);
+  };
+  
+  next();
+};
+
+// Validation middleware for create/update operations
+const validateComment = (req, res, next) => {
+  const { comment } = req.body;
+  
+  if (typeof comment !== 'string' || comment.trim() === '') {
+    const error = new Error('Comment is required and must be a non-empty string');
+    error.statusCode = 400;
+    error.code = 'VALIDATION_ERROR';
+    return next(error);
+  }
+  
+  // Sanitize input
+  req.body.comment = comment.trim();
+  next();
+};
+
 // CREATE - Add a new comment
 router.post(
   "/create",
@@ -226,6 +301,8 @@ router.post(
     req.startTime = Date.now();
     next();
   },
+  validateComment,
+  handleIdempotency,
   async (req, res) => {
     const requestId = req.requestId;
     const startTime = req.startTime || Date.now();
@@ -563,6 +640,254 @@ router.get(
         error: "Internal server error",
         requestId 
       });
+    }
+  }
+);
+
+// READ - Read a specific comment by id (POST version)
+router.post(
+  "/read",
+  (req, res, next) => {
+    req.logAction = "read_item";
+    req.requestId = req.headers['x-request-id'] || ulid();
+    req.startTime = Date.now();
+    next();
+  },
+  async (req, res) => {
+    const requestId = req.requestId;
+    const startTime = req.startTime || Date.now();
+    const routeStartTime = Date.now();
+
+    const { id } = req.body || {};
+
+    const baseContext = createLogContext({
+      requestId,
+      component: 'CRUDARouter',
+      method: 'readComment',
+      endpoint: req.path,
+      httpMethod: req.method,
+      userId: req.user?.id,
+      ip: req.ip,
+      action: req.logAction,
+      headers: Object.keys(req.headers),
+      bodyKeys: Object.keys(req.body || {}),
+      itemId: id
+    });
+
+    logger.debugWithContext("Processing read comment request", baseContext);
+
+    if (!id) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logger.warnWithContext("Read comment validation failed - missing id", { ...baseContext, duration, routeDuration });
+      return res.status(400).json({ error: "ID is required", requestId });
+    }
+
+    try {
+      const comment = await db.get("SELECT * FROM comments WHERE id = ?", [id]);
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+
+      if (!comment) {
+        logger.warnWithContext("Comment not found for read", { ...baseContext, duration, routeDuration });
+        return res.status(404).json({ error: "Comment not found", requestId });
+      }
+
+      logger.infoWithContext("Comment retrieved successfully", { ...baseContext, status: 'success', duration, routeDuration });
+
+      logger.metric('cruda_operations', duration, {
+        operation: 'readComment',
+        result: 'success'
+      });
+
+      return res.json({ comment, requestId });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logErrorWithMetrics(
+        "Error reading comment",
+        { ...baseContext, duration, routeDuration },
+        error,
+        'cruda_error',
+        { operation: 'readComment', result: 'error', duration }
+      );
+      return res.status(500).json({ error: "Internal server error", requestId });
+    }
+  }
+);
+
+// READ - Read by id (GET version for compatibility)
+router.get(
+  "/read/:id",
+  (req, res, next) => {
+    req.logAction = "read_item";
+    req.requestId = req.headers['x-request-id'] || ulid();
+    req.startTime = Date.now();
+    next();
+  },
+  async (req, res) => {
+    const requestId = req.requestId;
+    const startTime = req.startTime || Date.now();
+    const routeStartTime = Date.now();
+    const id = req.params.id;
+
+    const baseContext = createLogContext({
+      requestId,
+      component: 'CRUDARouter',
+      method: 'readCommentGET',
+      endpoint: req.path,
+      httpMethod: req.method,
+      userId: req.user?.id,
+      ip: req.ip,
+      action: req.logAction,
+      itemId: id
+    });
+
+    logger.debugWithContext("Processing GET read comment request", baseContext);
+
+    try {
+      const comment = await db.get("SELECT * FROM comments WHERE id = ?", [id]);
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+
+      if (!comment) {
+        logger.warnWithContext("Comment not found for GET read", { ...baseContext, duration, routeDuration });
+        return res.status(404).json({ error: "Comment not found", requestId });
+      }
+
+      logger.infoWithContext("Comment retrieved successfully via GET", { ...baseContext, status: 'success', duration, routeDuration });
+      logger.metric('cruda_operations', duration, { operation: 'readComment', result: 'success', method: 'GET' });
+      return res.json({ comment, requestId });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logErrorWithMetrics(
+        "Error reading comment via GET",
+        { ...baseContext, duration, routeDuration },
+        error,
+        'cruda_error',
+        { operation: 'readComment', result: 'error', duration, method: 'GET' }
+      );
+      return res.status(500).json({ error: "Internal server error", requestId });
+    }
+  }
+);
+
+// UPDATE - Update a comment's text
+router.post(
+  "/update",
+  itemExists,
+  (req, res, next) => {
+    req.logAction = "update_item";
+    req.requestId = req.headers['x-request-id'] || ulid();
+    req.startTime = Date.now();
+    next();
+  },
+  handleIdempotency,
+  async (req, res) => {
+    const requestId = req.requestId;
+    const startTime = req.startTime || Date.now();
+    const routeStartTime = Date.now();
+    const { id, comment } = req.body || {};
+
+    try {
+      const existing = await db.get("SELECT * FROM comments WHERE id = ?", [id]);
+      if (!existing) {
+        return res.status(404).json({ error: "Comment not found", requestId });
+      }
+
+      await db.run(
+        "UPDATE comments SET comment = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [comment, id]
+      );
+
+      const updated = await db.get("SELECT * FROM comments WHERE id = ?", [id]);
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+
+      logger.infoWithContext("Comment updated successfully", { ...baseContext, status: 'success', duration, routeDuration });
+      logger.metric('cruda_operations', duration, { operation: 'updateComment', result: 'success' });
+
+      return res.json({ comment: updated, requestId });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logErrorWithMetrics(
+        "Error updating comment",
+        { ...baseContext, duration, routeDuration },
+        error,
+        'cruda_error',
+        { operation: 'updateComment', result: 'error', duration }
+      );
+      return res.status(500).json({ error: "Internal server error", requestId });
+    }
+  }
+);
+
+// DESTROY - Delete a comment by id
+router.post(
+  "/destroy",
+  itemExists,
+  (req, res, next) => {
+    req.logAction = "delete_item";
+    req.requestId = req.headers['x-request-id'] || ulid();
+    req.startTime = Date.now();
+    next();
+  },
+  handleIdempotency,
+  async (req, res) => {
+    const requestId = req.requestId;
+    const startTime = req.startTime || Date.now();
+    const routeStartTime = Date.now();
+    const { id } = req.body || {};
+    const baseContext = createLogContext({
+      requestId,
+      component: 'CRUDARouter',
+      method: 'deleteComment',
+      endpoint: req.path,
+      httpMethod: req.method,
+      userId: req.user?.id,
+      ip: req.ip,
+      action: req.logAction,
+      headers: Object.keys(req.headers),
+      bodyKeys: Object.keys(req.body || {}),
+      itemId: id
+    });
+
+    logger.debugWithContext("Processing delete comment request", baseContext);
+
+    if (!id) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logger.warnWithContext("Delete validation failed - missing id", { ...baseContext, duration, routeDuration });
+      return res.status(400).json({ error: "ID is required", requestId });
+    }
+
+    try {
+      const existing = await db.get("SELECT * FROM comments WHERE id = ?", [id]);
+      if (!existing) {
+        return res.status(404).json({ error: "Comment not found", requestId });
+      }
+
+      await db.run("DELETE FROM comments WHERE id = ?", [id]);
+
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logger.infoWithContext("Comment deleted successfully", { ...baseContext, status: 'success', duration, routeDuration });
+      logger.metric('cruda_operations', duration, { operation: 'deleteComment', result: 'success' });
+
+      return res.json({ success: true, id, requestId });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const routeDuration = Date.now() - routeStartTime;
+      logErrorWithMetrics(
+        "Error deleting comment",
+        { ...baseContext, duration, routeDuration },
+        error,
+        'cruda_error',
+        { operation: 'deleteComment', result: 'error', duration }
+      );
+      return res.status(500).json({ error: "Internal server error", requestId });
     }
   }
 );
