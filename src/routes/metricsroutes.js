@@ -381,4 +381,28 @@ router.get('/debug', authenticate_apicall, (req, res) => {
   }
 });
 
+router.get('/', authenticate_apicall, async (req, res) => {
+  try {
+    const performanceService = getPerformanceService(req);
+    const sessionManager = req.app.locals.roditClient?.getSessionManager();
+    
+    const metrics = {
+      // Existing metrics
+      ...await performanceService.getMetrics(),
+      
+      // Add session metrics
+      sessions: {
+        active: await sessionManager?.getActiveSessionCount() || 0,
+        total: 0, // You'll need to implement getTotalSessions() in SessionManager
+        // Add other session metrics as needed
+      }
+    };
+
+    res.json(metrics);
+  } catch (error) {
+    logger.error('Error getting metrics', { error: error.message });
+    res.status(500).json({ error: 'Failed to retrieve metrics' });
+  }
+});
+
 module.exports = router;
