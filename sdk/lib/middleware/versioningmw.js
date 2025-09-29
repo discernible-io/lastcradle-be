@@ -10,8 +10,6 @@
 const logger = require('../../services/logger');
 const config = require('../../services/configsdk');
 
-
-
 /**
  * Parse version from header value
  * @param {string} headerValue - Value from Accept or X-API-Version header

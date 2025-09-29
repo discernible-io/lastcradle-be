@@ -1,9 +1,6 @@
 const { ulid } = require('ulid');
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
-const baseModuleContext = createLogContext("ModuleLoader", "SessionManager", {
-  loadedAt: new Date().toISOString()
-});
 const config = require('../../services/configsdk');
 const SESSION_CLEANUP_INTERVAL = config.get('SESSION_CLEANUP_INTERVAL'); // 1 hour in milliseconds
 const SESSION_TOKEN_RETENTION_PERIOD = config.get('SESSION_TOKEN_RETENTION_PERIOD'); // 7 days in seconds

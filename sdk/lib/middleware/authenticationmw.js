@@ -11,11 +11,8 @@ const nacl = require("tweetnacl");
 // Import specific functions directly to avoid circular dependencies
 const { 
   validate_jwt_token_be,
-  generate_jwt_token,
-  tokenService
+  generate_jwt_token
 } = require("../auth/tokenservice");
-// Import specific functions from authentication.js to avoid circular dependencies
-// Import specific functions from authentication.js to avoid circular dependencies
 const { 
   verify_peerrodit_getrodit,
   verify_rodit_ownership_withnep413

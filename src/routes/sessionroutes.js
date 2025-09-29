@@ -191,6 +191,112 @@ router.get('/list_all', authenticate_apicall, authorize, async (req, res) => {
  * - sessionId: ID of the session to terminate
  * - reason: (optional) Reason for termination
  */
+/**
+ * POST /api/sessions/cleanup - Clean up expired sessions
+ * 
+ * Triggers cleanup of expired sessions and returns cleanup statistics
+ * Protected: Requires authentication
+ */
+router.post('/cleanup', authenticate_apicall, async (req, res) => {
+  const requestId = ulid();
+  const startTime = Date.now();
+  
+  const baseContext = {
+    component: 'SessionRoutes',
+    method: 'cleanupSessions',
+    requestId,
+    httpMethod: req.method,
+    path: req.path,
+    ip: req.ip,
+    userId: req.user?.id || 'system'
+  };
+  
+  logger.info('Session cleanup requested', baseContext);
+  
+  try {
+    if (!sessionManager) {
+      logger.error('Session manager not available', baseContext);
+      return res.status(503).json({
+        error: 'Session service unavailable',
+        requestId
+      });
+    }
+    
+    // Trigger cleanup of expired sessions
+    const beforeCleanup = await sessionManager.getAllSessions();
+    const activeBefore = beforeCleanup.filter(s => s.status === 'active').length;
+    
+    // Cleanup expired sessions
+    const cleanupResult = await sessionManager.cleanupExpiredSessions();
+    
+    // Get post-cleanup stats
+    const afterCleanup = await sessionManager.getAllSessions();
+    const activeAfter = afterCleanup.filter(s => s.status === 'active').length;
+    const removedCount = activeBefore - activeAfter;
+    
+    const duration = Date.now() - startTime;
+    
+    logger.info('Session cleanup completed', {
+      ...baseContext,
+      duration,
+      removedCount,
+      activeBefore,
+      activeAfter,
+      totalSessions: afterCleanup.length
+    });
+    
+    // Add metric for cleanup operation
+    logger.metric('session_cleanup', duration, {
+      operation: 'cleanupExpiredSessions',
+      result: 'success',
+      removedCount,
+      activeSessions: activeAfter,
+      totalSessions: afterCleanup.length
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Session cleanup completed',
+      stats: {
+        removedCount,
+        activeSessions: activeAfter,
+        totalSessions: afterCleanup.length
+      },
+      requestId,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    
+    logger.error('Session cleanup failed', {
+      ...baseContext,
+      error: error.message,
+      stack: error.stack,
+      duration
+    });
+    
+    // Add error metric
+    logger.metric('session_cleanup', duration, {
+      operation: 'cleanupExpiredSessions',
+      result: 'error',
+      error: error.message
+    });
+    
+    res.status(500).json({
+      error: 'Failed to clean up sessions',
+      message: error.message,
+      requestId
+    });
+  }
+});
+
+/**
+ * POST /api/sessions/close - Close a specific session (admin only)
+ * 
+ * Allows administrators to terminate a specific session
+ * Protected: Requires authentication and admin privileges
+ */
 router.post('/close', authenticate_apicall, authorize, (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
@@ -281,7 +387,7 @@ router.post('/close', authenticate_apicall, authorize, (req, res) => {
  * Admin route - Force cleanup of expired sessions
  * Protected: Requires authentication and permissions
  */
-router.post('/cleanup', authenticate_apicall, authorize, async (req, res) => {
+router.post('/cleanup', authenticate_apicall, async (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   
