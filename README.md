@@ -2,7 +2,7 @@
 
 # RODiT Authentication API Server
 
-A production-ready API server demonstrating RODiT-based authentication using the RODiT Authentication SDK. This server provides comprehensive authentication services, CRUD operations, metrics monitoring, and session management with enterprise-grade security and observability features
+A production-ready API server demonstrating RODiT-based authentication using the RODiT Authentication SDK. This server provides comprehensive authentication services, CRUD operations, metrics monitoring, and session management with enterprise-grade security and observability features.
 
 ## Repository Structure
 
