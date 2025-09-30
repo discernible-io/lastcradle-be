@@ -41,7 +41,7 @@ All endpoints are now fully functional and tested:
 - `GET /api-docs` - Swagger API documentation
 
 **🟢 Protected Endpoints (require authentication):**
-- `POST /api/echo` - Echo service for testing authenticated requests
+- `POST /api/echo` - Echo service (JSON only; fields: message|echo|data|text)
 - `POST /api/logout` - Session termination and token invalidation
 - `GET /api/token/claims` - JWT token inspection
 - `/api/cruda/*` - CRUD operations (create, read, update, delete, list)
@@ -70,9 +70,6 @@ All endpoints are now fully functional and tested:
 ```bash
 # Install dependencies for the API server
 npm install
-
-# The SDK is now provided via npm package @rodit/rodit-auth-be
-# No separate SDK installation needed
 ```
 
 ### Configuration
@@ -90,13 +87,12 @@ The API server requires several environment variables to be configured for prope
 | `NEAR_CONTRACT_ID` | `20251001-rodit-org.testnet` | NEAR Protocol contract ID for RODiT verification |
 | `RODIT_NEAR_CREDENTIALS_SOURCE` | `vault` | Source for NEAR credentials (vault or file) |
 | `SERVERPORT` | `8080` | Port number for the API server |
-| `SERVICE_NAME` | `servertestapi-api` | Service name for logging and identification |
+| `SERVICE_NAME` | `servertest-api` | Service name for logging and identification |
 | `VAULT_ENDPOINT` | `https://vault.rodit.org:8200` | HashiCorp Vault server endpoint |
 | `VAULT_RODIT_KEYVALUE_PATH` | `signing-keys` | Vault path for RODiT signing keys |
 | `VAULT_TOKEN_TTL` | `0` | Vault token time-to-live (0 = no expiry) |
 
 #### Required Secrets
-
 The following secrets must be configured in your deployment environment:
 
 | Secret | Description |
@@ -124,7 +120,7 @@ node scripts/init-database.js
 
 # Or manually create the database file
 touch data/database.sqlite
-sqlite3 data/database.sqlite "CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT NOT NULL, author TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT, data TEXT, expires_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT, method TEXT, response_time INTEGER, status_code INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);"
+sqlite3 data/database.sqlite "CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, comment TEXT NOT NULL, author TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT, data TEXT, expires_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT, method TEXT, response_time INTEGER, status_code INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);"
 ```
 
 This script will:
@@ -319,6 +315,7 @@ When creating a RODIT token for this API server, use the following `permissioned
       "/api/cruda/create": "+0",
       "/api/cruda/list": "+0",
       "/api/cruda/read": "+0",
+      "/api/cruda/read/*": "+0",
       "/api/cruda/update": "+0",
       "/api/cruda/destroy": "+0",
       "/api/sessions/login": "+0",
@@ -351,16 +348,16 @@ When creating a RODIT token for this API server, use the following `permissioned
 - `GET /api-docs/swagger.json` - OpenAPI specification JSON
 
 **Protected Routes (require JWT authentication):**
-- `POST /api/echo` - Echo service for testing authenticated requests
+- `POST /api/echo` - Echo service (JSON only; fields: message|echo|data|text)
 - `POST /api/logout` - User logout and session termination
 - `GET /api/token/claims` - Inspect current JWT token claims and user information
 
 **CRUD Operations (require authentication + permissions):**
 - `POST /api/cruda/create` - Create new comment entries
-- `GET /api/cruda/list` - List all comments with pagination
-- `GET /api/cruda/read` - Read specific comment by ID
-- `PUT /api/cruda/update` - Update existing comment
-- `DELETE /api/cruda/destroy` - Delete comment by ID
+- `POST /api/cruda/list` | `GET /api/cruda/list` - List all comments
+- `POST /api/cruda/read` | `GET /api/cruda/read/:id` - Read specific comment by ID
+- `POST /api/cruda/update` | `PUT /api/cruda/update` - Update existing comment
+- `POST /api/cruda/destroy` | `DELETE /api/cruda/destroy` - Delete comment by ID
 
 **Metrics & Monitoring (require authentication):**
 - `GET /api/metrics` - Application performance metrics
@@ -395,7 +392,7 @@ curl -X POST https://api.discernible.io:9443/api/login \
   -H "Content-Type: application/json" \
   -d '{
     "roditid": "YOUR_RODIT_ID",
-    "signature": "YOUR_SIGNATURE", 
+    "roditid_base64url_signature": "YOUR_SIGNATURE",
     "timestamp": "CURRENT_TIMESTAMP"
   }'
 
@@ -454,7 +451,7 @@ curl https://api.discernible.io:9443/api-docs/swagger.json
 # 1. Login
 LOGIN_RESPONSE=$(curl -s -X POST https://api.discernible.io:9443/api/login \
   -H "Content-Type: application/json" \
-  -d '{"roditid": "YOUR_RODIT_ID", "signature": "YOUR_SIGNATURE", "timestamp": "TIMESTAMP"}')
+  -d '{"roditid": "YOUR_RODIT_ID", "roditid_base64url_signature": "YOUR_SIGNATURE", "timestamp": "TIMESTAMP"}')
 
 # 2. Extract token
 JWT_TOKEN=$(echo $LOGIN_RESPONSE | jq -r '.jwt_token')

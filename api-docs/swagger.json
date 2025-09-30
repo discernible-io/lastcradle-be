@@ -7,7 +7,7 @@
     "termsOfService": "https://api.discernible.io/terms",
     "contact": {
       "name": "Discernible Inc.",
-      "url": "https://api.discernible.io/home.js",
+      "url": "https://api.discernible.io",
       "email": "support@rodit-tech.com"
     },
     "license": {
@@ -18,8 +18,8 @@
   },
   "servers": [
     {
-      "url": "https://api-url-not-set.example.com",
-      "description": "RODiT API Server (static build)"
+      "url": "https://api.discernible.io:9443",
+      "description": "RODiT API Server"
     }
   ],
   "externalDocs": {
@@ -515,7 +515,7 @@
     "/api/echo": {
       "post": {
         "summary": "Echo service",
-        "description": "Echoes back the provided message in uppercase",
+        "description": "Echoes back the provided message exactly as received. Only application/json is accepted. Input may be provided in one of: message, echo, data, or text.",
         "tags": ["Utilities"],
         "security": [
           {
@@ -528,13 +528,13 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["message"],
                 "properties": {
-                  "message": {
-                    "type": "string",
-                    "description": "Message to echo back"
-                  }
-                }
+                  "message": { "type": "string", "description": "Message to echo back" },
+                  "echo": { "type": "string", "description": "Echo string (alternative input field)" },
+                  "data": { "type": "string", "description": "Data string (alternative input field)" },
+                  "text": { "type": "string", "description": "Text string (alternative input field)" }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -547,14 +547,15 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "echo": {
-                      "type": "string",
-                      "description": "Echoed message in uppercase"
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": { "type": "string" },
+                        "input": { "type": "string" },
+                        "echo": { "type": "string" }
+                      }
                     },
-                    "requestId": {
-                      "type": "string",
-                      "format": "ulid"
-                    }
+                    "requestId": { "type": "string", "format": "ulid" }
                   }
                 }
               }
@@ -565,6 +566,29 @@
           },
           "401": {
             "description": "Authentication required"
+          }
+        }
+      },
+      "get": {
+        "summary": "Echo endpoint info",
+        "description": "Returns endpoint usage information. Protected endpoint.",
+        "tags": ["Utilities"],
+        "security": [ { "bearerAuth": [] } ],
+        "responses": {
+          "200": {
+            "description": "Endpoint usage information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "usage": { "type": "string" },
+                    "requestId": { "type": "string", "format": "ulid" }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -627,6 +651,16 @@
             "description": "Authentication required"
           }
         }
+      },
+      "get": {
+        "summary": "List all comments (GET)",
+        "description": "Retrieves all comments via GET",
+        "tags": ["CRUDA"],
+        "security": [ { "bearerAuth": [] } ],
+        "responses": {
+          "200": { "description": "Comments retrieved successfully" },
+          "401": { "description": "Authentication required" }
+        }
       }
     },
     "/api/cruda/read": {
@@ -666,6 +700,28 @@
           "401": {
             "description": "Authentication required"
           }
+        }
+      }
+    },
+    "/api/cruda/read/{id}": {
+      "get": {
+        "summary": "Read specific comment (by path param)",
+        "description": "Retrieves a specific comment by ID",
+        "tags": ["CRUDA"],
+        "security": [ { "bearerAuth": [] } ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": { "type": "integer" },
+            "required": true,
+            "description": "Comment ID"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Comment retrieved successfully" },
+          "404": { "description": "Comment not found" },
+          "401": { "description": "Authentication required" }
         }
       }
     },
@@ -711,6 +767,32 @@
             "description": "Authentication required"
           }
         }
+      },
+      "put": {
+        "summary": "Update comment (PUT)",
+        "description": "Updates an existing comment via PUT",
+        "tags": ["CRUDA"],
+        "security": [ { "bearerAuth": [] } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id", "comment"],
+                "properties": {
+                  "id": { "type": "integer", "description": "Comment ID" },
+                  "comment": { "type": "string", "description": "Updated comment text" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Comment updated successfully" },
+          "404": { "description": "Comment not found" },
+          "401": { "description": "Authentication required" }
+        }
       }
     },
     "/api/cruda/destroy": {
@@ -750,6 +832,29 @@
           "401": {
             "description": "Authentication required"
           }
+        }
+      },
+      "delete": {
+        "summary": "Delete comment (DELETE)",
+        "description": "Deletes an existing comment via DELETE",
+        "tags": ["CRUDA"],
+        "security": [ { "bearerAuth": [] } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id"],
+                "properties": { "id": { "type": "integer", "description": "Comment ID to delete" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Comment deleted successfully" },
+          "404": { "description": "Comment not found" },
+          "401": { "description": "Authentication required" }
         }
       }
     },
