@@ -12,7 +12,7 @@ const session = require("express-session");
 const { ulid } = require("ulid");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
-const { RoditClient, setExpressSessionStore } = require("@rodit/rodit-auth-be");
+const { RoditClient } = require("@rodit/rodit-auth-be");
 const config = require("config");
 
 // Create temporary client instance to access utilities
