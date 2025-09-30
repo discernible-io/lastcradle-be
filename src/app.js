@@ -53,10 +53,13 @@ try {
   }
 
   if (SQLiteStore) {
-    // Get database configuration
-    const dbPath = config.get('API_DEFAULT_OPTIONS.DB_PATH', '/app/data/database.sqlite');
-    const dbDir = dbPath.substring(0, dbPath.lastIndexOf('/')) || './data';
-    const dbFile = dbPath.split('/').pop();
+    // Get database configuration - same as CRUDA
+    const path = require('path');
+    const DB_PATH = config.get("API_DEFAULT_OPTIONS.DB_PATH");
+    
+    // Split the path for connect-sqlite3 (requires dir and db separately)
+    const dbDir = path.dirname(DB_PATH);
+    const dbFile = path.basename(DB_PATH);
 
     // Create SQLite session store
     sessionStore = new SQLiteStore({
@@ -71,7 +74,7 @@ try {
     logger.info('SQLite session storage configured successfully', {
       component: 'SessionStorage',
       storageType: 'SQLite (connect-sqlite3)',
-      dbPath,
+      dbPath: DB_PATH,
       table: 'sessions',
       persistent: true
     });
