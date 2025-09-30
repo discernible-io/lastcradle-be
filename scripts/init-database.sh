@@ -1,26 +1,58 @@
 #!/usr/bin/env bash
-# Database Initialization Script for RODiT Authentication API
-# This script ensures that the required directory structure exists
-# and initializes the SQLite database for the API server.
+# Database initialization script for servertest-rodit
+# 
+# This script creates the SQLite database and initializes all tables for both
+# development and production deployment environments.
+#
+# IMPORTANT NOTES:
+# ================
+# 1. Sessions Table: The 'sessions' table is NOT created by this script!
+#    - connect-sqlite3 auto-creates the sessions table on first use
+#    - Manual creation causes schema conflicts ("no such column: expired" errors)
+#    - Let connect-sqlite3 manage its own table schema
+#
+# 2. Deployment vs Development:
+#    - Development: Uses ./data/database.sqlite (local testing)
+#    - Deployment: Uses ~/servertest-app/data/database.sqlite (container volume)
+#    - Ownership: Container runs as UID 100999 (nodeuser via podman unshare)
+#    - Permissions: 664 (rw-rw-r--) for proper container access
+#
+# 3. Volume Mounting:
+#    - Container mounts: ~/servertest-app/data -> /app/data
+#    - Database must exist in deployment directory BEFORE container starts
+#    - Wrong path = container uses old/incorrect database
+#
+# Usage:
+#   ./scripts/init-database.sh              # Development mode (./data/)
+#   ./scripts/init-database.sh --deployment # Deployment mode (~/servertest-app/data/)
 
 set -euo pipefail
 
 # Configuration
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DATA_DIR="${PROJECT_ROOT}/data"
-LOGS_DIR="${PROJECT_ROOT}/logs"
+
+# Determine mode: development or deployment
+DEPLOYMENT_MODE=false
+if [[ "${1:-}" == "--deployment" ]]; then
+    DEPLOYMENT_MODE=true
+    DATA_DIR="${HOME}/servertest-app/data"
+    LOGS_DIR="${HOME}/servertest-app/logs"
+    echo "Starting database initialization for servertest-rodit (DEPLOYMENT MODE)"
+else
+    DATA_DIR="${PROJECT_ROOT}/data"
+    LOGS_DIR="${PROJECT_ROOT}/logs"
+    echo "Starting database initialization for servertest-rodit (DEVELOPMENT MODE)"
+fi
+
 NGINX_LOGS_DIR="${LOGS_DIR}/nginx"
 DB_PATH="${DATA_DIR}/database.sqlite"
 
-echo "🚀 Starting database initialization for servertest-rodit..."
-echo "⚠️  WARNING: This will DELETE and RECREATE the database"
-echo "📍 Project root: ${PROJECT_ROOT}"
+echo "  WARNING: This will DELETE and RECREATE the database"
+echo "  Database path: ${DB_PATH}"
 
 # Create directories with proper permissions
-echo "📁 Creating directory structure..."
+echo "  Creating directory structure..."
 mkdir -p "${DATA_DIR}" "${LOGS_DIR}" "${NGINX_LOGS_DIR}"
-
-# Set directory permissions to be writable by container users (may fail due to ownership)
 chmod 755 "${DATA_DIR}" "${LOGS_DIR}" 2>/dev/null || echo "⚠️  Could not set directory permissions (may be owned by container user)"
 chmod 775 "${NGINX_LOGS_DIR}" 2>/dev/null || echo "⚠️  Could not set nginx log permissions (may be owned by container user)"
 
@@ -80,9 +112,25 @@ SELECT 'Tables created:' as status;
 .tables
 EOF
 
-# Set proper permissions for database file
+# Set proper permissions and ownership for database file
 chmod 664 "${DB_PATH}"  # Read/write for owner and group
 echo "✓ Set database file permissions (664)"
+
+# Set ownership for deployment mode (container user)
+if [ "$DEPLOYMENT_MODE" = true ]; then
+    echo "🔐 Setting ownership for container access..."
+    # Container runs as UID 100999 (nodeuser via podman unshare)
+    # This is the mapped UID for user 1000 inside the container
+    if command -v podman &> /dev/null; then
+        podman unshare chown 1000:1000 "${DB_PATH}" 2>/dev/null || \
+            chown 100999:100999 "${DB_PATH}" 2>/dev/null || \
+            echo "⚠️  Could not set ownership - run with sudo or as podman user"
+    else
+        chown 100999:100999 "${DB_PATH}" 2>/dev/null || \
+            echo "⚠️  Could not set ownership - run with sudo"
+    fi
+    echo "✓ Ownership set for container user (UID 100999/1000)"
+fi
 
 # Verify database was created successfully
 if [ -f "${DB_PATH}" ] && [ -s "${DB_PATH}" ]; then
@@ -111,8 +159,27 @@ if [ -f "${DB_PATH}" ] && [ -s "${DB_PATH}" ]; then
     if [ "$COMMENTS_COUNT" != "ERROR" ] && [ "$METRICS_COUNT" != "ERROR" ]; then
         echo ""
         echo "🎉 All tables verified and ready for use!"
-        echo "💾 Sessions table will be created automatically on first use"
-        echo "💾 Sessions will persist across server restarts"
+        echo ""
+        echo "📝 Important Notes:"
+        echo "  • Sessions table: Will be auto-created by connect-sqlite3 on first use"
+        echo "  • Sessions persist: All sessions survive container restarts"
+        echo "  • Schema managed by: connect-sqlite3 library (do not manually modify)"
+        
+        if [ "$DEPLOYMENT_MODE" = true ]; then
+            echo ""
+            echo "🚀 Deployment Mode Active:"
+            echo "  • Container mount: ~/servertest-app/data -> /app/data"
+            echo "  • Container user: nodeuser (UID 1000 -> host UID 100999)"
+            echo "  • Restart container to pick up new database"
+            echo ""
+            echo "📦 To apply changes:"
+            echo "    podman restart servertest-container"
+        else
+            echo ""
+            echo "💻 Development Mode Active:"
+            echo "  • Database location: ${DB_PATH}"
+            echo "  • Start app: npm start"
+        fi
     else
         echo "❌ One or more table tests failed"
         exit 1
@@ -121,3 +188,6 @@ else
     echo "❌ Database creation failed"
     exit 1
 fi
+
+echo ""
+echo "✅ Database initialization complete!"
