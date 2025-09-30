@@ -59,13 +59,8 @@ CREATE TABLE IF NOT EXISTS comments (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Sessions table for express-session with connect-sqlite3
--- Schema compatible with connect-sqlite3 store
-CREATE TABLE IF NOT EXISTS sessions (
-    sid TEXT PRIMARY KEY NOT NULL,
-    expired INTEGER NOT NULL,
-    sess TEXT NOT NULL
-);
+-- Sessions table will be auto-created by connect-sqlite3 on first use
+-- Do not create it manually to avoid schema conflicts
 
 -- Metrics table for performance tracking
 CREATE TABLE IF NOT EXISTS metrics (
@@ -107,16 +102,16 @@ if [ -f "${DB_PATH}" ] && [ -s "${DB_PATH}" ]; then
     echo ""
     echo "🧪 Testing tables:"
     COMMENTS_COUNT=$(sqlite3 "${DB_PATH}" "SELECT COUNT(*) FROM comments;" 2>/dev/null || echo "ERROR")
-    SESSIONS_COUNT=$(sqlite3 "${DB_PATH}" "SELECT COUNT(*) FROM sessions;" 2>/dev/null || echo "ERROR")
     METRICS_COUNT=$(sqlite3 "${DB_PATH}" "SELECT COUNT(*) FROM metrics;" 2>/dev/null || echo "ERROR")
     
     echo "  - comments: ${COMMENTS_COUNT} rows"
-    echo "  - sessions: ${SESSIONS_COUNT} rows"
+    echo "  - sessions: (will be auto-created by connect-sqlite3)"
     echo "  - metrics: ${METRICS_COUNT} rows"
     
-    if [ "$COMMENTS_COUNT" != "ERROR" ] && [ "$SESSIONS_COUNT" != "ERROR" ] && [ "$METRICS_COUNT" != "ERROR" ]; then
+    if [ "$COMMENTS_COUNT" != "ERROR" ] && [ "$METRICS_COUNT" != "ERROR" ]; then
         echo ""
         echo "🎉 All tables verified and ready for use!"
+        echo "💾 Sessions table will be created automatically on first use"
         echo "💾 Sessions will persist across server restarts"
     else
         echo "❌ One or more table tests failed"
