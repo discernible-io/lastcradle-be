@@ -29,7 +29,13 @@ const {
 } = require('./lib/auth/tokenservice');
 
 const validatepermissions = require('./lib/middleware/validatepermissions');
-const { sessionManager } = require('./lib/auth/sessionmanager');
+const {
+  sessionManager,
+  setExpressSessionStore,
+  configureStorageFromConfig,
+  createExpressSessionMiddleware,
+  InMemorySessionStorage
+} = require('./lib/auth/sessionmanager');
 const blockchainService = require('./lib/blockchain/blockchainservice');
 const webhookHandler = require('./lib/middleware/webhookhandler');
 const { versioningMiddleware } = require('./lib/middleware/versioningmw');
@@ -1632,6 +1638,15 @@ module.exports = {
   stateManager,
   roditManager,
   sessionManager,
+  // Session storage helpers and compatibility facade
+  setExpressSessionStore,
+  configureStorageFromConfig,
+  createExpressSessionMiddleware,
+  InMemorySessionStorage,
+  // Compatibility: provide a SessionManager facade with getInstance()
+  SessionManager: {
+    getInstance: () => sessionManager
+  },
   blockchainService,
   utils,
   config,
