@@ -13,6 +13,7 @@ NGINX_LOGS_DIR="${LOGS_DIR}/nginx"
 DB_PATH="${DATA_DIR}/database.sqlite"
 
 echo "🚀 Starting database initialization for servertest-rodit..."
+echo "⚠️  WARNING: This will DELETE and RECREATE the database"
 echo "📍 Project root: ${PROJECT_ROOT}"
 
 # Create directories with proper permissions
@@ -37,35 +38,11 @@ if [ ! -r "${DATA_DIR}" ]; then
     exit 0
 fi
 
-# Check if database already exists
+# Remove existing database if present
 if [ -f "${DB_PATH}" ]; then
-    echo "⚠️  Database already exists at ${DB_PATH}"
-    echo "🔍 Checking database accessibility and schema..."
-    
-    # Check if we can access the database
-    if ! sqlite3 "${DB_PATH}" "SELECT 1;" >/dev/null 2>&1; then
-        echo "❌ Cannot access existing database (permission denied)"
-        echo "💡 Database is likely owned by container user - this is normal for deployed systems"
-        echo "🚀 The database exists and will be used by the container application"
-        echo "✅ Database initialization check completed"
-        exit 0
-    fi
-    
-    # Verify the schema is correct
-    SCHEMA_CHECK=$(sqlite3 "${DB_PATH}" "PRAGMA table_info(comments);" | grep -c "comment" || echo "0")
-    if [ "$SCHEMA_CHECK" -eq "0" ]; then
-        echo "❌ Database has incorrect schema (missing 'comment' field)"
-        echo "🔄 Database needs to be recreated with correct schema"
-        echo "⚠️  Manual intervention required - database is owned by container user"
-        exit 1
-    else
-        echo "✅ Database schema is correct"
-        # Show some database stats if accessible
-        COMMENT_COUNT=$(sqlite3 "${DB_PATH}" "SELECT COUNT(*) FROM comments;" 2>/dev/null || echo "unknown")
-        echo "📊 Comments in database: ${COMMENT_COUNT}"
-        echo "🎉 Database is ready for use!"
-        exit 0
-    fi
+    echo "🗑️  Removing existing database at ${DB_PATH}..."
+    rm -f "${DB_PATH}"
+    echo "✅ Existing database removed"
 fi
 
 # Initialize SQLite database with standardized schema
@@ -82,13 +59,12 @@ CREATE TABLE IF NOT EXISTS comments (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Sessions table for session management
+-- Sessions table for express-session with connect-sqlite3
+-- Schema compatible with connect-sqlite3 store
 CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    user_id TEXT,
-    data TEXT,
-    expires_at DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    sid TEXT PRIMARY KEY NOT NULL,
+    expired INTEGER NOT NULL,
+    sess TEXT NOT NULL
 );
 
 -- Metrics table for performance tracking
@@ -104,11 +80,9 @@ CREATE TABLE IF NOT EXISTS metrics (
 -- Insert a test comment to verify schema
 INSERT INTO comments (comment, author) VALUES ('Database initialized successfully', 'system');
 
--- Verify tables and schema
-.echo on
+-- Verify tables were created
+SELECT 'Tables created:' as status;
 .tables
-PRAGMA table_info(comments);
-SELECT COUNT(*) as total_comments FROM comments;
 EOF
 
 # Set proper permissions for database file
@@ -124,13 +98,28 @@ if [ -f "${DB_PATH}" ] && [ -s "${DB_PATH}" ]; then
     echo "  - Size: ${DB_SIZE} bytes"
     echo "  - Permissions: $(stat -c%A "${DB_PATH}")"
     
-    # Test database connectivity
-    TEST_RESULT=$(sqlite3 "${DB_PATH}" "SELECT COUNT(*) FROM comments;" 2>/dev/null || echo "ERROR")
-    if [ "$TEST_RESULT" != "ERROR" ]; then
-        echo "  - Test query result: ${TEST_RESULT} comments"
-        echo "🎉 Database is ready for use!"
+    # Verify all tables were created
+    echo ""
+    echo "📋 Tables created:"
+    sqlite3 "${DB_PATH}" ".tables" | tr '\t' '\n' | sed 's/^/  - /'
+    
+    # Test each table
+    echo ""
+    echo "🧪 Testing tables:"
+    COMMENTS_COUNT=$(sqlite3 "${DB_PATH}" "SELECT COUNT(*) FROM comments;" 2>/dev/null || echo "ERROR")
+    SESSIONS_COUNT=$(sqlite3 "${DB_PATH}" "SELECT COUNT(*) FROM sessions;" 2>/dev/null || echo "ERROR")
+    METRICS_COUNT=$(sqlite3 "${DB_PATH}" "SELECT COUNT(*) FROM metrics;" 2>/dev/null || echo "ERROR")
+    
+    echo "  - comments: ${COMMENTS_COUNT} rows"
+    echo "  - sessions: ${SESSIONS_COUNT} rows"
+    echo "  - metrics: ${METRICS_COUNT} rows"
+    
+    if [ "$COMMENTS_COUNT" != "ERROR" ] && [ "$SESSIONS_COUNT" != "ERROR" ] && [ "$METRICS_COUNT" != "ERROR" ]; then
+        echo ""
+        echo "🎉 All tables verified and ready for use!"
+        echo "💾 Sessions will persist across server restarts"
     else
-        echo "❌ Database test query failed"
+        echo "❌ One or more table tests failed"
         exit 1
     fi
 else

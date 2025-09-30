@@ -508,29 +508,142 @@ logger.info(`Cleanup done: removedSessions=${cleanup.removedSessionsCount}`);
 
 // Session storage options
 // - Standalone memory (default)
-// - express-session (MemoryStore by default)
+// - express-session with various stores (SQLite, Redis, MongoDB, etc.)
 // Configure via environment variable: SESSION_STORAGE_TYPE=memory|express
-// Configure at startup (optional; the SDK uses sensible defaults)
 const { configureStorageFromConfig } = require('@rodit/rodit-auth-be');
 configureStorageFromConfig();
+```
 
-// Inject a custom express-session store (Redis/DB/file/other) when using `express` mode
+### Session Storage Options
+
+The SDK supports multiple storage backends for session persistence using the express-session interface:
+
+#### 1. **In-Memory Storage (Default)**
+
+```javascript
+// No additional configuration needed - this is the default
+const client = await RoditClient.create('portal');
+```
+
+#### 2. **SQLite Storage (Recommended for Production)**
+
+Use the existing SQLite database with `connect-sqlite3`:
+
+**Installation:**
+```bash
+npm install express-session connect-sqlite3
+```
+
+**Application Setup (src/app.js):**
+```javascript
+const express = require('express');
 const session = require('express-session');
-const { setExpressSessionStore, createExpressSessionMiddleware } = require('@rodit/rodit-auth-be');
-const connectRedis = require('connect-redis');
-const { createClient } = require('redis');
-const RedisStore = connectRedis(session);
+const SQLiteStore = require('connect-sqlite3')(session);
+const { RoditClient, setExpressSessionStore } = require('@rodit/rodit-auth-be');
+const config = require('config');
 
-const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://127.0.0.1:6379' });
+const app = express();
+
+// Configure SQLite session store BEFORE initializing RoditClient
+const dbPath = config.get('API_DEFAULT_OPTIONS.DB_PATH', '/app/data/database.sqlite');
+const sqliteStore = new SQLiteStore({
+  db: 'sessions.db',        // Sessions database name (or use same dbPath)
+  dir: './data',            // Directory for the database
+  table: 'sessions',        // Table name
+  // Optional: use existing database connection
+  // db: dbPath
+});
+
+// Inject the SQLite store into the SDK's session manager
+setExpressSessionStore(sqliteStore);
+
+// Initialize RoditClient (will now use SQLite for sessions)
+const roditClient = await RoditClient.create('portal');
+app.locals.roditClient = roditClient;
+
+// Your routes and server setup...
+```
+
+**Benefits:**
+- ✅ Persistent across server restarts
+- ✅ Uses existing database infrastructure
+- ✅ Leverages express-session ecosystem
+- ✅ Automatic cleanup of expired sessions
+- ✅ Compatible with existing session table schema
+
+#### 3. **Redis Storage (For Multi-Server Deployments)**
+
+```bash
+npm install express-session connect-redis redis
+```
+
+```javascript
+const session = require('express-session');
+const RedisStore = require('connect-redis').default;
+const { createClient } = require('redis');
+const { setExpressSessionStore } = require('@rodit/rodit-auth-be');
+
+// Create Redis client
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379'
+});
 await redisClient.connect();
 
-setExpressSessionStore(new RedisStore({ client: redisClient, prefix: 'rodit:sess:' }));
+// Create Redis store
+const redisStore = new RedisStore({
+  client: redisClient,
+  prefix: 'rodit:sess:',
+  ttl: 86400 // 24 hours
+});
 
-// Optional: mount cookie-based sessions (not required for JWT)
-app.use(createExpressSessionMiddleware({
-  secret: process.env.SESSION_SECRET || 'change-me',
-  cookie: { secure: false }
-}));
+// Inject into SDK
+setExpressSessionStore(redisStore);
+
+// Initialize client
+const client = await RoditClient.create('portal');
+```
+
+#### 4. **Custom express-session Stores**
+
+Any express-session compatible store can be used:
+
+```javascript
+const { setExpressSessionStore } = require('@rodit/rodit-auth-be');
+
+// Examples of other stores:
+// - connect-mongo (MongoDB)
+// - connect-pg-simple (PostgreSQL)
+// - express-mysql-session (MySQL)
+// - memorystore (enhanced memory store)
+
+const MyStore = require('connect-something')(session);
+const store = new MyStore({ /* options */ });
+
+setExpressSessionStore(store);
+```
+
+#### Configuration Pattern
+
+```javascript
+// 1. Configure your express-session store
+const store = new SQLiteStore({ dir: './data', db: 'sessions.db' });
+
+// 2. Inject it into the SDK
+setExpressSessionStore(store);
+
+// 3. Initialize RoditClient (will use your store)
+const client = await RoditClient.create('portal');
+```
+
+#### Storage Comparison
+
+| Feature | In-Memory | SQLite (connect-sqlite3) | Redis |
+|---------|-----------|------------------------|-------|
+| Persistent | ❌ | ✅ | ✅ |
+| Setup | Zero config | Simple | Requires Redis server |
+| Performance | Fastest | Fast | Very Fast |
+| Multi-server | ❌ | ❌ | ✅ |
+| Best for | Development | Production (single server) | Production (multi-server) |
 ```
 
 ## API Reference

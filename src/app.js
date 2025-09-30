@@ -8,12 +8,12 @@
  */
 
 const express = require("express");
+const session = require("express-session");
 const { ulid } = require("ulid");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
-const { RoditClient } = require("@rodit/rodit-auth-be");
-// Import SessionManager from the public API
-const { SessionManager } = require("@rodit/rodit-auth-be");
+const { RoditClient, setExpressSessionStore } = require("@rodit/rodit-auth-be");
+const config = require("config");
 
 // Create temporary client instance to access utilities
 const tempClient = new RoditClient();
@@ -24,6 +24,7 @@ const ratelimitmw = tempClient.getRateLimitMiddleware();
 
 // Will be set to fully initialized client later
 let roditClient;
+let sessionStore; // Store reference for graceful shutdown
 
 // Authentication middleware will be created after client initialization
 let authenticate_apicall;
@@ -38,16 +39,55 @@ const metricsRoutes = require("./routes/metricsroutes");
 const mcpRoutes = require("./routes/mcproutes");
 const sessionRoutes = require("./routes/sessionroutes");
 
-// Configure session storage from config/environment before further initialization
+// Configure SQLite session storage using express-session
 try {
-  // This will automatically configure storage based on environment/config
-  const sessionManager = SessionManager.getInstance();
-  logger.info('Session storage initialized', {
-    storageType: sessionManager.storage.constructor.name
-  });
+  // Check if express-session and connect-sqlite3 are available
+  let SQLiteStore;
+  try {
+    SQLiteStore = require('connect-sqlite3')(session);
+  } catch (err) {
+    logger.warn('connect-sqlite3 not installed, using in-memory session storage', {
+      component: 'SessionStorage',
+      suggestion: 'Install with: npm install express-session connect-sqlite3'
+    });
+  }
+
+  if (SQLiteStore) {
+    // Get database configuration
+    const dbPath = config.get('API_DEFAULT_OPTIONS.DB_PATH', '/app/data/database.sqlite');
+    const dbDir = dbPath.substring(0, dbPath.lastIndexOf('/')) || './data';
+    const dbFile = dbPath.split('/').pop();
+
+    // Create SQLite session store
+    sessionStore = new SQLiteStore({
+      db: dbFile,           // Database file name
+      dir: dbDir,           // Directory for the database
+      table: 'sessions',    // Table name (created by init-database.sh)
+    });
+
+    // Inject the SQLite store into the SDK's session manager
+    setExpressSessionStore(sessionStore);
+
+    logger.info('SQLite session storage configured successfully', {
+      component: 'SessionStorage',
+      storageType: 'SQLite (connect-sqlite3)',
+      dbPath,
+      table: 'sessions',
+      persistent: true
+    });
+  } else {
+    logger.info('Using default in-memory session storage', {
+      component: 'SessionStorage',
+      storageType: 'InMemorySessionStorage',
+      persistent: false
+    });
+  }
 } catch (e) {
-  logger.error('Error initializing session storage, using in-memory fallback', { error: e.message });
-  // Safe to continue; SessionManager defaults to in-memory storage
+  logger.error('Error configuring session storage, using in-memory fallback', { 
+    component: 'SessionStorage',
+    error: e.message 
+  });
+  // Safe to continue; SDK defaults to in-memory storage
 }
 
 // Log application startup
@@ -1155,6 +1195,52 @@ async function closeAllDatabases() {
         database: "cruda-db",
         result: "error",
         duration: crudaDuration,
+      }
+    );
+  }
+
+  // Close the SQLite session store connection
+  try {
+    if (sessionStore && typeof sessionStore.close === 'function') {
+      const sessionStartTime = Date.now();
+      await new Promise((resolve, reject) => {
+        sessionStore.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      const sessionDuration = Date.now() - sessionStartTime;
+      logger.infoWithContext("Session store connection closed", {
+        ...baseContext,
+        component: "session-store",
+        duration: sessionDuration,
+      });
+
+      // Add metric for session store close
+      logger.metric("database_operations", sessionDuration, {
+        operation: "close",
+        database: "session-store",
+        result: "success",
+      });
+    }
+  } catch (error) {
+    const sessionDuration = Date.now() - startTime;
+
+    logErrorWithMetrics(
+      "Error closing session store",
+      {
+        ...baseContext,
+        component: "session-store",
+        duration: sessionDuration,
+      },
+      error,
+      "database_error",
+      {
+        operation: "close",
+        database: "session-store",
+        result: "error",
+        duration: sessionDuration,
       }
     );
   }
