@@ -123,6 +123,7 @@ jobs:
             echo 'DEBUG: VAULT_ROLE_ID: [provided via secrets]'
             echo 'DEBUG: VAULT_SECRET_ID: [provided via secrets]'
             echo 'DEBUG: VAULT_TOKEN_TTL=${{ vars.VAULT_TOKEN_TTL }}'
+            echo 'DEBUG: SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY=${{ vars.SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY }}'
             podman build -t servertest-image:latest -f api.Dockerfile .
             
             # Run API container with user 1000 and proper volume mounts
@@ -145,6 +146,7 @@ jobs:
               -e VAULT_ROLE_ID='${{ secrets.VAULT_ROLE_ID }}' \
               -e VAULT_SECRET_ID='${{ secrets.VAULT_SECRET_ID }}' \
               -e VAULT_TOKEN_TTL='${{ vars.VAULT_TOKEN_TTL }}' \
+              -e SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY='${{ vars.SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY }}' \
               -v ~/servertest-app/logs:/app/logs:Z \
               -v ~/servertest-app/data:/app/data:Z \
               -v ~/servertest-app/certs:/app/certs:ro,Z \
@@ -160,7 +162,7 @@ jobs:
             # Debug: Check environment variables inside the container
             echo 'DEBUG: Container environment variables:'
             podman exec servertest-container env \
-              | grep -E '^(LOKI_|LOG_|RODIT_NEAR_CREDENTIALS_SOURCE|SERVICE_NAME|SERVERPORT|API_DEFAULT_OPTIONS_LOG_DIR|NEAR_CONTRACT_ID|VAULT_ENDPOINT|VAULT_RODIT_KEYVALUE_PATH|VAULT_ROLE_ID|VAULT_TOKEN_TTL)' \
+              | grep -E '^(LOKI_|LOG_|RODIT_NEAR_CREDENTIALS_SOURCE|SERVICE_NAME|SERVERPORT|API_DEFAULT_OPTIONS_LOG_DIR|NEAR_CONTRACT_ID|VAULT_ENDPOINT|VAULT_RODIT_KEYVALUE_PATH|VAULT_ROLE_ID|VAULT_TOKEN_TTL|SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY)' \
               | sed -E 's/(VAULT_ROLE_ID|VAULT_SECRET_ID)=.*/\1=****/' \
               | sort || echo 'No expected variables found'
             
