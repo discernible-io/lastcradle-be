@@ -2190,16 +2190,34 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
     if (
       !forceRenewal &&
       durationLeftpct / 100 >=
-      1.0 - LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY
+        1.0 - LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY
     ) {
-      logger.debug("Token has sufficient lifetime remaining", {
+      const renewThresholdPercent = (
+        100 - LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY
+      ).toFixed(1);
+      const renewThresholdSeconds =
+        currentDuration * (1 - LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY);
+      const secondsUntilEligibility = Math.max(
+        0,
+        timeLeft - renewThresholdSeconds
+      );
+      const eligibilityTimestamp = new Date(
+        (currentTime + secondsUntilEligibility) * 1000
+      ).toISOString();
+
+      logger.debug("Token has not met renewal threshold yet", {
         component: "TokenRenewalService",
         method: "checkandrenew_jwt_token",
         requestId,
         timeLeftPercent: durationLeftpct.toFixed(1),
-        renewThreshold: (
-          100 - LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY
-        ).toFixed(1),
+        renewThresholdPercent,
+        secondsUntilEligibility,
+        eligibilityTimestamp,
+        renewalConditions: {
+          minimumLapsedLifetimePercent:
+            LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY * 100,
+          requiredRemainingPercent: renewThresholdPercent,
+        },
       });
 
       const duration = Date.now() - startTime;
@@ -2212,6 +2230,7 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
         component: "TokenRenewalService",
         reason: "sufficient_lifetime",
         session_status: payload.session_status || "unknown",
+        seconds_until_eligibility: secondsUntilEligibility,
       });
       return { newToken: null };
     }
