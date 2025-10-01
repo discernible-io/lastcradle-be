@@ -62,12 +62,19 @@ echo "  - Logs: ${LOGS_DIR}"
 echo "  - Nginx logs: ${NGINX_LOGS_DIR}"
 
 # Check if we can access the data directory
-if [ ! -r "${DATA_DIR}" ]; then
-    echo "⚠️  Cannot read data directory ${DATA_DIR} (likely owned by container user)"
-    echo "💡 This is normal for deployed systems where containers own the data directory"
-    echo "🚀 Assuming database exists and is managed by the container application"
-    echo "✅ Database initialization check completed"
-    exit 0
+if [ ! -r "${DATA_DIR}" ] && [ "$DEPLOYMENT_MODE" = true ]; then
+    echo ""
+    echo "⚠️  Cannot access deployment directory: ${DATA_DIR}"
+    echo "💡 Directory is owned by container user (UID 100999)"
+    echo ""
+    echo "🔧 To initialize the deployment database, run:"
+    echo "    sudo ./scripts/init-database.sh --deployment"
+    echo ""
+    echo "Or manually:"
+    echo "    sudo rm -f ${DB_PATH}"
+    echo "    sudo chown 100999:100999 ${DATA_DIR}"
+    echo "    sudo ./scripts/init-database.sh --deployment"
+    exit 1
 fi
 
 # Remove existing database if present
