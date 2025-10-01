@@ -9,10 +9,8 @@
  * This module wraps the 'config' package to provide safe accessors that
  * gracefully fall back to baked-in defaults when config keys are missing.
  *
- * Exclusions: Vault keys (VAULT_*) and METHOD_PERMISSION_MAP are intentionally
- * NOT included in fallback defaults.
+ * Exclusions: Vault keys (VAULT_*) are intentionally NOT included in fallback defaults.
  */
-
 
 // Attempt to load the 'config' package if present in the host app
 let nodeConfig = null;
@@ -59,7 +57,7 @@ function deepMerge(target, source) {
   return out;
 }
 
-// Baked-in fallback defaults sourced from config/default.json (excluding Vault and METHOD_PERMISSION_MAP)
+// Baked-in fallback defaults sourced from config/default.json (excluding Vault)
 const FALLBACK_DEFAULTS = {
   API_VERSION: "0.0.0",
   RODIT_NEAR_CREDENTIALS_SOURCE: "file",
@@ -72,7 +70,7 @@ const FALLBACK_DEFAULTS = {
   },
   // Default to file-based credential store; host apps can override with credentials.source or RODIT_NEAR_CREDENTIALS_SOURCE env
   credentials: {
-    filePath: "./.near-credentials/credentials-not-set.json"
+    filePath: "./.near-credentials/credentials-not-set.json",
   },
   API_DEFAULT_OPTIONS: {
     ISO639: "es",
@@ -89,16 +87,16 @@ const FALLBACK_DEFAULTS = {
   // Performance monitoring configuration
   PERFORMANCE: {
     LOAD_LEVELS: {
-      LOW: 'low',
-      MEDIUM: 'medium',
-      HIGH: 'high',
-      CRITICAL: 'critical'
+      LOW: "low",
+      MEDIUM: "medium",
+      HIGH: "high",
+      CRITICAL: "critical",
     },
     LOAD_THRESHOLDS: {
-      MEDIUM: 500,   // >500 req/min = medium load
-      HIGH: 1000,    // >1000 req/min = high load
-      CRITICAL: 2000 // >2000 req/min = critical load
-    }
+      MEDIUM: 500, // >500 req/min = medium load
+      HIGH: 1000, // >1000 req/min = high load
+      CRITICAL: 2000, // >2000 req/min = critical load
+    },
   },
   NEAR_RPC_URL: "https://rpc.testnet.fastnear.com",
   NEAR_CONTRACT_ID: "rodit-org.near",
@@ -107,10 +105,11 @@ const FALLBACK_DEFAULTS = {
   // Session storage configuration
   SESSION_STORAGE_TYPE: "memory",
   // Session cleanup configuration
-  SESSION_CLEANUP_INTERVAL: 3600000,  // 1 hour in milliseconds (60 * 60 * 1000)
-  SESSION_TOKEN_RETENTION_PERIOD: 604800,  // 7 days in seconds (86400 * 7)
+  SESSION_CLEANUP_INTERVAL: 3600000, // 1 hour in milliseconds (60 * 60 * 1000)
+  SESSION_TOKEN_RETENTION_PERIOD: 604800, // 7 days in seconds (86400 * 7)
   // Unified TTL for NEAR RPC cache entries (milliseconds)
   NEAR_CACHE_TTLS: 60000,
+  METHOD_PERMISSION_MAP: {},
 };
 
 function has(pathStr) {
@@ -131,7 +130,7 @@ function has(pathStr) {
 function get(pathStr, defaultValue) {
   let hostValue;
   let hostHasValue = false;
-  
+
   // First try to get from host config
   if (nodeConfig) {
     try {
@@ -141,26 +140,26 @@ function get(pathStr, defaultValue) {
       // Host config doesn't have this key, continue to fallback
     }
   }
-  
+
   // If host has the value, return it
   if (hostHasValue) {
     return hostValue;
   }
-  
+
   // Try fallback defaults
   const fallbackValue = deepGet(FALLBACK_DEFAULTS, pathStr);
   if (fallbackValue !== undefined) {
     return fallbackValue;
   }
-  
+
   // If default value provided, return it
   if (defaultValue !== undefined) {
     return defaultValue;
   }
-  
+
   // Throw error similar to config package
   const err = new Error(`Configuration property '${pathStr}' is not defined`);
-  err.code = 'CONFIG_PROPERTY_MISSING';
+  err.code = "CONFIG_PROPERTY_MISSING";
   throw err;
 }
 
