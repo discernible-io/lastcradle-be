@@ -111,6 +111,11 @@ const FALLBACK_DEFAULTS = {
   SESSION_TOKEN_RETENTION_PERIOD: 604800,  // 7 days in seconds (86400 * 7)
   // Unified TTL for NEAR RPC cache entries (milliseconds)
   NEAR_CACHE_TTLS: 60000,
+  // Token validation cache TTL (milliseconds) - trades security for performance
+  // Lower values = more secure but more storage lookups
+  // Higher values = faster but longer window after logout where token may still work
+  // Set to 0 to disable caching (always check session state)
+  TOKEN_VALIDATION_CACHE_TTL: 5000, // 5 seconds default
   // Default empty permission map so consumers can opt-into permissions as needed
   METHOD_PERMISSION_MAP: {},
 };
