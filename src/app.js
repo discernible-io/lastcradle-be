@@ -70,8 +70,15 @@ try {
       table: 'sessions',    // Table name (created by init-database.sh)
     });
 
-    // Inject the SQLite store into the SDK's session manager
-    setExpressSessionStore(sessionStore);
+    // Inject the SQLite store into the SDK's session manager if supported by SDK version
+    if (typeof setExpressSessionStore === 'function') {
+      setExpressSessionStore(sessionStore);
+    } else {
+      logger.warn('setExpressSessionStore is not available in this SDK version; using in-memory session storage', {
+        component: 'SessionStorage',
+        note: 'Upgrade @rodit/rodit-auth-be to enable express-session store injection'
+      });
+    }
 
     logger.info('SQLite session storage configured successfully', {
       component: 'SessionStorage',
@@ -1157,9 +1164,9 @@ async function closeAllDatabases() {
 
   // Close the CRUDA database connection
   try {
-    if (crudaprotectedRoute.closeDatabase) {
+    if (crudaRoutes && typeof crudaRoutes.closeDatabase === 'function') {
       const crudaStartTime = Date.now();
-      await crudaprotectedRoute.closeDatabase();
+      await crudaRoutes.closeDatabase();
 
       const crudaDuration = Date.now() - crudaStartTime;
       logger.infoWithContext("CRUDA database connection closed", {

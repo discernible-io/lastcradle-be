@@ -146,23 +146,39 @@ router.get('/list_all', authenticate_apicall, authorize, async (req, res) => {
     const logger = getLogger(req);
     const sessionManager = getSessionManager(req);
     
-    // Gather all sessions using the proper storage interface
+    // Gather all sessions using the storage interface (portable across backends)
     const sessions = [];
-    
-    // Get all sessions from storage
-    const allSessions = await sessionManager.getAllSessions();
-    
+    let allSessions = [];
+
+    // Prefer storage.getAll() if available
+    const storage = sessionManager.storage;
+    if (storage && typeof storage.getAll === 'function') {
+      allSessions = await storage.getAll();
+      // Some stores return an object map; normalize to array
+      if (!Array.isArray(allSessions) && allSessions && typeof allSessions === 'object') {
+        allSessions = Object.values(allSessions);
+      }
+    } else if (storage && typeof storage.keys === 'function' && typeof storage.get === 'function') {
+      // Fallback: enumerate keys and fetch sessions one-by-one
+      const ids = await storage.keys();
+      for (const id of ids) {
+        // eslint-disable-next-line no-await-in-loop
+        const s = await storage.get(id);
+        if (s) allSessions.push(s);
+      }
+    }
+
     for (const session of allSessions) {
-      // Don't include closed or expired sessions
-      if (session.status === 'active') {
+      const status = session?.status || 'unknown';
+      if (status === 'active') {
         sessions.push({
-          id: session.id,
+          id: session.id || session.sessionId || session.sid,
           roditId: session.roditId,
           ownerId: session.ownerId,
-          createdAt: new Date(session.createdAt * 1000).toISOString(),
-          expiresAt: new Date(session.expiresAt * 1000).toISOString(),
-          lastAccessedAt: new Date(session.lastAccessedAt * 1000).toISOString(),
-          status: session.status
+          createdAt: session.createdAt ? new Date(session.createdAt * 1000).toISOString() : undefined,
+          expiresAt: session.expiresAt ? new Date(session.expiresAt * 1000).toISOString() : undefined,
+          lastAccessedAt: session.lastAccessedAt ? new Date(session.lastAccessedAt * 1000).toISOString() : undefined,
+          status
         });
       }
     }

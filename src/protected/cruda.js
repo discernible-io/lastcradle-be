@@ -84,6 +84,41 @@ const initializeDatabase = async () => {
 // Expose the database connection for proper cleanup in app.js
 const getDatabase = () => db;
 
+// Gracefully close the CRUDA database connection
+const closeDatabase = async () => {
+  const requestId = ulid();
+  const startTime = Date.now();
+
+  const baseContext = createLogContext({
+    requestId,
+    component: "CRUDARouter",
+    method: "closeDatabase",
+    dbPath: DB_PATH,
+  });
+
+  try {
+    if (db && typeof db.close === "function") {
+      await db.close();
+      const duration = Date.now() - startTime;
+      logger.infoWithContext("SQLite database closed for CRUDA router", {
+        ...baseContext,
+        duration,
+      });
+    } else {
+      logger.debugWithContext("No CRUDA SQLite connection to close", baseContext);
+    }
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logErrorWithMetrics(
+      "Error closing CRUDA SQLite database",
+      { ...baseContext, duration },
+      error,
+      "database_error",
+      { operation: "closeDatabase", result: "error", duration }
+    );
+  }
+};
+
 // Forward function to use the SDK's webhook sender with simplified interface (payload, req)
 // payload shape: { event: string, data?: any, isError?: boolean }
 const logAndSendWebhook = async (payload, req = null) => {
@@ -1328,7 +1363,8 @@ router.use((req, res) => {
   });
 });
 
-// Export the database getter
+// Export the database utilities
 router.getDatabase = getDatabase;
+router.closeDatabase = closeDatabase;
 
 module.exports = router;
