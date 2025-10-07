@@ -10,21 +10,33 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const { RoditClient } = require('@rodit/rodit-auth-be');
 
-// Create SDK client instance to access all functionality
-const sdkClient = new RoditClient();
-const logger = sdkClient.getLogger();
-// Get session manager instance from SDK (avoids ReferenceError)
-const sessionManager = sdkClient.getSessionManager();
+// Helper to get client from app.locals
+const getClient = (req) => {
+  const client = req.app?.locals?.roditClient;
+  if (!client) {
+    throw new Error('RoditClient not available in app.locals');
+  }
+  return client;
+};
 
-// Create authentication middleware using the client instance
+// Helper to get logger from the singleton client
+const getLogger = (req) => {
+  return getClient(req).getLogger();
+};
+
+// Helper to get session manager from singleton
+const getSessionManager = (req) => {
+  return getClient(req).getSessionManager();
+};
+
+// Create authentication middleware using the singleton client
 const authenticate_apicall = (req, res, next) => {
-  return sdkClient.authenticate(req, res, next);
+  return getClient(req).authenticate(req, res, next);
 };
 
 const authorize = (req, res, next) => {
-  return sdkClient.authorize(req, res, next);
+  return getClient(req).authorize(req, res, next);
 };
 
 /**
@@ -38,6 +50,7 @@ router.post('/login', (req, res) => {
   
   req.logAction = "login-attempt";
   
+  const logger = getLogger(req);
   logger.info("Login request received", {
     component: "SessionRoutes",
     method: "createSession",
@@ -67,6 +80,7 @@ router.post('/logout', authenticate_apicall, (req, res) => {
   
   req.logAction = "logout-attempt";
   
+  const logger = getLogger(req);
   logger.info("Logout request received", {
     component: "SessionRoutes",
     method: "terminateSession",
@@ -129,6 +143,9 @@ router.get('/list_all', authenticate_apicall, authorize, async (req, res) => {
   const startTime = Date.now();
   
   try {
+    const logger = getLogger(req);
+    const sessionManager = getSessionManager(req);
+    
     // Gather all sessions using the proper storage interface
     const sessions = [];
     
@@ -200,6 +217,9 @@ router.get('/list_all', authenticate_apicall, authorize, async (req, res) => {
 router.post('/cleanup', authenticate_apicall, async (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
+  
+  const logger = getLogger(req);
+  const sessionManager = getSessionManager(req);
   
   const baseContext = {
     component: 'SessionRoutes',
@@ -305,6 +325,9 @@ router.post('/close', authenticate_apicall, authorize, (req, res) => {
   const { sessionId } = req.body;
   const reason = req.body.reason || 'admin_termination';
   
+  const logger = getLogger(req);
+  const sessionManager = getSessionManager(req);
+  
   if (!sessionId) {
     logger.warn("Session termination missing sessionId", {
       component: "SessionRoutes",
@@ -394,6 +417,7 @@ router.post('/cleanup', authenticate_apicall, async (req, res) => {
   const startTime = Date.now();
   
   try {
+    const logger = getLogger(req);
     logger.info("Manual session cleanup requested", {
       component: "SessionRoutes",
       method: "cleanupSessions",

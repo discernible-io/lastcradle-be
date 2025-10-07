@@ -33,11 +33,13 @@ let validatepermissions;
 // Import routes
 const homeRoute = require("./routes/home");
 const loginRoute = require("./routes/login");
-const logoutRoute = require("./routes/logout");
 const signclientRoute = require("./routes/signclient");
-const metricsRoutes = require("./routes/metricsroutes");
 const mcpRoutes = require("./routes/mcproutes");
-const sessionRoutes = require("./routes/sessionroutes");
+
+// Import protected routes (require authentication)
+const logoutRoute = require("./protected/logout");
+const metricsRoutes = require("./protected/metricsroutes");
+const sessionRoutes = require("./protected/sessionroutes");
 
 // Configure SQLite session storage using express-session
 try {
@@ -147,13 +149,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Mount routes
+// Mount public routes
 app.use("/api", homeRoute);
 app.use("/api", signclientRoute);
-app.use("/api/metrics", metricsRoutes);
 app.use("/api/mcp", mcpRoutes);
 
-// Import protected routes
+// Import additional protected routes
 const echoRoutes = require("./protected/echo");
 const crudaRoutes = require("./protected/cruda");
 
@@ -500,7 +501,6 @@ app.use("/", homeRoute);
 
 // Authentication routes
 app.use("/api", loginRoute);
-app.use("/api", logoutRoute);
 
 /**
  * @swagger
@@ -543,9 +543,6 @@ app.use("/api", logoutRoute);
  *         description: Internal server error
  */
 // Logout route will be mounted after middleware initialization
-
-// Mount session routes for backward compatibility
-app.use("/api/sessions", sessionRoutes);
 
 // Protected routes will be mounted after middleware initialization
 
@@ -917,12 +914,9 @@ async function startServer() {
     // Mount protected routes now that middleware is ready
     app.use("/api/echo", authenticate_apicall, echoRoutes);
     app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
-    
-    // Mount logout route with authentication
-    app.post("/api/logout", authenticate_apicall, (req, res) => {
-      req.logAction = "logout-attempt";
-      roditClient.logout_client(req, res);
-    });
+    app.use("/api/metrics", metricsRoutes);
+    app.use("/api", logoutRoute);
+    app.use("/api/sessions", sessionRoutes);
     
     // Mount token claims endpoint
     app.get("/api/token/claims", authenticate_apicall, (req, res) => {

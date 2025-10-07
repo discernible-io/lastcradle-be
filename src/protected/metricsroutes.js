@@ -6,24 +6,29 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const { RoditClient } = require('@rodit/rodit-auth-be');
 
-// Create SDK client instance to access all functionality
-const sdkClient = new RoditClient();
-
-// Create authentication middleware using the client instance
-const authenticate_apicall = (req, res, next) => {
-  // Use the centralized client from app.locals if available
-  const client = req.app?.locals?.roditClient || sdkClient;
-  return client.authenticate(req, res, next);
+// Helper to get client from app.locals
+const getClient = (req) => {
+  const client = req.app?.locals?.roditClient;
+  if (!client) {
+    throw new Error('RoditClient not available in app.locals');
+  }
+  return client;
 };
-const logger = sdkClient.getLogger();
-const { createLogContext, logErrorWithMetrics } = logger;
 
-// Get performance service from centralized client when available
+// Helper to get logger from the singleton client
+const getLogger = (req) => {
+  return getClient(req).getLogger();
+};
+
+// Create authentication middleware using the singleton client
+const authenticate_apicall = (req, res, next) => {
+  return getClient(req).authenticate(req, res, next);
+};
+
+// Get performance service from singleton client
 const getPerformanceService = (req) => {
-  const client = req?.app?.locals?.roditClient || sdkClient;
-  return client.getPerformanceService();
+  return getClient(req).getPerformanceService();
 };
 
 /**
@@ -35,6 +40,9 @@ const getPerformanceService = (req) => {
 router.get('/', authenticate_apicall, async (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
+  
+  const logger = getLogger(req);
+  const { createLogContext, logErrorWithMetrics } = logger;
   
   const baseContext = createLogContext({
     requestId,
@@ -53,7 +61,7 @@ router.get('/', authenticate_apicall, async (req, res) => {
     const rawMetrics = performanceService.getMetrics();
     
     // Get session manager to count active sessions
-    const client = req?.app?.locals?.roditClient || sdkClient;
+    const client = getClient(req);
     const sessionManager = client.getSessionManager();
     let activeSessionCount = 0;
     let sessionDebugInfo = {};
@@ -200,6 +208,9 @@ router.get('/system', authenticate_apicall, (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
   
+  const logger = getLogger(req);
+  const { createLogContext, logErrorWithMetrics } = logger;
+  
   const baseContext = createLogContext({
     requestId,
     component: 'MetricsRoutes',
@@ -271,6 +282,9 @@ router.get('/system', authenticate_apicall, (req, res) => {
 router.post('/reset', authenticate_apicall, (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
+  
+  const logger = getLogger(req);
+  const { createLogContext, logErrorWithMetrics } = logger;
   
   const baseContext = createLogContext({
     requestId,
@@ -361,11 +375,12 @@ router.get('/debug', authenticate_apicall, (req, res) => {
   const startTime = Date.now();
   
   try {
+    const logger = getLogger(req);
     const performanceService = getPerformanceService(req);
     const metrics = performanceService.getMetrics();
     
     // Get client information
-    const client = req?.app?.locals?.roditClient || sdkClient;
+    const client = getClient(req);
     const clientInfo = {
       hasRoditClient: !!req?.app?.locals?.roditClient,
       clientType: client.constructor.name,
