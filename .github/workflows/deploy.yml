@@ -118,6 +118,7 @@ jobs:
             echo 'DEBUG: SERVERPORT=${{ vars.SERVERPORT }}'
             echo 'DEBUG: API_DEFAULT_OPTIONS_LOG_DIR=/app/logs (hardcoded for container)'
             echo 'DEBUG: NEAR_CONTRACT_ID=${{ vars.NEAR_CONTRACT_ID }}'
+            echo 'DEBUG: NEAR_CREDENTIALS_JSON=${{ vars.NEAR_CREDENTIALS_JSON }}'
             echo 'DEBUG: VAULT_ENDPOINT=${{ vars.VAULT_ENDPOINT }}'
             echo 'DEBUG: VAULT_RODIT_KEYVALUE_PATH=${{ vars.VAULT_RODIT_KEYVALUE_PATH }}'
             echo 'DEBUG: VAULT_ROLE_ID: [provided via secrets]'
@@ -141,6 +142,7 @@ jobs:
               -e SERVERPORT='${{ vars.SERVERPORT }}' \
               -e API_DEFAULT_OPTIONS_LOG_DIR='${{ vars.API_DEFAULT_OPTIONS_LOG_DIR }}' \
               -e NEAR_CONTRACT_ID='${{ vars.NEAR_CONTRACT_ID }}' \
+              -e NEAR_CREDENTIALS_JSO='${{ vars.NEAR_CREDENTIALS_JSO }}' \
               -e VAULT_ENDPOINT='${{ vars.VAULT_ENDPOINT }}' \
               -e VAULT_RODIT_KEYVALUE_PATH='${{ vars.VAULT_RODIT_KEYVALUE_PATH }}' \
               -e VAULT_ROLE_ID='${{ secrets.VAULT_ROLE_ID }}' \
