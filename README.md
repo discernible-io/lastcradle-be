@@ -639,7 +639,7 @@ This creates the required `data/` and `logs/` directories and initializes the SQ
 **Cause**: Database not initialized or missing directories
 **Solution**: 
 ```bash
-ssh user@178.128.173.226
+ssh user@159.223.0.98
 cd ~/servertest-app
 node scripts/init-database.js
 ```
@@ -705,7 +705,7 @@ podman exec servertest-nginx curl -f http://servertest-container:8080/ || echo "
 
 ### 1. Check Container Status
 ```bash
-ssh user@178.128.173.226
+ssh user@159.223.0.98
 podman ps -a
 podman pod ps
 ```
@@ -743,7 +743,7 @@ If automated deployment fails, use these manual steps:
 
 ### 1. Prepare Environment
 ```bash
-ssh user@178.128.173.226
+ssh user@159.223.0.98
 mkdir -p ~/servertest-app/{certs,logs,data,nginx,promtail}
 mkdir -p ~/servertest-app/logs/nginx
 chmod 0775 ~/servertest-app/logs/nginx
@@ -759,12 +759,12 @@ rsync -avz --delete \
   --exclude 'certs' \
   --exclude 'logs' \
   --exclude 'data' \
-  ./ user@178.128.173.226:~/servertest-app/
+  ./ user@159.223.0.98:~/servertest-app/
 ```
 
 ### 3. Initialize Database (First Time Only)
 ```bash
-ssh user@178.128.173.226
+ssh user@159.223.0.98
 cd ~/servertest-app
 node scripts/init-database.js
 ```
