@@ -205,13 +205,12 @@ npm install winston-loki  # For Grafana Loki logging
 **Env-Based Credentials (Default):**
 ```bash
 export RODIT_NEAR_CREDENTIALS_SOURCE=env   # optional; env is the default
-export NEAR_CREDENTIALS_JSON='{
-  "implicit_account_id": "<hex-implicit-account-id>",
-  "private_key": "ed25519:<base58-private-key>"
-}'
+# Create minimal JSON and base64-encode it (single line)
+CREDS_JSON='{"implicit_account_id":"<hex-implicit-account-id>","private_key":"ed25519:<base58-private-key>"}'
+export NEAR_CREDENTIALS_JSON_B64=$(printf '%s' "$CREDS_JSON" | base64 -w0 2>/dev/null || printf '%s' "$CREDS_JSON" | base64)
 ```
 Notes:
-- `NEAR_CREDENTIALS_JSON` must be valid JSON matching the file format: it must include `implicit_account_id` and `private_key`.
+- `NEAR_CREDENTIALS_JSON_B64` must be base64 of a JSON object containing `implicit_account_id` and `private_key`.
 - `private_key` may include the `ed25519:` prefix; it will be handled automatically.
 
 **Vault Configuration (Production):**
@@ -227,11 +226,11 @@ export NEAR_CONTRACT_ID=your-contract.testnet
 
 #### GitHub Actions (Podman) — passing env credentials into the container
 
-When deploying with the workflow in `.github/workflows/deploy.yml`, you must pass `NEAR_CREDENTIALS_JSON` into the API container. Recommended setup:
+When deploying with the workflow in `.github/workflows/deploy.yml`, pass `NEAR_CREDENTIALS_JSON_B64` into the API container. Recommended setup:
 
-- **Create a repository secret** named `NEAR_CREDENTIALS_JSON` (Settings → Secrets and variables → Actions → New repository secret). Its value should be the JSON shown above.
+- **Create a repository secret** named `NEAR_CREDENTIALS_JSON_B64` (Settings → Secrets and variables → Actions → New repository secret). Its value should be the base64 string of the minimal JSON above.
 - Ensure `RODIT_NEAR_CREDENTIALS_SOURCE` is set to `env` (either rely on the default or set a repository variable `RODIT_NEAR_CREDENTIALS_SOURCE=env`).
-- In the `podman run` step, add the `-e NEAR_CREDENTIALS_JSON` line using the secret:
+- In the `podman run` step, add the `-e NEAR_CREDENTIALS_JSON_B64` line using the secret:
 
 ```diff
  podman run -d \
@@ -243,7 +242,7 @@ When deploying with the workflow in `.github/workflows/deploy.yml`, you must pas
    -e LOKI_TLS_SKIP_VERIFY='${{ vars.LOKI_TLS_SKIP_VERIFY }}' \
    -e LOKI_BASIC_AUTH='${{ secrets.LOKI_BASIC_AUTH }}' \
    -e RODIT_NEAR_CREDENTIALS_SOURCE='${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE }}' \
- + -e NEAR_CREDENTIALS_JSON='${{ secrets.NEAR_CREDENTIALS_JSON }}' \
+ + -e NEAR_CREDENTIALS_JSON_B64='${{ secrets.NEAR_CREDENTIALS_JSON_B64 }}' \
    -e SERVICE_NAME='${{ vars.SERVICE_NAME }}' \
    -e SERVERPORT='${{ vars.SERVERPORT }}' \
    -e API_DEFAULT_OPTIONS_LOG_DIR='${{ vars.API_DEFAULT_OPTIONS_LOG_DIR }}' \
@@ -264,8 +263,8 @@ Tips:
 - Use single quotes around the GitHub expression to avoid YAML interpolation issues.
 - For debugging without leaking secrets, check only the length inside the container:
 ```bash
-podman exec servertest-container sh -lc 'printf "NEAR_CREDENTIALS_JSON length: %s\n" "${#NEAR_CREDENTIALS_JSON}"'
-podman exec servertest-container sh -lc 'test -n "$NEAR_CREDENTIALS_JSON" && echo present || echo missing'
+podman exec servertest-container sh -lc 'printf "NEAR_CREDENTIALS_JSON_B64 length: %s\n" "${#NEAR_CREDENTIALS_JSON_B64}"'
+podman exec servertest-container sh -lc 'test -n "$NEAR_CREDENTIALS_JSON_B64" && echo present || echo missing'
 ```
 
 ### Configuration Files

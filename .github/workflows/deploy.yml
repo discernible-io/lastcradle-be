@@ -118,7 +118,7 @@ jobs:
             echo 'DEBUG: SERVERPORT=${{ vars.SERVERPORT }}'
             echo 'DEBUG: API_DEFAULT_OPTIONS_LOG_DIR=/app/logs (hardcoded for container)'
             echo 'DEBUG: NEAR_CONTRACT_ID=${{ vars.NEAR_CONTRACT_ID }}'
-            # Do not echo NEAR_CREDENTIALS_JSON here to avoid leaking secrets
+            # Do not echo NEAR_CREDENTIALS_JSON_B64 here to avoid leaking secrets
             echo 'DEBUG: VAULT_ENDPOINT=${{ vars.VAULT_ENDPOINT }}'
             echo 'DEBUG: VAULT_RODIT_KEYVALUE_PATH=${{ vars.VAULT_RODIT_KEYVALUE_PATH }}'
             echo 'DEBUG: VAULT_ROLE_ID: [provided via secrets]'
@@ -137,8 +137,8 @@ jobs:
               -e LOKI_URL='${{ vars.LOKI_URL }}' \
               -e LOKI_TLS_SKIP_VERIFY='${{ vars.LOKI_TLS_SKIP_VERIFY }}' \
               -e LOKI_BASIC_AUTH='${{ secrets.LOKI_BASIC_AUTH }}' \
-              -e RODIT_NEAR_CREDENTIALS_SOURCE='${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE || 'env' }}' \
-              -e NEAR_CREDENTIALS_JSON='${{ secrets.NEAR_CREDENTIALS_JSON }}' \
+              -e RODIT_NEAR_CREDENTIALS_SOURCE='${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE }}' \
+              -e NEAR_CREDENTIALS_JSON_B64='${{ secrets.NEAR_CREDENTIALS_JSON_B64 }}' \
               -e SERVICE_NAME='${{ vars.SERVICE_NAME }}' \
               -e SERVERPORT='${{ vars.SERVERPORT }}' \
               -e API_DEFAULT_OPTIONS_LOG_DIR='${{ vars.API_DEFAULT_OPTIONS_LOG_DIR }}' \
@@ -167,8 +167,8 @@ jobs:
               | sed -E 's/(VAULT_ROLE_ID|VAULT_SECRET_ID)=.*/\1=****/' \
               | sort || echo 'No expected variables found'
 
-            echo 'DEBUG: NEAR_CREDENTIALS_JSON presence (length only):'
-            podman exec servertest-container sh -lc 'printf "NEAR_CREDENTIALS_JSON length: %s\n" "${#NEAR_CREDENTIALS_JSON}"' || true
+            echo 'DEBUG: NEAR_CREDENTIALS_JSON_B64 presence (length only):'
+            podman exec servertest-container sh -lc 'printf "NEAR_CREDENTIALS_JSON_B64 length: %s\n" "${#NEAR_CREDENTIALS_JSON_B64}"' || true
             
             # Debug: Test a simple command in container
             echo 'DEBUG: Testing container access:'

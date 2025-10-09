@@ -13,7 +13,7 @@ const { validateAndExtractCredentials } = require("../../services/utils");
 
 class EnvManager {
   constructor() {
-    this.envVarName = "NEAR_CREDENTIALS_JSON";
+    this.envVarName = "NEAR_CREDENTIALS_JSON_B64";
     this.initialized = false;
     this.credentials = {};
   }
@@ -49,7 +49,24 @@ class EnvManager {
         return this;
       }
 
-      const parsed = typeof rawValue === "string" ? JSON.parse(rawValue) : rawValue;
+      let parsed;
+      if (typeof rawValue === "string") {
+        // Primary: base64-encoded JSON
+        try {
+          const decoded = Buffer.from(rawValue, "base64").toString("utf8");
+          parsed = JSON.parse(decoded);
+        } catch (e) {
+          // Fallback: raw JSON string (backward compatibility)
+          logger.infoWithContext("Falling back to raw JSON parsing for credentials env var", {
+            ...context,
+            envVarName: this.envVarName,
+            reason: "b64_decode_or_parse_failed",
+          });
+          parsed = JSON.parse(rawValue);
+        }
+      } else {
+        parsed = rawValue;
+      }
 
       const validated = validateAndExtractCredentials(parsed, logger);
       this.credentials = validated || {};
@@ -93,13 +110,28 @@ class EnvManager {
       }
 
       // Fallback to reading again if not cached yet
-      const rawValue = config.get(this.envVarName, process.env[this.envVarName] || null);
+      let rawValue = config.get(this.envVarName, process.env[this.envVarName] || null);
       if (rawValue == null || (typeof rawValue === "string" && rawValue.trim() === "")) {
         logger.infoWithContext("No credentials found in environment", context);
         return {};
       }
 
-      const parsed = typeof rawValue === "string" ? JSON.parse(rawValue) : rawValue;
+      let parsed;
+      if (typeof rawValue === "string") {
+        try {
+          const decoded = Buffer.from(rawValue, "base64").toString("utf8");
+          parsed = JSON.parse(decoded);
+        } catch (e) {
+          logger.infoWithContext("Falling back to raw JSON parsing for credentials env var", {
+            ...context,
+            envVarName: this.envVarName,
+            reason: "b64_decode_or_parse_failed",
+          });
+          parsed = JSON.parse(rawValue);
+        }
+      } else {
+        parsed = rawValue;
+      }
       const result = validateAndExtractCredentials(parsed, logger);
 
       logger.debugWithContext("Successfully processed env credentials", {
