@@ -650,7 +650,7 @@ class RoditManager {
       await this.initializeRoditConfig(role);
 
       logger.info(
-        `Vault initialized and RODiT configuration loaded for role: ${role}`
+        `Credentials (${RODIT_NEAR_CREDENTIALS_SOURCE}) initialized and RODiT configuration loaded for role: ${role}`
       );
 
       // Get and validate the configuration
