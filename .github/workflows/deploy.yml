@@ -13,7 +13,7 @@ on:
         default: ''
 
 env:
-  SSH_HOST: 159.223.0.98
+  SSH_HOST: 178.62.195.21
   SSH_USER: ${{ secrets.SSH_USER }}
   API_DOMAIN: discernible.io
   API_PORT: 9443
