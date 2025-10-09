@@ -118,7 +118,7 @@ jobs:
             echo 'DEBUG: SERVERPORT=${{ vars.SERVERPORT }}'
             echo 'DEBUG: API_DEFAULT_OPTIONS_LOG_DIR=/app/logs (hardcoded for container)'
             echo 'DEBUG: NEAR_CONTRACT_ID=${{ vars.NEAR_CONTRACT_ID }}'
-            echo 'DEBUG: NEAR_CREDENTIALS_JSON=${{ vars.NEAR_CREDENTIALS_JSON }}'
+            # Do not echo NEAR_CREDENTIALS_JSON here to avoid leaking secrets
             echo 'DEBUG: VAULT_ENDPOINT=${{ vars.VAULT_ENDPOINT }}'
             echo 'DEBUG: VAULT_RODIT_KEYVALUE_PATH=${{ vars.VAULT_RODIT_KEYVALUE_PATH }}'
             echo 'DEBUG: VAULT_ROLE_ID: [provided via secrets]'
@@ -137,18 +137,17 @@ jobs:
               -e LOKI_URL='${{ vars.LOKI_URL }}' \
               -e LOKI_TLS_SKIP_VERIFY='${{ vars.LOKI_TLS_SKIP_VERIFY }}' \
               -e LOKI_BASIC_AUTH='${{ secrets.LOKI_BASIC_AUTH }}' \
-              -e RODIT_NEAR_CREDENTIALS_SOURCE='${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE }}' \
+              -e RODIT_NEAR_CREDENTIALS_SOURCE='${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE || 'env' }}' \
+              -e NEAR_CREDENTIALS_JSON='${{ secrets.NEAR_CREDENTIALS_JSON }}' \
               -e SERVICE_NAME='${{ vars.SERVICE_NAME }}' \
               -e SERVERPORT='${{ vars.SERVERPORT }}' \
               -e API_DEFAULT_OPTIONS_LOG_DIR='${{ vars.API_DEFAULT_OPTIONS_LOG_DIR }}' \
               -e NEAR_CONTRACT_ID='${{ vars.NEAR_CONTRACT_ID }}' \
-              -e NEAR_CREDENTIALS_JSO='${{ vars.NEAR_CREDENTIALS_JSO }}' \
               -e VAULT_ENDPOINT='${{ vars.VAULT_ENDPOINT }}' \
               -e VAULT_RODIT_KEYVALUE_PATH='${{ vars.VAULT_RODIT_KEYVALUE_PATH }}' \
               -e VAULT_ROLE_ID='${{ secrets.VAULT_ROLE_ID }}' \
               -e VAULT_SECRET_ID='${{ secrets.VAULT_SECRET_ID }}' \
               -e VAULT_TOKEN_TTL='${{ vars.VAULT_TOKEN_TTL }}' \
-              -e SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY='${{ vars.SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY }}' \
               -v ~/servertest-app/logs:/app/logs:Z \
               -v ~/servertest-app/data:/app/data:Z \
               -v ~/servertest-app/certs:/app/certs:ro,Z \
@@ -167,6 +166,9 @@ jobs:
               | grep -E '^(LOKI_|LOG_|RODIT_NEAR_CREDENTIALS_SOURCE|SERVICE_NAME|SERVERPORT|API_DEFAULT_OPTIONS_LOG_DIR|NEAR_CONTRACT_ID|VAULT_ENDPOINT|VAULT_RODIT_KEYVALUE_PATH|VAULT_ROLE_ID|VAULT_TOKEN_TTL|SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY)' \
               | sed -E 's/(VAULT_ROLE_ID|VAULT_SECRET_ID)=.*/\1=****/' \
               | sort || echo 'No expected variables found'
+
+            echo 'DEBUG: NEAR_CREDENTIALS_JSON presence (length only):'
+            podman exec servertest-container sh -lc 'printf "NEAR_CREDENTIALS_JSON length: %s\n" "${#NEAR_CREDENTIALS_JSON}"' || true
             
             # Debug: Test a simple command in container
             echo 'DEBUG: Testing container access:'
