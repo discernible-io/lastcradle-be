@@ -817,13 +817,12 @@ async function displayRoditInfo(configObject) {
       },
     };
 
-    // Log the RODIT data in JSON format for easy reading
-    logger.info(JSON.stringify(roditData, null, 2));
+    // Log the RODIT data in a structured context for better indexing
+    logger.infoWithContext("RODIT token information", roditData);
     logger.info("");
 
     // Update Swagger servers configuration with the API URL from RODIT token
     updateSwaggerServers(metadata.subjectuniqueidentifier_url);
-
     const duration = Date.now() - startTime;
     logger.infoWithContext("RODIT token information displayed successfully", {
       ...baseContext,
