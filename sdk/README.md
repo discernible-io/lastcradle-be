@@ -2,7 +2,7 @@
 
 A comprehensive Node.js SDK for implementing RODiT-based mutual authentication, authorization, self-configuration, and session management in Express.js applications.
 
-**Version:** 2.6.20  
+**Version:** 2.6.14  
 **License:** Proprietary  
 **Author:** Discernible Inc.
 
@@ -202,17 +202,6 @@ npm install winston-loki  # For Grafana Loki logging
 
 ### Environment Variables
 
-**Env-Based Credentials (Default):**
-```bash
-export RODIT_NEAR_CREDENTIALS_SOURCE=env   # optional; env is the default
-# Create minimal JSON and base64-encode it (single line)
-CREDS_JSON='{"implicit_account_id":"<hex-implicit-account-id>","private_key":"ed25519:<base58-private-key>"}'
-export NEAR_CREDENTIALS_JSON_B64=$(printf '%s' "$CREDS_JSON" | base64 -w0 2>/dev/null || printf '%s' "$CREDS_JSON" | base64)
-```
-Notes:
-- `NEAR_CREDENTIALS_JSON_B64` must be base64 of a JSON object containing `implicit_account_id` and `private_key`.
-- `private_key` may include the `ed25519:` prefix; it will be handled automatically.
-
 **Vault Configuration (Production):**
 ```bash
 export RODIT_NEAR_CREDENTIALS_SOURCE=vault
@@ -224,47 +213,18 @@ export SERVICE_NAME=your-service-name
 export NEAR_CONTRACT_ID=your-contract.testnet
 ```
 
-#### GitHub Actions (Podman) — passing env credentials into the container
-
-When deploying with the workflow in `.github/workflows/deploy.yml`, pass `NEAR_CREDENTIALS_JSON_B64` into the API container. Recommended setup:
-
-- **Create a repository secret** named `NEAR_CREDENTIALS_JSON_B64` (Settings → Secrets and variables → Actions → New repository secret). Its value should be the base64 string of the minimal JSON above.
-- Ensure `RODIT_NEAR_CREDENTIALS_SOURCE` is set to `env` (either rely on the default or set a repository variable `RODIT_NEAR_CREDENTIALS_SOURCE=env`).
-- In the `podman run` step, add the `-e NEAR_CREDENTIALS_JSON_B64` line using the secret:
-
-```diff
- podman run -d \
-   --pod servertest-pod \
-   --name servertest-container \
-   --user 1000:1000 \
-   --restart=unless-stopped \
-   -e LOKI_URL='${{ vars.LOKI_URL }}' \
-   -e LOKI_TLS_SKIP_VERIFY='${{ vars.LOKI_TLS_SKIP_VERIFY }}' \
-   -e LOKI_BASIC_AUTH='${{ secrets.LOKI_BASIC_AUTH }}' \
-   -e RODIT_NEAR_CREDENTIALS_SOURCE='${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE }}' \
- + -e NEAR_CREDENTIALS_JSON_B64='${{ secrets.NEAR_CREDENTIALS_JSON_B64 }}' \
-   -e SERVICE_NAME='${{ vars.SERVICE_NAME }}' \
-   -e SERVERPORT='${{ vars.SERVERPORT }}' \
-   -e API_DEFAULT_OPTIONS_LOG_DIR='${{ vars.API_DEFAULT_OPTIONS_LOG_DIR }}' \
-   -e NEAR_CONTRACT_ID='${{ vars.NEAR_CONTRACT_ID }}' \
-   -e VAULT_ENDPOINT='${{ vars.VAULT_ENDPOINT }}' \
-   -e VAULT_RODIT_KEYVALUE_PATH='${{ vars.VAULT_RODIT_KEYVALUE_PATH }}' \
-   -e VAULT_ROLE_ID='${{ secrets.VAULT_ROLE_ID }}' \
-   -e VAULT_SECRET_ID='${{ secrets.VAULT_SECRET_ID }}' \
-   -e VAULT_TOKEN_TTL='${{ vars.VAULT_TOKEN_TTL }}' \
-   -e SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY='${{ vars.SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY }}' \
-   -v ~/servertest-app/logs:/app/logs:Z \
-   -v ~/servertest-app/data:/app/data:Z \
-   -v ~/servertest-app/certs:/app/certs:ro,Z \
-   servertest-image:latest
+**Application Configuration:**
+```bash
+export SERVERPORT=3000
+export LOG_LEVEL=info
+export NODE_ENV=production
+export API_DEFAULT_OPTIONS_DB_PATH=/app/data/database.sqlite
 ```
 
-Tips:
-- Use single quotes around the GitHub expression to avoid YAML interpolation issues.
-- For debugging without leaking secrets, check only the length inside the container:
+**Logging Configuration:**
 ```bash
-podman exec servertest-container sh -lc 'printf "NEAR_CREDENTIALS_JSON_B64 length: %s\n" "${#NEAR_CREDENTIALS_JSON_B64}"'
-podman exec servertest-container sh -lc 'test -n "$NEAR_CREDENTIALS_JSON_B64" && echo present || echo missing'
+export LOKI_URL=https://loki.example.com:3100
+export LOKI_BASIC_AUTH=username:password
 ```
 
 ### Configuration Files
@@ -702,7 +662,7 @@ For development, credentials can be loaded from files:
 
 ```bash
 export RODIT_NEAR_CREDENTIALS_SOURCE=file
-export NEAR_CREDENTIALS_FILE_PATH=./credentials/rodit-credentials.json
+export CREDENTIALS_FILE_PATH=./credentials/rodit-credentials.json
 ```
 
 ### Accessing Configuration
@@ -2026,7 +1986,7 @@ export VAULT_SECRET_ID=your-secret-id
 
 # For file-based credentials (development)
 export RODIT_NEAR_CREDENTIALS_SOURCE=file
-export NEAR_CREDENTIALS_FILE_PATH=./credentials/rodit-credentials.json
+export CREDENTIALS_FILE_PATH=./credentials/rodit-credentials.json
 ```
 
 **Verify configuration:**
