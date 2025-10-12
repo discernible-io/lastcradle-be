@@ -12,13 +12,100 @@ const session = require("express-session");
 const { ulid } = require("ulid");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
-const { RoditClient, setExpressSessionStore } = require("@rodit/rodit-auth-be");
+const winston = require("winston");
+const LokiTransport = require("winston-loki");
+const { RoditClient, setExpressSessionStore, logger } = require("@rodit/rodit-auth-be");
 const config = require("config");
 
-// Create temporary client instance to access utilities
-const tempClient = new RoditClient();
-const logger = tempClient.getLogger();
+// Configure winston-loki logging BEFORE creating RoditClient
+(() => {
+  try {
+    console.log("=== Enhanced winston-loki debugging ===");
+    const lokiUrl = process.env.LOKI_URL;
+    const logLevel = process.env.LOG_LEVEL || 'info';
+    const skipTls = String(process.env.LOKI_TLS_SKIP_VERIFY || "").toLowerCase() === "true";
+    const basicAuth = process.env.LOKI_BASIC_AUTH;
+
+    console.log("Environment variables:");
+    console.log("  LOKI_URL:", lokiUrl || "NOT SET");
+    console.log("  LOKI_TLS_SKIP_VERIFY:", process.env.LOKI_TLS_SKIP_VERIFY || "NOT SET");
+    console.log("  LOKI_BASIC_AUTH:", basicAuth ? "SET" : "NOT SET");
+    console.log("  LOG_LEVEL:", logLevel);
+
+    const transports = [
+      new winston.transports.Console({ format: winston.format.json(), level: logLevel })
+    ];
+
+    if (lokiUrl) {
+      console.log("Creating winston-loki transport...");
+      const serviceLabel = process.env.SERVICE_NAME || "servertest-api";
+      const lokiOptions = {
+        host: lokiUrl,
+        labels: { app: serviceLabel, service_name: serviceLabel, component: "rodit-sdk" },
+        json: true,
+        level: logLevel,
+        batching: true,
+        gracefulShutdown: true,
+        replaceTimestamp: true,
+        timeout: 5000,
+      };
+
+      if (basicAuth) {
+        lokiOptions.basicAuth = basicAuth;
+        console.log("Added basic auth to Loki options");
+      }
+      if (skipTls) {
+        lokiOptions.ssl = { rejectUnauthorized: false };
+        console.log("Added TLS skip verification to Loki options");
+      }
+
+      console.log("Loki transport options:", JSON.stringify(lokiOptions, null, 2));
+      const lokiTransport = new LokiTransport(lokiOptions);
+      
+      lokiTransport.on('error', (err) => {
+        console.error("❌ winston-loki transport ERROR:", err.message);
+        console.error("Error details:", err);
+      });
+
+      lokiTransport.on('warn', (warn) => {
+        console.warn("⚠️ winston-loki transport WARN:", warn);
+      });
+
+      transports.push(lokiTransport);
+      console.log("✅ winston-loki transport added to transports");
+    } else {
+      console.log("❌ LOKI_URL not set - winston-loki transport will not be created");
+    }
+
+    const customLogger = winston.createLogger({
+      level: logLevel,
+      format: winston.format.json(),
+      transports,
+    });
+
+    console.log("Created custom logger with", transports.length, "transports");
+    logger.setLogger(customLogger);
+    console.log("✅ Custom logger injected into SDK");
+    
+    // Test the logger immediately
+    customLogger.info("winston-loki transport test log", { 
+      timestamp: new Date().toISOString(),
+      test: true,
+      component: "winston-loki-setup"
+    });
+    console.log("✅ Test log sent through custom logger");
+    
+  } catch (e) {
+    console.warn("❌ SDK Loki logger injection failed:", e?.message || e);
+    console.error("Full error:", e);
+  }
+})();
+
+// Access logger utilities after injection
 const { createLogContext, logErrorWithMetrics } = logger;
+
+// Create temporary client instance to access middleware utilities
+const tempClient = new RoditClient();
 const loggingmw = tempClient.getLoggingMiddleware();
 const ratelimitmw = tempClient.getRateLimitMiddleware();
 
