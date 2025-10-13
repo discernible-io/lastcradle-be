@@ -753,7 +753,7 @@ export LOKI_URL=https://<your-loki-host>:3100
 export LOKI_BASIC_AUTH="username:password"   # store in secrets
 export LOKI_TLS_SKIP_VERIFY=true              # only for self-signed/test
 export LOG_LEVEL=info
-export SERVICE_NAME=clienttestapi-api
+export SERVICE_NAME=servertest-api
 ```
 
 These are already mapped in `config/custom-environment-variables.json`, so container/CI env vars will flow into the app.
@@ -777,7 +777,7 @@ if (process.env.LOKI_URL) {
   const lokiOptions = {
     host: process.env.LOKI_URL,
     basicAuth: process.env.LOKI_BASIC_AUTH, // Basic Auth for Loki
-    labels: { app: process.env.SERVICE_NAME || 'clienttestapi-api', component: 'rodit-sdk' },
+    labels: { app: process.env.SERVICE_NAME || 'servertest-api', component: 'rodit-sdk' },
     json: true,
     batching: true
   };
@@ -812,7 +812,7 @@ logger.setLogger(customLogger);
 
  1) Start the app with `LOKI_URL` and `LOKI_BASIC_AUTH` set.
  2) Emit a test log: `logger.info('Loki test', { component: 'SmokeTest' })`.
- 3) In Grafana Explore, query with `{app="clienttestapi-api"}` and confirm logs.
+ 3) In Grafana Explore, query with `{app="servertest-api"}` and confirm logs.
 
  ## Webhooks
  

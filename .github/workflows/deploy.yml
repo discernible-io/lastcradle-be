@@ -59,8 +59,11 @@ jobs:
       - name: Setup and Copy Files
         run: |
           echo "Setting up directories..."
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertest-app/{certs,logs,data,nginx,promtail} && mkdir -p ~/servertest-app/logs/nginx && chmod 0775 ~/servertest-app/logs/nginx || true && podman unshare chown -R 101:101 ~/servertest-app/logs/nginx || true"
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertest-app/{certs,logs,data,nginx} && mkdir -p ~/servertest-app/logs/nginx && chmod 0775 ~/servertest-app/logs/nginx || true && podman unshare chown -R 101:101 ~/servertest-app/logs/nginx || true"
           
+          echo "Setting up certificate permissions..."
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "podman unshare chown 101:101 ~/servertest-app/certs/privkey.pem ~/servertest-app/certs/fullchain.pem || true"
+           
           echo "Copying API files..."
           rsync -avz --delete \
             --exclude '.git' \
@@ -185,6 +188,14 @@ jobs:
             mkdir -p ~/servertest-app/logs/nginx
             chmod 0775 ~/servertest-app/logs/nginx || true
             podman unshare chown -R 101:101 ~/servertest-app/logs/nginx || true
+            if [ -f ~/servertest-app/certs/privkey.pem ]; then
+              podman unshare chown 101:101 ~/servertest-app/certs/privkey.pem
+              podman unshare chmod 640 ~/servertest-app/certs/privkey.pem
+            fi
+            if [ -f ~/servertest-app/certs/fullchain.pem ]; then
+              podman unshare chown 101:101 ~/servertest-app/certs/fullchain.pem
+              podman unshare chmod 644 ~/servertest-app/certs/fullchain.pem
+            fi
             podman run -d \
               --pod servertest-pod \
               --name servertest-nginx \
