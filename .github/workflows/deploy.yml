@@ -2,9 +2,9 @@ name: Deploy Node.js API
 
 on:
   push:
-    branches: [ 20250605sdk ]
+    branches: [ main ]
   pull_request:
-    branches: [ 20250605sdk ]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       commit_sha:
@@ -15,7 +15,7 @@ on:
 env:
   SSH_HOST: 178.62.195.21
   SSH_USER: ${{ secrets.SSH_USER }}
-  API_DOMAIN: discernible.io
+  API_DOMAIN: api.discernible.io
   API_PORT: 9443
   NODE_VERSION: 20
 
