@@ -25,6 +25,7 @@ Cargo.lock
 
 # Keys and credentials
 **/neardev/
+certs/
 privatekey
 publickey
 dev-account
