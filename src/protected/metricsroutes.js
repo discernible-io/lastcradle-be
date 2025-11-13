@@ -42,19 +42,16 @@ router.get('/', authenticate_apicall, async (req, res) => {
   const startTime = Date.now();
   
   const logger = getLogger(req);
-  const { createLogContext, logErrorWithMetrics } = logger;
   
-  const baseContext = createLogContext({
+  logger.debugWithContext('Processing metrics request', {
     requestId,
     component: 'MetricsRoutes',
-    method: 'getMetrics',
+    event: 'getMetrics',
     endpoint: '/api/metrics',
     httpMethod: req.method,
     userId: req.user?.id,
     ip: req.ip
   });
-  
-  logger.debugWithContext('Processing metrics request', baseContext);
   
   try {
     const performanceService = getPerformanceService(req);
@@ -119,7 +116,9 @@ router.get('/', authenticate_apicall, async (req, res) => {
     
     const duration = Date.now() - startTime;
     logger.infoWithContext('Metrics retrieved successfully', {
-      ...baseContext,
+      requestId,
+      component: 'MetricsRoutes',
+      event: 'getMetrics',
       metricsCount: Object.keys(transformedMetrics).length,
       activeSessionCount,
       duration
@@ -163,10 +162,12 @@ router.get('/', authenticate_apicall, async (req, res) => {
   } catch (error) {
     const duration = Date.now() - startTime;
     
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       'Error retrieving metrics',
       {
-        ...baseContext,
+        requestId,
+        component: 'MetricsRoutes',
+        event: 'getMetrics',
         duration
       },
       error,
@@ -209,19 +210,16 @@ router.get('/system', authenticate_apicall, (req, res) => {
   const startTime = Date.now();
   
   const logger = getLogger(req);
-  const { createLogContext, logErrorWithMetrics } = logger;
   
-  const baseContext = createLogContext({
+  logger.debugWithContext('Processing system metrics request', {
     requestId,
     component: 'MetricsRoutes',
-    method: 'getSystemMetrics',
+    event: 'getSystemMetrics',
     endpoint: '/api/metrics/system',
     httpMethod: req.method,
     userId: req.user?.id,
     ip: req.ip
   });
-  
-  logger.debugWithContext('Processing system metrics request', baseContext);
   
   try {
     const performanceService = getPerformanceService(req);
@@ -229,7 +227,9 @@ router.get('/system', authenticate_apicall, (req, res) => {
     
     const duration = Date.now() - startTime;
     logger.infoWithContext('System metrics retrieved successfully', {
-      ...baseContext,
+      requestId,
+      component: 'MetricsRoutes',
+      event: 'getSystemMetrics',
       metricsCount: Object.keys(systemMetrics).length,
       duration
     });
@@ -248,10 +248,12 @@ router.get('/system', authenticate_apicall, (req, res) => {
   } catch (error) {
     const duration = Date.now() - startTime;
     
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       'Error retrieving system metrics',
       {
-        ...baseContext,
+        requestId,
+        component: 'MetricsRoutes',
+        event: 'getSystemMetrics',
         duration
       },
       error,
@@ -284,12 +286,11 @@ router.post('/reset', authenticate_apicall, (req, res) => {
   const startTime = Date.now();
   
   const logger = getLogger(req);
-  const { createLogContext, logErrorWithMetrics } = logger;
   
-  const baseContext = createLogContext({
+  logger.debugWithContext('Processing metrics reset request', {
     requestId,
     component: 'MetricsRoutes',
-    method: 'resetMetrics',
+    event: 'resetMetrics',
     endpoint: '/api/metrics/reset',
     httpMethod: req.method,
     userId: req.user?.id,
@@ -297,12 +298,12 @@ router.post('/reset', authenticate_apicall, (req, res) => {
     hasAdminPermission: req.user?.permissions?.includes('admin')
   });
   
-  logger.debugWithContext('Processing metrics reset request', baseContext);
-  
   // Check if user has admin permissions
   if (!req.user || !req.user.permissions || !req.user.permissions.includes('admin')) {
     logger.warnWithContext('Permission denied for metrics reset', {
-      ...baseContext,
+      requestId,
+      component: 'MetricsRoutes',
+      event: 'resetMetrics',
       reason: 'Missing admin permission'
     });
     
@@ -321,7 +322,9 @@ router.post('/reset', authenticate_apicall, (req, res) => {
     
     const duration = Date.now() - startTime;
     logger.infoWithContext('Performance metrics reset successfully', {
-      ...baseContext,
+      requestId,
+      component: 'MetricsRoutes',
+      event: 'resetMetrics',
       duration
     });
     
@@ -339,10 +342,12 @@ router.post('/reset', authenticate_apicall, (req, res) => {
   } catch (error) {
     const duration = Date.now() - startTime;
     
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       'Error resetting metrics',
       {
-        ...baseContext,
+        requestId,
+        component: 'MetricsRoutes',
+        event: 'resetMetrics',
         duration
       },
       error,

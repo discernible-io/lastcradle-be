@@ -10,7 +10,7 @@ const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
 // login_portal method is now available on the RoditClient instance
 const roditManager = sdkClient.getRoditManager();
-const { createLogContext, logErrorWithMetrics } = logger;
+// Logger methods are available directly on the logger object
 
 async function signPortalRodit(
   port,
@@ -21,17 +21,14 @@ async function signPortalRodit(
 ) {
   const requestId = ulid();
   const startTime = Date.now();
-  
-  // Create context objects for structured logging
-  const baseContext = createLogContext({
+
+  logger.debugWithContext("Sending signportal request", {
     requestId,
     component: "SignPortal",
-    method: "signPortalRodit",
+    event: "signPortalRodit",
     serviceProviderId: tamperproofedValues.serviceprovider_id,
     port
   });
-
-  logger.debugWithContext("Sending signportal request", baseContext);
 
   // Get API endpoint using the roditClient's getPortalUrl method
   const apiendpoint = roditClient.getPortalUrl(
@@ -58,19 +55,21 @@ async function signPortalRodit(
   }
 
   // Enhanced logging with structured context
-  const apiCallContext = {
-    ...baseContext,
+  logger.infoWithContext("Preparing SignPortal API call", {
+    requestId,
+    component: "SignPortal",
+    event: "signPortalRodit",
     url: fetchUrl,
     headers: Object.keys(headers),
     bodySize: JSON.stringify(requestBody).length,
     hasToken: !!signportalJwtToken
-  };
-  
-  logger.infoWithContext("Preparing SignPortal API call", apiCallContext);
+  });
   
   // Separate sensitive data into debug level logs
   logger.debugWithContext("Request body details", {
-    ...baseContext,
+    requestId,
+    component: "SignPortal",
+    event: "signPortalRodit",
     bodyKeys: Object.keys(requestBody)
   });
 
@@ -83,7 +82,9 @@ async function signPortalRodit(
 
     const duration = Date.now() - startTime;
     logger.infoWithContext("Raw response received from SignPortal", {
-      ...baseContext,
+      requestId,
+      component: "SignPortal",
+      event: "signPortalRodit",
       responseReceived: true,
       duration
     });
@@ -91,15 +92,17 @@ async function signPortalRodit(
     if (result.error) {
       const duration = Date.now() - startTime;
       
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         "SignPortal error response",
         {
-          ...baseContext,
+          requestId,
+          component: "SignPortal",
+          event: "signPortalRodit",
           errorCode: result.error,
           errorMessage: result.message,
           duration
         },
-        new Error(`SignPortal error: ${result.error}: ${result.message}`),
+        new Error(result.message || result.error),
         "signportal_error",
         {
           operation: "signPortalRodit",
@@ -113,7 +116,9 @@ async function signPortalRodit(
 
     const successDuration = Date.now() - startTime;
     logger.infoWithContext("SignPortal operation successful", {
-      ...baseContext,
+      requestId,
+      component: "SignPortal",
+      event: "signPortalRodit",
       tokenId: result.token_id,
       duration: successDuration
     });
@@ -128,10 +133,12 @@ async function signPortalRodit(
   } catch (error) {
     const errorDuration = Date.now() - startTime;
     
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       "Error during signportal operation",
       {
-        ...baseContext,
+        requestId,
+        component: "SignPortal",
+        event: "signPortalRodit",
         errorMessage: error.message,
         duration: errorDuration
       },
@@ -157,40 +164,37 @@ router.post("/signclient", async (req, res) => {
   const requestId = ulid();
   const startTime = Date.now();
   
-  // Create base context object for consistent logging
-  const baseContext = createLogContext({
+  logger.infoWithContext("Received signclient request", {
     requestId,
     component: "SignClient",
-    method: "handleSignClientRequest",
+    event: "handleSignClientRequest",
     endpoint: "/signclient",
     httpMethod: req.method,
     ip: req.ip,
     userAgent: req.get("User-Agent")
   });
-  
-  logger.infoWithContext("Received signclient request", baseContext);
 
   // Debug request body and headers
   logger.debugWithContext("Request debugging info", {
-    ...baseContext,
+    requestId,
+    component: "SignClient",
+    event: "handleSignClientRequest",
     hasBody: !!req.body,
     bodyType: typeof req.body,
-    bodyContent: req.body,
     contentType: req.get('Content-Type'),
     contentLength: req.get('Content-Length'),
-    allHeaders: Object.keys(req.headers || {}),
-    rawBody: req.rawBody || 'not available'
   });
 
   try {
     // Check if req.body exists before destructuring
     if (!req.body) {
       logger.errorWithContext("Request body is undefined", {
-        ...baseContext,
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
         contentType: req.get('Content-Type'),
         contentLength: req.get('Content-Length'),
         method: req.method,
-        headers: req.headers
       });
       
       return res.status(400).json({
@@ -204,18 +208,16 @@ router.post("/signclient", async (req, res) => {
     // Get data from frontend
     const { tobesignedValues, mintingfee, mintingfeeaccount } = req.body;
 
-    // Enhanced context with request validation
-    const validationContext = {
-      ...baseContext,
-      hasSignedValues: !!tobesignedValues,
-      hasMintingFee: !!mintingfee,
-      hasMintingFeeAccount: !!mintingfeeaccount,
-      bodySize: req.body ? JSON.stringify(req.body).length : 0
-    };
-
     // Basic validation
     if (!tobesignedValues || !mintingfee || !mintingfeeaccount) {
-      logger.warnWithContext("Missing required fields in signclient request", validationContext);
+      logger.warnWithContext("Missing required fields in signclient request", {
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
+        hasSignedValues: !!tobesignedValues,
+        hasMintingFee: !!mintingfee,
+        hasMintingFeeAccount: !!mintingfeeaccount,
+      });
 
       return res.status(400).json({
         error: "Missing required fields",
@@ -225,7 +227,11 @@ router.post("/signclient", async (req, res) => {
 
     // Initialize vault and config if not already done
     if (!roditManager.vaultInitialized) {
-      logger.infoWithContext("Initializing vault for signclient", baseContext);
+      logger.infoWithContext("Initializing vault for signclient", {
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
+      });
       await roditManager.initializeCredentialsStore();
       await roditManager.initializeRoditConfig("server");
     }
@@ -237,7 +243,11 @@ router.post("/signclient", async (req, res) => {
     }
     const config_own_rodit = await roditClient.getConfigOwnRodit();
     if (!config_own_rodit) {
-      logger.errorWithContext("Failed to get RODiT configuration", baseContext);
+      logger.errorWithContext("Failed to get RODiT configuration", {
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
+      });
       throw new Error("Failed to initialize RODiT configuration");
     }
 
@@ -245,14 +255,14 @@ router.post("/signclient", async (req, res) => {
     
     // JWT Token management
     // roditClient already defined above
-    const jwtContext = {
-      ...baseContext,
-      portalPort,
-      hasExistingToken: !!roditClient.getSignPortalJwtToken()
-    };
-    
     if (!roditClient.getSignPortalJwtToken()) {
-      logger.infoWithContext("Authenticating with SignPortal", jwtContext);
+      logger.infoWithContext("Authenticating with SignPortal", {
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
+        portalPort,
+        hasExistingToken: false
+      });
 
       // Use the login_portal method on the roditClient instance
       const loginResult = await roditClient.login_portal(config_own_rodit, portalPort);
@@ -263,7 +273,10 @@ router.post("/signclient", async (req, res) => {
         const errorReason = loginResult.reason || "Connection to SignPortal failed";
         
         logger.errorWithContext("Failed to obtain JWT token: Authentication with SignPortal failed", {
-          ...jwtContext,
+          requestId,
+          component: "SignClient",
+          event: "handleSignClientRequest",
+          portalPort,
           errorDetails,
           errorReason,
           impact: "Cannot proceed with client authentication flow"
@@ -273,7 +286,12 @@ router.post("/signclient", async (req, res) => {
       }
 
       await roditClient.setSignPortalJwtToken(loginResult.jwt_token);
-      logger.infoWithContext("Successfully authenticated with SignPortal", jwtContext);
+      logger.infoWithContext("Successfully authenticated with SignPortal", {
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
+        portalPort
+      });
     }
 
     // Validate that all requested permissions exist in the server's configuration
@@ -292,14 +310,18 @@ router.post("/signclient", async (req, res) => {
         if (!configMethods.hasOwnProperty(route)) {
           invalidRoutes.push(route);
           logger.warnWithContext("Invalid route permission requested", {
-            ...baseContext,
+            requestId,
+            component: "SignClient",
+            event: "handleSignClientRequest",
             route,
             permission: requestedMethods[route],
             reason: "not_in_config"
           });
         } else {
           logger.debugWithContext("Valid route permission requested", {
-            ...baseContext,
+            requestId,
+            component: "SignClient",
+            event: "handleSignClientRequest",
             route,
             permission: requestedMethods[route],
             reason: "present_in_config"
@@ -311,7 +333,9 @@ router.post("/signclient", async (req, res) => {
       if (invalidRoutes.length > 0) {
         const errorMessage = `Invalid permission(s) requested: ${invalidRoutes.join(', ')}`;
         logger.errorWithContext("Permission validation failed - rejecting signing request", {
-          ...baseContext,
+          requestId,
+          component: "SignClient",
+          event: "handleSignClientRequest",
           invalidRoutes,
           requestedRouteCount: Object.keys(requestedMethods).length,
           configRouteCount: Object.keys(configMethods).length,
@@ -330,13 +354,17 @@ router.post("/signclient", async (req, res) => {
       }
       
       logger.infoWithContext("All requested permissions are valid - proceeding with signing", {
-        ...baseContext,
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
         validatedRouteCount: Object.keys(requestedMethods).length
       });
       
     } catch (error) {
       logger.errorWithContext("Failed to validate permissions - rejecting signing request", {
-        ...baseContext,
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
         error: error.message,
         permissioned_routes: tobesignedValues.permissioned_routes
       });
@@ -368,20 +396,22 @@ router.post("/signclient", async (req, res) => {
     };
 
     // Log critical information at debug level with proper context
-    const tokenContext = {
-      ...baseContext,
+    logger.debugWithContext("Prepared tamperproofed values for signing", {
+      requestId,
+      component: "SignClient",
+      event: "handleSignClientRequest",
       serviceprovider_id: tamperproofedValues.serviceprovider_id,
       not_after: tamperproofedValues.not_after,
       not_before: tamperproofedValues.not_before,
       mintingfee,
       mintingfeeaccount
-    };
-    
-    logger.debugWithContext("Prepared tamperproofed values for signing", tokenContext);
+    });
     
     // Sign token using SignPortal
     logger.infoWithContext("Sending request to SignPortal", {
-      ...baseContext,
+      requestId,
+      component: "SignClient",
+      event: "handleSignClientRequest",
       operation: "signPortalRodit"
     });
     
@@ -394,32 +424,41 @@ router.post("/signclient", async (req, res) => {
     );
 
     if (!signResult) {
-      logger.errorWithContext("Sign operation failed with null result", baseContext);
+      logger.errorWithContext("Sign operation failed with null result", {
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
+      });
       throw new Error("Sign operation failed");
     }
 
     // Success response
     const duration = Date.now() - startTime;
-    const successContext = {
-      ...baseContext,
+    
+    logger.infoWithContext("Successfully created new RODiT token", {
+      requestId,
+      component: "SignClient",
+      event: "handleSignClientRequest",
       token_id: signResult.token_id,
       status: "success",
       duration,
       has_fee_signature: !!signResult.fee_signature_base64url
-    };
-    
-    logger.infoWithContext("Successfully created new RODiT token", successContext);
+    });
     
     // Log fee signature information
     if (signResult.fee_signature_base64url) {
       logger.debugWithContext("Fee signature received from SignPortal", {
-        ...baseContext,
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
         token_id: signResult.token_id,
         fee_signature_length: signResult.fee_signature_base64url.length
       });
     } else {
       logger.warnWithContext("No fee signature received from SignPortal", {
-        ...baseContext,
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
         token_id: signResult.token_id
       });
     }
@@ -439,15 +478,15 @@ router.post("/signclient", async (req, res) => {
     const errorType = error.name || error.constructor.name;
     
     // Enhanced error logging with clear cause and effect
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       `Error in signclient endpoint: ${errorType}`,
       {
-        ...baseContext,
+        requestId,
+        component: "SignClient",
+        event: "handleSignClientRequest",
         errorMessage: error.message,
         errorName: errorType,
         rootCause,
-        reason: error.reason || "Request processing failed",
-        impact: "Client request cannot be completed",
         duration
       },
       error,

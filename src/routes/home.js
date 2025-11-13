@@ -7,27 +7,23 @@ const { RoditClient } = require("@rodit/rodit-auth-be");
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
-const { createLogContext, logErrorWithMetrics } = logger;
+// Logger methods are available directly on the logger object
 
 // Handling request using router
 router.get("/home", (req, res, next) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
   
-  const baseContext = createLogContext({
+  logger.debugWithContext("Processing homepage request", {
     requestId,
     component: 'HomeRoutes',
-    method: 'getHomepage',
+    event: 'getHomepage',
     endpoint: '/api/home',
     httpMethod: req.method,
     userId: req.user?.id,
     ip: req.ip,
     userAgent: req.get('User-Agent'),
-    headers: Object.keys(req.headers),
-    queryParams: Object.keys(req.query || {})
   });
-  
-  logger.debugWithContext("Processing homepage request", baseContext);
   
   try {
     // Send the homepage response
@@ -35,7 +31,9 @@ router.get("/home", (req, res, next) => {
     
     const duration = Date.now() - startTime;
     logger.infoWithContext("Homepage request processed successfully", {
-      ...baseContext,
+      requestId,
+      component: 'HomeRoutes',
+      event: 'getHomepage',
       statusCode: 200,
       duration
     });
@@ -48,10 +46,12 @@ router.get("/home", (req, res, next) => {
   } catch (error) {
     const duration = Date.now() - startTime;
     
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       'Error processing homepage request',
       {
-        ...baseContext,
+        requestId,
+        component: 'HomeRoutes',
+        event: 'getHomepage',
         duration
       },
       error,

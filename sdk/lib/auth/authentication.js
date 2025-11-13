@@ -792,7 +792,12 @@ async function verify_rodit_ownership(
           currentTime: Math.floor(Date.now() / 1000),
           maxAge: maxAgeSeconds
         });
-        return { peer_rodit: null, goodrodit: false };
+        return { 
+          peer_rodit: null, 
+          goodrodit: false,
+          failureReason: "TIMESTAMP_INVALID",
+          failureMessage: "Timestamp is in the future or invalid"
+        };
       }
       
       logger.debug("Timestamp validation ok", {
@@ -831,7 +836,12 @@ async function verify_rodit_ownership(
           duration: Date.now() - startTime,
           peerRoditId: peerroditid,
         });
-        return { peer_rodit: null, goodrodit: false };
+        return { 
+          peer_rodit: null, 
+          goodrodit: false,
+          failureReason: "RODIT_NOT_FOUND",
+          failureMessage: "RODiT not found on blockchain"
+        };
       }
 
       if (!peer_rodit.metadata) {
@@ -843,7 +853,12 @@ async function verify_rodit_ownership(
           peerRoditId: peerroditid,
           peerRoditOwnerId: peer_rodit.owner_id,
         });
-        return { peer_rodit: null, goodrodit: false };
+        return { 
+          peer_rodit: null, 
+          goodrodit: false,
+          failureReason: "RODIT_MISSING_METADATA",
+          failureMessage: "RODiT is missing required metadata"
+        };
       }
 
       // Verify ownership
@@ -867,7 +882,12 @@ async function verify_rodit_ownership(
           requestId,
           roditId: peerroditid,
         });
-        return { peer_rodit, goodrodit: false };
+        return { 
+          peer_rodit, 
+          goodrodit: false,
+          failureReason: "INVALID_SIGNATURE",
+          failureMessage: "RODiT signature verification failed - invalid credentials"
+        };
       }
 
       // Verify match
@@ -883,7 +903,12 @@ async function verify_rodit_ownership(
           hasOwnRodit: !!config_own_rodit,
           hasMetadata: config_own_rodit && !!config_own_rodit.own_rodit.metadata
         });
-        return { peer_rodit, goodrodit: false };
+        return { 
+          peer_rodit, 
+          goodrodit: false,
+          failureReason: "SERVER_CONFIG_INCOMPLETE",
+          failureMessage: "Server RODiT configuration is incomplete"
+        };
       }
       
       const isaMatch = await verify_rodit_isamatch(
@@ -903,7 +928,12 @@ async function verify_rodit_ownership(
           requestId,
           roditId: peerroditid,
         });
-        return { peer_rodit, goodrodit: false };
+        return { 
+          peer_rodit, 
+          goodrodit: false,
+          failureReason: "RODIT_FAMILY_MISMATCH",
+          failureMessage: "RODiT does not belong to the same family as the server"
+        };
       }
 
       // Verify live
@@ -925,7 +955,12 @@ async function verify_rodit_ownership(
           requestId,
           roditId: peerroditid,
         });
-        return { peer_rodit, goodrodit: false };
+        return { 
+          peer_rodit, 
+          goodrodit: false,
+          failureReason: "RODIT_NOT_LIVE",
+          failureMessage: "RODiT is expired or not yet valid"
+        };
       }
 
       // Verify active
@@ -947,7 +982,12 @@ async function verify_rodit_ownership(
           requestId,
           roditId: peerroditid,
         });
-        return { peer_rodit, goodrodit: false };
+        return { 
+          peer_rodit, 
+          goodrodit: false,
+          failureReason: "RODIT_REVOKED",
+          failureMessage: "RODiT has been revoked"
+        };
       }
 
       // Verify trusted
@@ -968,7 +1008,12 @@ async function verify_rodit_ownership(
           requestId,
           roditId: peerroditid,
         });
-        return { peer_rodit, goodrodit: false };
+        return { 
+          peer_rodit, 
+          goodrodit: false,
+          failureReason: "SMART_CONTRACT_NOT_TRUSTED",
+          failureMessage: "Issuing smart contract is not trusted by this server"
+        };
       }
 
       const totalDuration = Date.now() - startTime;

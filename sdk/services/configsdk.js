@@ -84,37 +84,27 @@ const FALLBACK_DEFAULTS = {
       tzoffset: "+01:00",
       datetimeformat: "2023-04-15T14:30:00-05:00",
     },
-    LOG_DIR: "./log-directory-not-set",
-  },
-  // Performance monitoring configuration
-  PERFORMANCE: {
-    LOAD_LEVELS: {
-      LOW: 'low',
-      MEDIUM: 'medium',
-      HIGH: 'high',
-      CRITICAL: 'critical'
-    },
-    LOAD_THRESHOLDS: {
-      MEDIUM: 500,   // >500 req/min = medium load
-      HIGH: 1000,    // >1000 req/min = high load
-      CRITICAL: 2000 // >2000 req/min = critical load
-    }
   },
   NEAR_RPC_URL: "https://rpc.testnet.fastnear.com",
   NEAR_CONTRACT_ID: "rodit-org.near",
   SERVICE_NAME: "service-name-not-set",
-  LOG_LEVEL: "debug",
+  NODE_ENV: "production", // Environment: production, development, test
+  LOG_LEVEL: "info", // Logging verbosity: error, warn, info, debug, trace
   // Session storage configuration
   SESSION_STORAGE_TYPE: "memory",
   // Session cleanup configuration
   SESSION_CLEANUP_INTERVAL: 500000, // Milliseconds
   SESSION_TOKEN_RETENTION_PERIOD: 5000000,  // Seconds
-  NEAR_CACHE_TTLS: 5000, // Milliseconds
-  // Token validation cache TTL (milliseconds) - trades security for performance
+  NEAR_RPC_CACHE_TTL: 5000, // Milliseconds
+  // Session validation cache TTL (milliseconds) - trades security for performance
   // Lower values = more secure but more storage lookups
   // Higher values = faster but longer window after logout where token may still work
   // Set to 0 to disable caching (always check session state)
-  TOKEN_VALIDATION_CACHE_TTL: 5000, // 5 seconds default
+  SESSION_VALIDATION_CACHE_TTL: 5000, // 5 seconds default
+  // Webhook TLS verification configuration
+  // Set to true to skip TLS certificate verification for webhook destinations
+  // This is safe when mutual authentication via digital signatures is in place
+  WEBHOOK_TLS_SKIP_VERIFY: false, // Default to strict TLS verification
   // Default empty permission map so consumers can opt-into permissions as needed
   METHOD_PERMISSION_MAP: {},
 };
@@ -135,10 +125,25 @@ function has(pathStr) {
  * @returns {*} Configuration value
  */
 function get(pathStr, defaultValue) {
+  // Priority 1: Check environment variables directly
+  // This ensures GitHub Actions env vars always take precedence
+  const envVarName = pathStr.toUpperCase().replace(/\./g, '_');
+  const envValue = process.env[envVarName];
+  if (envValue !== undefined) {
+    // Parse numeric strings to numbers if they look like numbers
+    if (/^\d+$/.test(envValue)) {
+      return parseInt(envValue, 10);
+    }
+    // Parse boolean strings
+    if (envValue === 'true') return true;
+    if (envValue === 'false') return false;
+    return envValue;
+  }
+  
+  // Priority 2: Try to get from host config (which may have its own env var mappings)
   let hostValue;
   let hostHasValue = false;
   
-  // First try to get from host config
   if (nodeConfig) {
     try {
       hostValue = nodeConfig.get(pathStr);
@@ -153,13 +158,13 @@ function get(pathStr, defaultValue) {
     return hostValue;
   }
   
-  // Try fallback defaults
+  // Priority 3: Try SDK fallback defaults
   const fallbackValue = deepGet(FALLBACK_DEFAULTS, pathStr);
   if (fallbackValue !== undefined) {
     return fallbackValue;
   }
   
-  // If default value provided, return it
+  // Priority 4: If default value provided, return it
   if (defaultValue !== undefined) {
     return defaultValue;
   }

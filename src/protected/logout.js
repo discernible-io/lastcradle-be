@@ -41,26 +41,26 @@ router.post("/logout", (req, res, next) => {
     req.logAction = "logout-attempt";
     
     const logger = getLogger(req);
-    const { createLogContext, logErrorWithMetrics } = logger;
     
-    const baseContext = createLogContext({
+    logger.debugWithContext("Processing logout request directly", {
       requestId,
       component: 'LogoutRoutes',
-      method: 'logout',
+      event: 'logout',
       endpoint: '/api/logout',
       httpMethod: req.method,
       userId: req.user?.id,
       ip: req.ip,
       userAgent: req.get('User-Agent'),
-      headers: Object.keys(req.headers)
     });
-    
-    logger.debugWithContext("Processing logout request directly", baseContext);
   
     try {
       // Check if the logout_client method exists on the centralized client
       if (!req.app.locals.roditClient) {
-        logger.errorWithContext("Authentication service unavailable", baseContext);
+        logger.errorWithContext("Authentication service unavailable", {
+          requestId,
+          component: 'LogoutRoutes',
+          event: 'logout',
+        });
         return res.status(503).json({ 
           error: 'Authentication service unavailable',
           requestId
@@ -69,7 +69,9 @@ router.post("/logout", (req, res, next) => {
       
       if (typeof req.app.locals.roditClient.logout_client !== 'function') {
         logger.errorWithContext("logout_client method not available", {
-          ...baseContext,
+          requestId,
+          component: 'LogoutRoutes',
+          event: 'logout',
           availableMethods: Object.getOwnPropertyNames(req.app.locals.roditClient).filter(name => typeof req.app.locals.roditClient[name] === 'function')
         });
         return res.status(503).json({ 
@@ -80,16 +82,22 @@ router.post("/logout", (req, res, next) => {
       }
       
       // Process logout directly using the centralized RoditClient
-      logger.infoWithContext("Delegating to centralized logout_client", baseContext);
+      logger.infoWithContext("Delegating to centralized logout_client", {
+        requestId,
+        component: 'LogoutRoutes',
+        event: 'logout',
+      });
       return req.app.locals.roditClient.logout_client(req, res);
       
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         'Error processing logout request',
         {
-          ...baseContext,
+          requestId,
+          component: 'LogoutRoutes',
+          event: 'logout',
           duration
         },
         error,

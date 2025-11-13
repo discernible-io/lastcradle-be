@@ -18,6 +18,7 @@ env:
   API_DOMAIN: api.discernible.io
   API_PORT: 9443
   NODE_VERSION: 20
+  NEAR_RPC_URL: ${{ secrets.NEAR_RPC_URL }}
 
 jobs:
   test-and-deploy:
@@ -59,7 +60,7 @@ jobs:
       - name: Setup and Copy Files
         run: |
           echo "Setting up directories..."
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertest-app/{certs,logs,data,nginx,promtail} && mkdir -p ~/servertest-app/logs/nginx && chmod 0775 ~/servertest-app/logs/nginx || true && podman unshare chown -R 101:101 ~/servertest-app/logs/nginx || true"
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertest-app/{certs,logs,data,nginx} && mkdir -p ~/servertest-app/logs/nginx && chmod 0775 ~/servertest-app/logs/nginx || true && podman unshare chown -R 101:101 ~/servertest-app/logs/nginx || true"
           
           echo "Copying API files..."
           rsync -avz --delete \
@@ -93,7 +94,6 @@ jobs:
             podman pod exists servertest-pod && podman pod rm -f servertest-pod
             podman image exists servertest-image:latest && podman rmi -f servertest-image:latest
             podman image exists localhost/servertest-nginx:latest && podman rmi -f localhost/servertest-nginx:latest
-            podman image exists localhost/servertest-promtail:latest && podman rmi -f localhost/servertest-promtail:latest
             
             # Create new pod
             echo 'Creating API pod...'
@@ -110,21 +110,32 @@ jobs:
             
             # Build API container with debug information
             echo 'Building API container...'
+            echo 'DEBUG: NODE_ENV=${{ vars.NODE_ENV }}'
+            echo 'DEBUG: LOG_LEVEL=${{ vars.LOG_LEVEL }}'
             echo 'DEBUG: LOKI_URL=${{ vars.LOKI_URL }}'
             echo 'DEBUG: LOKI_TLS_SKIP_VERIFY=${{ vars.LOKI_TLS_SKIP_VERIFY }}'
+            echo 'DEBUG: WEBHOOK_TLS_SKIP_VERIFY=${{ vars.WEBHOOK_TLS_SKIP_VERIFY }}'
             echo 'DEBUG: LOKI_BASIC_AUTH length:' \${#LOKI_BASIC_AUTH}
-            echo 'DEBUG: RODIT_NEAR_CREDENTIALS_SOURCE (from Actions vars/secrets expected in run args below)'
+            echo 'DEBUG: RODIT_NEAR_CREDENTIALS_SOURCE=${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE }}'
             echo 'DEBUG: SERVICE_NAME=${{ vars.SERVICE_NAME }}'
-            echo 'DEBUG: SERVERPORT=${{ vars.SERVERPORT }}'
-            echo 'DEBUG: API_DEFAULT_OPTIONS_LOG_DIR=/app/logs (hardcoded for container)'
+            echo 'DEBUG: API_DEFAULT_OPTIONS_LOG_DIR=${{ vars.API_DEFAULT_OPTIONS_LOG_DIR }}'
+            echo 'DEBUG: NEAR_RPC_URL=${{ env.NEAR_RPC_URL }}'
             echo 'DEBUG: NEAR_CONTRACT_ID=${{ vars.NEAR_CONTRACT_ID }}'
-            # Do not echo NEAR_CREDENTIALS_JSON_B64 here to avoid leaking secrets
+            echo 'DEBUG: NEAR_CREDENTIALS_FILE_PATH=${{ vars.NEAR_CREDENTIALS_FILE_PATH }}'
+            echo 'DEBUG: MINTING_FEEACCOUNT=${{ vars.MINTING_FEEACCOUNT }}'
+            echo 'DEBUG: MINTING_FEE=${{ vars.MINTING_FEE }}'
+            echo 'DEBUG: API_VERSION=${{ vars.API_VERSION }}'
+            # Do not echo NEAR_CREDENTIALS_JSON_B64 or Vault secrets to avoid leaking secrets
             echo 'DEBUG: VAULT_ENDPOINT=${{ vars.VAULT_ENDPOINT }}'
             echo 'DEBUG: VAULT_RODIT_KEYVALUE_PATH=${{ vars.VAULT_RODIT_KEYVALUE_PATH }}'
             echo 'DEBUG: VAULT_ROLE_ID: [provided via secrets]'
             echo 'DEBUG: VAULT_SECRET_ID: [provided via secrets]'
             echo 'DEBUG: VAULT_TOKEN_TTL=${{ vars.VAULT_TOKEN_TTL }}'
             echo 'DEBUG: SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY=${{ vars.SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY }}'
+            echo 'DEBUG: SECURITY_OPTIONS_THRESHOLD_VALIDATION_TYPE=${{ vars.SECURITY_OPTIONS_THRESHOLD_VALIDATION_TYPE }}'
+            echo 'DEBUG: SECURITY_OPTIONS_DURATIONRAMP=${{ vars.SECURITY_OPTIONS_DURATIONRAMP }}'
+            echo 'DEBUG: SECURITY_OPTIONS_SERVERORCLIENT=${{ vars.SECURITY_OPTIONS_SERVERORCLIENT }}'
+            echo 'DEBUG: SECURITY_OPTIONS_SILENT_LOGIN_FAILURES=${{ vars.SECURITY_OPTIONS_SILENT_LOGIN_FAILURES }}'
             podman build -t servertest-image:latest -f api.Dockerfile .
             
             # Run API container with user 1000 and proper volume mounts
@@ -134,15 +145,21 @@ jobs:
               --name servertest-container \
               --user 1000:1000 \
               --restart=unless-stopped \
+              -e NODE_ENV='${{ vars.NODE_ENV }}' \
+              -e LOG_LEVEL='${{ vars.LOG_LEVEL }}' \
               -e LOKI_URL='${{ vars.LOKI_URL }}' \
               -e LOKI_TLS_SKIP_VERIFY='${{ vars.LOKI_TLS_SKIP_VERIFY }}' \
+              -e WEBHOOK_TLS_SKIP_VERIFY='${{ vars.WEBHOOK_TLS_SKIP_VERIFY }}' \
               -e LOKI_BASIC_AUTH='${{ secrets.LOKI_BASIC_AUTH }}' \
               -e RODIT_NEAR_CREDENTIALS_SOURCE='${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE }}' \
-              -e NEAR_CREDENTIALS_JSON_B64='${{ secrets.NEAR_CREDENTIALS_JSON_B64 }}' \
               -e SERVICE_NAME='${{ vars.SERVICE_NAME }}' \
-              -e SERVERPORT='${{ vars.SERVERPORT }}' \
-              -e API_DEFAULT_OPTIONS_LOG_DIR='${{ vars.API_DEFAULT_OPTIONS_LOG_DIR }}' \
               -e NEAR_CONTRACT_ID='${{ vars.NEAR_CONTRACT_ID }}' \
+              -e NEAR_CREDENTIALS_JSON_B64='${{ secrets.NEAR_CREDENTIALS_JSON_B64 }}' \
+              -e NEAR_RPC_URL='${{ env.NEAR_RPC_URL }}' \
+              -e NEAR_CREDENTIALS_FILE_PATH='${{ vars.NEAR_CREDENTIALS_FILE_PATH }}' \
+              -e MINTING_FEEACCOUNT='${{ vars.MINTING_FEEACCOUNT }}' \
+              -e MINTING_FEE='${{ vars.MINTING_FEE }}' \
+              -e API_VERSION='${{ vars.API_VERSION }}' \
               -e VAULT_ENDPOINT='${{ vars.VAULT_ENDPOINT }}' \
               -e VAULT_RODIT_KEYVALUE_PATH='${{ vars.VAULT_RODIT_KEYVALUE_PATH }}' \
               -e VAULT_ROLE_ID='${{ secrets.VAULT_ROLE_ID }}' \
@@ -163,7 +180,7 @@ jobs:
             # Debug: Check environment variables inside the container
             echo 'DEBUG: Container environment variables:'
             podman exec servertest-container env \
-              | grep -E '^(LOKI_|LOG_|RODIT_NEAR_CREDENTIALS_SOURCE|SERVICE_NAME|SERVERPORT|API_DEFAULT_OPTIONS_LOG_DIR|NEAR_CONTRACT_ID|VAULT_ENDPOINT|VAULT_RODIT_KEYVALUE_PATH|VAULT_ROLE_ID|VAULT_TOKEN_TTL|SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY)' \
+              | grep -E '^(NODE_ENV|LOG_LEVEL|LOKI_|WEBHOOK_TLS_SKIP_VERIFY|RODIT_NEAR_CREDENTIALS_SOURCE|SERVICE_NAME|API_DEFAULT_OPTIONS_|NEAR_|VAULT_|MINTING_|API_VERSION|SECURITY_OPTIONS_|SESSION_|CREDENTIALS_FILEPATH|BASE_URL)' \
               | sed -E 's/(VAULT_ROLE_ID|VAULT_SECRET_ID)=.*/\1=****/' \
               | sort || echo 'No expected variables found'
 
@@ -193,18 +210,6 @@ jobs:
               -v ~/servertest-app/logs/nginx:/var/log/nginx:Z,U \
               localhost/servertest-nginx:latest
             
-            # Promtail container temporarily disabled
-            # echo 'Skipping Promtail container build and run...'
-            # podman build -f promtail.Dockerfile -t localhost/servertest-promtail:latest .
-            # podman run -d --name=promtail-container \
-            #   --pod=servertest-pod \
-            #   -v $(pwd)/promtail:/etc/promtail \
-            #   -v $(pwd)/logs:/app/logs \
-            #   localhost/servertest-promtail:latest \
-            #   -config.file=/etc/promtail/promtail-config.yml:/etc/promtail/config.yml:ro,Z \
-              docker.io/grafana/promtail:latest \
-              -config.file=/etc/promtail/config.yml
-            
             # Check status and logs
             echo 'Container status:'
             podman ps -a
@@ -214,7 +219,4 @@ jobs:
             
             echo 'Nginx logs:'
             podman logs servertest-nginx || true
-            
-            echo 'Promtail logs:'
-            podman logs servertest-promtail || true
           "

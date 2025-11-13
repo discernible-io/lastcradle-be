@@ -237,21 +237,23 @@ router.post('/cleanup', authenticate_apicall, async (req, res) => {
   const logger = getLogger(req);
   const sessionManager = getSessionManager(req);
   
-  const baseContext = {
+  logger.infoWithContext('Session cleanup requested', {
     component: 'SessionRoutes',
-    method: 'cleanupSessions',
+    event: 'cleanupSessions',
     requestId,
     httpMethod: req.method,
     path: req.path,
     ip: req.ip,
     userId: req.user?.id || 'system'
-  };
-  
-  logger.info('Session cleanup requested', baseContext);
+  });
   
   try {
     if (!sessionManager) {
-      logger.error('Session manager not available', baseContext);
+      logger.errorWithContext('Session manager not available', {
+        component: 'SessionRoutes',
+        event: 'cleanupSessions',
+        requestId,
+      });
       return res.status(503).json({
         error: 'Session service unavailable',
         requestId
@@ -274,8 +276,10 @@ router.post('/cleanup', authenticate_apicall, async (req, res) => {
     
     const duration = Date.now() - startTime;
     
-    logger.info('Session cleanup completed', {
-      ...baseContext,
+    logger.infoWithContext('Session cleanup completed', {
+      component: 'SessionRoutes',
+      event: 'cleanupSessions',
+      requestId,
       duration,
       removedCount,
       activeBefore,
@@ -307,8 +311,10 @@ router.post('/cleanup', authenticate_apicall, async (req, res) => {
   } catch (error) {
     const duration = Date.now() - startTime;
     
-    logger.error('Session cleanup failed', {
-      ...baseContext,
+    logger.errorWithContext('Session cleanup failed', {
+      component: 'SessionRoutes',
+      event: 'cleanupSessions',
+      requestId,
       error: error.message,
       stack: error.stack,
       duration

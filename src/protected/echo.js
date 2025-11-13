@@ -6,7 +6,7 @@ const { RoditClient } = require("@rodit/rodit-auth-be");
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
-const { createLogContext, logErrorWithMetrics } = logger;
+// Logger methods are available directly on the logger object
 
 // Middleware for logging action - enhanced with structured context
 const logActionMiddleware = (req, res, next) => {
@@ -19,22 +19,17 @@ const logActionMiddleware = (req, res, next) => {
   req.requestId = requestId; // Set requestId for downstream handlers
   req.startTime = startTime; // Track when the request started
   
-  const baseContext = createLogContext({
+  logger.debugWithContext("Request processed by middleware", {
     requestId,
     component: 'EchoMiddleware',
-    method: 'logActionMiddleware',
+    event: 'logActionMiddleware',
     endpoint: req.path,
     httpMethod: req.method,
     userId: req.user?.id,
     ip: req.ip,
     userAgent: req.get('User-Agent'),
-    headers: Object.keys(req.headers),
     messageLength: inputString ? inputString.length : 0,
-    bodyKeys: Object.keys(req.body || {}),
-    bodySize: req.body ? JSON.stringify(req.body).length : 0
   });
-  
-  logger.debugWithContext("Request processed by middleware", baseContext);
   
   const middlewareDuration = Date.now() - startTime;
   logger.metric('middleware_operations', middlewareDuration, {
@@ -55,19 +50,6 @@ router.post("/", logActionMiddleware, (req, res) => {
   // Extract input from various possible fields for test compatibility
   const inputString = req.body.message || req.body.echo || req.body.data || req.body.text;
   
-  const baseContext = createLogContext({
-    requestId,
-    component: 'EchoRoutes',
-    method: 'echoMessage',
-    endpoint: '/api/echo',
-    httpMethod: req.method,
-    userId: req.user?.id,
-    ip: req.ip,
-    userAgent: req.get('User-Agent'),
-    messageReceived: !!inputString,
-    messageLength: inputString ? inputString.length : 0
-  });
-  
   try {
     // Validate content type first
     const contentType = req.get('Content-Type') || '';
@@ -78,7 +60,9 @@ router.post("/", logActionMiddleware, (req, res) => {
       const routeDuration = Date.now() - routeStartTime;
       
       logger.warnWithContext("Invalid content type for echo", {
-        ...baseContext,
+        requestId,
+        component: 'EchoRoutes',
+        event: 'echoMessage',
         validationError: 'Unsupported content type',
         contentType,
         duration,
@@ -104,7 +88,9 @@ router.post("/", logActionMiddleware, (req, res) => {
       const routeDuration = Date.now() - routeStartTime;
       
       logger.warnWithContext("Invalid input for echo", {
-        ...baseContext,
+        requestId,
+        component: 'EchoRoutes',
+        event: 'echoMessage',
         validationError: 'Invalid or missing message - must be a string',
         inputType: typeof inputString,
         inputValue: inputString,
@@ -125,13 +111,21 @@ router.post("/", logActionMiddleware, (req, res) => {
       });
     }
     
-    logger.debugWithContext("Processing echo request", baseContext);
+    logger.debugWithContext("Processing echo request", {
+      requestId,
+      component: 'EchoRoutes',
+      event: 'echoMessage',
+      messageReceived: !!inputString,
+      messageLength: inputString ? inputString.length : 0
+    });
     
     const duration = Date.now() - startTime;
     const routeDuration = Date.now() - routeStartTime;
     
     logger.infoWithContext("Echo request completed successfully", {
-      ...baseContext,
+      requestId,
+      component: 'EchoRoutes',
+      event: 'echoMessage',
       status: "success",
       responseType: "json",
       duration,
@@ -159,10 +153,12 @@ router.post("/", logActionMiddleware, (req, res) => {
     const duration = Date.now() - startTime;
     const routeDuration = Date.now() - routeStartTime;
     
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       'Error processing echo request',
       {
-        ...baseContext,
+        requestId,
+        component: 'EchoRoutes',
+        event: 'echoMessage',
         duration,
         routeDuration
       },

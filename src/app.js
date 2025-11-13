@@ -7,6 +7,7 @@
  * Copyright (c) 2025 Discernible Inc. All rights reserved.
  */
 
+const config = require("config");
 const express = require("express");
 const session = require("express-session");
 const { ulid } = require("ulid");
@@ -15,20 +16,19 @@ const swaggerJsdoc = require("swagger-jsdoc");
 const winston = require("winston");
 const LokiTransport = require("winston-loki");
 const { RoditClient, setExpressSessionStore, logger } = require("@rodit/rodit-auth-be");
-const config = require("config");
 
 // Configure winston-loki logging BEFORE creating RoditClient
 (() => {
   try {
     console.log("=== Enhanced winston-loki debugging ===");
-    const lokiUrl = process.env.LOKI_URL;
-    const logLevel = process.env.LOG_LEVEL || 'info';
-    const skipTls = String(process.env.LOKI_TLS_SKIP_VERIFY || "").toLowerCase() === "true";
-    const basicAuth = process.env.LOKI_BASIC_AUTH;
+    const lokiUrl = config.has('LOKI_URL') ? config.get('LOKI_URL') : null;
+    const logLevel = config.get('LOG_LEVEL');
+    const skipTls = config.has('LOKI_TLS_SKIP_VERIFY') ? String(config.get('LOKI_TLS_SKIP_VERIFY')).toLowerCase() === "true" : false;
+    const basicAuth = config.has('LOKI_BASIC_AUTH') ? config.get('LOKI_BASIC_AUTH') : null;
 
-    console.log("Environment variables:");
+    console.log("Configuration values:");
     console.log("  LOKI_URL:", lokiUrl || "NOT SET");
-    console.log("  LOKI_TLS_SKIP_VERIFY:", process.env.LOKI_TLS_SKIP_VERIFY || "NOT SET");
+    console.log("  LOKI_TLS_SKIP_VERIFY:", skipTls ? "true" : "false");
     console.log("  LOKI_BASIC_AUTH:", basicAuth ? "SET" : "NOT SET");
     console.log("  LOG_LEVEL:", logLevel);
 
@@ -38,7 +38,7 @@ const config = require("config");
 
     if (lokiUrl) {
       console.log("Creating winston-loki transport...");
-      const serviceLabel = process.env.SERVICE_NAME || "servertest-api";
+      const serviceLabel = config.get('SERVICE_NAME');
       const lokiOptions = {
         host: lokiUrl,
         labels: { app: serviceLabel, service_name: serviceLabel, component: "rodit-sdk" },
@@ -101,8 +101,8 @@ const config = require("config");
   }
 })();
 
-// Access logger utilities after injection
-const { createLogContext, logErrorWithMetrics } = logger;
+// Logger is now available with all SDK methods
+// Use logger.infoWithContext(), logger.errorWithContext(), etc.
 
 // Create temporary client instance to access middleware utilities
 const tempClient = new RoditClient();
@@ -191,9 +191,9 @@ try {
 
 // Log application startup
 logger.info("Starting RODiT Authentication API Server", {
-  nodeEnv: process.env.NODE_ENV || "development",
+  nodeEnv: config.get('NODE_ENV'),
   pid: process.pid,
-  version: process.env.npm_package_version,
+  version: config.has('npm_package_version') ? config.get('npm_package_version') : 'unknown',
   nodeVersion: process.version,
 });
 
@@ -253,7 +253,9 @@ const echoRoutes = require("./protected/echo");
 const crudaRoutes = require("./protected/cruda");
 
 // Development environment logging
-if (process.env.NODE_ENV !== "production") {
+const LOG_LEVEL = config.get('LOG_LEVEL', 'info');
+const isProduction = ['info', 'warn', 'error'].includes(LOG_LEVEL);
+if (!isProduction) {
   logger.info("Running in development mode - enhanced logging enabled");
 }
 
@@ -585,7 +587,7 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to RODiT Authentication API',
     endpoints,
-    version: process.env.npm_package_version,
+    version: config.has('npm_package_version') ? config.get('npm_package_version') : 'unknown',
     status: 'healthy',
     requestId: req.requestId
   });
@@ -700,7 +702,7 @@ app.use((err, req, res, next) => {
   const crypto = require("crypto");
   const requestId = req.requestId || ulid();
   const traceId = req.traceId || crypto.randomUUID();
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProductionEnv = config.get('NODE_ENV') === "production";
 
   logger.errorWithContext(
     "Server error occurred",
@@ -720,7 +722,7 @@ app.use((err, req, res, next) => {
       service: req.logService,
       action: req.logAction || "unspecified",
       statusCode: err.statusCode || 500,
-      stack: isProduction ? undefined : err.stack,
+      stack: isProductionEnv ? undefined : err.stack,
     },
     err // Pass the error object directly
   );
@@ -737,21 +739,17 @@ function updateRateLimit(maxRequests, maxRqWindow) {
   const requestId = ulid();
   const startTime = Date.now();
 
-  const baseContext = createLogContext({
-    requestId,
-    component: "RateLimiter",
-    method: "updateRateLimit",
-    maxRequests,
-    windowDuration: maxRqWindow,
-  });
-
   try {
     // Use SDK-exported ratelimitmw to rebuild middleware with new limits
     ratelimiter = ratelimitmw(maxRequests, maxRqWindow);
 
     const duration = Date.now() - startTime;
     logger.infoWithContext("Rate limit settings updated", {
-      ...baseContext,
+      requestId,
+      component: "RateLimiter",
+      event: "updateRateLimit",
+      maxRequests,
+      windowDuration: maxRqWindow,
       duration,
       result: "success",
     });
@@ -764,10 +762,14 @@ function updateRateLimit(maxRequests, maxRqWindow) {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       "Failed to update rate limit settings",
       {
-        ...baseContext,
+        requestId,
+        component: "RateLimiter",
+        event: "updateRateLimit",
+        maxRequests,
+        windowDuration: maxRqWindow,
         duration,
       },
       error,
@@ -790,12 +792,6 @@ let db;
 // Function to update Swagger servers configuration from RODIT token
 function updateSwaggerServers(subjectuniqueidentifier_url) {
   const requestId = ulid();
-  const baseContext = createLogContext({
-    requestId,
-    component: "SwaggerConfig",
-    method: "updateSwaggerServers",
-    apiUrl: subjectuniqueidentifier_url,
-  });
 
   try {
     if (subjectuniqueidentifier_url && subjectuniqueidentifier_url !== "N/A") {
@@ -808,7 +804,10 @@ function updateSwaggerServers(subjectuniqueidentifier_url) {
       ];
 
       logger.infoWithContext("Swagger servers updated with RODIT token URL", {
-        ...baseContext,
+        requestId,
+        component: "SwaggerConfig",
+        event: "updateSwaggerServers",
+        apiUrl: subjectuniqueidentifier_url,
         serverUrl: subjectuniqueidentifier_url,
       });
     } else {
@@ -822,14 +821,21 @@ function updateSwaggerServers(subjectuniqueidentifier_url) {
 
       logger.warnWithContext(
         "No valid API URL in RODIT token, using fallback servers",
-        baseContext
+        {
+          requestId,
+          component: "SwaggerConfig",
+          event: "updateSwaggerServers",
+          apiUrl: subjectuniqueidentifier_url,
+        }
       );
     }
   } catch (error) {
-    logger.error("Failed to update Swagger servers configuration", {
-      ...baseContext,
-      error: error.message,
-    });
+    logger.errorWithContext("Failed to update Swagger servers configuration", {
+      requestId,
+      component: "SwaggerConfig",
+      event: "updateSwaggerServers",
+      apiUrl: subjectuniqueidentifier_url,
+    }, error);
 
     // Use fallback configuration on error
     swaggerSpec.servers = [
@@ -846,12 +852,6 @@ async function displayRoditInfo(configObject) {
   const requestId = ulid();
   const startTime = Date.now();
 
-  const baseContext = createLogContext({
-    requestId,
-    component: "RoditInfo",
-    method: "displayRoditInfo",
-  });
-
   try {
     const own_rodit = configObject.own_rodit;
     const metadata = own_rodit.metadata;
@@ -864,7 +864,7 @@ async function displayRoditInfo(configObject) {
 
     // Extract network and contract from environment or metadata
     const nearContractId =
-      process.env.NEAR_CONTRACT_ID ||
+      (config.has('NEAR_CONTRACT_ID') ? config.get('NEAR_CONTRACT_ID') : null) ||
       metadata.serviceprovider_id?.split(";")[1]?.replace("sc=", "") ||
       "unknown";
     const network = nearContractId.includes("testnet") ? "testnet" : "mainnet";
@@ -912,7 +912,9 @@ async function displayRoditInfo(configObject) {
     updateSwaggerServers(metadata.subjectuniqueidentifier_url);
     const duration = Date.now() - startTime;
     logger.infoWithContext("RODIT token information displayed successfully", {
-      ...baseContext,
+      requestId,
+      component: "RoditInfo",
+      event: "displayRoditInfo",
       duration,
       tokenId: token_id,
       network,
@@ -927,10 +929,12 @@ async function displayRoditInfo(configObject) {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       "Failed to display RODIT token information",
       {
-        ...baseContext,
+        requestId,
+        component: "RoditInfo",
+        event: "displayRoditInfo",
         duration,
       },
       error,
@@ -954,23 +958,25 @@ async function startServer() {
   const requestId = ulid();
   const startTime = Date.now();
 
-  const baseContext = createLogContext({
+  logger.infoWithContext("Server starting", {
     requestId,
     component: "AppLifecycle",
-    method: "startServer",
-    nodeEnv: process.env.NODE_ENV || "development",
+    event: "startServer",
+    nodeEnv: config.get('NODE_ENV'),
     pid: process.pid,
   });
-
-  logger.infoWithContext("Server starting", baseContext);
 
   try {
     // Make client available to routes via app.locals
     app.locals.roditClient = roditClient;
 
     logger.infoWithContext("Initializing RODiT configuration", {
-      ...baseContext,
+      requestId,
+      component: "AppLifecycle",
+      event: "startServer",
       status: "initializing",
+      nodeEnv: config.get('NODE_ENV'),
+      pid: process.pid,
     });
 
     // Initialize RODiT SDK properly
@@ -1063,17 +1069,19 @@ async function startServer() {
     server = app.listen(port, () => {
       const serverStartDuration = Date.now() - startTime;
 
-      const serverContext = createLogContext({
-        ...baseContext,
-        port,
-        duration: serverStartDuration,
-        protocol: "http",
-        swagger: `/api-docs`,
-      });
-
       logger.infoWithContext(
         "HTTP server started successfully",
-        serverContext
+        {
+          requestId,
+          component: "AppLifecycle",
+          event: "startServer",
+          port,
+          duration: serverStartDuration,
+          protocol: "http",
+          swagger: `/api-docs`,
+          nodeEnv: config.get('NODE_ENV'),
+          pid: process.pid,
+        }
       );
 
       // Add metric for server startup
@@ -1104,11 +1112,15 @@ async function startServer() {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       "Server initialization failed",
       {
-        ...baseContext,
+        requestId,
+        component: "AppLifecycle",
+        event: "startServer",
         duration,
+        nodeEnv: config.get('NODE_ENV'),
+        pid: process.pid,
       },
       error,
       "server_startup_error",
@@ -1128,22 +1140,22 @@ async function gracefulShutdown(signal) {
   const requestId = ulid();
   const startTime = Date.now();
 
-  const baseContext = createLogContext({
+  logger.infoWithContext("Shutting down gracefully", {
     requestId,
     component: "AppLifecycle",
-    method: "gracefulShutdown",
+    event: "gracefulShutdown",
     signal: signal || "unknown",
   });
-
-  logger.infoWithContext("Shutting down gracefully", baseContext);
 
   try {
     if (server) {
       server.close(async () => {
         const duration = Date.now() - startTime;
         logger.infoWithContext("HTTP server closed", {
-          ...baseContext,
-          component: "http-server",
+          requestId,
+          component: "AppLifecycle",
+          event: "gracefulShutdown",
+          signal: signal || "unknown",
           duration,
         });
 
@@ -1165,7 +1177,10 @@ async function gracefulShutdown(signal) {
       logger.infoWithContext(
         "Server shutdown completed (no active HTTP server)",
         {
-          ...baseContext,
+          requestId,
+          component: "AppLifecycle",
+          event: "gracefulShutdown",
+          signal: signal || "unknown",
           duration,
         }
       );
@@ -1175,10 +1190,13 @@ async function gracefulShutdown(signal) {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       "Error during graceful shutdown",
       {
-        ...baseContext,
+        requestId,
+        component: "AppLifecycle",
+        event: "gracefulShutdown",
+        signal: signal || "unknown",
         duration,
       },
       error,
@@ -1200,13 +1218,11 @@ async function closeAllDatabases() {
   const requestId = ulid();
   const startTime = Date.now();
 
-  const baseContext = createLogContext({
+  logger.debugWithContext("Closing all database connections", {
     requestId,
     component: "DatabaseManager",
-    method: "closeAllDatabases",
+    event: "closeAllDatabases",
   });
-
-  logger.debugWithContext("Closing all database connections", baseContext);
 
   // Check if db exists and has a close method before calling it
   if (db && typeof db.close === "function") {
@@ -1215,8 +1231,10 @@ async function closeAllDatabases() {
 
       const duration = Date.now() - startTime;
       logger.infoWithContext("Main database connection closed", {
-        ...baseContext,
-        component: "main-db",
+        requestId,
+        component: "DatabaseManager",
+        event: "closeAllDatabases",
+        database: "main-db",
         duration,
       });
 
@@ -1229,11 +1247,13 @@ async function closeAllDatabases() {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         "Error closing main database",
         {
-          ...baseContext,
-          component: "main-db",
+          requestId,
+          component: "DatabaseManager",
+          event: "closeAllDatabases",
+          database: "main-db",
           duration,
         },
         error,
@@ -1256,8 +1276,10 @@ async function closeAllDatabases() {
 
       const crudaDuration = Date.now() - crudaStartTime;
       logger.infoWithContext("CRUDA database connection closed", {
-        ...baseContext,
-        component: "cruda-db",
+        requestId,
+        component: "DatabaseManager",
+        event: "closeAllDatabases",
+        database: "cruda-db",
         duration: crudaDuration,
       });
 
@@ -1271,11 +1293,13 @@ async function closeAllDatabases() {
   } catch (error) {
     const crudaDuration = Date.now() - startTime;
 
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       "Error closing CRUDA database",
       {
-        ...baseContext,
-        component: "cruda-db",
+        requestId,
+        component: "DatabaseManager",
+        event: "closeAllDatabases",
+        database: "cruda-db",
         duration: crudaDuration,
       },
       error,
@@ -1302,8 +1326,10 @@ async function closeAllDatabases() {
 
       const sessionDuration = Date.now() - sessionStartTime;
       logger.infoWithContext("Session store connection closed", {
-        ...baseContext,
-        component: "session-store",
+        requestId,
+        component: "DatabaseManager",
+        event: "closeAllDatabases",
+        database: "session-store",
         duration: sessionDuration,
       });
 
@@ -1317,11 +1343,13 @@ async function closeAllDatabases() {
   } catch (error) {
     const sessionDuration = Date.now() - startTime;
 
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       "Error closing session store",
       {
-        ...baseContext,
-        component: "session-store",
+        requestId,
+        component: "DatabaseManager",
+        event: "closeAllDatabases",
+        database: "session-store",
         duration: sessionDuration,
       },
       error,

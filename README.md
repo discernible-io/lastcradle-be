@@ -80,13 +80,10 @@ The API server requires several environment variables to be configured for prope
 
 | Variable | Default Value | Description |
 |----------|---------------|-------------|
-| `API_DEFAULT_OPTIONS_DB_PATH` | `/app/data/database.sqlite` | Path to the SQLite database file |
-| `API_DEFAULT_OPTIONS_LOG_DIR` | `/app/logs` | Directory for application log files |
 | `LOKI_TLS_SKIP_VERIFY` | `true` | Skip TLS verification for Loki connections (development) |
 | `LOKI_URL` | `https://grafana.cableguard.net:3100` | Loki endpoint URL for centralized logging |
 | `NEAR_CONTRACT_ID` | `20251001-rodit-org.testnet` | NEAR Protocol contract ID for RODiT verification |
 | `RODIT_NEAR_CREDENTIALS_SOURCE` | `vault` | Source for NEAR credentials (vault or file) |
-| `SERVERPORT` | `8080` | Port number for the API server |
 | `SERVICE_NAME` | `servertest-api` | Service name for logging and identification |
 | `VAULT_ENDPOINT` | `https://vault.rodit.org:8200` | HashiCorp Vault server endpoint |
 | `VAULT_RODIT_KEYVALUE_PATH` | `signing-keys` | Vault path for RODiT signing keys |
@@ -666,7 +663,6 @@ podman port servertest-container
 - `LOKI_TLS_SKIP_VERIFY` - TLS verification setting
 - `RODIT_NEAR_CREDENTIALS_SOURCE` - RODiT credentials source
 - `SERVICE_NAME` - Service identifier
-- `SERVERPORT` - Server port override
 - `NEAR_CONTRACT_ID` - NEAR blockchain contract
 - `VAULT_ENDPOINT` - Vault service endpoint
 - `VAULT_ROLE_ID` - Vault authentication

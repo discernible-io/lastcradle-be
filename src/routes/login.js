@@ -8,7 +8,7 @@ const { RoditClient } = require('@rodit/rodit-auth-be');
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
-const { createLogContext, logErrorWithMetrics } = logger;
+// Logger methods are available directly on the logger object
 
 /**
  * @swagger

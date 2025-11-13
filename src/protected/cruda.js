@@ -10,7 +10,7 @@ const config = require("config");
 const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
 const { ulid } = require("ulid"); // Adding ulid for request IDs
-const { createLogContext, logErrorWithMetrics, debugWithContextIf } = logger;
+// Logger methods are available directly on the logger object
 
 const DB_PATH = config.get("API_DEFAULT_OPTIONS.DB_PATH");
 
@@ -22,14 +22,12 @@ const initializeDatabase = async () => {
   const requestId = ulid();
   const startTime = Date.now();
 
-  const baseContext = createLogContext({
+  logger.debugWithContext("Starting database initialization", {
     requestId,
     component: "CRUDARouter",
-    method: "initializeDatabase",
+    event: "initializeDatabase",
     dbPath: DB_PATH,
   });
-
-  logger.debugWithContext("Starting database initialization", baseContext);
 
   try {
     // Initialize SQLite database
@@ -49,7 +47,10 @@ const initializeDatabase = async () => {
 
     const duration = Date.now() - startTime;
     logger.infoWithContext("SQLite database initialized successfully", {
-      ...baseContext,
+      requestId,
+      component: "CRUDARouter",
+      event: "initializeDatabase",
+      dbPath: DB_PATH,
       duration,
     });
 
@@ -63,10 +64,13 @@ const initializeDatabase = async () => {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       "Error initializing SQLite database",
       {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "initializeDatabase",
+        dbPath: DB_PATH,
         duration,
       },
       error,
@@ -89,29 +93,36 @@ const closeDatabase = async () => {
   const requestId = ulid();
   const startTime = Date.now();
 
-  const baseContext = createLogContext({
-    requestId,
-    component: "CRUDARouter",
-    method: "closeDatabase",
-    dbPath: DB_PATH,
-  });
-
   try {
     if (db && typeof db.close === "function") {
       await db.close();
       const duration = Date.now() - startTime;
       logger.infoWithContext("SQLite database closed for CRUDA router", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "closeDatabase",
+        dbPath: DB_PATH,
         duration,
       });
     } else {
-      logger.debugWithContext("No CRUDA SQLite connection to close", baseContext);
+      logger.debugWithContext("No CRUDA SQLite connection to close", {
+        requestId,
+        component: "CRUDARouter",
+        event: "closeDatabase",
+        dbPath: DB_PATH,
+      });
     }
   } catch (error) {
     const duration = Date.now() - startTime;
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       "Error closing CRUDA SQLite database",
-      { ...baseContext, duration },
+      {
+        requestId,
+        component: "CRUDARouter",
+        event: "closeDatabase",
+        dbPath: DB_PATH,
+        duration
+      },
       error,
       "database_error",
       { operation: "closeDatabase", result: "error", duration }
@@ -206,29 +217,25 @@ initializeDatabase()
     const requestId = ulid();
     logger.infoWithContext(
       "CRUDA Router database initialized successfully",
-      createLogContext({
+      {
         requestId,
         component: "CRUDARouter",
-        method: "moduleInitialization",
-        status: "ready",
-      })
+        event: "moduleInitialization",
+      }
     );
   })
   .catch((error) => {
     const requestId = ulid();
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       "Failed to initialize database",
-      createLogContext({
+      {
         requestId,
         component: "CRUDARouter",
-        method: "moduleInitialization",
-        status: "failed",
-      }),
+        event: "moduleInitialization",
+      },
       error,
       "database_error",
-      {
-        operation: "moduleInitialization",
-      }
+      { operation: "moduleInitialization", result: "error" }
     );
   });
 
@@ -271,20 +278,17 @@ const itemExists = async (req, res, next) => {
     req.comment = comment;
     next();
   } catch (error) {
-    logErrorWithMetrics(
+    logger.logErrorWithMetrics(
       "Error checking item existence",
       {
         component: "CRUDARouter",
-        method: "itemExists",
+        event: "itemExists",
         requestId,
-        itemId: id,
+        id,
       },
       error,
-      "cruda_error",
-      {
-        operation: "itemExists",
-        result: "error",
-      }
+      "database_error",
+      { operation: "itemExists", result: "error" }
     );
 
     res.status(500).json({
@@ -348,11 +352,6 @@ const handleIdempotency = (req, res, next) => {
 // Validation middleware for create/update operations
 const validateComment = (req, res, next) => {
   const requestId = req.requestId || ulid();
-  const baseContext = createLogContext({
-    requestId,
-    component: "CRUDA",
-    method: "validateComment",
-  });
 
   try {
     const { comment } = req.body;
@@ -376,7 +375,9 @@ const validateComment = (req, res, next) => {
       error.requestId = requestId;
 
       logger.warnWithContext("Comment validation failed", {
-        ...baseContext,
+        requestId,
+        component: "CRUDA",
+        event: "validateComment",
         error: error.message,
         path: req.path,
         method: req.method,
@@ -395,20 +396,15 @@ const validateComment = (req, res, next) => {
     next();
   } catch (error) {
     logger.errorWithContext("Error in validateComment middleware", {
-      ...baseContext,
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      },
-    });
+      requestId,
+      component: "CRUDA",
+      event: "validateComment",
+    }, error);
 
-    // Send a proper error response
     res.status(500).json({
       success: false,
-      error: "An unexpected error occurred during comment validation",
+      error: "Internal server error",
       requestId,
-      code: "INTERNAL_SERVER_ERROR",
     });
   }
 };
@@ -426,36 +422,32 @@ router.post(
   handleIdempotency,
   async (req, res) => {
     const requestId = req.requestId;
-    const startTime = req.startTime || Date.now();
+    const startTime = req.startTime;
     const routeStartTime = Date.now();
 
     const { comment, author } = req.body;
 
-    // Create context for create operation
-    const baseContext = createLogContext({
+    logger.debugWithContext("Processing create comment request", {
       requestId,
       component: "CRUDARouter",
-      method: "createComment",
+      event: "createComment",
       endpoint: req.path,
       httpMethod: req.method,
       userId: req.user?.id,
       ip: req.ip,
       action: req.logAction,
-      headers: Object.keys(req.headers),
-      bodyKeys: Object.keys(req.body || {}),
-      bodySize: req.body ? JSON.stringify(req.body).length : 0,
       commentLength: comment ? comment.length : 0,
       hasAuthor: !!author,
     });
-
-    logger.debugWithContext("Processing create comment request", baseContext);
 
     if (!comment) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
 
       logger.warnWithContext("Create comment validation failed", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "createComment",
         validationError: "Missing comment field",
         duration,
         routeDuration,
@@ -477,7 +469,9 @@ router.post(
       const routeDuration = Date.now() - routeStartTime;
 
       logger.infoWithContext("Comment created successfully", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "createComment",
         status: "success",
         commentId: result.lastID,
         duration,
@@ -519,7 +513,9 @@ router.post(
       if (req.new_jwt_token) {
         response.new_jwt_token = req.new_jwt_token;
         logger.debugWithContext("Added JWT token to response", {
-          ...baseContext,
+          requestId,
+          component: "CRUDARouter",
+          event: "createComment",
           tokenAdded: true,
         });
       }
@@ -529,10 +525,12 @@ router.post(
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
 
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         "Error creating comment",
         {
-          ...baseContext,
+          requestId,
+          component: "CRUDARouter",
+          event: "createComment",
           duration,
           routeDuration,
         },
@@ -567,22 +565,16 @@ router.post(
     const startTime = req.startTime || Date.now();
     const routeStartTime = Date.now();
 
-    // Create context for list operation
-    const baseContext = createLogContext({
+    logger.debugWithContext("Processing list comments request", {
       requestId,
       component: "CRUDARouter",
-      method: "listComments",
+      event: "listComments",
       endpoint: req.path,
       httpMethod: req.method,
       userId: req.user?.id,
       ip: req.ip,
       action: req.logAction,
-      headers: Object.keys(req.headers),
-      bodyKeys: Object.keys(req.body || {}),
-      bodySize: req.body ? JSON.stringify(req.body).length : 0,
     });
-
-    logger.debugWithContext("Processing list comments request", baseContext);
 
     try {
       const comments = await db.all("SELECT * FROM comments");
@@ -592,7 +584,9 @@ router.post(
       const routeDuration = Date.now() - routeStartTime;
 
       logger.infoWithContext("Comments retrieved successfully", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "listComments",
         status: "success",
         count: itemCount,
         duration,
@@ -633,7 +627,9 @@ router.post(
       if (req.new_jwt_token) {
         response.new_jwt_token = req.new_jwt_token;
         logger.debugWithContext("Added JWT token to response", {
-          ...baseContext,
+          requestId,
+          component: "CRUDARouter",
+          event: "listComments",
           tokenAdded: true,
         });
       }
@@ -643,10 +639,12 @@ router.post(
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
 
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         "Error retrieving comments",
         {
-          ...baseContext,
+          requestId,
+          component: "CRUDARouter",
+          event: "listComments",
           duration,
           routeDuration,
         },
@@ -681,24 +679,18 @@ router.get(
     const startTime = req.startTime || Date.now();
     const routeStartTime = Date.now();
 
-    // Create context for list operation
-    const baseContext = createLogContext({
-      requestId,
-      component: "CRUDARouter",
-      method: "listComments",
-      endpoint: req.path,
-      httpMethod: req.method,
-      userId: req.user?.id,
-      ip: req.ip,
-      action: req.logAction,
-      headers: Object.keys(req.headers),
-      bodyKeys: Object.keys(req.body || {}),
-      bodySize: req.body ? JSON.stringify(req.body).length : 0,
-    });
-
     logger.debugWithContext(
       "Processing GET list comments request",
-      baseContext
+      {
+        requestId,
+        component: "CRUDARouter",
+        event: "listCommentsGET",
+        endpoint: req.path,
+        httpMethod: req.method,
+        userId: req.user?.id,
+        ip: req.ip,
+        action: req.logAction,
+      }
     );
 
     try {
@@ -709,7 +701,9 @@ router.get(
       const routeDuration = Date.now() - routeStartTime;
 
       logger.infoWithContext("Comments retrieved successfully via GET", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "listCommentsGET",
         status: "success",
         count: itemCount,
         duration,
@@ -734,10 +728,12 @@ router.get(
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
 
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         "Error retrieving comments via GET",
         {
-          ...baseContext,
+          requestId,
+          component: "CRUDARouter",
+          event: "listCommentsGET",
           duration,
           routeDuration,
         },
@@ -775,27 +771,25 @@ router.post(
 
     const { id } = req.body || {};
 
-    const baseContext = createLogContext({
+    logger.debugWithContext("Processing read comment request", {
       requestId,
       component: "CRUDARouter",
-      method: "readComment",
+      event: "readComment",
       endpoint: req.path,
       httpMethod: req.method,
       userId: req.user?.id,
       ip: req.ip,
       action: req.logAction,
-      headers: Object.keys(req.headers),
-      bodyKeys: Object.keys(req.body || {}),
       itemId: id,
     });
-
-    logger.debugWithContext("Processing read comment request", baseContext);
 
     if (!id) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
       logger.warnWithContext("Read comment validation failed - missing id", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "readComment",
         duration,
         routeDuration,
       });
@@ -809,7 +803,9 @@ router.post(
 
       if (!comment) {
         logger.warnWithContext("Comment not found for read", {
-          ...baseContext,
+          requestId,
+          component: "CRUDARouter",
+          event: "readComment",
           duration,
           routeDuration,
         });
@@ -817,7 +813,9 @@ router.post(
       }
 
       logger.infoWithContext("Comment retrieved successfully", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "readComment",
         status: "success",
         duration,
         routeDuration,
@@ -842,9 +840,9 @@ router.post(
     } catch (error) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         "Error reading comment",
-        { ...baseContext, duration, routeDuration },
+        { requestId, component: "CRUDARouter", event: "readComment", duration, routeDuration },
         error,
         "cruda_error",
         { operation: "readComment", result: "error", duration }
@@ -871,10 +869,10 @@ router.get(
     const routeStartTime = Date.now();
     const id = req.params.id;
 
-    const baseContext = createLogContext({
+    logger.debugWithContext("Processing GET read comment request", {
       requestId,
       component: "CRUDARouter",
-      method: "readCommentGET",
+      event: "readCommentGET",
       endpoint: req.path,
       httpMethod: req.method,
       userId: req.user?.id,
@@ -883,8 +881,6 @@ router.get(
       itemId: id,
     });
 
-    logger.debugWithContext("Processing GET read comment request", baseContext);
-
     try {
       const comment = await db.get("SELECT * FROM comments WHERE id = ?", [id]);
       const duration = Date.now() - startTime;
@@ -892,7 +888,9 @@ router.get(
 
       if (!comment) {
         logger.warnWithContext("Comment not found for GET read", {
-          ...baseContext,
+          requestId,
+          component: "CRUDARouter",
+          event: "readCommentGET",
           duration,
           routeDuration,
         });
@@ -900,7 +898,9 @@ router.get(
       }
 
       logger.infoWithContext("Comment retrieved successfully via GET", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "readCommentGET",
         status: "success",
         duration,
         routeDuration,
@@ -925,9 +925,9 @@ router.get(
     } catch (error) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         "Error reading comment via GET",
-        { ...baseContext, duration, routeDuration },
+        { requestId, component: "CRUDARouter", event: "readCommentGET", duration, routeDuration },
         error,
         "cruda_error",
         { operation: "readComment", result: "error", duration, method: "GET" }
@@ -956,22 +956,17 @@ router.post(
     const routeStartTime = Date.now();
     const { id, comment } = req.body || {};
 
-    // Create context for update operation
-    const baseContext = createLogContext({
+    logger.debugWithContext("Processing update comment request", {
       requestId,
       component: "CRUDARouter",
-      method: "updateComment",
+      event: "updateComment",
       endpoint: req.path,
       httpMethod: req.method,
       userId: req.user?.id,
       ip: req.ip,
       action: req.logAction,
-      headers: Object.keys(req.headers),
-      bodyKeys: Object.keys(req.body || {}),
       itemId: id,
     });
-
-    logger.debugWithContext("Processing update comment request", baseContext);
 
     try {
       const existing = await db.get("SELECT * FROM comments WHERE id = ?", [
@@ -991,7 +986,9 @@ router.post(
       const routeDuration = Date.now() - routeStartTime;
 
       logger.infoWithContext("Comment updated successfully", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "updateComment",
         status: "success",
         duration,
         routeDuration,
@@ -1005,9 +1002,9 @@ router.post(
     } catch (error) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         "Error updating comment",
-        { ...baseContext, duration, routeDuration },
+        { requestId, component: "CRUDARouter", event: "updateComment", duration, routeDuration },
         error,
         "cruda_error",
         { operation: "updateComment", result: "error", duration }
@@ -1035,27 +1032,26 @@ router.post(
     const startTime = req.startTime || Date.now();
     const routeStartTime = Date.now();
     const { id } = req.body || {};
-    const baseContext = createLogContext({
+
+    logger.debugWithContext("Processing delete comment request", {
       requestId,
       component: "CRUDARouter",
-      method: "deleteComment",
+      event: "deleteComment",
       endpoint: req.path,
       httpMethod: req.method,
       userId: req.user?.id,
       ip: req.ip,
       action: req.logAction,
-      headers: Object.keys(req.headers),
-      bodyKeys: Object.keys(req.body || {}),
       itemId: id,
     });
-
-    logger.debugWithContext("Processing delete comment request", baseContext);
 
     if (!id) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
       logger.warnWithContext("Delete validation failed - missing id", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "deleteComment",
         duration,
         routeDuration,
       });
@@ -1075,7 +1071,9 @@ router.post(
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
       logger.infoWithContext("Comment deleted successfully", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "deleteComment",
         status: "success",
         duration,
         routeDuration,
@@ -1089,9 +1087,9 @@ router.post(
     } catch (error) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         "Error deleting comment",
-        { ...baseContext, duration, routeDuration },
+        { requestId, component: "CRUDARouter", event: "deleteComment", duration, routeDuration },
         error,
         "cruda_error",
         { operation: "deleteComment", result: "error", duration }
@@ -1120,31 +1118,28 @@ router.put(
     const routeStartTime = Date.now();
     const { id, comment } = req.body || {};
 
-    // Create context for update operation
-    const baseContext = createLogContext({
-      requestId,
-      component: "CRUDARouter",
-      method: "updateCommentPUT",
-      endpoint: req.path,
-      httpMethod: req.method,
-      userId: req.user?.id,
-      ip: req.ip,
-      action: req.logAction,
-      headers: Object.keys(req.headers),
-      bodyKeys: Object.keys(req.body || {}),
-      itemId: id,
-    });
-
     logger.debugWithContext(
       "Processing PUT update comment request",
-      baseContext
+      {
+        requestId,
+        component: "CRUDARouter",
+        event: "updateCommentPUT",
+        endpoint: req.path,
+        httpMethod: req.method,
+        userId: req.user?.id,
+        ip: req.ip,
+        action: req.logAction,
+        itemId: id,
+      }
     );
 
     if (!id) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
       logger.warnWithContext("PUT update validation failed - missing id", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "updateCommentPUT",
         duration,
         routeDuration,
       });
@@ -1155,7 +1150,9 @@ router.put(
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
       logger.warnWithContext("PUT update validation failed - missing comment", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "updateCommentPUT",
         duration,
         routeDuration,
       });
@@ -1180,7 +1177,9 @@ router.put(
       const routeDuration = Date.now() - routeStartTime;
 
       logger.infoWithContext("Comment updated successfully via PUT", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "updateCommentPUT",
         status: "success",
         duration,
         routeDuration,
@@ -1195,9 +1194,9 @@ router.put(
     } catch (error) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         "Error updating comment via PUT",
-        { ...baseContext, duration, routeDuration },
+        { requestId, component: "CRUDARouter", event: "updateCommentPUT", duration, routeDuration },
         error,
         "cruda_error",
         { operation: "updateComment", result: "error", duration, method: "PUT" }
@@ -1224,27 +1223,26 @@ router.delete(
     const startTime = req.startTime || Date.now();
     const routeStartTime = Date.now();
     const { id } = req.body || {};
-    const baseContext = createLogContext({
+
+    logger.debugWithContext("Processing DELETE comment request", {
       requestId,
       component: "CRUDARouter",
-      method: "deleteCommentDELETE",
+      event: "deleteCommentDELETE",
       endpoint: req.path,
       httpMethod: req.method,
       userId: req.user?.id,
       ip: req.ip,
       action: req.logAction,
-      headers: Object.keys(req.headers),
-      bodyKeys: Object.keys(req.body || {}),
       itemId: id,
     });
-
-    logger.debugWithContext("Processing DELETE comment request", baseContext);
 
     if (!id) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
       logger.warnWithContext("DELETE validation failed - missing id", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "deleteCommentDELETE",
         duration,
         routeDuration,
       });
@@ -1264,7 +1262,9 @@ router.delete(
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
       logger.infoWithContext("Comment deleted successfully via DELETE", {
-        ...baseContext,
+        requestId,
+        component: "CRUDARouter",
+        event: "deleteCommentDELETE",
         status: "success",
         duration,
         routeDuration,
@@ -1279,17 +1279,12 @@ router.delete(
     } catch (error) {
       const duration = Date.now() - startTime;
       const routeDuration = Date.now() - routeStartTime;
-      logErrorWithMetrics(
+      logger.logErrorWithMetrics(
         "Error deleting comment via DELETE",
-        { ...baseContext, duration, routeDuration },
+        { requestId, component: "CRUDARouter", event: "deleteCommentDELETE", duration, routeDuration },
         error,
         "cruda_error",
-        {
-          operation: "deleteComment",
-          result: "error",
-          duration,
-          method: "DELETE",
-        }
+        { operation: "deleteComment", result: "error", duration, method: "DELETE" }
       );
       return res
         .status(500)
@@ -1337,7 +1332,7 @@ router.use((err, req, res, next) => {
     error: {
       name: err.name,
       message: err.message,
-      stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+      stack: config.get('NODE_ENV') === "development" ? err.stack : undefined,
     },
     path: req.path,
     method: req.method,
@@ -1350,7 +1345,7 @@ router.use((err, req, res, next) => {
     code: err.code || "INTERNAL_ERROR",
     requestId,
     // Only include stack trace in development
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    ...(config.get('NODE_ENV') === "development" && { stack: err.stack }),
   });
 });
 // 404 handler for undefined routes (must be LAST)
