@@ -2158,7 +2158,7 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
     const config_own_rodit = await stateManager.getConfigOwnRodit();
 
     // Get token renewal configuration from SDK config (infrastructure settings)
-    const config = require('../services/configsdk');
+    const config = require('../../services/configsdk');
     const LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY = parseFloat(
       config.get('SECURITY_OPTIONS.LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY', '0.80')
     );
