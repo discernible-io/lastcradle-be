@@ -4,7 +4,7 @@
  */
 
 const { ulid } = require("ulid");
-const config = require('../../services/configsdk');
+const config = require("../../services/configsdk");
 const logger = require("../../services/logger");
 const { createLogContext, logErrorWithMetrics } = logger;
 
@@ -29,7 +29,7 @@ const NEAR_RPC_URL = config.get("NEAR_RPC_URL");
 // Simple in-memory TTL cache for RPC results
 // Single TTL setting for all RPC caches (in milliseconds)
 // Default value is defined centrally in configsdk.FALLBACK_DEFAULTS
-const NEAR_CACHE_TTLS = parseInt(config.get("NEAR_CACHE_TTLS"));
+const NEAR_RPC_CACHE_TTL = parseInt(config.get("NEAR_RPC_CACHE_TTL"));
 
 const _rpcCache = new Map();
 function _cacheGet(key) {
@@ -264,7 +264,7 @@ const PayloadNEP413Schema = {
       });
       // Store in cache using unified TTL setting
       const tsValue = timestamp ? timestamp.toString() : "0";
-      _cacheSet(cacheKey, tsValue, NEAR_CACHE_TTLS);
+      _cacheSet(cacheKey, tsValue, NEAR_RPC_CACHE_TTL);
       return tsValue;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -548,7 +548,6 @@ const PayloadNEP413Schema = {
         logger.debugWithContext("RAW RODiT data from blockchain", {
           ...baseContext,
           parsedData: parsed,
-          parsedOwnerIdField: parsed.owner_id,
           parsedOwnerIdType: typeof parsed.owner_id,
           parsedKeys: Object.keys(parsed),
           hasMetadata: !!parsed.metadata,
@@ -598,7 +597,7 @@ const PayloadNEP413Schema = {
       });
       // Cache successful lookups only
       if (hasValidData) {
-        _cacheSet(cacheKey, rodit, NEAR_CACHE_TTLS);
+        _cacheSet(cacheKey, rodit, NEAR_RPC_CACHE_TTL);
       }
       return rodit;
     } catch (error) {
@@ -719,7 +718,7 @@ const PayloadNEP413Schema = {
           result: 'failure',
           reason: 'Account does not exist in blockchain'
         });
-        _cacheSet(cacheKey, false, NEAR_CACHE_TTLS);
+        _cacheSet(cacheKey, false, NEAR_RPC_CACHE_TTL);
         return false;
       }
 
@@ -738,7 +737,7 @@ const PayloadNEP413Schema = {
         result: 'success',
         reason: 'Account exists in blockchain'
       });
-      _cacheSet(cacheKey, true, NEAR_CACHE_TTLS);
+      _cacheSet(cacheKey, true, NEAR_RPC_CACHE_TTL);
       return true;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -839,8 +838,125 @@ const PayloadNEP413Schema = {
         body: JSON.stringify(jsonData),
       });
 
+      if (!response.ok) {
+        const duration = Date.now() - startTime;
+        
+        logger.metric("account_tokens_fetch_duration_ms", duration, {
+          component: "BlockchainService",
+          success: false,
+          result: 'failure',
+          reason: `HTTP error from blockchain RPC: status ${response.status}`
+        });
+        logger.metric("blockchain_rpc_errors_total", 1, {
+          component: "BlockchainService",
+          method: "tokens_from_account",
+          result: 'failure',
+          reason: `HTTP error from blockchain RPC: status ${response.status}`
+        });
+        
+        logErrorWithMetrics(
+          "HTTP error from blockchain RPC",
+          {
+            ...baseContext,
+            statusCode: response.status,
+            duration,
+            result: 'failure',
+            reason: `HTTP error from blockchain RPC: status ${response.status}`
+          },
+          new Error(`HTTP error! status: ${response.status}`),
+          "account_tokens_fetch",
+          {
+            result: 'failure',
+            reason: `HTTP error from blockchain RPC: status ${response.status}`,
+            error_type: "HTTP_ERROR",
+            status_code: response.status,
+            duration
+          }
+        );
+
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const responseText = await response.text();
       const parsedJson = JSON.parse(responseText);
+
+      // Check for RPC-level errors
+      if (parsedJson.error) {
+        const duration = Date.now() - startTime;
+        
+        logger.metric("account_tokens_fetch_duration_ms", duration, {
+          component: "BlockchainService",
+          success: false,
+          result: 'failure',
+          reason: `RPC error: ${parsedJson.error.message || parsedJson.error}`
+        });
+        logger.metric("blockchain_rpc_errors_total", 1, {
+          component: "BlockchainService",
+          method: "tokens_from_account",
+          result: 'failure',
+          reason: `RPC error: ${parsedJson.error.message || parsedJson.error}`
+        });
+        
+        logErrorWithMetrics(
+          "RPC error response",
+          {
+            ...baseContext,
+            duration,
+            rpcError: parsedJson.error,
+            result: 'failure',
+            reason: `RPC error: ${parsedJson.error.message || parsedJson.error}`
+          },
+          new Error(`RPC error: ${parsedJson.error.message || parsedJson.error}`),
+          "account_tokens_fetch",
+          {
+            result: 'failure',
+            reason: `RPC error: ${parsedJson.error.message || parsedJson.error}`,
+            error_type: "RPC_ERROR",
+            duration
+          }
+        );
+
+        throw new Error(`RPC error: ${parsedJson.error.message || parsedJson.error}`);
+      }
+
+      // Check if result exists before accessing nested properties
+      if (!parsedJson.result) {
+        const duration = Date.now() - startTime;
+        
+        logger.metric("account_tokens_fetch_duration_ms", duration, {
+          component: "BlockchainService",
+          success: false,
+          result: 'failure',
+          reason: 'Missing result field in RPC response'
+        });
+        logger.metric("blockchain_rpc_errors_total", 1, {
+          component: "BlockchainService",
+          method: "tokens_from_account",
+          result: 'failure',
+          reason: 'Missing result field in RPC response'
+        });
+        
+        logErrorWithMetrics(
+          "Invalid RPC response structure",
+          {
+            ...baseContext,
+            duration,
+            responseKeys: Object.keys(parsedJson),
+            result: 'failure',
+            reason: 'Missing result field in RPC response'
+          },
+          new Error("Missing result field in RPC response"),
+          "account_tokens_fetch",
+          {
+            result: 'failure',
+            reason: 'Missing result field in RPC response',
+            error_type: "INVALID_RESPONSE",
+            duration
+          }
+        );
+
+        throw new Error("Missing result field in RPC response");
+      }
 
       if (parsedJson.result && parsedJson.result.error) {
         const duration = Date.now() - startTime;
@@ -883,7 +999,8 @@ const PayloadNEP413Schema = {
         );
       }
 
-      const resultArray = parsedJson.result.result;
+      // Safe access to nested result property
+      const resultArray = parsedJson.result?.result;
       if (!Array.isArray(resultArray)) {
         const duration = Date.now() - startTime;
 
@@ -963,7 +1080,7 @@ const PayloadNEP413Schema = {
         tokenCount: resultStruct.length,
       });
       // Cache successful lookups
-      _cacheSet(cacheKey, rodit, NEAR_CACHE_TTLS);
+      _cacheSet(cacheKey, rodit, NEAR_RPC_CACHE_TTL);
       return rodit;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -1060,7 +1177,7 @@ const PayloadNEP413Schema = {
           success: true,
         });
         // Cache result
-        _cacheSet(cacheKey, result, NEAR_CACHE_TTLS);
+        _cacheSet(cacheKey, result, NEAR_RPC_CACHE_TTL);
         return result;
       }
 
@@ -1120,7 +1237,7 @@ const PayloadNEP413Schema = {
         success: true,
       });
       // Cache result using unified TTL setting
-      _cacheSet(cacheKey, result, NEAR_CACHE_TTLS);
+      _cacheSet(cacheKey, result, NEAR_RPC_CACHE_TTL);
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -1288,7 +1405,7 @@ async function nearorg_rpc_accesskeys(accountId) {
   const parsed = await response.json();
   logger.metric("near_rpc_calls", duration,{result:"success",method:"view_access_key_list"});
   // Cache successful result
-  _cacheSet(cacheKey, parsed.result, NEAR_CACHE_TTLS);
+  _cacheSet(cacheKey, parsed.result, NEAR_RPC_CACHE_TTL);
   return parsed.result;
 }
 
@@ -1316,7 +1433,7 @@ async function nearorg_rpc_rodit_owner(token_id){
   if(!response.ok){ logger.metric("near_rpc_calls",duration,{result:"failure",method:"rodit_token_owner",status_code:response.status}); throw new Error(`HTTP ${response.status}`);} 
   const parsed = await response.json();
   logger.metric("near_rpc_calls",duration,{result:"success",method:"rodit_token_owner"});
-  if(parsed.result && parsed.result.result){ const buf = Buffer.from(parsed.result.result,"base64"); const value = JSON.parse(new TextDecoder().decode(buf)); _cacheSet(cacheKey, value, NEAR_CACHE_TTLS); return value; }
+  if(parsed.result && parsed.result.result){ const buf = Buffer.from(parsed.result.result,"base64"); const value = JSON.parse(new TextDecoder().decode(buf)); _cacheSet(cacheKey, value, NEAR_RPC_CACHE_TTL); return value; }
   return null;
 }
 

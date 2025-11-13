@@ -2,7 +2,7 @@
 
 A comprehensive Node.js SDK for implementing RODiT-based mutual authentication, authorization, self-configuration, and session management in Express.js applications.
 
-**Version:** 2.6.14  
+**Version:** 2.9.0  
 **License:** Proprietary  
 **Author:** Discernible Inc.
 
@@ -19,6 +19,9 @@ A comprehensive Node.js SDK for implementing RODiT-based mutual authentication, 
 - [Performance Tracking](#performance-tracking)
 - [Webhooks](#webhooks)
 - [Advanced Usage](#advanced-usage)
+  - [Portal Authentication](#portal-authentication-server-to-server)
+  - [SignPortal URL Configuration](#signportal-url-configuration)
+  - [CRUDA Operations Example](#cruda-operations-example)
 - [API Reference](#api-reference)
 - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
@@ -102,7 +105,7 @@ async function startServer() {
     // Protected + authorized routes
     app.use('/api/admin', authenticate, authorize, adminRoutes);
     
-    const port = config.get('SERVERPORT', 3000);
+    const port = 3000;
     app.listen(port, () => {
       logger.info(`RODiT Authentication Server running on port ${port}`);
     });
@@ -215,9 +218,8 @@ export NEAR_CONTRACT_ID=your-contract.testnet
 
 **Application Configuration:**
 ```bash
-export SERVERPORT=3000
-export LOG_LEVEL=info
-export NODE_ENV=production
+export NODE_ENV=production  # Environment: production, development, test
+export LOG_LEVEL=info       # Logging: error, warn, info, debug, trace
 export API_DEFAULT_OPTIONS_DB_PATH=/app/data/database.sqlite
 ```
 
@@ -235,11 +237,6 @@ Create `config/default.json`:
 {
   "NEAR_CONTRACT_ID": "your-contract.testnet",
   "SERVICE_NAME": "your-service",
-  "SERVERPORT": 3000,
-  "API_DEFAULT_OPTIONS": {
-    "LOG_DIR": "/app/logs",
-    "DB_PATH": "/app/data/database.sqlite"
-  },
   "SECURITY_OPTIONS": {
     "SILENT_LOGIN_FAILURES": false,
     "JWT_DURATION": 3600
@@ -641,6 +638,121 @@ The SDK automatically configures itself from multiple sources (in priority order
 3. **Vault Credentials** (Production)
 4. **SDK Defaults** (Fallback)
 
+### Environment Configuration: NODE_ENV and LOG_LEVEL
+
+The SDK uses **two separate environment variables** for configuration, following Node.js ecosystem standards:
+
+#### NODE_ENV - Environment Type & Security Behavior
+
+Controls environment-specific behavior and security settings:
+
+**Values:**
+- `production` - Production environment (strict security, no error details)
+- `development` - Development environment (relaxed security, detailed errors)
+- `test` - Testing environment (allows bypasses for automated testing)
+- `staging` - Staging environment (production security with optional verbose logging)
+
+**Default:** `production` (secure by default)
+
+**Controls:**
+- ✅ Error detail exposure in API responses
+- ✅ Peer public key requirement enforcement
+- ✅ Webhook verification bypass (test mode only)
+- ✅ Security-critical behavior
+
+#### LOG_LEVEL - Logging Verbosity
+
+Controls Winston logger verbosity independently from environment:
+
+**Values:**
+- `error` - Only errors
+- `warn` - Warnings and errors
+- `info` - Informational messages, warnings, and errors (recommended for production)
+- `debug` - Detailed debugging information
+- `trace` - Maximum verbosity with full traces
+
+**Default:** `info`
+
+**Controls:**
+- ✅ Winston logger output level
+- ✅ Debug payload logging
+- ✅ Log verbosity only (not security)
+
+#### Separation of Concerns
+
+```javascript
+// Environment detection (security)
+const isProduction = process.env.NODE_ENV === 'production';
+const isDevelopment = process.env.NODE_ENV === 'development';
+const isTest = process.env.NODE_ENV === 'test';
+
+// Logging verbosity (independent)
+const config = roditClient.getConfig();
+const logLevel = config.get('LOG_LEVEL', 'info');
+```
+
+#### Configuration Examples
+
+**Production (normal):**
+```bash
+export NODE_ENV=production
+export LOG_LEVEL=info
+# Results in:
+# - Strict security enforcement
+# - No error details in responses
+# - Minimal logging output
+```
+
+**Production (troubleshooting):**
+```bash
+export NODE_ENV=production
+export LOG_LEVEL=debug
+# Results in:
+# - Strict security enforcement (still production)
+# - No error details in responses (still secure)
+# - Verbose logging for debugging
+```
+
+**Development:**
+```bash
+export NODE_ENV=development
+export LOG_LEVEL=debug
+# Results in:
+# - Relaxed security for development
+# - Detailed error messages in responses
+# - Verbose logging
+```
+
+**Testing:**
+```bash
+export NODE_ENV=test
+export LOG_LEVEL=error
+# Results in:
+# - Test mode (allows bypasses)
+# - Detailed error messages
+# - Only errors logged (cleaner test output)
+```
+
+**Staging:**
+```bash
+export NODE_ENV=production
+export LOG_LEVEL=warn
+# Results in:
+# - Production security
+# - No error details exposed
+# - Only warnings and errors logged
+```
+
+#### Behavior Matrix
+
+| Scenario | NODE_ENV | LOG_LEVEL | Security | Error Details | Logging |
+|----------|----------|-----------|----------|---------------|---------|
+| Production | `production` | `info` | ✅ Strict | ❌ Hidden | Minimal |
+| Production Debug | `production` | `debug` | ✅ Strict | ❌ Hidden | Verbose |
+| Development | `development` | `debug` | ⚠️ Relaxed | ✅ Shown | Verbose |
+| Testing | `test` | `error` | ⚠️ Bypass OK | ✅ Shown | Errors only |
+| Staging | `production` | `warn` | ✅ Strict | ❌ Hidden | Warnings |
+
 ### Vault-Based Configuration (Production)
 
 For production deployments, credentials are loaded from HashiCorp Vault:
@@ -684,7 +796,6 @@ const permissionedRoutes = JSON.parse(metadata.permissioned_routes || '{}');
 
 // Use SDK config for application settings
 const config = roditClient.getConfig();
-const serverPort = config.get('SERVERPORT', 3000);
 const logLevel = config.get('LOG_LEVEL', 'info');
 const dbPath = config.get('API_DEFAULT_OPTIONS.DB_PATH');
 ```
@@ -753,7 +864,7 @@ export LOKI_URL=https://<your-loki-host>:3100
 export LOKI_BASIC_AUTH="username:password"   # store in secrets
 export LOKI_TLS_SKIP_VERIFY=true              # only for self-signed/test
 export LOG_LEVEL=info
-export SERVICE_NAME=servertest-api
+export SERVICE_NAME=clienttestapi-api
 ```
 
 These are already mapped in `config/custom-environment-variables.json`, so container/CI env vars will flow into the app.
@@ -777,7 +888,7 @@ if (process.env.LOKI_URL) {
   const lokiOptions = {
     host: process.env.LOKI_URL,
     basicAuth: process.env.LOKI_BASIC_AUTH, // Basic Auth for Loki
-    labels: { app: process.env.SERVICE_NAME || 'servertest-api', component: 'rodit-sdk' },
+    labels: { app: process.env.SERVICE_NAME || 'clienttestapi-api', component: 'rodit-sdk' },
     json: true,
     batching: true
   };
@@ -812,7 +923,7 @@ logger.setLogger(customLogger);
 
  1) Start the app with `LOKI_URL` and `LOKI_BASIC_AUTH` set.
  2) Emit a test log: `logger.info('Loki test', { component: 'SmokeTest' })`.
- 3) In Grafana Explore, query with `{app="servertest-api"}` and confirm logs.
+ 3) In Grafana Explore, query with `{app="clienttestapi-api"}` and confirm logs.
 
  ## Webhooks
  
@@ -1028,6 +1139,136 @@ router.post('/signclient', authenticate, authorize, async (req, res) => {
 });
 
 module.exports = router;
+```
+
+### SignPortal URL Configuration
+
+#### Overview
+
+When performing server-to-server authentication with SignPortal (e.g., minting client tokens), the SDK automatically constructs the SignPortal URL from the `serviceprovider_id` field in your RODiT token metadata.
+
+#### Smart Contract Name Format
+
+The SignPortal URL is derived from the smart contract component (`sc=`) in your `serviceprovider_id`. The SDK supports two formats:
+
+**Standard Format (3+ components):**
+```
+sc=<number>-<domain>-<tld>.near
+```
+
+Example:
+```
+serviceprovider_id: "bc=near.org;sc=10975-discernible-org.near;id=..."
+```
+
+Parsing:
+- Split by `.`: `["10975-discernible-org", "near"]`
+- Take first part: `10975-discernible-org`
+- Split by `-`: `["10975", "discernible", "org"]`
+- Extract domain: `discernible` (index 1)
+- Extract TLD: `org` (index 2)
+- **Result**: `https://signportal.discernible.org:8443`
+
+**Alternative Format (2 components):**
+```
+sc=<domain>-<tld>.near
+```
+
+Example:
+```
+serviceprovider_id: "bc=near.org;sc=roditcorp-com.near;id=..."
+```
+
+Parsing:
+- Split by `.`: `["roditcorp-com", "near"]`
+- Take first part: `roditcorp-com`
+- Split by `-`: `["roditcorp", "com"]`
+- Extract domain: `roditcorp` (index 0)
+- Extract TLD: `com` (index 1)
+- **Result**: `https://signportal.roditcorp.com:8443`
+
+#### serviceprovider_id Structure
+
+The complete `serviceprovider_id` format:
+```
+bc=<blockchain>;sc=<smart-contract>;id=<identifier>[;id=<additional-id>]
+```
+
+Components:
+- `bc=` - Blockchain identifier (e.g., `near.org`)
+- `sc=` - Smart contract name (used to construct SignPortal URL)
+- `id=` - One or more identifier components
+
+Example:
+```json
+{
+  "serviceprovider_id": "bc=near.org;sc=roditcorp-com.near;id=01K8QECHMKFVNWQ54PJ2W2GMA7;id=01K8QECHMM1214VMDHSH7JM6H8"
+}
+```
+
+#### URL Construction Method
+
+The SDK uses `roditClient.getPortalUrl(serviceProviderId, port)` to construct the SignPortal URL:
+
+```javascript
+const client = req.app.locals.roditClient;
+const configObject = await client.getConfigOwnRodit();
+const serviceProviderId = configObject.own_rodit.metadata.serviceprovider_id;
+const portalPort = 8443;
+
+// Automatically constructs: https://signportal.<domain>.<tld>:8443
+const portalUrl = client.getPortalUrl(serviceProviderId, portalPort);
+```
+
+#### Troubleshooting
+
+**Error: "Failed to parse URL from " (empty string)**
+- **Cause**: `serviceprovider_id` is empty or undefined in your RODiT configuration
+- **Solution**: Verify your RODiT token has a valid `serviceprovider_id` field
+- **Check**: Run `./infra/roditwallet.sh <private-key> <token-id>` to view token metadata
+
+**Error: "Invalid serviceprovider_id format: missing sc= component"**
+- **Cause**: The `serviceprovider_id` doesn't contain an `sc=` component
+- **Solution**: Ensure your token includes the smart contract identifier
+- **Format**: `bc=near.org;sc=<contract-name>.near;id=...`
+
+**Error: "Invalid domain format in smart contract"**
+- **Cause**: Smart contract name has fewer than 2 components when split by `-`
+- **Solution**: Use format `<domain>-<tld>` or `<number>-<domain>-<tld>`
+- **Valid**: `roditcorp-com.near`, `10975-discernible-org.near`
+- **Invalid**: `roditcorp.near`, `mycontract.near`
+
+#### Configuration Verification
+
+To verify your SignPortal URL configuration:
+
+```javascript
+const client = req.app.locals.roditClient;
+const logger = client.getLogger();
+
+try {
+  const configObject = await client.getConfigOwnRodit();
+  const serviceProviderId = configObject.own_rodit.metadata.serviceprovider_id;
+  
+  logger.info('RODiT Configuration', {
+    component: 'SignPortal',
+    serviceProviderId,
+    hasServiceProviderId: !!serviceProviderId
+  });
+  
+  if (serviceProviderId) {
+    const portalUrl = client.getPortalUrl(serviceProviderId, 8443);
+    logger.info('SignPortal URL constructed', {
+      component: 'SignPortal',
+      portalUrl
+    });
+  }
+} catch (error) {
+  logger.error('SignPortal URL construction failed', {
+    component: 'SignPortal',
+    error: error.message
+  });
+}
 ```
 
 ### CRUDA Operations Example
@@ -1453,7 +1694,6 @@ Get the configuration service.
 
 ```javascript
 const config = roditClient.getConfig();
-const port = config.get('SERVERPORT', 3000);
 const dbPath = config.get('API_DEFAULT_OPTIONS.DB_PATH');
 ```
 
@@ -1683,9 +1923,9 @@ Use environment variables for sensitive and environment-specific values:
 
 ```javascript
 // ✅ Good - Environment-aware configuration
-const isProduction = process.env.NODE_ENV === 'production';
 const config = roditClient.getConfig();
-const logLevel = config.get('LOG_LEVEL', isProduction ? 'info' : 'debug');
+const logLevel = config.get('LOG_LEVEL', 'info');
+const isProduction = ['info', 'warn', 'error'].includes(logLevel);
 
 // Production should use vault credentials
 if (isProduction && process.env.RODIT_NEAR_CREDENTIALS_SOURCE !== 'vault') {
@@ -2026,8 +2266,7 @@ console.log('Logger transports:', transports.map(t => t.name));
 Enable debug logging for troubleshooting:
 
 ```bash
-export LOG_LEVEL=debug
-export NODE_ENV=development
+export LOG_LEVEL=debug  # Use 'debug' or 'trace' for development mode
 ```
 
 This will provide detailed information about:
@@ -2077,7 +2316,7 @@ app.get('/health', async (req, res) => {
     const health = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development',
+      logLevel: config.get('LOG_LEVEL', 'info'),
       components: {
         roditClient: !!client,
         configuration: !!(configObject && configObject.own_rodit),
