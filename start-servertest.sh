@@ -62,7 +62,6 @@ echo "Starting servertest containers on port 9443..."
 CONTAINERS=(
     "servertest-container"
     "servertest-nginx"
-    "servertest-promtail"
 )
 
 # Start each container in order
