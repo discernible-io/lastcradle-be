@@ -139,6 +139,7 @@ jobs:
             echo 'DEBUG: SECURITY_OPTIONS_DURATIONRAMP=${{ vars.SECURITY_OPTIONS_DURATIONRAMP }}'
             echo 'DEBUG: SECURITY_OPTIONS_SERVERORCLIENT=${{ vars.SECURITY_OPTIONS_SERVERORCLIENT }}'
             echo 'DEBUG: SECURITY_OPTIONS_SILENT_LOGIN_FAILURES=${{ vars.SECURITY_OPTIONS_SILENT_LOGIN_FAILURES }}'
+            echo 'DEBUG: API_DEFAULT_OPTIONS_DB_PATH=${{ vars.API_DEFAULT_OPTIONS_DB_PATH }}'
             podman build -t servertest-image:latest -f api.Dockerfile .
             
             # Run API container with user 1000 and proper volume mounts
@@ -168,6 +169,7 @@ jobs:
               -e VAULT_ROLE_ID='${{ secrets.VAULT_ROLE_ID }}' \
               -e VAULT_SECRET_ID='${{ secrets.VAULT_SECRET_ID }}' \
               -e VAULT_TOKEN_TTL='${{ vars.VAULT_TOKEN_TTL }}' \
+              -e API_DEFAULT_OPTIONS_DB_PATH='${{ vars.API_DEFAULT_OPTIONS_DB_PATH }}' \
               -v ~/servertest-app/logs:/app/logs:Z \
               -v ~/servertest-app/data:/app/data:Z \
               -v ~/servertest-app/certs:/app/certs:ro,Z \
