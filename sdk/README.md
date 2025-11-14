@@ -15,6 +15,9 @@ A comprehensive Node.js SDK for implementing RODiT-based mutual authentication, 
 - [Authorization & Permissions](#authorization--permissions)
 - [Session Management](#session-management)
 - [Configuration](#configuration)
+  - [Environment Variables](#environment-variables)
+  - [Session Storage Configuration](#session-storage-configuration)
+  - [Configuration Priority](#configuration-priority)
 - [Logging & Monitoring](#logging--monitoring)
 - [Performance Tracking](#performance-tracking)
 - [Webhooks](#webhooks)
@@ -221,6 +224,14 @@ export NEAR_CONTRACT_ID=your-contract.testnet
 export NODE_ENV=production  # Environment: production, development, test
 export LOG_LEVEL=info       # Logging: error, warn, info, debug, trace
 export API_DEFAULT_OPTIONS_DB_PATH=/app/data/database.sqlite
+```
+
+**Session Configuration:**
+```bash
+export SESSION_STORAGE_TYPE=express-session  # Storage: memory, express, express-session
+export SESSION_CLEANUP_INTERVAL=3600000      # Cleanup interval in milliseconds (1 hour)
+export SESSION_TOKEN_RETENTION_PERIOD=604800 # Token retention in seconds (7 days)
+export SESSION_VALIDATION_CACHE_TTL=5000     # Cache TTL in milliseconds (5 seconds)
 ```
 
 **Logging Configuration:**
@@ -573,6 +584,113 @@ const client = await RoditClient.create('server');
 **Pros:** Shared sessions across multiple servers, high performance  
 **Cons:** Requires Redis infrastructure
 
+### Session Storage Configuration
+
+The SDK supports configurable session storage via the `SESSION_STORAGE_TYPE` environment variable.
+
+#### Storage Type Options
+
+**1. `"memory"` (Default)**
+- Uses SDK's standalone `InMemorySessionStorage`
+- No external dependencies required
+- Sessions stored in JavaScript `Map`
+- Sessions lost on server restart
+- Suitable for development or single-instance deployments
+
+```bash
+export SESSION_STORAGE_TYPE=memory
+```
+
+**2. `"express"` or `"express-session"`**
+- Uses `express-session` compatible stores
+- Requires `express-session` to be installed
+- Defaults to `express-session` MemoryStore
+- Can be overridden with `setExpressSessionStore()` for Redis, SQLite, etc.
+- Suitable for production with persistent storage
+
+```bash
+export SESSION_STORAGE_TYPE=express-session
+```
+
+#### Configuring Persistent Storage
+
+**SQLite Example:**
+```javascript
+const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
+const { setExpressSessionStore } = require('@rodit/rodit-auth-be');
+
+// Configure BEFORE initializing RoditClient
+const sessionStore = new SQLiteStore({
+  db: 'sessions.db',
+  dir: './data',
+  table: 'sessions'
+});
+
+setExpressSessionStore(sessionStore);
+
+// Now initialize client
+const client = await RoditClient.create('server');
+```
+
+**Redis Example:**
+```javascript
+const session = require('express-session');
+const RedisStore = require('connect-redis').default;
+const { createClient } = require('redis');
+const { setExpressSessionStore } = require('@rodit/rodit-auth-be');
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379'
+});
+await redisClient.connect();
+
+const redisStore = new RedisStore({
+  client: redisClient,
+  prefix: 'rodit:sess:',
+  ttl: 86400
+});
+
+setExpressSessionStore(redisStore);
+```
+
+#### Session Configuration Variables
+
+```bash
+# Storage backend type
+export SESSION_STORAGE_TYPE=express-session
+
+# Cleanup interval (milliseconds) - how often to remove expired sessions
+export SESSION_CLEANUP_INTERVAL=3600000  # 1 hour
+
+# Token retention period (seconds) - how long to keep closed sessions
+export SESSION_TOKEN_RETENTION_PERIOD=604800  # 7 days
+
+# Validation cache TTL (milliseconds) - trades security for performance
+# Lower = more secure but more storage lookups
+# Higher = faster but longer window after logout where token may still work
+# Set to 0 to disable caching (always check session state)
+export SESSION_VALIDATION_CACHE_TTL=5000  # 5 seconds
+```
+
+**Session Validation Cache:**
+
+The SDK caches token validation results to reduce storage lookups:
+
+- **Enabled by default** with 5-second TTL
+- **Trade-off**: Performance vs. security
+- **After logout**: Cache is immediately invalidated for that session
+- **Recommendation**: Keep default (5s) for most use cases
+- **High security**: Set to `0` to disable caching
+
+```javascript
+// Get cache statistics
+const sessionManager = roditClient.getSessionManager();
+const cacheStats = sessionManager.getValidationCacheStats();
+console.log('Cache stats:', cacheStats);
+// Output: { totalEntries: 10, validEntries: 8, expiredEntries: 2, cacheTTL: 5000, cacheEnabled: true }
+```
+
 ### Session Operations
 
 ```javascript
@@ -581,6 +699,11 @@ const sessionManager = roditClient.getSessionManager();
 
 // Get active session count
 const activeCount = await sessionManager.getActiveSessionCount();
+
+// Get storage information
+const storageInfo = await sessionManager.getStorageInfo();
+console.log('Storage type:', storageInfo.type);
+console.log('Session count:', storageInfo.sessionCount);
 
 // Enumerate sessions via storage
 const allSessions = await sessionManager.storage.getAll();
@@ -595,12 +718,24 @@ for (const id of sessionIds) {
 // Check if token is invalidated
 const isInvalidated = await sessionManager.isTokenInvalidated(jwtToken);
 
+// Get detailed invalidation info
+const invalidationInfo = await sessionManager.getTokenInvalidationInfo(jwtToken);
+if (invalidationInfo) {
+  console.log('Invalidation reason:', invalidationInfo.reason);
+  console.log('Invalidated at:', invalidationInfo.invalidatedAt);
+}
+
 // Manually close a session
-await sessionManager.closeSession(sessionId);
+await sessionManager.closeSession(sessionId, 'admin_action');
 
 // Run manual cleanup (removes expired sessions)
 const cleanup = await sessionManager.runManualCleanup();
 console.log(`Removed ${cleanup.removedSessionsCount} expired sessions`);
+
+// Get validation cache statistics
+const cacheStats = sessionManager.getValidationCacheStats();
+console.log('Cache entries:', cacheStats.totalEntries);
+console.log('Cache TTL:', cacheStats.cacheTTL);
 ```
 
 ### Session Lifecycle
@@ -629,14 +764,40 @@ The SDK validates tokens by checking session state:
 
 ## Configuration
 
+### Configuration Priority
+
+The SDK automatically configures itself from multiple sources with a clear priority hierarchy:
+
+1. **Environment Variables** (Highest priority) - Direct `process.env` access
+2. **Host Application Config** - Values from `config` package (with env mappings)
+3. **SDK Fallback Defaults** - Built-in defaults from `configsdk.js`
+4. **Provided Default Value** - Optional parameter to `config.get()`
+
+**Example:**
+```javascript
+const config = roditClient.getConfig();
+
+// Priority 1: Checks process.env.SESSION_STORAGE_TYPE
+// Priority 2: Checks host config.get('SESSION_STORAGE_TYPE')
+// Priority 3: Uses SDK default 'memory'
+// Priority 4: Falls back to 'memory' if provided
+const storageType = config.get('SESSION_STORAGE_TYPE', 'memory');
+```
+
+This ensures that:
+- CI/CD environment variables always take precedence
+- Host applications can override SDK defaults
+- SDK provides sensible defaults for all settings
+- Configuration is predictable and debuggable
+
 ### Automatic Configuration Loading
 
-The SDK automatically configures itself from multiple sources (in priority order):
+The SDK loads configuration from multiple sources:
 
-1. **Environment Variables** (Highest priority)
-2. **Configuration Files** (config/default.json, config/production.json)
-3. **Vault Credentials** (Production)
-4. **SDK Defaults** (Fallback)
+1. **Environment Variables** - Direct environment access
+2. **Configuration Files** - config/default.json, config/production.json
+3. **Vault Credentials** - Production credential storage
+4. **SDK Defaults** - Fallback values
 
 ### Environment Configuration: NODE_ENV and LOG_LEVEL
 
@@ -816,6 +977,77 @@ if (metadata.max_requests && metadata.maxrq_window) {
 }
 ```
 
+### Environment Variables
+
+Complete list of SDK environment variables:
+
+#### Core Configuration
+```bash
+# Service identification
+export SERVICE_NAME=your-service-name
+export API_VERSION=1.0.0
+
+# Environment and logging
+export NODE_ENV=production           # production, development, test, staging
+export LOG_LEVEL=info                # error, warn, info, debug, trace
+```
+
+#### Credentials and Authentication
+```bash
+# Credential source
+export RODIT_NEAR_CREDENTIALS_SOURCE=vault  # vault, file, env
+
+# Vault configuration (production)
+export VAULT_ENDPOINT=https://vault.example.com
+export VAULT_ROLE_ID=your-role-id
+export VAULT_SECRET_ID=your-secret-id
+export VAULT_RODIT_KEYVALUE_PATH=secret/rodit
+export VAULT_TOKEN_TTL=3600
+
+# File-based credentials (development)
+export CREDENTIALS_FILEPATH=./credentials/rodit.json
+
+# NEAR blockchain
+export NEAR_CONTRACT_ID=your-contract.testnet
+export NEAR_RPC_URL=https://rpc.testnet.fastnear.com
+export NEAR_RPC_CACHE_TTL=5000       # milliseconds
+```
+
+#### Session Management
+```bash
+# Session storage configuration
+export SESSION_STORAGE_TYPE=express-session     # memory, express, express-session
+export SESSION_CLEANUP_INTERVAL=3600000         # milliseconds (1 hour)
+export SESSION_TOKEN_RETENTION_PERIOD=604800    # seconds (7 days)
+export SESSION_VALIDATION_CACHE_TTL=5000        # milliseconds (5 seconds)
+```
+
+#### Logging and Monitoring
+```bash
+# Loki logging
+export LOKI_URL=https://loki.example.com:3100
+export LOKI_BASIC_AUTH=username:password
+export LOKI_TLS_SKIP_VERIFY=false    # true to skip TLS verification
+```
+
+#### Security Options
+```bash
+# Webhook configuration
+export WEBHOOK_TLS_SKIP_VERIFY=false  # true to skip TLS verification
+
+# Security thresholds
+export SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY=0.80
+export SECURITY_OPTIONS_THRESHOLD_VALIDATION_TYPE=0.10
+export SECURITY_OPTIONS_DURATIONRAMP=0.85
+export SECURITY_OPTIONS_SERVERORCLIENT=SERVER-INITIATED
+export SECURITY_OPTIONS_SILENT_LOGIN_FAILURES=false
+```
+
+#### Database Configuration
+```bash
+export API_DEFAULT_OPTIONS_DB_PATH=/app/data/database.sqlite
+```
+
 ## Logging & Monitoring
 
 ### Structured Logging
@@ -917,6 +1149,144 @@ logger.setLogger(customLogger);
  1) Start the app with `LOKI_URL` and `LOKI_BASIC_AUTH` set.
  2) Emit a test log: `logger.info('Loki test', { component: 'SmokeTest' })`.
  3) In Grafana Explore, query with `{app="clienttestapi-api"}` and confirm logs.
+
+## Performance Tracking
+
+The SDK includes comprehensive performance tracking and metrics collection.
+
+### Performance Service
+
+```javascript
+const performanceService = roditClient.getPerformanceService();
+
+// Record incoming request
+performanceService.recordRequest(req);
+
+// Record custom metrics with labels
+performanceService.recordMetric('operation_duration', 150, {
+  operation: 'db_query',
+  table: 'users',
+  status: 'success'
+});
+
+// Record errors
+performanceService.recordMetric('error_count', 1, {
+  method: req.method,
+  path: req.path,
+  status: res.statusCode
+});
+
+// Get aggregated metrics
+const metrics = performanceService.getMetrics();
+console.log('Total requests:', metrics.totalRequests);
+console.log('Error count:', metrics.errorCount);
+console.log('Average response time:', metrics.avgResponseTime);
+```
+
+### Automatic Request Tracking
+
+Integrate performance tracking into your middleware:
+
+```javascript
+// Performance monitoring middleware
+app.use((req, res, next) => {
+  req.startTime = Date.now();
+  
+  const performanceService = roditClient.getPerformanceService();
+  if (performanceService) {
+    performanceService.recordRequest(req);
+  }
+  
+  res.on('finish', () => {
+    const duration = Date.now() - req.startTime;
+    
+    if (performanceService) {
+      // Record request duration
+      performanceService.recordMetric('request_duration_ms', duration, {
+        method: req.method,
+        path: req.path,
+        status: res.statusCode
+      });
+      
+      // Record errors
+      if (res.statusCode >= 400) {
+        performanceService.recordMetric('error_count', 1, {
+          method: req.method,
+          path: req.path,
+          status: res.statusCode
+        });
+      }
+    }
+  });
+  
+  next();
+});
+```
+
+### Session Performance Metrics
+
+Track session-related performance:
+
+```javascript
+const sessionManager = roditClient.getSessionManager();
+
+// Get validation cache statistics
+const cacheStats = sessionManager.getValidationCacheStats();
+logger.info('Session cache performance', {
+  component: 'SessionManager',
+  totalEntries: cacheStats.totalEntries,
+  validEntries: cacheStats.validEntries,
+  expiredEntries: cacheStats.expiredEntries,
+  cacheTTL: cacheStats.cacheTTL,
+  cacheEnabled: cacheStats.cacheEnabled
+});
+
+// Get storage information
+const storageInfo = await sessionManager.getStorageInfo();
+logger.info('Session storage status', {
+  component: 'SessionManager',
+  storageType: storageInfo.type,
+  sessionCount: storageInfo.sessionCount,
+  timestamp: storageInfo.timestamp
+});
+```
+
+### Custom Metrics
+
+Record application-specific metrics:
+
+```javascript
+const performanceService = roditClient.getPerformanceService();
+
+// Database operation timing
+const dbStart = Date.now();
+const result = await db.query('SELECT * FROM users');
+const dbDuration = Date.now() - dbStart;
+
+performanceService.recordMetric('db_query_duration', dbDuration, {
+  operation: 'select',
+  table: 'users',
+  rowCount: result.length
+});
+
+// External API call timing
+const apiStart = Date.now();
+const apiResponse = await fetch('https://api.example.com/data');
+const apiDuration = Date.now() - apiStart;
+
+performanceService.recordMetric('external_api_duration', apiDuration, {
+  endpoint: 'api.example.com',
+  status: apiResponse.status,
+  success: apiResponse.ok
+});
+
+// Business metrics
+performanceService.recordMetric('user_action', 1, {
+  action: 'comment_created',
+  userId: req.user.id,
+  timestamp: new Date().toISOString()
+});
+```
 
  ## Webhooks
  
