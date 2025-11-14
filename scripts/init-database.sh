@@ -101,16 +101,6 @@ CREATE TABLE IF NOT EXISTS comments (
 -- Sessions table will be auto-created by connect-sqlite3 on first use
 -- Do not create it manually to avoid schema conflicts
 
--- Metrics table for performance tracking
-CREATE TABLE IF NOT EXISTS metrics (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    endpoint TEXT,
-    method TEXT,
-    response_time INTEGER,
-    status_code INTEGER,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Insert a test comment to verify schema
 INSERT INTO comments (comment, author) VALUES ('Database initialized successfully', 'system');
 
@@ -157,13 +147,11 @@ if [ -f "${DB_PATH}" ] && [ -s "${DB_PATH}" ]; then
     echo ""
     echo "🧪 Testing tables:"
     COMMENTS_COUNT=$(sqlite3 "${DB_PATH}" "SELECT COUNT(*) FROM comments;" 2>/dev/null || echo "ERROR")
-    METRICS_COUNT=$(sqlite3 "${DB_PATH}" "SELECT COUNT(*) FROM metrics;" 2>/dev/null || echo "ERROR")
     
     echo "  - comments: ${COMMENTS_COUNT} rows"
     echo "  - sessions: (will be auto-created by connect-sqlite3)"
-    echo "  - metrics: ${METRICS_COUNT} rows"
     
-    if [ "$COMMENTS_COUNT" != "ERROR" ] && [ "$METRICS_COUNT" != "ERROR" ]; then
+    if [ "$COMMENTS_COUNT" != "ERROR" ]; then
         echo ""
         echo "🎉 All tables verified and ready for use!"
         echo ""
