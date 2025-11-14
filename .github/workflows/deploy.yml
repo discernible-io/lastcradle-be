@@ -139,6 +139,7 @@ jobs:
             echo 'DEBUG: SECURITY_OPTIONS_DURATIONRAMP=${{ vars.SECURITY_OPTIONS_DURATIONRAMP }}'
             echo 'DEBUG: SECURITY_OPTIONS_SERVERORCLIENT=${{ vars.SECURITY_OPTIONS_SERVERORCLIENT }}'
             echo 'DEBUG: SECURITY_OPTIONS_SILENT_LOGIN_FAILURES=${{ vars.SECURITY_OPTIONS_SILENT_LOGIN_FAILURES }}'
+            echo 'DEBUG: SECURITY_OPTIONS_LOGIN_MODE=${{ vars.SECURITY_OPTIONS_LOGIN_MODE }}'
             echo 'DEBUG: API_DEFAULT_OPTIONS_DB_PATH=${{ vars.API_DEFAULT_OPTIONS_DB_PATH }}'
             podman build -t servertest-image:latest -f api.Dockerfile .
             
@@ -169,6 +170,12 @@ jobs:
               -e VAULT_ROLE_ID='${{ secrets.VAULT_ROLE_ID }}' \
               -e VAULT_SECRET_ID='${{ secrets.VAULT_SECRET_ID }}' \
               -e VAULT_TOKEN_TTL='${{ vars.VAULT_TOKEN_TTL }}' \
+              -e SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY='${{ vars.SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY }}' \
+              -e SECURITY_OPTIONS_THRESHOLD_VALIDATION_TYPE='${{ vars.SECURITY_OPTIONS_THRESHOLD_VALIDATION_TYPE }}' \
+              -e SECURITY_OPTIONS_DURATIONRAMP='${{ vars.SECURITY_OPTIONS_DURATIONRAMP }}' \
+              -e SECURITY_OPTIONS_SERVERORCLIENT='${{ vars.SECURITY_OPTIONS_SERVERORCLIENT }}' \
+              -e SECURITY_OPTIONS_SILENT_LOGIN_FAILURES='${{ vars.SECURITY_OPTIONS_SILENT_LOGIN_FAILURES }}' \
+              -e SECURITY_OPTIONS_LOGIN_MODE='${{ vars.SECURITY_OPTIONS_LOGIN_MODE }}' \
               -e API_DEFAULT_OPTIONS_DB_PATH='${{ vars.API_DEFAULT_OPTIONS_DB_PATH }}' \
               -v ~/servertest-app/logs:/app/logs:Z \
               -v ~/servertest-app/data:/app/data:Z \

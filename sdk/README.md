@@ -12,6 +12,7 @@ A comprehensive Node.js SDK for implementing RODiT-based mutual authentication, 
 - [Core Concepts](#core-concepts)
 - [Installation & Setup](#installation--setup)
 - [Authentication](#authentication)
+  - [Login Mode Control](#login-mode-control)
 - [Authorization & Permissions](#authorization--permissions)
 - [Session Management](#session-management)
 - [Configuration](#configuration)
@@ -379,6 +380,107 @@ const authenticate = (req, res, next) => {
 //   iat: 1640995200,
 //   session_id: '01HQXYZ123ABC'
 // }
+```
+
+### Login Mode Control
+
+The SDK provides configurable access control for RODiT authentication, allowing you to restrict which types of logins are accepted by your server.
+
+#### Login Types
+
+**Partner Login (Client-Server)**
+- **Definition**: Authentication where the peer's service provider ID is **different** from the server's service provider ID
+- **Use Case**: Traditional client-server authentication where a client authenticates to a service provider
+- **Example**: A mobile app (client) authenticating to your API server
+
+**Peer Login (Peer-to-Peer)**
+- **Definition**: Authentication where the peer's service provider ID is **the same** as the server's service provider ID
+- **Use Case**: Peer-to-peer authentication between entities with the same service provider
+- **Example**: Two servers in the same organization authenticating to each other
+
+#### Configuration Options
+
+| Mode | Partner Logins | Peer Logins | Description |
+|------|---------------|-------------|-------------|
+| `partner` | ✅ Accepted | ❌ Rejected | **Default** - Only accept client-server authentication |
+| `promiscuous` | ✅ Accepted | ✅ Accepted | Accept all valid logins regardless of type |
+| `p2p` | ❌ Rejected | ✅ Accepted | Only accept peer-to-peer authentication |
+
+#### Usage Examples
+
+**Default (Partner Only):**
+```bash
+# No configuration needed - this is the default
+# Only client-server authentication is accepted
+```
+
+**Accept All Logins:**
+```bash
+export SECURITY_OPTIONS_LOGIN_MODE=promiscuous
+# Both Partner and Peer logins are accepted
+```
+
+**Peer-to-Peer Only:**
+```bash
+export SECURITY_OPTIONS_LOGIN_MODE=p2p
+# Only peer-to-peer authentication is accepted
+```
+
+**Docker/Podman:**
+```bash
+podman run -e SECURITY_OPTIONS_LOGIN_MODE=partner ...
+```
+
+**GitHub Actions:**
+Add repository variable:
+- **Name**: `SECURITY_OPTIONS_LOGIN_MODE`
+- **Value**: `partner` | `promiscuous` | `p2p`
+
+#### Logging and Monitoring
+
+**Successful Login:**
+```json
+{
+  "level": "info",
+  "message": "PARTNER login verified successfully",
+  "verificationType": "PARTNER",
+  "loginMode": "partner",
+  "duration": 1234
+}
+```
+
+**Rejected Login:**
+```json
+{
+  "level": "warn",
+  "message": "PEER login rejected by LOGIN_MODE policy",
+  "verificationType": "PEER",
+  "loginMode": "partner",
+  "policyReason": "LOGIN_MODE=partner does not accept PEER logins"
+}
+```
+
+**Metrics:**
+- `rodit_match_verification` with `result: "success"` - Successful authentication
+- `rodit_match_verification` with `result: "policy_rejected"` - Rejected by policy
+
+#### Security Considerations
+
+1. **Default is Secure**: The default `partner` mode provides the most restrictive access control
+2. **Promiscuous Mode**: Use only when you need to accept both types of authentication
+3. **P2P Mode**: Use when building peer-to-peer systems where only same-provider authentication is needed
+4. **Policy Enforcement**: Rejections are logged with clear reasons for audit trails
+
+#### Troubleshooting
+
+**Login Rejected with "policy_rejected":**
+- If you see "PEER login rejected" and need to accept peer logins, set mode to `promiscuous` or `p2p`
+- If you see "PARTNER login rejected" and need to accept partner logins, set mode to `promiscuous` or `partner`
+
+**Check Current Mode:**
+Look for the log message during authentication:
+```
+"Starting RODiT match verification" with "loginMode": "partner"
 ```
 
 ## Authorization & Permissions
@@ -1034,6 +1136,9 @@ export LOKI_TLS_SKIP_VERIFY=false    # true to skip TLS verification
 ```bash
 # Webhook configuration
 export WEBHOOK_TLS_SKIP_VERIFY=false  # true to skip TLS verification
+
+# Login mode control (see Login Mode section below)
+export SECURITY_OPTIONS_LOGIN_MODE=partner  # partner, promiscuous, or p2p
 
 # Security thresholds
 export SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY=0.80

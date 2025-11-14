@@ -1866,7 +1866,7 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
 
     // Perform match verification
     const matchStart = performance.now();
-    const isaMatch = await verify_rodit_isamatch(
+    const matchResult = await verify_rodit_isamatch(
       config_own_rodit.own_rodit.metadata.serviceprovider_id,
       peer_rodit
     );
@@ -1875,17 +1875,21 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
     logger.debug("Match verification completed", {
       requestId,
       matchDuration,
-      isaMatch,
+      isMatch: matchResult.isMatch,
+      verificationType: matchResult.verificationType,
+      failureReason: matchResult.failureReason,
       serviceProviderId: config_own_rodit.own_rodit.metadata.serviceprovider_id,
       peerServiceProviderId: peer_rodit.metadata.serviceprovider_id,
     });
 
-    if (!isaMatch) {
+    if (!matchResult.isMatch) {
       logger.warn("RODiT match verification failed", {
         component: "JwtAuth",
         method: "thorough_validate_jwt_token_be",
         requestId,
         duration: performance.now() - startTime,
+        failureReason: matchResult.failureReason,
+        failureMessage: matchResult.failureMessage,
         serviceProviderId: config_own_rodit.own_rodit.metadata.serviceprovider_id,
         peerServiceProviderId: peer_rodit.metadata.serviceprovider_id,
       });
@@ -1894,6 +1898,7 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
       logger.metric &&
         logger.metric("jwt_thorough_validation", performance.now() - startTime, {
           result: "match_failed",
+          failure_reason: matchResult.failureReason,
           token_jti: token.jti || "unknown",
           peer_rodit_id: peer_rodit.token_id,
         });
@@ -1902,8 +1907,8 @@ async function thorough_validate_jwt_token_be(token, requestId = ulid()) {
         isValid: false,
         notAfter: null,
         error: "RODiT match verification failed",
-        errorCode: "SERVER_RODIT_FAMILY_MISMATCH",
-        errorMessage: "Server's RODiT does not belong to the same family as the client"
+        errorCode: matchResult.failureReason || "SERVER_RODIT_FAMILY_MISMATCH",
+        errorMessage: matchResult.failureMessage || "Server's RODiT does not belong to the same family as the client"
       };
     }
 
