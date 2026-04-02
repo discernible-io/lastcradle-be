@@ -84,7 +84,7 @@ jobs:
 
       - name: Deploy Containers
         run: |
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "TERM=dumb bash --noprofile --norc" <<'REMOTE_SCRIPT'
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "TERM=dumb bash --noprofile --norc -s" <<'REMOTE_SCRIPT'
             set -euxo pipefail
             cd ~/servertest-app
             echo 'Remote host environment (sanitized):'
@@ -100,7 +100,7 @@ jobs:
 
             # Create new pod
             echo 'Creating API pod...'
-            podman pod create --name servertest-pod -p ${API_PORT}:${API_PORT}
+            podman pod create --name servertest-pod -p ${{ env.API_PORT }}:${{ env.API_PORT }}
 
             # Ensure logs and data directories exist with correct permissions
             echo 'Setting up logs and data directories...'
