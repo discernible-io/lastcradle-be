@@ -3,7 +3,7 @@
   "info": {
     "title": "RODiT Authentication API",
     "version": "1.0.0",
-    "description": "# API using Discernible Authentication system\n\n## Service Description\nThe RODiT Authentication API provides secure authentication services using the Discernible Authentication system. This API enables applications to implement robust user authentication, session management, and access control using RODiT's cryptographic identity verification.\n\n## Key Features\n- Secure user authentication via RODiT credentials\n- Session management and token-based authorization\n- User identity verification\n- Access control for protected resources\n- Metrics and monitoring capabilities\n\n## Data Handling and Privacy\nAll user data is handled in accordance with our privacy policy. We implement industry-standard encryption for data in transit and at rest. Personal information is processed only for the purposes of authentication and is not shared with third parties without explicit consent.\n\nWe comply with applicable data protection regulations including GDPR and CCPA. In the event of a data breach, we will notify affected users within 72 hours of discovery.\n      ",
+    "description": "# API using Discernible Authentication system\n\n## Service Description\nThe RODiT Authentication API provides secure authentication services using the Discernible Authentication system. This API enables applications to implement robust user authentication, session management, and access control using RODiT's cryptographic identity verification.\n\n## Key Features\n- Secure user authentication via RODiT credentials\n- Session management and token-based authorization\n- User identity verification\n- Access control for protected resources\n- Metrics and monitoring capabilities\n- Model Context Protocol (MCP) interface for AI integration\n- CRUDA operations (Create, Read, Update, Delete, Audit)\n\n## Architecture\n- **Runtime**: Node.js 20 with Express framework\n- **Reverse Proxy**: nginx with TLS 1.2/1.3 (port 9443)\n- **Containerization**: Podman containers\n- **Database**: SQLite for sessions and application data\n- **Logging**: Winston with Grafana Loki integration\n- **Secrets Management**: HashiCorp Vault\n- **Deployment**: GitHub Actions CI/CD to DigitalOcean\n\n## Data Handling and Privacy\nAll user data is handled in accordance with our privacy policy. We implement industry-standard encryption for data in transit and at rest. Personal information is processed only for the purposes of authentication and is not shared with third parties without explicit consent.\n\nWe comply with applicable data protection regulations including GDPR and CCPA. In the event of a data breach, we will notify affected users within 72 hours of discovery.\n      ",
     "termsOfService": "https://api.discernible.io/terms",
     "contact": {
       "name": "Discernible Inc.",
@@ -19,7 +19,11 @@
   "servers": [
     {
       "url": "https://api.discernible.io:9443",
-      "description": "RODiT API Server"
+      "description": "Production RODiT API Server (HTTPS via nginx)"
+    },
+    {
+      "url": "http://localhost:8080",
+      "description": "Local development server (direct Node.js)"
     }
   ],
   "externalDocs": {
