@@ -11,7 +11,9 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies with extra error handling
-RUN npm install --production \
+RUN npm install -g npm@11 \
+    && npm config set update-notifier false \
+    && npm install --production \
     && npm cache clean --force \
     && rm -rf /root/.npm/_cacache
 
