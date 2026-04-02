@@ -85,7 +85,11 @@ jobs:
       - name: Deploy Containers
         run: |
           ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
-            set -x
+            export TERM=dumb
+            export VSCODE_SHELL_INTEGRATION=0
+            unset PROMPT_COMMAND || true
+            unset -f __vsc_prompt_cmd __vsc_preexec_only __vsc_precmd __vsc_command_complete __vsc_update_cwd 2>/dev/null || true
+            set -euxo pipefail
             cd ~/servertest-app
             echo 'Remote host environment (sanitized):'
             printenv | sort | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY|AUTH)=.*/\1=****/I' || true
