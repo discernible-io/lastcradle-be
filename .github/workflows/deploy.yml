@@ -98,9 +98,21 @@ jobs:
             
             # Clean up existing resources
             echo 'Cleaning up existing resources...'
-            podman pod exists servertest-pod && podman pod rm -f servertest-pod
-            podman image exists servertest-image:latest && podman rmi -f servertest-image:latest
-            podman image exists localhost/servertest-nginx:latest && podman rmi -f localhost/servertest-nginx:latest
+            if podman pod exists servertest-pod; then
+              podman pod rm -f servertest-pod
+            else
+              echo 'No existing servertest pod found'
+            fi
+            if podman image exists servertest-image:latest; then
+              podman rmi -f servertest-image:latest
+            else
+              echo 'No existing servertest-image image found'
+            fi
+            if podman image exists localhost/servertest-nginx:latest; then
+              podman rmi -f localhost/servertest-nginx:latest
+            else
+              echo 'No existing servertest-nginx image found'
+            fi
             
             # Create new pod
             echo 'Creating API pod...'
