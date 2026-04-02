@@ -84,24 +84,24 @@ jobs:
 
       - name: Deploy Containers
         run: |
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "TERM=dumb bash --noprofile --norc -s" <<'REMOTE_SCRIPT'
-            set -euxo pipefail
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
+            set -x
             cd ~/servertest-app
             echo 'Remote host environment (sanitized):'
             printenv | sort | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY|AUTH)=.*/\1=****/I' || true
             echo 'Testing Loki reachability from remote host:'
             curl -sS -k '${{ vars.LOKI_URL }}/loki/api/v1/status/buildinfo' || true
-
+            
             # Clean up existing resources
             echo 'Cleaning up existing resources...'
             podman pod exists servertest-pod && podman pod rm -f servertest-pod
             podman image exists servertest-image:latest && podman rmi -f servertest-image:latest
             podman image exists localhost/servertest-nginx:latest && podman rmi -f localhost/servertest-nginx:latest
-
+            
             # Create new pod
             echo 'Creating API pod...'
-            podman pod create --name servertest-pod -p ${{ env.API_PORT }}:${{ env.API_PORT }}
-
+            podman pod create --name servertest-pod -p ${API_PORT}:${API_PORT}
+            
             # Ensure logs and data directories exist with correct permissions
             echo 'Setting up logs and data directories...'
             mkdir -p ~/servertest-app/logs ~/servertest-app/data
@@ -110,7 +110,7 @@ jobs:
             podman unshare chown -R 1000:1000 ~/servertest-app/logs ~/servertest-app/data || true
             # Ensure the data directory is writable by the container user
             podman unshare chmod g+w ~/servertest-app/data
-
+            
             # Build API container with debug information
             echo 'Building API container...'
             echo 'DEBUG: NODE_ENV=${{ vars.NODE_ENV }}'
@@ -142,7 +142,7 @@ jobs:
             echo 'DEBUG: SECURITY_OPTIONS_LOGIN_MODE=${{ vars.SECURITY_OPTIONS_LOGIN_MODE }}'
             echo 'DEBUG: API_DEFAULT_OPTIONS_DB_PATH=${{ vars.API_DEFAULT_OPTIONS_DB_PATH }}'
             podman build -t servertest-image:latest -f api.Dockerfile .
-
+            
             # Run API container with user 1000 and proper volume mounts
             echo 'Running API container...'
             podman run -d \
@@ -181,14 +181,14 @@ jobs:
               -v ~/servertest-app/data:/app/data:Z \
               -v ~/servertest-app/certs:/app/certs:ro,Z \
               servertest-image:latest
-
+            
             # Wait for container to fully start
             sleep 5
-
+            
             # Debug: Check if container is running
             echo 'DEBUG: Container status:'
             podman ps -a | grep servertest-container || echo 'Container not found'
-
+            
             # Debug: Check environment variables inside the container
             echo 'DEBUG: Container environment variables:'
             podman exec servertest-container env \
@@ -198,15 +198,15 @@ jobs:
 
             echo 'DEBUG: NEAR_CREDENTIALS_JSON_B64 presence (length only):'
             podman exec servertest-container sh -lc 'printf "NEAR_CREDENTIALS_JSON_B64 length: %s\n" "${#NEAR_CREDENTIALS_JSON_B64}"' || true
-
+            
             # Debug: Test a simple command in container
             echo 'DEBUG: Testing container access:'
             podman exec servertest-container echo 'Container is accessible' || echo 'Cannot access container'
-
+            
             # Debug: Check if winston-loki is working by looking for Loki-related logs
             echo 'DEBUG: Winston-loki initialization check:'
             podman logs servertest-container 2>&1 | grep -i loki || echo 'No Loki-related log messages found'
-
+            
             # Build and run nginx
             echo 'Building and running nginx...'
             podman build -t localhost/servertest-nginx:latest -f nginx.Dockerfile .
@@ -229,14 +229,14 @@ jobs:
               -v ~/servertest-app/certs:/app/certs:ro,Z \
               -v ~/servertest-app/logs/nginx:/var/log/nginx:Z,U \
               localhost/servertest-nginx:latest
-
+            
             # Check status and logs
             echo 'Container status:'
             podman ps -a
-
+            
             echo 'API logs:'
             podman logs servertest-container || true
-
+            
             echo 'Nginx logs:'
             podman logs servertest-nginx || true
-REMOTE_SCRIPT
+          "
