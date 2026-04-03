@@ -1,6 +1,6 @@
 # RODiT Authentication API
 
-A production-ready Node.js API server implementing the RODiT (Robust Decentralized Identity Token) authentication system with comprehensive session management, access control, and monitoring capabilities
+A production-ready Node.js API server implementing the RODiT (Robust Decentralized Identity Token) authentication system with comprehensive session management, access control, and monitoring capabilities.
 
 ## Overview
 
