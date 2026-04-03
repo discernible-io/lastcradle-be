@@ -22,7 +22,7 @@ env:
 
 jobs:
   test-and-deploy:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout repository
@@ -85,11 +85,7 @@ jobs:
       - name: Deploy Containers
         run: |
           ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
-            export TERM=dumb
-            export VSCODE_SHELL_INTEGRATION=0
-            unset PROMPT_COMMAND || true
-            unset -f __vsc_prompt_cmd __vsc_preexec_only __vsc_precmd __vsc_command_complete __vsc_update_cwd 2>/dev/null || true
-            set -euxo pipefail
+            set -x
             cd ~/servertest-app
             echo 'Remote host environment (sanitized):'
             printenv | sort | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY|AUTH)=.*/\1=****/I' || true
@@ -98,21 +94,9 @@ jobs:
             
             # Clean up existing resources
             echo 'Cleaning up existing resources...'
-            if podman pod exists servertest-pod; then
-              podman pod rm -f servertest-pod
-            else
-              echo 'No existing servertest pod found'
-            fi
-            if podman image exists servertest-image:latest; then
-              podman rmi -f servertest-image:latest
-            else
-              echo 'No existing servertest-image image found'
-            fi
-            if podman image exists localhost/servertest-nginx:latest; then
-              podman rmi -f localhost/servertest-nginx:latest
-            else
-              echo 'No existing servertest-nginx image found'
-            fi
+            podman pod exists servertest-pod && podman pod rm -f servertest-pod
+            podman image exists servertest-image:latest && podman rmi -f servertest-image:latest
+            podman image exists localhost/servertest-nginx:latest && podman rmi -f localhost/servertest-nginx:latest
             
             # Create new pod
             echo 'Creating API pod...'
@@ -134,12 +118,7 @@ jobs:
             echo 'DEBUG: LOKI_URL=${{ vars.LOKI_URL }}'
             echo 'DEBUG: LOKI_TLS_SKIP_VERIFY=${{ vars.LOKI_TLS_SKIP_VERIFY }}'
             echo 'DEBUG: WEBHOOK_TLS_SKIP_VERIFY=${{ vars.WEBHOOK_TLS_SKIP_VERIFY }}'
-            LOKI_BASIC_AUTH_VALUE='${{ secrets.LOKI_BASIC_AUTH }}'
-            if [ -n "${LOKI_BASIC_AUTH_VALUE}" ]; then
-              echo "DEBUG: LOKI_BASIC_AUTH length: ${#LOKI_BASIC_AUTH_VALUE}"
-            else
-              echo 'DEBUG: LOKI_BASIC_AUTH length: 0'
-            fi
+            echo 'DEBUG: LOKI_BASIC_AUTH length:' \${#LOKI_BASIC_AUTH}
             echo 'DEBUG: RODIT_NEAR_CREDENTIALS_SOURCE=${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE }}'
             echo 'DEBUG: SERVICE_NAME=${{ vars.SERVICE_NAME }}'
             echo 'DEBUG: API_DEFAULT_OPTIONS_LOG_DIR=${{ vars.API_DEFAULT_OPTIONS_LOG_DIR }}'
