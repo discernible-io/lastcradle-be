@@ -7,8 +7,14 @@ A production-ready Node.js API server implementing the RODiT (Robust Decentraliz
 This API provides secure authentication services using the Discernible Authentication system, enabling applications to implement cryptographic identity verification, JWT-based authorization, and fine-grained access control.
 
 **Version**: 2025.10.01  
-**Production URL**: https://api.discernible.io:9443  
-**API Documentation**: https://api.discernible.io:9443/api-docs
+
+| Branch | Role | URL |
+|--------|------|-----|
+| **`main`** | Production (SDK 9.x after merge from `development`) | https://api.discernible.io:9443 |
+| **`development`** | Staging / integration | https://api.dihola.io:9443 |
+| **`legacy`** | Archive of pre-migration `main` (read-only) | — |
+
+See [docs/BRANCHING.md](docs/BRANCHING.md).
 
 ## Standards compliance
 
@@ -209,15 +215,11 @@ API_VERSION=1.0.0
 
 The deployment is automated via GitHub Actions (`.github/workflows/deploy.yml`):
 
-1. **Trigger**: Push to `main` branch or manual workflow dispatch
-2. **Build**: Install dependencies and prepare artifacts
-3. **Deploy**: 
-   - SSH to production server
-   - Build Docker images (`api.Dockerfile`, `nginx.Dockerfile`)
-   - Create Podman pod with both containers
-   - Mount volumes for certs, logs, and data
-   - Configure environment variables
-   - Start services
+1. **Trigger**: Push to `main` or `development`, or manual workflow dispatch
+2. **Build**: Gitleaks, package age gate, `npm ci`, permission map validate, GHCR push
+3. **Deploy**: SSH to branch-specific host, `podman pull` by SHA, `--env-file secrets/secrets.env`, linger script
+
+The **`legacy`** branch is archived and does not deploy. See [docs/BRANCHING.md](docs/BRANCHING.md).
 
 ### Manual Deployment
 
@@ -228,13 +230,9 @@ ssh user@178.62.195.21
 # Navigate to application directory
 cd ~/servertest-app
 
-# Pull latest changes
-git pull origin main
-
-# Build and restart containers
-podman pod rm -f servertest-pod
-podman build -t servertest-image:latest -f api.Dockerfile .
-podman build -t servertest-nginx:latest -f nginx.Dockerfile .
+# Prefer CI/GHCR (see docs/BRANCHING.md). Local parity:
+./scripts/deploy-local-podman.sh
+TARGET=main ./scripts/deploy-local-podman.sh
 
 # Create pod and run containers
 podman pod create --name servertest-pod -p 9443:9443
