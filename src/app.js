@@ -7,7 +7,6 @@
  * Copyright (c) 2025 Discernible Inc. All rights reserved.
  */
 
-const config = require("config");
 const express = require("express");
 const session = require("express-session");
 const { ulid } = require("ulid");
@@ -15,89 +14,95 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 const winston = require("winston");
 const LokiTransport = require("winston-loki");
-const { RoditClient, setExpressSessionStore, logger } = require("@rodit/rodit-auth-be");
+const {
+  RoditClient,
+  logger,
+  validateConfig,
+  errorResponse,
+  config,
+  resolveHealthyNearRpcUrl
+} = require("@rodit/rodit-auth-be");
+const { sendError } = errorResponse;
+const { setExpressSessionStore } = require("@rodit/rodit-auth-be/lib/auth/sessionmanager");
+const { probeNearRpcStatus } = require("./services/near-rpc-probe.service");
+const { createHealthHandler } = require("./services/health.service");
+const {
+  logResolvedConfigSnapshot,
+  logNginxPublicRateLimitSettings,
+  redactRpcHostLabel
+} = require("./services/startup-config.service");
+
+const SERVICE_NAME = config.get("SERVICE_NAME");
+const HEALTH_CHECKS_CACHE_MS = Number(config.get("HEALTH_CHECKS_CACHE_MS"));
 
 // Configure winston-loki logging BEFORE creating RoditClient
 (() => {
   try {
-    console.log("=== Enhanced winston-loki debugging ===");
-    const lokiUrl = config.has('LOKI_URL') ? config.get('LOKI_URL') : null;
-    const logLevel = config.get('LOG_LEVEL');
-    const skipTls = config.has('LOKI_TLS_SKIP_VERIFY') ? String(config.get('LOKI_TLS_SKIP_VERIFY')).toLowerCase() === "true" : false;
-    const basicAuth = config.has('LOKI_BASIC_AUTH') ? config.get('LOKI_BASIC_AUTH') : null;
-
-    console.log("Configuration values:");
-    console.log("  LOKI_URL:", lokiUrl || "NOT SET");
-    console.log("  LOKI_TLS_SKIP_VERIFY:", skipTls ? "true" : "false");
-    console.log("  LOKI_BASIC_AUTH:", basicAuth ? "SET" : "NOT SET");
-    console.log("  LOG_LEVEL:", logLevel);
+    const lokiUrl = config.has("LOKI_URL") ? config.get("LOKI_URL") : null;
+    const logLevel = config.get("LOG_LEVEL");
+    const skipTlsRaw = config.get("LOKI_TLS_SKIP_VERIFY");
+    const skipTls =
+      skipTlsRaw === true || skipTlsRaw === "true" || String(skipTlsRaw).toLowerCase() === "true";
+    const basicAuth = config.has("LOKI_BASIC_AUTH") ? config.get("LOKI_BASIC_AUTH") : null;
 
     const transports = [
       new winston.transports.Console({ format: winston.format.json(), level: logLevel })
     ];
 
     if (lokiUrl) {
-      console.log("Creating winston-loki transport...");
-      const serviceLabel = config.get('SERVICE_NAME');
       const lokiOptions = {
         host: lokiUrl,
-        labels: { app: serviceLabel, service_name: serviceLabel, component: "rodit-sdk" },
+        labels: { app: SERVICE_NAME, service_name: SERVICE_NAME, component: "rodit-sdk" },
         json: true,
         level: logLevel,
         batching: true,
         gracefulShutdown: true,
         replaceTimestamp: true,
-        timeout: 5000,
+        timeout: 5000
       };
 
       if (basicAuth) {
         lokiOptions.basicAuth = basicAuth;
-        console.log("Added basic auth to Loki options");
       }
       if (skipTls) {
         lokiOptions.ssl = { rejectUnauthorized: false };
-        console.log("Added TLS skip verification to Loki options");
       }
 
-      console.log("Loki transport options:", JSON.stringify(lokiOptions, null, 2));
       const lokiTransport = new LokiTransport(lokiOptions);
-      
-      lokiTransport.on('error', (err) => {
-        console.error("❌ winston-loki transport ERROR:", err.message);
-        console.error("Error details:", err);
+
+      lokiTransport.on("error", (err) => {
+        logger.errorWithContext(
+          "Loki transport error",
+          { component: "AppLifecycle", operation: "logging.lokiTransport" },
+          err instanceof Error ? err : new Error(String(err?.message || err))
+        );
       });
 
-      lokiTransport.on('warn', (warn) => {
-        console.warn("⚠️ winston-loki transport WARN:", warn);
+      lokiTransport.on("warn", (warn) => {
+        logger.warnWithContext("Loki transport warning", {
+          component: "AppLifecycle",
+          operation: "logging.lokiTransport",
+          warnDetail: typeof warn === "string" ? warn : JSON.stringify(warn)
+        });
       });
 
       transports.push(lokiTransport);
-      console.log("✅ winston-loki transport added to transports");
-    } else {
-      console.log("❌ LOKI_URL not set - winston-loki transport will not be created");
     }
 
-    const customLogger = winston.createLogger({
-      level: logLevel,
-      format: winston.format.json(),
-      transports,
-    });
-
-    console.log("Created custom logger with", transports.length, "transports");
-    logger.setLogger(customLogger);
-    console.log("✅ Custom logger injected into SDK");
-    
-    // Test the logger immediately
-    customLogger.info("winston-loki transport test log", { 
-      timestamp: new Date().toISOString(),
-      test: true,
-      component: "winston-loki-setup"
-    });
-    console.log("✅ Test log sent through custom logger");
-    
+    logger.setLogger(
+      winston.createLogger({
+        level: logLevel,
+        format: winston.format.json(),
+        transports
+      })
+    );
   } catch (e) {
-    console.warn("❌ SDK Loki logger injection failed:", e?.message || e);
-    console.error("Full error:", e);
+    const err = e instanceof Error ? e : new Error(String(e?.message || e));
+    logger.warnWithContext(
+      "SDK Loki logger injection failed; using default SDK logger",
+      { component: "AppLifecycle", operation: "startup.loggerInjection" },
+      err
+    );
   }
 })();
 
@@ -119,14 +124,14 @@ let validatepermissions;
 
 // Import routes
 const homeRoute = require("./routes/home");
-const loginRoute = require("./routes/login");
+const authPublicRoutes = require("./routes/auth.public.routes");
+const authTimestampRoutes = require("./routes/auth-timestamp.public.routes");
 const signclientRoute = require("./routes/signclient");
 const mcpRoutes = require("./routes/mcproutes");
 
 // Import protected routes (require authentication)
-const logoutRoute = require("./protected/logout");
 const metricsRoutes = require("./protected/metricsroutes");
-const sessionRoutes = require("./protected/sessionroutes");
+const sessionRoutes = require("./routes/session.privileged.routes");
 
 // Configure SQLite session storage using express-session
 try {
@@ -249,7 +254,6 @@ app.use("/api", signclientRoute);
 app.use("/api/mcp", mcpRoutes);
 
 // Import additional protected routes
-const echoRoutes = require("./protected/echo");
 const crudaRoutes = require("./protected/cruda");
 
 // Development environment logging
@@ -576,10 +580,10 @@ app.use((req, res, next) => {
 // Provide actual implementation for root welcome endpoint
 app.get('/', (req, res) => {
   const endpoints = [
+    '/health',
     '/api/home',
     '/api/login',
     '/api/logout',
-    '/api/echo',
     '/api/cruda',
     '/api/metrics',
     '/api/mcp'
@@ -594,9 +598,6 @@ app.get('/', (req, res) => {
 });
 
 app.use("/", homeRoute);
-
-// Authentication routes
-app.use("/api", loginRoute);
 
 /**
  * @swagger
@@ -727,10 +728,11 @@ app.use((err, req, res, next) => {
     err // Pass the error object directly
   );
 
-  res.status(500).json({
-    error: "Error 106: Internal Server Error",
-    requestId: requestId,
-    timestamp: new Date().toISOString(),
+  return sendError(res, {
+    statusCode: err.statusCode && err.statusCode >= 400 && err.statusCode <= 599 ? err.statusCode : 500,
+    requestId,
+    code: err.code || "SERVICE_UNAVAILABLE",
+    message: err.statusCode && err.statusCode < 500 ? err.message : "Internal Server Error"
   });
 });
 
@@ -989,6 +991,45 @@ async function startServer() {
       component: "AppLifecycle",
       status: "creating_client",
     });
+
+    const primaryRpcUrl = config.has("NEAR_RPC_URL") ? config.get("NEAR_RPC_URL") : null;
+    let selectedRpcUrl = primaryRpcUrl;
+    if (typeof resolveHealthyNearRpcUrl === "function") {
+      selectedRpcUrl = await resolveHealthyNearRpcUrl();
+    } else if (primaryRpcUrl) {
+      logger.warnWithContext("RPC URL resolver unavailable; using configured NEAR_RPC_URL", {
+        component: "AppLifecycle",
+        operation: "startup.resolveNearRpcUrl",
+        fallback: "NEAR_RPC_URL"
+      });
+    }
+
+    if (selectedRpcUrl && selectedRpcUrl !== primaryRpcUrl) {
+      process.env.NEAR_RPC_URL = selectedRpcUrl;
+      const probeTimeoutMs = Number(config.get("NEAR_RPC_TIMEOUT"));
+      let primaryProbeOk = null;
+      if (primaryRpcUrl) {
+        const primaryProbe = await probeNearRpcStatus(primaryRpcUrl, probeTimeoutMs);
+        primaryProbeOk = primaryProbe.ok;
+      }
+      const logContext = {
+        component: "AppLifecycle",
+        operation: "startup.resolveNearRpcUrl",
+        primaryConfigured: Boolean(primaryRpcUrl),
+        selectedSource: "resolveHealthyNearRpcUrl",
+        primaryRpcHost: redactRpcHostLabel(primaryRpcUrl),
+        selectedRpcHost: redactRpcHostLabel(selectedRpcUrl),
+        ...(primaryProbeOk === false && { primaryProbeFailed: true })
+      };
+      if (primaryProbeOk === false) {
+        logger.warnWithContext(
+          "NEAR RPC startup fallback: primary endpoint unavailable; using alternate",
+          logContext
+        );
+      } else {
+        logger.infoWithContext("NEAR RPC startup: selected endpoint differs from config", logContext);
+      }
+    }
     
     // Create and initialize the client in one step
     roditClient = await RoditClient.create('server');
@@ -1010,11 +1051,26 @@ async function startServer() {
       status: "middleware_ready"
     });
 
-    // Mount protected routes now that middleware is ready
-    app.use("/api/echo", authenticate_apicall, echoRoutes);
+    try {
+      validateConfig(logger);
+      logger.info("SDK configuration validated", { component: "AppLifecycle" });
+    } catch (configErr) {
+      logger.warnWithContext(
+        "SDK configuration validation reported issues",
+        { component: "AppLifecycle" },
+        configErr
+      );
+    }
+
+    app.get("/health", createHealthHandler({ app, config, logger, cacheMs: HEALTH_CHECKS_CACHE_MS }));
+
+    // Auth routes (aligned with idclawserver-idc)
+    app.use("/api", authPublicRoutes);
+    app.use("/api", authTimestampRoutes);
+
+    // Protected routes
     app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
     app.use("/api/metrics", metricsRoutes);
-    app.use("/api", logoutRoute);
     app.use("/api/sessions", sessionRoutes);
     
     // Mount token claims endpoint
@@ -1022,6 +1078,22 @@ async function startServer() {
       return res.json({
         requestId: req.requestId,
         user: req.user || null,
+      });
+    });
+
+    app.use((req, res) => {
+      const requestId = req.requestId || ulid();
+      logger.infoWithContext("404 - Endpoint not found", {
+        component: "AppLifecycle",
+        method: req.method,
+        url: req.originalUrl,
+        requestId
+      });
+      return sendError(res, {
+        statusCode: 404,
+        requestId,
+        code: "ENDPOINT_NOT_FOUND",
+        message: "Endpoint not found"
       });
     });
     
@@ -1094,16 +1166,22 @@ async function startServer() {
 
       const endpoints = [
         "  / - Public welcome page",
-        "  /api/login - Login with RODiT credentials",
-        "  /api/logout - Logout (requires authentication)",
-        "  /api/echo - Echo service (requires authentication)",
-        "  /api/cruda - CRUD operations (requires authentication + permissions)",
+        "  GET /api/login/timestamp - Login challenge (timestamp pair)",
+        "  POST /api/login - Login with RODiT credentials",
+        "  POST /api/logout - Logout (Bearer JWT; expired tokens allowed)",
+        "  /api/cruda - CRUDA showcase (requires authentication + permissions)",
+        "  /api/sessions - Session admin (authenticate + authorize)",
         "  /api-docs - Swagger API documentation",
       ];
 
       logger.info("Available endpoints:");
       endpoints.forEach((endpoint) => logger.info(endpoint));
       logger.info("");
+
+      logNginxPublicRateLimitSettings(logger);
+      setTimeout(() => {
+        logResolvedConfigSnapshot(logger, config);
+      }, 15000);
     });
 
     // Graceful shutdown handling

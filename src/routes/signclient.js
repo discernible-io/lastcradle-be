@@ -3,7 +3,8 @@ const express = require("express");
 const router = express.Router();
 const { ulid } = require("ulid");
 // Use npm package export
-const { RoditClient } = require("@rodit/rodit-auth-be");
+const { RoditClient, errorResponse } = require("@rodit/rodit-auth-be");
+const { sendError } = errorResponse;
 
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
@@ -197,11 +198,15 @@ router.post("/signclient", async (req, res) => {
         method: req.method,
       });
       
-      return res.status(400).json({
-        error: "Request body is missing or malformed",
-        details: "Expected JSON body with tobesignedValues, mintingfee, and mintingfeeaccount",
+      return sendError(res, {
+        statusCode: 400,
         requestId,
-        contentType: req.get('Content-Type')
+        code: "INVALID_REQUEST",
+        message: "Request body is missing or malformed",
+        details: {
+          hint: "Expected JSON body with tobesignedValues, mintingfee, and mintingfeeaccount",
+          contentType: req.get("Content-Type")
+        }
       });
     }
 
@@ -219,9 +224,11 @@ router.post("/signclient", async (req, res) => {
         hasMintingFeeAccount: !!mintingfeeaccount,
       });
 
-      return res.status(400).json({
-        error: "Missing required fields",
+      return sendError(res, {
+        statusCode: 400,
         requestId,
+        code: "INVALID_REQUEST",
+        message: "Missing required fields"
       });
     }
 
@@ -342,14 +349,15 @@ router.post("/signclient", async (req, res) => {
           error: errorMessage
         });
         
-        return res.status(400).json({
-          error: "Invalid permissions requested",
+        return sendError(res, {
+          statusCode: 400,
+          requestId: req.requestId || requestId,
+          code: "SIGNCLIENT_INVALID_PERMISSIONS",
+          message: "Invalid permissions requested",
           details: {
             invalidRoutes,
-            message: "One or more requested permissions are not available in the server's configuration",
             availableRoutes: Object.keys(configMethods)
-          },
-          requestId: req.requestId
+          }
         });
       }
       
@@ -369,13 +377,12 @@ router.post("/signclient", async (req, res) => {
         permissioned_routes: tobesignedValues.permissioned_routes
       });
       
-      return res.status(400).json({
-        error: "Invalid permission format",
-        details: {
-          message: "Could not parse requested permissions",
-          parseError: error.message
-        },
-        requestId: req.requestId
+      return sendError(res, {
+        statusCode: 400,
+        requestId: req.requestId || requestId,
+        code: "SIGNCLIENT_INVALID_PERMISSION_FORMAT",
+        message: "Invalid permission format",
+        details: { parseError: error.message }
       });
     }
 
@@ -499,12 +506,12 @@ router.post("/signclient", async (req, res) => {
     );
 
     // Return a structured error response
-    res.status(500).json({
-      error: "Failed to sign client request",
-      reason: errorType,
-      details: error.message,
-      impact: "Unable to complete the requested operation",
+    return sendError(res, {
+      statusCode: 500,
       requestId,
+      code: "SIGNCLIENT_FAILED",
+      message: "Failed to sign client request",
+      details: { reason: errorType, detail: error.message }
     });
   }
 });

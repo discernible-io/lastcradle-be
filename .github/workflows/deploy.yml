@@ -2,241 +2,226 @@ name: Deploy Node.js API
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [main, development]
   workflow_dispatch:
     inputs:
       commit_sha:
-        description: 'Commit SHA to deploy'
+        description: "Commit SHA to deploy"
         required: true
-        default: ''
+        default: ""
 
 env:
-  SSH_HOST: 178.62.195.21
-  SSH_USER: ${{ secrets.SSH_USER }}
-  API_DOMAIN: api.discernible.io
-  API_PORT: 9443
+  NODE_ENV: ${{ github.ref == 'refs/heads/main' && 'main' || 'development' }}
+  SSH_HOST: ${{ github.ref == 'refs/heads/main' && secrets.SSH_HOST_MAIN || secrets.SSH_HOST_DEVELOPMENT }}
+  SSH_USER: ${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}
+  SSH_PRIVATE_KEY: ${{ github.ref == 'refs/heads/main' && secrets.SSH_PRIVATE_KEY_MAIN || secrets.SSH_PRIVATE_KEY_DEVELOPMENT }}
+  SSH_KNOWN_HOSTS: ${{ github.ref == 'refs/heads/main' && secrets.SSH_KNOWN_HOSTS_MAIN || secrets.SSH_KNOWN_HOSTS_DEVELOPMENT }}
+  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'api.discernible.io' || 'api.dihola.io' }}
+  APP_PORT: 9443
+  APP_DIR: /home/${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}/servertest-app
+  POD_NAME: servertest-pod
+  APP_CONTAINER_NAME: servertest-container
+  NGINX_CONTAINER_NAME: servertest-nginx
+  REGISTRY: ghcr.io
+  REGISTRY_USERNAME: ${{ github.actor }}
+  API_IMAGE_NAME: ${{ github.repository }}/servertest-api
+  NGINX_IMAGE_NAME: ${{ github.repository }}/servertest-nginx
   NODE_VERSION: 20
-  NEAR_RPC_URL: ${{ secrets.NEAR_RPC_URL }}
+  HEALTH_CHECK_TIMEOUT: 120
+  HEALTH_CHECK_INTERVAL: 5
 
 jobs:
-  test-and-deploy:
+  build-images:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.commit_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Secret scan (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          
-      - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+          cache: npm
 
-      - name: Upload Swagger artifact
-        uses: actions/upload-artifact@v4
+      - name: Enforce minimum package age
+        run: node scripts/enforce-minimum-package-age.js
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate METHOD_PERMISSION_MAP from swagger.json
+        env:
+          NODE_ENV: ${{ env.NODE_ENV }}
+        run: |
+          node scripts/update-permissionsmap.js --permissions
+          node scripts/update-permissionsmap.js --validate
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
         with:
-          name: swagger-spec
-          path: api-docs/swagger.json
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./api.Dockerfile
+          push: true
+          build-args: |
+            NODE_ENV=${{ env.NODE_ENV }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push nginx image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./nginx.Dockerfile
+          push: true
+          build-args: |
+            NODE_ENV=${{ env.NODE_ENV }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  test-and-deploy:
+    needs: build-images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout deploy scripts
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.commit_sha || github.sha }}
+          sparse-checkout: |
+            scripts/ensure-podman-linger.sh
 
       - name: Install SSH key
         uses: shimataro/ssh-key-action@v2
         with:
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ env.SSH_PRIVATE_KEY }}
           name: id_rsa
-          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
-          
-      - name: Setup and Copy Files
-        run: |
-          echo "Setting up directories..."
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "mkdir -p ~/servertest-app/{certs,logs,data,nginx} && mkdir -p ~/servertest-app/logs/nginx && chmod 0775 ~/servertest-app/logs/nginx || true && podman unshare chown -R 101:101 ~/servertest-app/logs/nginx || true"
-          
-          echo "Setting up certificate permissions..."
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "podman unshare chown 101:101 ~/servertest-app/certs/privkey.pem ~/servertest-app/certs/fullchain.pem || true"
-           
-          echo "Copying API files..."
-          rsync -avz --delete \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude 'node_modules' \
-            --exclude 'certs' \
-            --exclude 'logs' \
-            --exclude 'data' \
-            ./ ${{ env.SSH_USER }}@${{ env.SSH_HOST }}:~/servertest-app/
+          known_hosts: unnecessary
 
-      - name: Show all runner environment variables (sanitized)
+      - name: Refresh SSH known_hosts
         run: |
-          echo 'Runner environment (sanitized):'
-          printenv | sort | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY|AUTH)=.*/\1=****/I'
-          echo 'Testing Loki reachability from runner:'
-          curl -sS -k "${{ vars.LOKI_URL }}/loki/api/v1/status/buildinfo" || true
+          ssh-keygen -f ~/.ssh/known_hosts -R ${{ env.SSH_HOST }} 2>/dev/null || true
+          ssh-keyscan -H ${{ env.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy Containers
+      - name: Enable systemd linger for rootless Podman
+        run: |
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "DEPLOY_USER=${{ env.SSH_USER }} bash -s" \
+            < scripts/ensure-podman-linger.sh
+
+      - name: Setup directories and login to GHCR
         run: |
           ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
-            set -x
-            cd ~/servertest-app
-            echo 'Remote host environment (sanitized):'
-            printenv | sort | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY|AUTH)=.*/\1=****/I' || true
-            echo 'Testing Loki reachability from remote host:'
-            curl -sS -k '${{ vars.LOKI_URL }}/loki/api/v1/status/buildinfo' || true
-            
-            # Clean up existing resources
-            echo 'Cleaning up existing resources...'
-            podman pod exists servertest-pod && podman pod rm -f servertest-pod
-            podman image exists servertest-image:latest && podman rmi -f servertest-image:latest
-            podman image exists localhost/servertest-nginx:latest && podman rmi -f localhost/servertest-nginx:latest
-            
-            # Create new pod
-            echo 'Creating API pod...'
-            podman pod create --name servertest-pod -p ${API_PORT}:${API_PORT}
-            
-            # Ensure logs and data directories exist with correct permissions
-            echo 'Setting up logs and data directories...'
-            mkdir -p ~/servertest-app/logs ~/servertest-app/data
-            # Set permissions to 0775 for directories and 0664 for files
-            # Set ownership to 1000:1000 (nodeuser:nodeuser in container)
-            podman unshare chown -R 1000:1000 ~/servertest-app/logs ~/servertest-app/data || true
-            # Ensure the data directory is writable by the container user
-            podman unshare chmod g+w ~/servertest-app/data
-            
-            # Build API container with debug information
-            echo 'Building API container...'
-            echo 'DEBUG: NODE_ENV=${{ vars.NODE_ENV }}'
-            echo 'DEBUG: LOG_LEVEL=${{ vars.LOG_LEVEL }}'
-            echo 'DEBUG: LOKI_URL=${{ vars.LOKI_URL }}'
-            echo 'DEBUG: LOKI_TLS_SKIP_VERIFY=${{ vars.LOKI_TLS_SKIP_VERIFY }}'
-            echo 'DEBUG: WEBHOOK_TLS_SKIP_VERIFY=${{ vars.WEBHOOK_TLS_SKIP_VERIFY }}'
-            echo 'DEBUG: LOKI_BASIC_AUTH length:' \${#LOKI_BASIC_AUTH}
-            echo 'DEBUG: RODIT_NEAR_CREDENTIALS_SOURCE=${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE }}'
-            echo 'DEBUG: SERVICE_NAME=${{ vars.SERVICE_NAME }}'
-            echo 'DEBUG: API_DEFAULT_OPTIONS_LOG_DIR=${{ vars.API_DEFAULT_OPTIONS_LOG_DIR }}'
-            echo 'DEBUG: NEAR_RPC_URL=${{ env.NEAR_RPC_URL }}'
-            echo 'DEBUG: NEAR_CONTRACT_ID=${{ vars.NEAR_CONTRACT_ID }}'
-            echo 'DEBUG: NEAR_CREDENTIALS_FILE_PATH=${{ vars.NEAR_CREDENTIALS_FILE_PATH }}'
-            echo 'DEBUG: MINTING_FEEACCOUNT=${{ vars.MINTING_FEEACCOUNT }}'
-            echo 'DEBUG: MINTING_FEE=${{ vars.MINTING_FEE }}'
-            echo 'DEBUG: API_VERSION=${{ vars.API_VERSION }}'
-            # Do not echo NEAR_CREDENTIALS_JSON_B64 or Vault secrets to avoid leaking secrets
-            echo 'DEBUG: VAULT_ENDPOINT=${{ vars.VAULT_ENDPOINT }}'
-            echo 'DEBUG: VAULT_RODIT_KEYVALUE_PATH=${{ vars.VAULT_RODIT_KEYVALUE_PATH }}'
-            echo 'DEBUG: VAULT_ROLE_ID: [provided via secrets]'
-            echo 'DEBUG: VAULT_SECRET_ID: [provided via secrets]'
-            echo 'DEBUG: VAULT_TOKEN_TTL=${{ vars.VAULT_TOKEN_TTL }}'
-            echo 'DEBUG: SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY=${{ vars.SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY }}'
-            echo 'DEBUG: SECURITY_OPTIONS_THRESHOLD_VALIDATION_TYPE=${{ vars.SECURITY_OPTIONS_THRESHOLD_VALIDATION_TYPE }}'
-            echo 'DEBUG: SECURITY_OPTIONS_DURATIONRAMP=${{ vars.SECURITY_OPTIONS_DURATIONRAMP }}'
-            echo 'DEBUG: SECURITY_OPTIONS_SERVERORCLIENT=${{ vars.SECURITY_OPTIONS_SERVERORCLIENT }}'
-            echo 'DEBUG: SECURITY_OPTIONS_SILENT_LOGIN_FAILURES=${{ vars.SECURITY_OPTIONS_SILENT_LOGIN_FAILURES }}'
-            echo 'DEBUG: SECURITY_OPTIONS_LOGIN_MODE=${{ vars.SECURITY_OPTIONS_LOGIN_MODE }}'
-            echo 'DEBUG: API_DEFAULT_OPTIONS_DB_PATH=${{ vars.API_DEFAULT_OPTIONS_DB_PATH }}'
-            podman build -t servertest-image:latest -f api.Dockerfile .
-            
-            # Run API container with user 1000 and proper volume mounts
-            echo 'Running API container...'
+            mkdir -p ${{ env.APP_DIR }}/{certs,logs,data,nginx,secrets}
+            mkdir -p ${{ env.APP_DIR }}/logs/nginx
+            chmod 750 ${{ env.APP_DIR }}/secrets
+            chmod 711 ${{ env.APP_DIR }}/certs || true
+            chmod 0775 ${{ env.APP_DIR }}/logs/nginx || true
+            podman unshare chown -R 101:101 ${{ env.APP_DIR }}/logs/nginx || true
+          "
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "echo '${{ secrets.GHCR_PULL_TOKEN }}' | podman login ghcr.io -u ${{ github.actor }} --password-stdin"
+
+      - name: Deploy containers
+        run: |
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
+            set -euxo pipefail
+            cd ${{ env.APP_DIR }}
+
+            podman pod exists ${{ env.POD_NAME }} && podman pod rm -f ${{ env.POD_NAME }}
+
+            podman pull ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
+            podman pull ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:${{ github.sha }}
+
+            podman pod create --name ${{ env.POD_NAME }} -p ${{ env.APP_PORT }}:${{ env.APP_PORT }}
+
+            mkdir -p ${{ env.APP_DIR }}/logs ${{ env.APP_DIR }}/data
+            podman unshare chown -R 1000:1000 ${{ env.APP_DIR }}/logs ${{ env.APP_DIR }}/data || true
+            podman unshare chmod g+w ${{ env.APP_DIR }}/data || true
+
+            set +x
             podman run -d \
-              --pod servertest-pod \
-              --name servertest-container \
+              --log-driver=k8s-file \
+              --pod ${{ env.POD_NAME }} \
+              --name ${{ env.APP_CONTAINER_NAME }} \
               --user 1000:1000 \
               --restart=unless-stopped \
-              -e NODE_ENV='${{ vars.NODE_ENV }}' \
-              -e LOG_LEVEL='${{ vars.LOG_LEVEL }}' \
-              -e LOKI_URL='${{ vars.LOKI_URL }}' \
-              -e LOKI_TLS_SKIP_VERIFY='${{ vars.LOKI_TLS_SKIP_VERIFY }}' \
-              -e WEBHOOK_TLS_SKIP_VERIFY='${{ vars.WEBHOOK_TLS_SKIP_VERIFY }}' \
-              -e LOKI_BASIC_AUTH='${{ secrets.LOKI_BASIC_AUTH }}' \
-              -e RODIT_NEAR_CREDENTIALS_SOURCE='${{ vars.RODIT_NEAR_CREDENTIALS_SOURCE }}' \
-              -e SERVICE_NAME='${{ vars.SERVICE_NAME }}' \
-              -e NEAR_CONTRACT_ID='${{ vars.NEAR_CONTRACT_ID }}' \
-              -e NEAR_CREDENTIALS_JSON_B64='${{ secrets.NEAR_CREDENTIALS_JSON_B64 }}' \
-              -e NEAR_RPC_URL='${{ env.NEAR_RPC_URL }}' \
-              -e NEAR_CREDENTIALS_FILE_PATH='${{ vars.NEAR_CREDENTIALS_FILE_PATH }}' \
-              -e MINTING_FEEACCOUNT='${{ vars.MINTING_FEEACCOUNT }}' \
-              -e MINTING_FEE='${{ vars.MINTING_FEE }}' \
-              -e API_VERSION='${{ vars.API_VERSION }}' \
-              -e VAULT_ENDPOINT='${{ vars.VAULT_ENDPOINT }}' \
-              -e VAULT_RODIT_KEYVALUE_PATH='${{ vars.VAULT_RODIT_KEYVALUE_PATH }}' \
-              -e VAULT_ROLE_ID='${{ secrets.VAULT_ROLE_ID }}' \
-              -e VAULT_SECRET_ID='${{ secrets.VAULT_SECRET_ID }}' \
-              -e VAULT_TOKEN_TTL='${{ vars.VAULT_TOKEN_TTL }}' \
-              -e SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY='${{ vars.SECURITY_OPTIONS_LAPSED_LIFETIME_PROPORTION_4RENEWAL_ELIGIBILITY }}' \
-              -e SECURITY_OPTIONS_THRESHOLD_VALIDATION_TYPE='${{ vars.SECURITY_OPTIONS_THRESHOLD_VALIDATION_TYPE }}' \
-              -e SECURITY_OPTIONS_DURATIONRAMP='${{ vars.SECURITY_OPTIONS_DURATIONRAMP }}' \
-              -e SECURITY_OPTIONS_SERVERORCLIENT='${{ vars.SECURITY_OPTIONS_SERVERORCLIENT }}' \
-              -e SECURITY_OPTIONS_SILENT_LOGIN_FAILURES='${{ vars.SECURITY_OPTIONS_SILENT_LOGIN_FAILURES }}' \
-              -e SECURITY_OPTIONS_LOGIN_MODE='${{ vars.SECURITY_OPTIONS_LOGIN_MODE }}' \
-              -e API_DEFAULT_OPTIONS_DB_PATH='${{ vars.API_DEFAULT_OPTIONS_DB_PATH }}' \
-              -v ~/servertest-app/logs:/app/logs:Z \
-              -v ~/servertest-app/data:/app/data:Z \
-              -v ~/servertest-app/certs:/app/certs:ro,Z \
-              servertest-image:latest
-            
-            # Wait for container to fully start
-            sleep 5
-            
-            # Debug: Check if container is running
-            echo 'DEBUG: Container status:'
-            podman ps -a | grep servertest-container || echo 'Container not found'
-            
-            # Debug: Check environment variables inside the container
-            echo 'DEBUG: Container environment variables:'
-            podman exec servertest-container env \
-              | grep -E '^(NODE_ENV|LOG_LEVEL|LOKI_|WEBHOOK_TLS_SKIP_VERIFY|RODIT_NEAR_CREDENTIALS_SOURCE|SERVICE_NAME|API_DEFAULT_OPTIONS_|NEAR_|VAULT_|MINTING_|API_VERSION|SECURITY_OPTIONS_|SESSION_|CREDENTIALS_FILEPATH|BASE_URL)' \
-              | sed -E 's/(VAULT_ROLE_ID|VAULT_SECRET_ID)=.*/\1=****/' \
-              | sort || echo 'No expected variables found'
+              --env-file ${{ env.APP_DIR }}/secrets/secrets.env \
+              -e NODE_ENV=${{ env.NODE_ENV }} \
+              -v ${{ env.APP_DIR }}/logs:/app/logs:Z \
+              -v ${{ env.APP_DIR }}/data:/app/data:Z \
+              -v ${{ env.APP_DIR }}/certs:/app/certs:ro,Z \
+              ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
+            set -x
 
-            echo 'DEBUG: NEAR_CREDENTIALS_JSON_B64 presence (length only):'
-            podman exec servertest-container sh -lc 'printf "NEAR_CREDENTIALS_JSON_B64 length: %s\n" "${#NEAR_CREDENTIALS_JSON_B64}"' || true
-            
-            # Debug: Test a simple command in container
-            echo 'DEBUG: Testing container access:'
-            podman exec servertest-container echo 'Container is accessible' || echo 'Cannot access container'
-            
-            # Debug: Check if winston-loki is working by looking for Loki-related logs
-            echo 'DEBUG: Winston-loki initialization check:'
-            podman logs servertest-container 2>&1 | grep -i loki || echo 'No Loki-related log messages found'
-            
-            # Build and run nginx
-            echo 'Building and running nginx...'
-            podman build -t localhost/servertest-nginx:latest -f nginx.Dockerfile .
-            # Ensure nginx log directory exists on host before mounting and is writable by container user
-            mkdir -p ~/servertest-app/logs/nginx
-            chmod 0775 ~/servertest-app/logs/nginx || true
-            podman unshare chown -R 101:101 ~/servertest-app/logs/nginx || true
-            if [ -f ~/servertest-app/certs/privkey.pem ]; then
-              podman unshare chown 101:101 ~/servertest-app/certs/privkey.pem
-              podman unshare chmod 640 ~/servertest-app/certs/privkey.pem
+            chmod 711 ${{ env.APP_DIR }}/certs || true
+            if [ -f ${{ env.APP_DIR }}/certs/privkey.pem ]; then
+              podman unshare chown 101:101 ${{ env.APP_DIR }}/certs/privkey.pem ${{ env.APP_DIR }}/certs/fullchain.pem || true
+              podman unshare chmod 600 ${{ env.APP_DIR }}/certs/privkey.pem || true
+              podman unshare chmod 644 ${{ env.APP_DIR }}/certs/fullchain.pem || true
             fi
-            if [ -f ~/servertest-app/certs/fullchain.pem ]; then
-              podman unshare chown 101:101 ~/servertest-app/certs/fullchain.pem
-              podman unshare chmod 644 ~/servertest-app/certs/fullchain.pem
-            fi
+
+            mkdir -p ${{ env.APP_DIR }}/logs/nginx
+            chmod 0775 ${{ env.APP_DIR }}/logs/nginx || true
+            podman unshare chown -R 101:101 ${{ env.APP_DIR }}/logs/nginx || true
+
             podman run -d \
-              --pod servertest-pod \
-              --name servertest-nginx \
+              --log-driver=k8s-file \
+              --pod ${{ env.POD_NAME }} \
+              --name ${{ env.NGINX_CONTAINER_NAME }} \
               --restart=unless-stopped \
-              -v ~/servertest-app/certs:/app/certs:ro,Z \
-              -v ~/servertest-app/logs/nginx:/var/log/nginx:Z,U \
-              localhost/servertest-nginx:latest
-            
-            # Check status and logs
-            echo 'Container status:'
+              -v ${{ env.APP_DIR }}/certs:/app/certs:ro,Z \
+              -v ${{ env.APP_DIR }}/logs/nginx:/var/log/nginx:Z,U \
+              ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:${{ github.sha }}
+
             podman ps -a
-            
-            echo 'API logs:'
-            podman logs servertest-container || true
-            
-            echo 'Nginx logs:'
-            podman logs servertest-nginx || true
           "
+
+      - name: Run deployment API tests (in container, findings-only)
+        continue-on-error: true
+        run: |
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
+            sleep 10
+            podman exec ${{ env.APP_CONTAINER_NAME }} node /app/scripts/run-deployment-api-tests.js \
+              || echo 'Deployment API tests logged findings (non-blocking)'
+          "
+
+      - name: Verify HTTPS health (advisory)
+        continue-on-error: true
+        run: |
+          end=$((SECONDS + ${{ env.HEALTH_CHECK_TIMEOUT }}))
+          while [ "$SECONDS" -lt "$end" ]; do
+            if curl -fsSk "https://${{ env.DOMAIN }}:${{ env.APP_PORT }}/health" | grep -qE '"status":"(healthy|degraded)"'; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Waiting for healthy status..."
+            sleep ${{ env.HEALTH_CHECK_INTERVAL }}
+          done
+          echo "Health check did not pass from runner (deploy may still be OK on host)"
+          exit 0

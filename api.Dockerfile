@@ -1,37 +1,30 @@
-FROM node:20-alpine
+FROM node:20-alpine AS builder
 
-# Install tini for Alpine
-ENV TINI_VERSION v0.19.0
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY scripts ./scripts
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY . .
+
+FROM node:20-alpine AS production
+
+ARG NODE_ENV=main
+ENV NODE_ENV=${NODE_ENV}
+
+ENV TINI_VERSION=v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static /tini
 RUN chmod +x /tini
 
+RUN apk add --no-cache tini \
+    && adduser -D -H -s /sbin/nologin nodeuser \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 WORKDIR /app
-
-# Copy package files first
-COPY package*.json ./
-
-# Install dependencies with extra error handling
-RUN npm install -g npm@11 \
-    && npm config set update-notifier false \
-    && npm install --production \
-    && npm cache clean --force \
-    && rm -rf /root/.npm/_cacache
-
-# Copy application files
-COPY . .
-
-# Create necessary directories for data and logs
-RUN mkdir -p /app/data /app/logs
-
-# Create non-root user for better security (Alpine syntax)
-RUN adduser -D -H -s /sbin/nologin nodeuser && \
-    chown -R nodeuser:nodeuser /app
+COPY --from=builder --chown=nodeuser:nodeuser /app ./
 
 USER nodeuser
-
-EXPOSE 8080 9443
+EXPOSE 8080
 
 ENTRYPOINT ["/tini", "--"]
-
-# Fix the path to point to src/app.js
 CMD ["node", "src/app.js"]

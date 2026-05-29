@@ -2,8 +2,8 @@
   "openapi": "3.0.0",
   "info": {
     "title": "RODiT Authentication API",
-    "version": "1.0.0",
-    "description": "# API using Discernible Authentication system\n\n## Service Description\nThe RODiT Authentication API provides secure authentication services using the Discernible Authentication system. This API enables applications to implement robust user authentication, session management, and access control using RODiT's cryptographic identity verification.\n\n## Key Features\n- Secure user authentication via RODiT credentials\n- Session management and token-based authorization\n- User identity verification\n- Access control for protected resources\n- Metrics and monitoring capabilities\n- Model Context Protocol (MCP) interface for AI integration\n- CRUDA operations (Create, Read, Update, Delete, Audit)\n\n## Architecture\n- **Runtime**: Node.js 20 with Express framework\n- **Reverse Proxy**: nginx with TLS 1.2/1.3 (port 9443)\n- **Containerization**: Podman containers\n- **Database**: SQLite for sessions and application data\n- **Logging**: Winston with Grafana Loki integration\n- **Secrets Management**: HashiCorp Vault\n- **Deployment**: GitHub Actions CI/CD to DigitalOcean\n\n## Data Handling and Privacy\nAll user data is handled in accordance with our privacy policy. We implement industry-standard encryption for data in transit and at rest. Personal information is processed only for the purposes of authentication and is not shared with third parties without explicit consent.\n\nWe comply with applicable data protection regulations including GDPR and CCPA. In the event of a data breach, we will notify affected users within 72 hours of discovery.\n      ",
+    "version": "2025.10.01",
+    "description": "# RODiT Authentication API (servertest)\n\nReference test API for Discernible / RODiT authentication (`@rodit/rodit-auth-be` 9.x) and **CRUDA** comment storage.\n\n## Authentication\n1. `GET /api/login/timestamp` — obtain `timestamp` and `timestamp_iso` challenge pair.\n2. Sign UTF-8 `identifier + timestamp_iso` (Ed25519, base64url).\n3. `POST /api/login` — receive `jwt_token` in JSON (Bearer only; optional `New-Token` response header).\n4. Call protected routes with `Authorization: Bearer <jwt_token>`.\n5. `POST /api/logout` — invalidates session (`authenticateForLogout` allows expired JWTs with valid signature).\n\n## Errors\nApplication errors use `{ error: { code, message, details? }, requestId, timestamp }` (see `components.schemas.ErrorResponse`).\n\n## CRUDA\n`/api/cruda/*` endpoints require authentication and authorization (unchanged contract).\n      ",
     "termsOfService": "https://api.discernible.io/terms",
     "contact": {
       "name": "Discernible Inc.",
@@ -19,11 +19,15 @@
   "servers": [
     {
       "url": "https://api.discernible.io:9443",
-      "description": "Production RODiT API Server (HTTPS via nginx)"
+      "description": "Main (main branch)"
+    },
+    {
+      "url": "https://api.dihola.io:9443",
+      "description": "Development (development branch)"
     },
     {
       "url": "http://localhost:8080",
-      "description": "Local development server (direct Node.js)"
+      "description": "Local Node.js (direct, no nginx TLS)"
     }
   ],
   "externalDocs": {
@@ -35,29 +39,49 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "JWT",
-        "description": "JWT token obtained after successful authentication via RODiT credentials"
+        "bearerFormat": "RODiT-JWT",
+        "description": "RODiT-issued JWT from POST /api/login (`jwt_token` in body). Not a cookie session."
       }
     },
     "schemas": {
-      "Error": {
+      "ErrorResponse": {
         "type": "object",
-        "required": ["error", "requestId"],
+        "description": "Unified error envelope (error-handling-standard.md).",
+        "required": ["error", "requestId", "timestamp"],
         "properties": {
           "error": {
-            "type": "string",
-            "description": "Error message describing what went wrong"
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Machine-readable code (SCREAMING_SNAKE_CASE)"
+              },
+              "message": {
+                "type": "string",
+                "description": "Human-readable message"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true,
+                "nullable": true
+              }
+            }
           },
           "requestId": {
             "type": "string",
-            "format": "ulid",
-            "description": "Unique request identifier for tracking"
+            "description": "ULID correlation id"
           },
-          "details": {
-            "type": "object",
-            "description": "Additional error details (development mode only)"
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
           }
         }
+      },
+      "Error": {
+        "deprecated": true,
+        "description": "Use ErrorResponse",
+        "$ref": "#/components/schemas/ErrorResponse"
       },
       "RequestResponse": {
         "type": "object",
@@ -209,55 +233,75 @@
     "/api/logout": {
       "post": {
         "summary": "User logout",
-        "description": "Invalidates the current user session and JWT token.\nAfter logout, the token will no longer be valid for authenticated requests.",
+        "description": "Invalidates the current session. Uses authenticateForLogout so expired JWTs may still be accepted when the signature is valid.",
         "tags": ["Authentication"],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Logout successful",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "Logout successful"
-                    },
-                    "requestId": {
-                      "type": "string",
-                      "format": "ulid"
-                    }
-                  }
-                }
-              }
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "additionalProperties": true }
             }
-          },
+          }
+        },
+        "responses": {
+          "200": { "description": "Logout successful" },
           "401": {
             "description": "Authentication required",
             "content": {
               "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type must be application/json when body is sent",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Logout failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "API health and dependency probes",
+        "description": "Returns JSON from the Node.js API (`status`: `healthy` or `degraded`, `checks` for NEAR RPC and RODiT auth client). Nginx proxies `/health` to this handler (no separate edge stub). Results are cached per `HEALTH_CHECKS_CACHE_MS`.",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Health payload (may be degraded while process is up)",
+            "content": {
+              "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": {
-                      "type": "string",
-                      "example": "Authentication required"
-                    },
-                    "requestId": {
-                      "type": "string"
+                    "status": { "type": "string", "enum": ["healthy", "degraded"] },
+                    "degraded": { "type": "boolean" },
+                    "checks": { "type": "object" },
+                    "service": { "type": "string" },
+                    "timestamp": { "type": "string", "format": "date-time" },
+                    "instance": {
+                      "type": "object",
+                      "properties": {
+                        "hostname": { "type": "string" },
+                        "pid": { "type": "integer" }
+                      }
                     }
                   }
                 }
               }
             }
-          },
-          "500": {
-            "description": "Internal server error"
           }
         }
       }
@@ -336,44 +380,113 @@
         }
       }
     },
+    "/api/login/timestamp": {
+      "get": {
+        "summary": "Login challenge timestamp",
+        "description": "Returns synchronized Unix seconds and canonical ISO-8601 timestamp for constructing the login signing payload.",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": {
+            "description": "Challenge pair",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["timestamp", "timestamp_iso", "requestId"],
+                  "properties": {
+                    "timestamp": { "type": "integer" },
+                    "timestamp_iso": { "type": "string", "format": "date-time" },
+                    "requestId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to generate challenge",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/login": {
       "post": {
-        "summary": "User login",
-        "description": "Authenticate using RODiT credentials",
+        "summary": "RODiT client login",
+        "description": "Ed25519 challenge-response login. Signed payload is `identifier + timestamp_iso` (no separator). Provide exactly one of `timestamp` or `timestamp_iso` from the same GET /api/login/timestamp response.",
+        "tags": ["Authentication"],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "roditid",
-                  "roditid_base64url_signature"
-                ],
-                "properties": {
-                  "roditid": {
-                    "type": "string",
-                    "description": "RODiT ID"
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": ["roditid", "base64url_signature"],
+                    "properties": {
+                      "roditid": { "type": "string" },
+                      "timestamp": { "type": "integer" },
+                      "timestamp_iso": { "type": "string", "format": "date-time" },
+                      "base64url_signature": { "type": "string" }
+                    }
                   },
-                  "timestamp": {
-                    "type": "integer",
-                    "description": "Current timestamp (optional)"
-                  },
-                  "roditid_base64url_signature": {
-                    "type": "string",
-                    "description": "Base64URL signature"
+                  {
+                    "type": "object",
+                    "required": ["roditid", "roditid_base64url_signature"],
+                    "properties": {
+                      "roditid": { "type": "string" },
+                      "timestamp": { "type": "integer" },
+                      "timestamp_iso": { "type": "string", "format": "date-time" },
+                      "roditid_base64url_signature": { "type": "string" }
+                    }
                   }
-                }
+                ]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Login successful"
+            "description": "Login successful",
+            "headers": {
+              "New-Token": {
+                "description": "Same JWT as jwt_token in body",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["jwt_token", "requestId"],
+                  "properties": {
+                    "jwt_token": { "type": "string" },
+                    "requestId": { "type": "string" }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid login payload or timestamp",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "401": {
-            "description": "Authentication failed"
+            "description": "Authentication failed (when SILENT_LOGIN_FAILURES is false)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }
@@ -512,87 +625,6 @@
           },
           "500": {
             "description": "Server error"
-          }
-        }
-      }
-    },
-    "/api/echo": {
-      "post": {
-        "summary": "Echo service",
-        "description": "Echoes back the provided message exactly as received. Only application/json is accepted. Input may be provided in one of: message, echo, data, or text.",
-        "tags": ["Utilities"],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "message": { "type": "string", "description": "Message to echo back" },
-                  "echo": { "type": "string", "description": "Echo string (alternative input field)" },
-                  "data": { "type": "string", "description": "Data string (alternative input field)" },
-                  "text": { "type": "string", "description": "Text string (alternative input field)" }
-                },
-                "additionalProperties": false
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Message echoed successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "message": { "type": "string" },
-                        "input": { "type": "string" },
-                        "echo": { "type": "string" }
-                      }
-                    },
-                    "requestId": { "type": "string", "format": "ulid" }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Authentication required"
-          }
-        }
-      },
-      "get": {
-        "summary": "Echo endpoint info",
-        "description": "Returns endpoint usage information. Protected endpoint.",
-        "tags": ["Utilities"],
-        "security": [ { "bearerAuth": [] } ],
-        "responses": {
-          "200": {
-            "description": "Endpoint usage information",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": { "type": "string" },
-                    "usage": { "type": "string" },
-                    "requestId": { "type": "string", "format": "ulid" }
-                  }
-                }
-              }
-            }
           }
         }
       }
@@ -862,66 +894,6 @@
         }
       }
     },
-    "/api/sessions/login": {
-      "post": {
-        "summary": "Session login",
-        "description": "Create a new user session",
-        "tags": ["Sessions"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["roditid", "roditid_base64url_signature"],
-                "properties": {
-                  "roditid": {
-                    "type": "string",
-                    "description": "RODiT ID"
-                  },
-                  "roditid_base64url_signature": {
-                    "type": "string",
-                    "description": "Base64URL signature"
-                  },
-                  "timestamp": {
-                    "type": "integer",
-                    "description": "Current timestamp (optional)"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Login successful"
-          },
-          "401": {
-            "description": "Authentication failed"
-          }
-        }
-      }
-    },
-    "/api/sessions/logout": {
-      "post": {
-        "summary": "Session logout",
-        "description": "End current user session",
-        "tags": ["Sessions"],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Logout successful"
-          },
-          "401": {
-            "description": "Authentication required"
-          }
-        }
-      }
-    },
     "/api/sessions/list_all": {
       "get": {
         "summary": "List all sessions",
@@ -945,9 +917,9 @@
         }
       }
     },
-    "/api/sessions/close": {
+    "/api/sessions/revoke": {
       "post": {
-        "summary": "Close specific session",
+        "summary": "Revoke specific session",
         "description": "Force terminate a specific session (admin only)",
         "tags": ["Sessions"],
         "security": [
@@ -1099,10 +1071,6 @@
     {
       "name": "MCP",
       "description": "Model Context Protocol interface"
-    },
-    {
-      "name": "Utilities",
-      "description": "Utility services and tools"
     },
     {
       "name": "CRUDA",

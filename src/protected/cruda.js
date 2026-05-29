@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const { RoditClient } = require("@rodit/rodit-auth-be");
+const { RoditClient, errorResponse, config } = require("@rodit/rodit-auth-be");
+const { sendError } = errorResponse;
 
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
 const webhook = sdkClient.getWebhookHandler();
 const logger = sdkClient.getLogger();
-const config = require("config");
 const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
 const { ulid } = require("ulid"); // Adding ulid for request IDs
@@ -252,9 +252,11 @@ const itemExists = async (req, res, next) => {
       bodyKeys: Object.keys(req.body || {}),
     });
 
-    return res.status(400).json({
-      error: "ID is required",
+    return sendError(res, {
+      statusCode: 400,
       requestId,
+      code: "INVALID_REQUEST",
+      message: "ID is required"
     });
   }
 
@@ -269,9 +271,11 @@ const itemExists = async (req, res, next) => {
         itemId: id,
       });
 
-      return res.status(404).json({
-        error: "Comment not found",
+      return sendError(res, {
+        statusCode: 404,
         requestId,
+        code: "COMMENT_NOT_FOUND",
+        message: "Comment not found"
       });
     }
 
@@ -291,15 +295,38 @@ const itemExists = async (req, res, next) => {
       { operation: "itemExists", result: "error" }
     );
 
-    res.status(500).json({
-      error: "Internal server error",
+    return sendError(res, {
+      statusCode: 500,
       requestId,
+      code: "CRUDA_OPERATION_FAILED",
+      message: "Internal server error"
     });
   }
 };
 
 // In-memory store for idempotency keys (in production, use Redis or database)
 const idempotencyStore = new Map();
+
+function isErrorResponseEnvelope(body) {
+  return Boolean(body && typeof body === "object" && body.error && body.requestId);
+}
+
+function normalizeCachedResponseBody(body, statusCode, requestId) {
+  if (isErrorResponseEnvelope(body)) {
+    return body;
+  }
+  if (statusCode >= 400) {
+    return {
+      error: {
+        code: body?.code || body?.error?.code || "CACHED_ERROR",
+        message: body?.message || body?.error?.message || body?.error || "Request failed"
+      },
+      requestId: body?.requestId || requestId,
+      timestamp: body?.timestamp || new Date().toISOString()
+    };
+  }
+  return body;
+}
 
 // Middleware to handle idempotency
 const handleIdempotency = (req, res, next) => {
@@ -318,7 +345,10 @@ const handleIdempotency = (req, res, next) => {
         const checkStatus = () => {
           const current = idempotencyStore.get(idempotencyKey);
           if (current.status !== "processing") {
-            res.status(current.statusCode).json(current.body);
+            const requestId = req.requestId || ulid();
+            res
+              .status(current.statusCode)
+              .json(normalizeCachedResponseBody(current.body, current.statusCode, requestId));
             resolve();
           } else {
             setTimeout(checkStatus, 100);
@@ -328,8 +358,16 @@ const handleIdempotency = (req, res, next) => {
       });
     }
 
-    // Return cached response
-    return res.status(cachedResponse.statusCode).json(cachedResponse.body);
+    const requestId = req.requestId || ulid();
+    return res
+      .status(cachedResponse.statusCode)
+      .json(
+        normalizeCachedResponseBody(
+          cachedResponse.body,
+          cachedResponse.statusCode,
+          requestId
+        )
+      );
   }
 
   // Mark as processing
@@ -383,11 +421,11 @@ const validateComment = (req, res, next) => {
         method: req.method,
       });
 
-      return res.status(400).json({
-        success: false,
-        error: error.message,
-        code: error.code,
+      return sendError(res, {
+        statusCode: 400,
         requestId,
+        code: error.code || "VALIDATION_ERROR",
+        message: error.message
       });
     }
 
@@ -401,10 +439,11 @@ const validateComment = (req, res, next) => {
       event: "validateComment",
     }, error);
 
-    res.status(500).json({
-      success: false,
-      error: "Internal server error",
+    return sendError(res, {
+      statusCode: 500,
       requestId,
+      code: "CRUDA_OPERATION_FAILED",
+      message: "Internal server error"
     });
   }
 };
@@ -453,9 +492,11 @@ router.post(
         routeDuration,
       });
 
-      return res.status(400).json({
-        error: "Comment is required",
+      return sendError(res, {
+        statusCode: 400,
         requestId,
+        code: "VALIDATION_ERROR",
+        message: "Comment is required"
       });
     }
 
@@ -543,9 +584,11 @@ router.post(
         }
       );
 
-      res.status(500).json({
-        error: "Internal server error",
+      return sendError(res, {
+        statusCode: 500,
         requestId,
+        code: "CRUDA_OPERATION_FAILED",
+        message: "Internal server error"
       });
     }
   }
@@ -657,9 +700,11 @@ router.post(
         }
       );
 
-      res.status(500).json({
-        error: "Internal server error",
+      return sendError(res, {
+        statusCode: 500,
         requestId,
+        code: "CRUDA_OPERATION_FAILED",
+        message: "Internal server error"
       });
     }
   }
@@ -747,9 +792,11 @@ router.get(
         }
       );
 
-      res.status(500).json({
-        error: "Internal server error",
+      return sendError(res, {
+        statusCode: 500,
         requestId,
+        code: "CRUDA_OPERATION_FAILED",
+        message: "Internal server error"
       });
     }
   }
@@ -793,7 +840,12 @@ router.post(
         duration,
         routeDuration,
       });
-      return res.status(400).json({ error: "ID is required", requestId });
+      return sendError(res, {
+        statusCode: 400,
+        requestId,
+        code: "INVALID_REQUEST",
+        message: "ID is required"
+      });
     }
 
     try {
@@ -809,7 +861,12 @@ router.post(
           duration,
           routeDuration,
         });
-        return res.status(404).json({ error: "Comment not found", requestId });
+        return sendError(res, {
+          statusCode: 404,
+          requestId,
+          code: "COMMENT_NOT_FOUND",
+          message: "Comment not found"
+        });
       }
 
       logger.infoWithContext("Comment retrieved successfully", {
@@ -847,9 +904,12 @@ router.post(
         "cruda_error",
         { operation: "readComment", result: "error", duration }
       );
-      return res
-        .status(500)
-        .json({ error: "Internal server error", requestId });
+      return sendError(res, {
+        statusCode: 500,
+        requestId,
+        code: "CRUDA_OPERATION_FAILED",
+        message: "Internal server error"
+      });
     }
   }
 );
@@ -894,7 +954,12 @@ router.get(
           duration,
           routeDuration,
         });
-        return res.status(404).json({ error: "Comment not found", requestId });
+        return sendError(res, {
+          statusCode: 404,
+          requestId,
+          code: "COMMENT_NOT_FOUND",
+          message: "Comment not found"
+        });
       }
 
       logger.infoWithContext("Comment retrieved successfully via GET", {
@@ -932,9 +997,12 @@ router.get(
         "cruda_error",
         { operation: "readComment", result: "error", duration, method: "GET" }
       );
-      return res
-        .status(500)
-        .json({ error: "Internal server error", requestId });
+      return sendError(res, {
+        statusCode: 500,
+        requestId,
+        code: "CRUDA_OPERATION_FAILED",
+        message: "Internal server error"
+      });
     }
   }
 );
@@ -973,7 +1041,12 @@ router.post(
         id,
       ]);
       if (!existing) {
-        return res.status(404).json({ error: "Comment not found", requestId });
+        return sendError(res, {
+          statusCode: 404,
+          requestId,
+          code: "COMMENT_NOT_FOUND",
+          message: "Comment not found"
+        });
       }
 
       await db.run(
@@ -1009,9 +1082,12 @@ router.post(
         "cruda_error",
         { operation: "updateComment", result: "error", duration }
       );
-      return res
-        .status(500)
-        .json({ error: "Internal server error", requestId });
+      return sendError(res, {
+        statusCode: 500,
+        requestId,
+        code: "CRUDA_OPERATION_FAILED",
+        message: "Internal server error"
+      });
     }
   }
 );
@@ -1055,7 +1131,12 @@ router.post(
         duration,
         routeDuration,
       });
-      return res.status(400).json({ error: "ID is required", requestId });
+      return sendError(res, {
+        statusCode: 400,
+        requestId,
+        code: "INVALID_REQUEST",
+        message: "ID is required"
+      });
     }
 
     try {
@@ -1063,7 +1144,12 @@ router.post(
         id,
       ]);
       if (!existing) {
-        return res.status(404).json({ error: "Comment not found", requestId });
+        return sendError(res, {
+          statusCode: 404,
+          requestId,
+          code: "COMMENT_NOT_FOUND",
+          message: "Comment not found"
+        });
       }
 
       await db.run("DELETE FROM comments WHERE id = ?", [id]);
@@ -1094,9 +1180,12 @@ router.post(
         "cruda_error",
         { operation: "deleteComment", result: "error", duration }
       );
-      return res
-        .status(500)
-        .json({ error: "Internal server error", requestId });
+      return sendError(res, {
+        statusCode: 500,
+        requestId,
+        code: "CRUDA_OPERATION_FAILED",
+        message: "Internal server error"
+      });
     }
   }
 );
@@ -1143,7 +1232,12 @@ router.put(
         duration,
         routeDuration,
       });
-      return res.status(400).json({ error: "ID is required", requestId });
+      return sendError(res, {
+        statusCode: 400,
+        requestId,
+        code: "INVALID_REQUEST",
+        message: "ID is required"
+      });
     }
 
     if (!comment) {
@@ -1156,7 +1250,12 @@ router.put(
         duration,
         routeDuration,
       });
-      return res.status(400).json({ error: "Comment is required", requestId });
+      return sendError(res, {
+        statusCode: 400,
+        requestId,
+        code: "VALIDATION_ERROR",
+        message: "Comment is required"
+      });
     }
 
     try {
@@ -1164,7 +1263,12 @@ router.put(
         id,
       ]);
       if (!existing) {
-        return res.status(404).json({ error: "Comment not found", requestId });
+        return sendError(res, {
+          statusCode: 404,
+          requestId,
+          code: "COMMENT_NOT_FOUND",
+          message: "Comment not found"
+        });
       }
 
       await db.run(
@@ -1201,9 +1305,12 @@ router.put(
         "cruda_error",
         { operation: "updateComment", result: "error", duration, method: "PUT" }
       );
-      return res
-        .status(500)
-        .json({ error: "Internal server error", requestId });
+      return sendError(res, {
+        statusCode: 500,
+        requestId,
+        code: "CRUDA_OPERATION_FAILED",
+        message: "Internal server error"
+      });
     }
   }
 );
@@ -1246,7 +1353,12 @@ router.delete(
         duration,
         routeDuration,
       });
-      return res.status(400).json({ error: "ID is required", requestId });
+      return sendError(res, {
+        statusCode: 400,
+        requestId,
+        code: "INVALID_REQUEST",
+        message: "ID is required"
+      });
     }
 
     try {
@@ -1254,7 +1366,12 @@ router.delete(
         id,
       ]);
       if (!existing) {
-        return res.status(404).json({ error: "Comment not found", requestId });
+        return sendError(res, {
+          statusCode: 404,
+          requestId,
+          code: "COMMENT_NOT_FOUND",
+          message: "Comment not found"
+        });
       }
 
       await db.run("DELETE FROM comments WHERE id = ?", [id]);
@@ -1286,9 +1403,12 @@ router.delete(
         "cruda_error",
         { operation: "deleteComment", result: "error", duration, method: "DELETE" }
       );
-      return res
-        .status(500)
-        .json({ error: "Internal server error", requestId });
+      return sendError(res, {
+        statusCode: 500,
+        requestId,
+        code: "CRUDA_OPERATION_FAILED",
+        message: "Internal server error"
+      });
     }
   }
 );
@@ -1338,23 +1458,25 @@ router.use((err, req, res, next) => {
     method: req.method,
   });
 
-  // Send error response
-  res.status(statusCode).json({
-    success: false,
-    error: statusCode === 500 ? "Internal Server Error" : err.message,
-    code: err.code || "INTERNAL_ERROR",
+  return sendError(res, {
+    statusCode,
     requestId,
-    // Only include stack trace in development
-    ...(config.get('NODE_ENV') === "development" && { stack: err.stack }),
+    code: err.code || (statusCode >= 500 ? "CRUDA_OPERATION_FAILED" : "INVALID_REQUEST"),
+    message: statusCode === 500 ? "Internal Server Error" : err.message,
+    details:
+      config.get("NODE_ENV") === "development" && err.stack
+        ? { stack: err.stack }
+        : undefined
   });
 });
 // 404 handler for undefined routes (must be LAST)
 router.use((req, res) => {
   const requestId = req.requestId || ulid();
-  res.status(404).json({
-    error: "Not Found",
-    message: `Cannot ${req.method} ${req.path}`,
+  return sendError(res, {
+    statusCode: 404,
     requestId,
+    code: "ENDPOINT_NOT_FOUND",
+    message: `Cannot ${req.method} ${req.path}`
   });
 });
 

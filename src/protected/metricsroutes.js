@@ -6,6 +6,8 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
+const { errorResponse } = require('@rodit/rodit-auth-be');
+const { sendError } = errorResponse;
 
 // Helper to get client from app.locals
 const getClient = (req) => {
@@ -179,12 +181,11 @@ router.get('/', authenticate_apicall, async (req, res) => {
       }
     );
     
-    res.status(500).json({
-      error: {
-        code: 'METRICS_ERROR',
-        message: 'Failed to retrieve metrics',
-        requestId
-      }
+    return sendError(res, {
+      statusCode: 500,
+      requestId,
+      code: 'METRICS_ERROR',
+      message: 'Failed to retrieve metrics'
     });
   }
 });
@@ -265,12 +266,11 @@ router.get('/system', authenticate_apicall, (req, res) => {
       }
     );
     
-    res.status(500).json({
-      error: {
-        code: 'SYSTEM_METRICS_ERROR',
-        message: 'Failed to retrieve system metrics',
-        requestId
-      }
+    return sendError(res, {
+      statusCode: 500,
+      requestId,
+      code: 'SYSTEM_METRICS_ERROR',
+      message: 'Failed to retrieve system metrics'
     });
   }
 });
@@ -307,12 +307,11 @@ router.post('/reset', authenticate_apicall, (req, res) => {
       reason: 'Missing admin permission'
     });
     
-    return res.status(403).json({
-      error: {
-        code: 'PERMISSION_DENIED',
-        message: 'Admin permission required to reset metrics',
-        requestId
-      }
+    return sendError(res, {
+      statusCode: 403,
+      requestId,
+      code: 'FORBIDDEN',
+      message: 'Admin permission required to reset metrics'
     });
   }
   
@@ -359,12 +358,11 @@ router.post('/reset', authenticate_apicall, (req, res) => {
       }
     );
     
-    res.status(500).json({
-      error: {
-        code: 'METRICS_RESET_ERROR',
-        message: 'Failed to reset metrics',
-        requestId
-      }
+    return sendError(res, {
+      statusCode: 500,
+      requestId,
+      code: 'METRICS_RESET_ERROR',
+      message: 'Failed to reset metrics'
     });
   }
 });
@@ -378,9 +376,10 @@ router.post('/reset', authenticate_apicall, (req, res) => {
 router.get('/debug', authenticate_apicall, (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
+  let logger;
   
   try {
-    const logger = getLogger(req);
+    logger = getLogger(req);
     const performanceService = getPerformanceService(req);
     const metrics = performanceService.getMetrics();
     
@@ -406,8 +405,8 @@ router.get('/debug', authenticate_apicall, (req, res) => {
     });
   } catch (error) {
     const duration = Date.now() - startTime;
-    
-    logger.error('Debug endpoint error', {
+    const log = logger || { error: () => {} };
+    log.error('Debug endpoint error', {
       component: 'MetricsRoutes',
       method: 'debug',
       requestId,
@@ -415,13 +414,12 @@ router.get('/debug', authenticate_apicall, (req, res) => {
       duration
     });
     
-    res.status(500).json({
-      error: {
-        code: 'DEBUG_ERROR',
-        message: 'Failed to retrieve debug information',
-        details: error.message,
-        requestId
-      }
+    return sendError(res, {
+      statusCode: 500,
+      requestId,
+      code: 'DEBUG_ERROR',
+      message: 'Failed to retrieve debug information',
+      details: { detail: error.message }
     });
   }
 });

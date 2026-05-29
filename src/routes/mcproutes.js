@@ -8,7 +8,8 @@
 const express = require('express');
 const router = express.Router();
 const { ulid } = require('ulid');
-const { RoditClient } = require('@rodit/rodit-auth-be');
+const { RoditClient, errorResponse } = require('@rodit/rodit-auth-be');
+const { sendError } = errorResponse;
 const fs = require('fs');
 const path = require('path');
 
@@ -56,7 +57,7 @@ const mcpService = {
   async listAvailableResources(req, options = {}) {
     const all = [
       { uri: 'openapi:swagger', name: 'OpenAPI Schema', type: 'application/json' },
-      { uri: 'config:default', name: 'Server Default Config', type: 'application/json' }
+      { uri: 'config:environment', name: 'Server Environment Config', type: 'application/json' }
     ];
     const start = options.cursor ? parseInt(options.cursor, 10) || 0 : 0;
     const limit = options.limit || all.length;
@@ -69,13 +70,14 @@ const mcpService = {
     if (uri === 'openapi:swagger') {
       return { type: 'application/json', content: loadSwaggerSpec() };
     }
-    if (uri === 'config:default') {
+    if (uri === 'config:environment') {
       try {
-        const cfgPath = path.join(__dirname, '../../config/default.json');
+        const nodeEnv = process.env.NODE_ENV || 'development';
+        const cfgPath = path.join(__dirname, '../../config', `${nodeEnv}.json`);
         const raw = fs.readFileSync(cfgPath, 'utf8');
         return { type: 'application/json', content: JSON.parse(raw) };
       } catch (error) {
-        logger.error('Failed to load default config for MCP resource', {
+        logger.error('Failed to load environment config for MCP resource', {
           component: 'MCPRoutes',
           method: 'getResource',
           uri,
@@ -184,10 +186,12 @@ router.get('/resources', async (req, res) => {
       }
     );
     
-    res.status(500).json({
-      error: 'Failed to list resources',
-      message: error.message,
-      requestId
+    return sendError(res, {
+      statusCode: 500,
+      requestId,
+      code: 'MCP_LIST_FAILED',
+      message: 'Failed to list resources',
+      details: { detail: error.message }
     });
   }
 });
@@ -244,10 +248,12 @@ router.get('/resource/:uri(*)', authenticate_apicall, async (req, res) => {
         status: 404
       });
       
-      return res.status(404).json({
-        error: 'Resource not found',
-        uri,
-        requestId
+      return sendError(res, {
+        statusCode: 404,
+        requestId,
+        code: 'MCP_RESOURCE_NOT_FOUND',
+        message: 'Resource not found',
+        details: { uri }
       });
     }
     
@@ -294,10 +300,12 @@ router.get('/resource/:uri(*)', authenticate_apicall, async (req, res) => {
         result: 'unauthorized'
       });
       
-      return res.status(401).json({
-        error: 'Unauthorized access to resource',
-        message: error.message,
-        requestId
+      return sendError(res, {
+        statusCode: 401,
+        requestId,
+        code: 'UNAUTHORIZED',
+        message: 'Unauthorized access to resource',
+        details: { detail: error.message }
       });
     }
     
@@ -311,10 +319,12 @@ router.get('/resource/:uri(*)', authenticate_apicall, async (req, res) => {
         result: 'not_found'
       });
       
-      return res.status(404).json({
-        error: 'Resource not found',
-        message: error.message,
-        requestId
+      return sendError(res, {
+        statusCode: 404,
+        requestId,
+        code: 'MCP_RESOURCE_NOT_FOUND',
+        message: 'Resource not found',
+        details: { uri, detail: error.message }
       });
     }
     
@@ -331,10 +341,12 @@ router.get('/resource/:uri(*)', authenticate_apicall, async (req, res) => {
       }
     );
     
-    res.status(500).json({
-      error: 'Failed to retrieve resource',
-      message: error.message,
-      requestId
+    return sendError(res, {
+      statusCode: 500,
+      requestId,
+      code: 'MCP_RESOURCE_FAILED',
+      message: 'Failed to retrieve resource',
+      details: { detail: error.message }
     });
   }
 });
@@ -407,10 +419,12 @@ router.get('/schema', async (req, res) => {
       }
     );
     
-    res.status(500).json({
-      error: 'Failed to retrieve schema',
-      message: error.message,
-      requestId
+    return sendError(res, {
+      statusCode: 500,
+      requestId,
+      code: 'MCP_SCHEMA_FAILED',
+      message: 'Failed to retrieve schema',
+      details: { detail: error.message }
     });
   }
 });

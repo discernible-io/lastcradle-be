@@ -2,7 +2,8 @@
 const express = require("express");
 const router = express.Router();
 const { ulid } = require("ulid");
-const { RoditClient } = require("@rodit/rodit-auth-be");
+const { RoditClient, errorResponse } = require("@rodit/rodit-auth-be");
+const { sendError } = errorResponse;
 
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
@@ -63,10 +64,11 @@ router.get("/home", (req, res, next) => {
       }
     );
     
-    res.status(500).json({
-      error: 'Failed to process homepage request',
-      message: error.message,
-      requestId
+    return sendError(res, {
+      statusCode: 500,
+      requestId,
+      code: "HOME_REQUEST_FAILED",
+      message: "Failed to process homepage request"
     });
   }
 });

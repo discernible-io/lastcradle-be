@@ -10,13 +10,17 @@ This API provides secure authentication services using the Discernible Authentic
 **Production URL**: https://api.discernible.io:9443  
 **API Documentation**: https://api.discernible.io:9443/api-docs
 
+## Standards compliance
+
+See [security-compliance.md](security-compliance.md) for gap analysis against [discernible-io/docs](https://github.com/discernible-io/docs) standards and the ranked improvement backlog.
+
 ## Architecture
 
 ### Technology Stack
 
 - **Runtime**: Node.js 20 (Alpine Linux)
 - **Framework**: Express.js 4.19
-- **Authentication**: @rodit/rodit-auth-be SDK v3.1.0
+- **Authentication**: @rodit/rodit-auth-be SDK 9.10.6 (aligned with idclawserver-idc)
 - **Database**: SQLite 5.1 (sessions + application data)
 - **Session Store**: connect-sqlite3 with express-session
 - **Logging**: Winston 3.17 with Grafana Loki integration
@@ -87,7 +91,6 @@ This API provides secure authentication services using the Discernible Authentic
 #### Protected Endpoints (Require Authentication)
 - `POST /api/logout` - Session termination
 - `GET /api/token/claims` - Inspect JWT token claims
-- `POST /api/echo` - Echo service for testing
 - `GET /api/metrics` - Performance metrics
 - `GET /api/metrics/system` - System resource metrics
 - `POST /api/metrics/reset` - Reset metrics (admin only)
@@ -138,8 +141,7 @@ cd servertest
 # Install dependencies
 npm install
 
-# Configure environment (see Configuration section)
-cp config/default.json.example config/default.json
+# Set NODE_ENV to match config/development.json or config/main.json (see Configuration)
 
 # Initialize database
 chmod +x scripts/init-database.sh
@@ -157,7 +159,8 @@ Configuration is managed through the `config` package with environment variable 
 
 ### Key Configuration Files
 
-- `config/default.json` - Base configuration
+- `config/development.json` / `config/main.json` - Per-environment configuration (`NODE_ENV`)
+- `config/custom-environment-variables.json` - Maps env vars into config keys
 - Environment variables override config values using `__` notation
 
 ### Required Environment Variables
@@ -251,15 +254,16 @@ podman run -d --pod servertest-pod --name servertest-nginx \
 
 ### nginx Configuration
 
-The nginx reverse proxy (`nginx/nginx.conf`) provides:
+Environment-specific configs (`nginx/nginx.main.conf`, `nginx/nginx.development.conf`) are baked via `NODE_ENV` in `nginx.Dockerfile`:
 
 - **TLS Termination**: TLS 1.2/1.3 with modern cipher suites
 - **Security Headers**: HSTS, CSP, X-Frame-Options, etc.
-- **CORS**: Configured for specific origins
-- **Rate Limiting**: Request throttling
-- **Payload Limits**: 1MB default, 10MB for uploads
-- **Health Checks**: `/health` endpoint
-- **Logging**: JSON-formatted access logs for Loki
+- **CORS**: Deny-by-default; only listed origins receive `Access-Control-Allow-Origin`
+- **Rate Limiting**: `limit_req` on public routes (login, MCP, docs, etc.)
+- **Health**: Proxies `GET /health` to the API (dependency probes)
+- **Logging**: JSON access logs; `/health` omitted from access log
+
+Local deploy without rsync/GHCR: `./scripts/deploy-local-podman.sh` (requires `~/servertest-app/secrets/secrets.env`).
 
 ## Security
 
@@ -325,10 +329,7 @@ servertest-rodit/
 │   │   ├── signclient.js
 │   │   └── mcproutes.js
 │   ├── protected/             # Protected route handlers
-│   │   ├── logout.js
-│   │   ├── echo.js
-│   │   ├── cruda.js
-│   │   ├── sessionroutes.js
+│   │   ├── cruda.js           # CRUDA showcase (auth + authorize)
 │   │   └── metricsroutes.js
 │   └── mcp/                   # MCP implementation
 ├── config/                    # Configuration files
