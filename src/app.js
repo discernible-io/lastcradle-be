@@ -132,6 +132,8 @@ const mcpRoutes = require("./routes/mcproutes");
 // Import protected routes (require authentication)
 const metricsRoutes = require("./protected/metricsroutes");
 const sessionRoutes = require("./routes/session.privileged.routes");
+const gameRoutes = require("./game/routes");
+const gameScheduler = require("./game/scheduler");
 
 // Configure SQLite session storage using express-session
 try {
@@ -1070,6 +1072,7 @@ async function startServer() {
 
     // Protected routes
     app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
+    app.use("/api/game", authenticate_apicall, validatepermissions, gameRoutes);
     app.use("/api/metrics", metricsRoutes);
     app.use("/api/sessions", sessionRoutes);
     
@@ -1170,6 +1173,7 @@ async function startServer() {
         "  POST /api/login - Login with RODiT credentials",
         "  POST /api/logout - Logout (Bearer JWT; expired tokens allowed)",
         "  /api/cruda - CRUDA showcase (requires authentication + permissions)",
+        "  /api/game - Resource Negotiation Survival Game (auth + permissions)",
         "  /api/sessions - Session admin (authenticate + authorize)",
         "  /api-docs - Swagger API documentation",
       ];
@@ -1179,6 +1183,12 @@ async function startServer() {
       logger.info("");
 
       logNginxPublicRateLimitSettings(logger);
+      gameScheduler.resumeAllGames().catch((err) => {
+        logger.warnWithContext("Game scheduler resume failed", {
+          component: "AppLifecycle",
+          error: err.message
+        });
+      });
       setTimeout(() => {
         logResolvedConfigSnapshot(logger, config);
       }, 15000);
@@ -1344,6 +1354,24 @@ async function closeAllDatabases() {
         }
       );
     }
+  }
+
+  // Close the game database connection
+  try {
+    const gameRepo = require("./game/repository");
+    const gameScheduler = require("./game/scheduler");
+    gameScheduler.unregisterGame("all");
+    if (gameRepo && typeof gameRepo.closeDatabase === "function") {
+      await gameRepo.closeDatabase();
+    }
+  } catch (error) {
+    logger.logErrorWithMetrics(
+      "Error closing game database",
+      { requestId, component: "DatabaseManager", event: "closeAllDatabases", database: "game-db" },
+      error,
+      "database_error",
+      { operation: "close", database: "game-db", result: "error" }
+    );
   }
 
   // Close the CRUDA database connection
