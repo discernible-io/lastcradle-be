@@ -16,6 +16,20 @@ const TRIALS = Number(SWEEP_MODE ? process.argv[3] : process.argv[3]) || 10;
 const MAX_TURNS = 500;
 const SWEEP_COUNTS = [4, 8, 16, 32];
 
+function formatElapsed(ms) {
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function buildRunPlan(counts, trials) {
+  const sorted = [...counts].sort((a, b) => a - b);
+  const segments = sorted.map((n) => `${n}p×${trials}`);
+  return {
+    counts: sorted,
+    totalSims: sorted.length * trials,
+    label: segments.join(", ")
+  };
+}
+
 process.env.NODE_CONFIG_ENV = process.env.NODE_CONFIG_ENV || "development";
 process.env.NODE_CONFIG_DIR = require("path").join(__dirname, "..", "config");
 
@@ -88,8 +102,8 @@ async function runTrial(playerCount, trialIndex) {
       (row) => row.action_type === "transfer" && row.status === "executed"
     ).length;
 
-    const state = await engine.getPublicState(gameId);
-    if (state.game.status === "finished") {
+    const game = await repo.getGameById(gameId);
+    if (game.status === "finished") {
       await disposeSimulationRun(repo);
       return { turns: turn, tradesExecuted, finished: true };
     }
@@ -112,48 +126,55 @@ function stats(values) {
   };
 }
 
-async function benchmarkPlayerCount(playerCount) {
+async function benchmarkPlayerCount(playerCount, trials, progress) {
   const tradeTarget = tradesTargetFor(playerCount);
   console.log(`\n${"─".repeat(60)}`);
-  console.log(`${playerCount} players | ${TRIALS} trials | ${tradeTarget} trades/turn target`);
+  console.log(`${playerCount} players | ${trials} trials | ${tradeTarget} trades/turn target`);
   console.log(`${"─".repeat(60)}`);
 
   const results = [];
   let totalTrades = 0;
 
-  for (let i = 0; i < TRIALS; i++) {
+  for (let i = 0; i < trials; i++) {
+    progress.current += 1;
+    const globalLabel = `[${progress.current}/${progress.total}]`;
+    const trialLabel = `${playerCount}p trial ${i + 1}/${trials}`;
+    console.log(`  ${globalLabel} starting ${trialLabel}...`);
+    const startedAt = Date.now();
+
     const result = await runTrial(playerCount, i);
     results.push(result);
     totalTrades += result.tradesExecuted;
-    const label = result.finished ? `turn ${result.turns}` : `cap @ ${MAX_TURNS}`;
+
+    const finishLabel = result.finished ? `finished turn ${result.turns}` : `cap @ ${MAX_TURNS}`;
     console.log(
-      `  trial ${String(i + 1).padStart(2)}/${TRIALS}: ${label} | ${result.tradesExecuted} trades executed`
+      `  ${globalLabel} done ${trialLabel}: ${finishLabel} | ${result.tradesExecuted} trades | ${formatElapsed(Date.now() - startedAt)}`
     );
   }
 
   const finished = results.filter((r) => r.finished);
   if (finished.length === 0) {
     console.log(`  No games finished within ${MAX_TURNS} turns.`);
-    return { playerCount, tradeTarget, finished: 0, trials: TRIALS };
+    return { playerCount, tradeTarget, finished: 0, trials };
   }
 
   const turns = finished.map((r) => r.turns);
   const s = stats(turns);
-  const avgTrades = totalTrades / TRIALS;
-  console.log(`  Finished: ${finished.length}/${TRIALS}`);
+  const avgTrades = totalTrades / trials;
+  console.log(`  Block summary (${playerCount}p): ${finished.length}/${trials} finished`);
   console.log(`  Average turns: ${s.avg.toFixed(1)}`);
   console.log(`  Median turns:  ${s.median.toFixed(1)}`);
   console.log(`  Range:         ${s.min} – ${s.max}`);
   console.log(`  Avg trades/game: ${avgTrades.toFixed(0)} (${tradeTarget}/turn target)`);
-  if (finished.length < TRIALS) {
-    console.log(`  Unfinished:    ${TRIALS - finished.length} trial(s) hit ${MAX_TURNS}-turn cap`);
+  if (finished.length < trials) {
+    console.log(`  Unfinished:    ${trials - finished.length} trial(s) hit ${MAX_TURNS}-turn cap`);
   }
 
   return {
     playerCount,
     tradeTarget,
     finished: finished.length,
-    trials: TRIALS,
+    trials,
     avgTurns: s.avg,
     medianTurns: s.median,
     minTurns: s.min,
@@ -174,12 +195,20 @@ async function benchmarkPlayerCount(playerCount) {
   );
   console.log(`Trials per count: ${TRIALS} | max turns: ${MAX_TURNS}`);
 
-  const counts = SWEEP_MODE ? SWEEP_COUNTS : [PLAYER_COUNT];
-  const summary = [];
+  const plan = buildRunPlan(SWEEP_MODE ? SWEEP_COUNTS : [PLAYER_COUNT], TRIALS);
+  console.log(
+    `Run plan (${plan.totalSims} simulations, shortest first): ${plan.label}`
+  );
 
-  for (const n of counts) {
-    summary.push(await benchmarkPlayerCount(n));
+  const progress = { current: 0, total: plan.totalSims };
+  const summary = [];
+  const sweepStartedAt = Date.now();
+
+  for (const n of plan.counts) {
+    summary.push(await benchmarkPlayerCount(n, TRIALS, progress));
   }
+
+  console.log(`\nTotal benchmark time: ${formatElapsed(Date.now() - sweepStartedAt)}`);
 
   if (summary.length > 1) {
     console.log(`\n${"=".repeat(60)}`);

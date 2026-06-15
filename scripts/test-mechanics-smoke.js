@@ -28,6 +28,7 @@ async function main() {
       territoryCapacityMin: 50,
       territoryCapacityMax: 50,
       minAgents: 3,
+      joiningWindowDurationMs: 0,
       productionEnergyCostRate: 0.1,
       storageWaterCostRate: 0.1,
       investProductionGainPerUnit: 1,

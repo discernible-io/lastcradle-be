@@ -23,6 +23,51 @@ function tradesTargetFor(playerCount) {
   return Math.floor(Math.max(playerCount, 0) / 2);
 }
 
+const HIDE_COMPUTE = 7;
+const FIND_COMPUTE = 11;
+
+function computeAvailableAfterAction(agent, action) {
+  let compute = agent.inventory?.compute ?? 0;
+  if (action.type === "invest") {
+    compute -= action.compute || action.energy || 0;
+  }
+  return compute;
+}
+
+/**
+ * Attach hide/find to execution actions. Find spend must exceed target hide to reveal capacities.
+ * Traders scout recipients; investors and reserves conceal; compute specialists probe rivals.
+ */
+function withIntelligence(action, agent, { profiles, living, turnNumber }) {
+  const next = { ...action };
+  const specialty = profiles.find((p) => p.roditId === agent.roditId)?.specialty;
+  let intelSpend = 0;
+
+  if (next.type === "transfer" && next.toAgentId) {
+    if (computeAvailableAfterAction(agent, next) >= intelSpend + FIND_COMPUTE) {
+      next.find = [{ targetAgentId: next.toAgentId, compute: FIND_COMPUTE }];
+      intelSpend += FIND_COMPUTE;
+    }
+  } else if (next.type === "invest" || (next.type === "none" && specialty === null)) {
+    if (computeAvailableAfterAction(agent, next) >= intelSpend + HIDE_COMPUTE) {
+      next.hide = HIDE_COMPUTE;
+      intelSpend += HIDE_COMPUTE;
+    }
+  }
+
+  if (specialty === "compute" && next.type !== "transfer") {
+    const rivals = living.filter((a) => a.id !== agent.id);
+    if (rivals.length) {
+      const target = rivals[(turnNumber + living.indexOf(agent)) % rivals.length];
+      if (computeAvailableAfterAction(agent, next) >= intelSpend + FIND_COMPUTE) {
+        next.find = [{ targetAgentId: target.id, compute: FIND_COMPUTE }];
+      }
+    }
+  }
+
+  return next;
+}
+
 /**
  * Build execution actions with heavy trading plus specialty investment for non-traders.
  */
@@ -69,6 +114,17 @@ function buildHeavyTradeActions(agents, profiles, playerCount, turnNumber = 1) {
     }
   }
 
+  for (const agent of living) {
+    const roditId = agent.roditId;
+    if (actions[roditId]) {
+      actions[roditId] = withIntelligence(actions[roditId], agent, {
+        profiles,
+        living,
+        turnNumber
+      });
+    }
+  }
+
   return actions;
 }
 
@@ -76,5 +132,8 @@ module.exports = {
   TRANSFER_BY_SPECIALTY,
   transferForSpecialty,
   tradesTargetFor,
+  HIDE_COMPUTE,
+  FIND_COMPUTE,
+  withIntelligence,
   buildHeavyTradeActions
 };

@@ -4,33 +4,33 @@
 
 const DEFAULT_GAME_CONFIG = {
   /** Starting inventory when random range is not used */
-  startingInventory: { energy: 100, water: 100, compute: 100 },
+  startingInventory: { energy: 111, water: 111, compute: 111 },
 
   /** Random territory capacity range (inclusive) — initial production & storage capacity */
-  territoryCapacityMin: 20,
-  territoryCapacityMax: 100,
+  territoryCapacityMin: 50,
+  territoryCapacityMax: 111,
 
   /** Random starting inventory range (inclusive) */
-  startingInventoryMin: 40,
-  startingInventoryMax: 200,
+  startingInventoryMin: 111,
+  startingInventoryMax: 721,
   useRandomStartingInventory: true,
 
   /**
    * After rolling random inventory, each resource is raised to at least this value.
    */
-  startingInventoryFloor: 50,
+  startingInventoryFloor: 111,
 
   /**
    * If min(E,W,C) is still below this after per-resource floors, add the gap to all
    * three resources equally so balanced investments remain affordable early on.
    */
-  startingInventoryBalanceMin: 60,
+  startingInventoryBalanceMin: 111,
 
   /** @deprecated use communicationCostComputeBase */
   communicationCostCompute: 1,
   communicationCostComputeBase: 1,
   /** Additional compute per reported message for each turn elapsed (turn 1 = base only) */
-  communicationCostComputeTurnIncrement: 0.08,
+  communicationCostComputeTurnIncrement: 0.1,
 
   /** Energy consumed as a fraction of water + compute produced each turn */
   productionEnergyCostRate: 0.1,
@@ -39,18 +39,18 @@ const DEFAULT_GAME_CONFIG = {
   storageWaterCostRate: 0.1,
 
   /** Per-unit EWC invested toward a resource adds this much production capacity */
-  investProductionGainPerUnit: 0.5,
+  investProductionGainPerUnit: 0.7,
 
   /** Per-unit EWC invested toward a resource adds this much storage capacity */
-  investStorageGainPerUnit: 0.5,
+  investStorageGainPerUnit: 0.7,
 
-  maxProductionCapacity: { energy: 500, water: 500, compute: 500 },
-  maxStorageCapacity: { energy: 5000, water: 5000, compute: 5000 },
+  maxProductionCapacity: { energy: 700, water: 700, compute: 700 },
+  maxStorageCapacity: { energy: 7000, water: 7000, compute: 7000 },
 
-  survivalCost: { energy: 10, water: 10, compute: 10 },
+  survivalCost: { energy: 11, water: 11, compute: 11 },
 
   /** Added to each resource's survival cost per turn elapsed (turn 1 = base only) */
-  survivalCostTurnIncrement: 0.65,
+  survivalCostTurnIncrement: 0.96,
 
   /**
    * Turn increment is calibrated at this active-player count.
@@ -62,14 +62,23 @@ const DEFAULT_GAME_CONFIG = {
   finishSurvivorCount: 2,
 
   /** Real-time phase durations in milliseconds */
-  negotiationDurationMs: 5 * 60 * 1000,
-  executionDurationMs: 5 * 60 * 1000,
+  negotiationDurationMs: 7 * 60 * 1000,
+  executionDurationMs: 7 * 60 * 1000,
+
+  /**
+   * Lobby joining window in milliseconds. Territory is assigned only while this window is open.
+   * Set to 0 to allow joins anytime before the game starts (legacy behavior).
+   */
+  joiningWindowDurationMs: 10 * 60 * 1000,
+
+  /** Delay after game creation before the joining window opens. 0 = opens immediately. */
+  joiningWindowDelayMs: 0,
 
   /** Minimum agents required to start */
   minAgents: 3,
 
   /** Maximum agents per game */
-  maxAgents: 12,
+  maxAgents: 17,
 
   /** Extra energy survival cost per 10 global report mismatch (shared by all living agents) */
   messageReportMismatchEnergyPenaltyPerTen: 1,
@@ -78,10 +87,10 @@ const DEFAULT_GAME_CONFIG = {
   messageReportMismatchOutlierExcludeEnabled: true,
 
   /** Global mismatch must exceed this before an outlier is identified for penalty adjustment. */
-  messageReportMismatchOutlierThreshold: 10,
+  messageReportMismatchOutlierThreshold: 11,
 
   /** Correcting one agent's report must reduce mismatch by at least this fraction of the baseline. */
-  messageReportMismatchOutlierMinFixRatio: 0.75
+  messageReportMismatchOutlierMinFixRatio: 0.77
 };
 
 function mergeGameConfig(overrides = {}) {

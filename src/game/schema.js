@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS games (
   config_json TEXT NOT NULL,
   negotiation_ends_at TEXT,
   execution_ends_at TEXT,
+  joining_window_starts_at TEXT,
+  joining_window_ends_at TEXT,
   turn_growth_json TEXT,
   winner_ids_json TEXT,
   aggregate_water_consumed REAL NOT NULL DEFAULT 0,

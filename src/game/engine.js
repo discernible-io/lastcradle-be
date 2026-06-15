@@ -191,9 +191,87 @@ function buildTerritoryAssignment(config) {
   return { territory, inventory };
 }
 
-async function createGame({ config: configOverrides = {} } = {}) {
+function resolveJoiningWindow(gameConfig, { joiningWindowStartsAt = null } = {}) {
+  const durationMs = gameConfig.joiningWindowDurationMs ?? 0;
+  if (durationMs <= 0) {
+    return { joiningWindowStartsAt: null, joiningWindowEndsAt: null };
+  }
+
+  const delayMs = gameConfig.joiningWindowDelayMs ?? 0;
+  const startsAt = joiningWindowStartsAt
+    ? new Date(joiningWindowStartsAt)
+    : new Date(Date.now() + delayMs);
+  if (Number.isNaN(startsAt.getTime())) {
+    throw gameError("INVALID_JOINING_WINDOW", "joiningWindowStartsAt must be a valid ISO timestamp", 400);
+  }
+
+  const endsAt = new Date(startsAt.getTime() + durationMs);
+  return {
+    joiningWindowStartsAt: startsAt.toISOString(),
+    joiningWindowEndsAt: endsAt.toISOString()
+  };
+}
+
+function hasJoiningWindow(game) {
+  return Boolean(game.joining_window_starts_at && game.joining_window_ends_at);
+}
+
+function isJoiningWindowOpen(game, now = Date.now()) {
+  if (!hasJoiningWindow(game)) {
+    return true;
+  }
+  const startsAt = new Date(game.joining_window_starts_at).getTime();
+  const endsAt = new Date(game.joining_window_ends_at).getTime();
+  return now >= startsAt && now < endsAt;
+}
+
+function joiningWindowDetails(game) {
+  if (!hasJoiningWindow(game)) {
+    return null;
+  }
+  return {
+    startsAt: game.joining_window_starts_at,
+    endsAt: game.joining_window_ends_at,
+    open: isJoiningWindowOpen(game)
+  };
+}
+
+function requireJoiningWindowOpen(game) {
+  if (!hasJoiningWindow(game)) {
+    return;
+  }
+
+  const details = joiningWindowDetails(game);
+  const now = Date.now();
+  const startsAt = new Date(game.joining_window_starts_at).getTime();
+
+  if (now < startsAt) {
+    throw gameError(
+      "JOIN_WINDOW_NOT_OPEN",
+      "Territory assignment has not started yet; wait until the joining window opens",
+      409,
+      details
+    );
+  }
+
+  if (!isJoiningWindowOpen(game, now)) {
+    throw gameError(
+      "JOIN_WINDOW_CLOSED",
+      "The joining window has closed; territory assignment is no longer available",
+      409,
+      details
+    );
+  }
+}
+
+async function createGame({ config: configOverrides = {}, joiningWindowStartsAt = null } = {}) {
   const gameConfig = mergeGameConfig(configOverrides);
-  return repo.createGame({ config: gameConfig });
+  const joiningWindow = resolveJoiningWindow(gameConfig, { joiningWindowStartsAt });
+  return repo.createGame({
+    config: gameConfig,
+    joiningWindowStartsAt: joiningWindow.joiningWindowStartsAt,
+    joiningWindowEndsAt: joiningWindow.joiningWindowEndsAt
+  });
 }
 
 async function finishGameIfFewSurvivors(gameId) {
@@ -228,6 +306,8 @@ async function joinGame(gameId, { roditId, displayName }) {
   if (existing) {
     return existing;
   }
+
+  requireJoiningWindowOpen(game);
 
   const config = game.config;
   if ((await repo.countAgents(gameId)) >= config.maxAgents) {
@@ -774,6 +854,7 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       currentTurn: game.current_turn,
       phase: game.phase,
       negotiationEndsAt: game.negotiation_ends_at,
+      joiningWindow: joiningWindowDetails(game),
       startedAt: game.started_at,
       finishedAt: game.finished_at,
       winnerIds: game.winnerIds || [],
@@ -931,6 +1012,8 @@ module.exports = {
   applyProduction,
   applyStorageCost,
   gameError,
+  isJoiningWindowOpen,
+  joiningWindowDetails,
   computeSurvivalCost,
   normalizeInvestAction,
   validateBalancedInvestment,

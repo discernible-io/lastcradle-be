@@ -35,18 +35,18 @@ function effectiveSurvivalTurnIncrement(config, context, resourceKey) {
 function computeSurvivalCost(config, context = {}) {
   const turn = Math.max(1, context.turnNumber ?? 1);
   const turnOffset = turn - 1;
-  const base = config.survivalCost ?? { energy: 10, water: 10, compute: 10 };
+  const base = config.survivalCost ?? { energy: 11, water: 11, compute: 11 };
   const energyPenalty = context.energyPenalty || 0;
 
   return {
     energy:
-      (base.energy ?? 10) +
+      (base.energy ?? 11) +
       turnOffset * effectiveSurvivalTurnIncrement(config, context, "energy") +
       energyPenalty,
     water:
-      (base.water ?? 10) + turnOffset * effectiveSurvivalTurnIncrement(config, context, "water"),
+      (base.water ?? 11) + turnOffset * effectiveSurvivalTurnIncrement(config, context, "water"),
     compute:
-      (base.compute ?? 10) + turnOffset * effectiveSurvivalTurnIncrement(config, context, "compute")
+      (base.compute ?? 11) + turnOffset * effectiveSurvivalTurnIncrement(config, context, "compute")
   };
 }
 

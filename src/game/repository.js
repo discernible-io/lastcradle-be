@@ -25,6 +25,12 @@ async function getDb() {
 
 async function migrateSchema(database) {
   const gameCols = await database.all(`PRAGMA table_info(games)`);
+  if (!gameCols.some((c) => c.name === "joining_window_starts_at")) {
+    await database.run(`ALTER TABLE games ADD COLUMN joining_window_starts_at TEXT`);
+  }
+  if (!gameCols.some((c) => c.name === "joining_window_ends_at")) {
+    await database.run(`ALTER TABLE games ADD COLUMN joining_window_ends_at TEXT`);
+  }
   if (!gameCols.some((c) => c.name === "aggregate_water_consumed")) {
     await database.run(
       `ALTER TABLE games ADD COLUMN aggregate_water_consumed REAL NOT NULL DEFAULT 0`
@@ -151,12 +157,13 @@ function rowToAgent(row) {
   };
 }
 
-async function createGame({ config: gameConfig }) {
+async function createGame({ config: gameConfig, joiningWindowStartsAt = null, joiningWindowEndsAt = null }) {
   const database = await getDb();
   const id = ulid();
   await database.run(
-    `INSERT INTO games (id, status, config_json) VALUES (?, 'lobby', ?)`,
-    [id, JSON.stringify(gameConfig)]
+    `INSERT INTO games (id, status, config_json, joining_window_starts_at, joining_window_ends_at)
+     VALUES (?, 'lobby', ?, ?, ?)`,
+    [id, JSON.stringify(gameConfig), joiningWindowStartsAt, joiningWindowEndsAt]
   );
   return getGameById(id);
 }
@@ -177,6 +184,8 @@ async function updateGame(gameId, fields) {
     "aggregate_water_consumed",
     "negotiation_ends_at",
     "execution_ends_at",
+    "joining_window_starts_at",
+    "joining_window_ends_at",
     "turn_growth_json",
     "winner_ids_json",
     "started_at",
@@ -589,8 +598,8 @@ async function findMessageReportOutlier(
   allPublic,
   options
 ) {
-  const threshold = options.outlierThreshold ?? options.discardThreshold ?? 10;
-  const minFixRatio = options.outlierMinFixRatio ?? 0.75;
+  const threshold = options.outlierThreshold ?? options.discardThreshold ?? 11;
+  const minFixRatio = options.outlierMinFixRatio ?? 0.77;
   const reportByAgent = new Map(reports.map((r) => [r.agent_id, r]));
 
   const baseline = computeGlobalReportMismatch(reports, livingAgents.length, allPublic);

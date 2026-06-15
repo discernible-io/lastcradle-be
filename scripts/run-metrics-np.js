@@ -27,6 +27,8 @@ const {
   communicationCostComputeForTurn,
   investmentTotal
 } = require("../src/game/survival-cost");
+const { buildInvestAction } = require("../src/game/defaults");
+const { collectIntelligenceFromActions } = require("../src/game/engine");
 const { buildHeavyTradeActions, tradesTargetFor } = require("./sim-trading");
 
 const SPECIALTY_CYCLE = ["energy", "water", "compute", null];
@@ -209,9 +211,9 @@ function sumProductionRow(row) {
 function productionRate(agent) {
   if (!agent || agent.status !== "alive") return null;
   return {
-    energy: agent.capacity.energy * agent.development.energy,
-    water: agent.capacity.water * agent.development.water,
-    compute: agent.capacity.compute * agent.development.compute
+    energy: agent.productionCapacity.energy,
+    water: agent.productionCapacity.water,
+    compute: agent.productionCapacity.compute
   };
 }
 
@@ -232,6 +234,25 @@ function agentName(agents, id) {
 
 function emptyInvest() {
   return { energy: 0, water: 0, compute: 0, actions: 0, waterProdTotal: 0 };
+}
+
+function emptyPlayerTurn() {
+  return {
+    production: null,
+    invested: emptyR(),
+    tradeOut: emptyR(),
+    tradeIn: emptyR(),
+    intelHide: 0,
+    intelFind: 0
+  };
+}
+
+function ensurePlayerTurn(metrics, turnNumber, name) {
+  metrics.perPlayerByTurn[turnNumber] = metrics.perPlayerByTurn[turnNumber] || {};
+  if (!metrics.perPlayerByTurn[turnNumber][name]) {
+    metrics.perPlayerByTurn[turnNumber][name] = emptyPlayerTurn();
+  }
+  return metrics.perPlayerByTurn[turnNumber][name];
 }
 
 function addInvest(a, payload) {
@@ -258,6 +279,8 @@ async function runTurn(gameId, agents, turnNumber, plan, metrics, gameRowBefore)
     const prod = productionRate(agent);
     metrics.productionByTurn[turnNumber] = metrics.productionByTurn[turnNumber] || {};
     metrics.productionByTurn[turnNumber][agent.displayName] = prod;
+    const row = ensurePlayerTurn(metrics, turnNumber, agent.displayName);
+    row.production = prod;
     metrics.cumulativeProduction[agent.displayName] = metrics.cumulativeProduction[agent.displayName] || {
       energy: 0,
       water: 0,
@@ -316,6 +339,10 @@ async function runTurn(gameId, agents, turnNumber, plan, metrics, gameRowBefore)
 
     if (row.action_type === "transfer" && row.status === "executed") {
       const to = agentName(agents, payload.toAgentId);
+      const fromRow = ensurePlayerTurn(metrics, turnNumber, name);
+      const toRow = ensurePlayerTurn(metrics, turnNumber, to);
+      addR(fromRow.tradeOut, payload);
+      addR(toRow.tradeIn, payload);
       const key = `${name} → ${to}`;
       metrics.tradeFlows[key] = metrics.tradeFlows[key] || emptyFlow();
       addFlow(metrics.tradeFlows[key], payload);
@@ -332,11 +359,21 @@ async function runTurn(gameId, agents, turnNumber, plan, metrics, gameRowBefore)
 
     if (row.action_type === "invest" && row.status === "executed") {
       addR(flow.invested, payload);
+      addR(ensurePlayerTurn(metrics, turnNumber, name).invested, payload);
       metrics.investmentByPlayer[name] = metrics.investmentByPlayer[name] || emptyInvest();
       addInvest(metrics.investmentByPlayer[name], payload);
       metrics.investmentByTurn[turnNumber] = metrics.investmentByTurn[turnNumber] || emptyInvest();
       addInvest(metrics.investmentByTurn[turnNumber], payload);
     }
+  }
+
+  const intelligence = collectIntelligenceFromActions(actions);
+  for (const [agentId, hideSpend] of intelligence.hideSpendByAgent) {
+    ensurePlayerTurn(metrics, turnNumber, agentName(agents, agentId)).intelHide = hideSpend;
+  }
+  for (const [pairKey, findSpend] of intelligence.findSpendByPair) {
+    const viewerId = pairKey.split(":")[1];
+    ensurePlayerTurn(metrics, turnNumber, agentName(agents, viewerId)).intelFind += findSpend;
   }
 
   const gameAfter = await repo.getGameById(gameId);
@@ -413,6 +450,46 @@ function printTurnFlowTable(metrics) {
     "\nNotes: Produced = capacity×development at turn start. Invested/Traded = executed actions. " +
       "Spent survival = paid by survivors. Spent msg = compute for reported messages."
   );
+}
+
+function isZeroR(r) {
+  return !r || (r.energy === 0 && r.water === 0 && r.compute === 0);
+}
+
+function printPerPlayerPerTurnTable(metrics, playerCount) {
+  printSection("PER PLAYER BY TURN (production / invest / trade / intelligence)");
+  console.log(
+    "Production = capacity×development at turn start. Invest/trade = executed execution phase. " +
+      "Intel = compute spent on hide/find (0 if none)."
+  );
+
+  const playerNames = PROFILES.map((p) => p.displayName);
+  for (const turn of Object.keys(metrics.perPlayerByTurn).sort((a, b) => a - b)) {
+    const rowByPlayer = metrics.perPlayerByTurn[turn];
+    const living = Object.keys(rowByPlayer).length;
+    console.log(`\n--- Turn ${turn} (${living} players) ---`);
+    console.log(
+      "Player  Production (E/W/C)     Invested (E/W/C)       Trade out (E/W/C)      Trade in (E/W/C)       Intel hide/find/tot"
+    );
+    console.log("-".repeat(118));
+
+    for (const name of playerNames) {
+      const row = rowByPlayer[name];
+      if (!row) continue;
+      const prod = row.production ? fmtR(row.production) : "—";
+      const inv = isZeroR(row.invested) ? "—" : fmtR(row.invested);
+      const out = isZeroR(row.tradeOut) ? "—" : fmtR(row.tradeOut);
+      const inn = isZeroR(row.tradeIn) ? "—" : fmtR(row.tradeIn);
+      const intelTotal = row.intelHide + row.intelFind;
+      const intel =
+        intelTotal === 0
+          ? "—"
+          : `${fmt(row.intelHide)}/${fmt(row.intelFind)}/${fmt(intelTotal)}`;
+      console.log(
+        `${name.padEnd(6)}  ${prod.padEnd(21)} ${inv.padEnd(22)} ${out.padEnd(22)} ${inn.padEnd(22)} ${intel}`
+      );
+    }
+  }
 }
 
 function printSection(title) {
@@ -568,6 +645,7 @@ async function main() {
     investmentByTurn: {},
     messagingByTurn: {},
     messagingByPlayer: {},
+    perPlayerByTurn: {},
     totalMessagesPublished: 0,
     turnsPlayed: 0
   };
@@ -602,6 +680,7 @@ async function main() {
     if (finalState.game.status === "finished") break;
   }
 
+  printPerPlayerPerTurnTable(metrics, PLAYER_COUNT);
   printTurnFlowTable(metrics);
   printMetrics(metrics, finalState, PLAYER_COUNT);
   await repo.closeDatabase();

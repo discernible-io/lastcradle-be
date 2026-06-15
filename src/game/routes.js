@@ -44,8 +44,17 @@ router.post("/games", validateContentType, validateJsonBody, async (req, res) =>
   const requestId = req.requestId || ulid();
   try {
     const configOverrides = req.body?.config || {};
-    const game = await engine.createGame({ config: configOverrides });
-    res.status(201).json({ game: { id: game.id, status: game.status, config: game.config }, requestId });
+    const joiningWindowStartsAt = req.body?.joiningWindowStartsAt ?? null;
+    const game = await engine.createGame({ config: configOverrides, joiningWindowStartsAt });
+    res.status(201).json({
+      game: {
+        id: game.id,
+        status: game.status,
+        config: game.config,
+        joiningWindow: engine.joiningWindowDetails(game)
+      },
+      requestId
+    });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
