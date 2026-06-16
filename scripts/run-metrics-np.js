@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * N-player simulation with investment, trade, production, and messaging metrics.
- * Usage: node scripts/run-metrics-np.js <players> [finish]
+ * Usage: node scripts/run-metrics-np.js <players> [finish] [contest]
  */
 
 const fs = require("fs");
@@ -651,7 +651,20 @@ async function main() {
     turnsPlayed: 0
   };
 
-  const game = await engine.createGame({ config: { maxAgents: PLAYER_COUNT, minAgents: 3 } });
+  const gameConfig = USE_CONTEST
+    ? mergeGameConfig({
+        ...CONTEST_GAME_CONFIG,
+        minAgents: PLAYER_COUNT,
+        maxAgents: PLAYER_COUNT,
+        negotiationDurationMs: 0,
+        messageReportDurationMs: 0,
+        executionDurationMs: 0,
+        maxTurns: null,
+        maxGameDurationMs: null
+      })
+    : { maxAgents: PLAYER_COUNT, minAgents: 3 };
+
+  const game = await engine.createGame({ config: gameConfig });
   const gameId = game.id;
   const agents = [];
 
