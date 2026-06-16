@@ -288,9 +288,98 @@ async function finishGameIfFewSurvivors(gameId) {
     finished_at: new Date().toISOString(),
     winner_ids_json: JSON.stringify(winners.map((w) => w.id)),
     negotiation_ends_at: null,
+    message_report_ends_at: null,
     execution_ends_at: null
   });
   return true;
+}
+
+function inventoryTotal(agent) {
+  const inv = agent.inventory;
+  return (inv?.energy ?? 0) + (inv?.water ?? 0) + (inv?.compute ?? 0);
+}
+
+function rankAgentsForFinish(agents) {
+  return [...agents].sort((a, b) => {
+    if (a.status === "alive" && b.status !== "alive") return -1;
+    if (a.status !== "alive" && b.status === "alive") return 1;
+    if (a.status === "alive" && b.status === "alive") {
+      return inventoryTotal(b) - inventoryTotal(a);
+    }
+    return (b.diedAtTurn ?? 0) - (a.diedAtTurn ?? 0);
+  });
+}
+
+async function finishGameByDeadline(gameId) {
+  const agents = await repo.listAgents(gameId);
+  const ranked = rankAgentsForFinish(agents);
+  const game = await repo.getGameById(gameId);
+  const finishAt = game?.config?.finishSurvivorCount ?? 1;
+  const winners = ranked.slice(0, Math.max(finishAt, 1)).map((a) => a.id);
+
+  await repo.updateGame(gameId, {
+    status: "finished",
+    phase: null,
+    finished_at: new Date().toISOString(),
+    winner_ids_json: JSON.stringify(winners),
+    negotiation_ends_at: null,
+    message_report_ends_at: null,
+    execution_ends_at: null
+  });
+  return repo.getGameById(gameId);
+}
+
+async function checkAndForceFinishIfNeeded(gameId, { turnNumber } = {}) {
+  const game = await repo.getGameById(gameId);
+  if (!game || game.status !== "running") {
+    return { forced: false, game };
+  }
+
+  const maxTurns = game.config.maxTurns;
+  if (maxTurns != null && turnNumber != null && turnNumber >= maxTurns) {
+    const finished = await finishGameByDeadline(gameId);
+    return { forced: true, game: finished, reason: "max_turns" };
+  }
+
+  if (game.ends_at && Date.now() >= new Date(game.ends_at).getTime()) {
+    const finished = await finishGameByDeadline(gameId);
+    return { forced: true, game: finished, reason: "max_duration" };
+  }
+
+  return { forced: false, game };
+}
+
+async function applyDefaultMessageReportsForPendingAgents(gameId) {
+  const game = await repo.getGameById(gameId);
+  if (!game || game.phase !== "message_report") return;
+
+  const status = await repo.getMessageReportSubmissionStatus(gameId, game.current_turn);
+  for (const agentId of status.pendingAgentIds) {
+    const counts = await repo.getActualMessageCounts(gameId, game.current_turn, agentId);
+    await repo.upsertMessageReport({
+      gameId,
+      turnNumber: game.current_turn,
+      agentId,
+      reportedSent: counts.sent,
+      reportedReceived: counts.received
+    });
+  }
+}
+
+async function applyDefaultActionsForPendingAgents(gameId) {
+  const game = await repo.getGameById(gameId);
+  if (!game || game.phase !== "execution") return;
+
+  const status = await repo.getExecutionSubmissionStatus(gameId, game.current_turn);
+  for (const agentId of status.pendingAgentIds) {
+    await repo.upsertAction({
+      gameId,
+      turnNumber: game.current_turn,
+      agentId,
+      actionType: "none",
+      payload: { type: "none" }
+    });
+  }
 }
 
 async function joinGame(gameId, { roditId, displayName }) {
@@ -348,13 +437,19 @@ async function startGame(gameId) {
   const now = new Date();
   const negotiationEndsAt = new Date(now.getTime() + game.config.negotiationDurationMs);
   const survivalRuntime = { startingAgentCount: agentCount };
+  const endsAt =
+    game.config.maxGameDurationMs > 0
+      ? new Date(now.getTime() + game.config.maxGameDurationMs).toISOString()
+      : null;
 
   await repo.updateGame(gameId, {
     status: "running",
     current_turn: 1,
     phase: "negotiation",
     started_at: now.toISOString(),
+    ends_at: endsAt,
     negotiation_ends_at: negotiationEndsAt.toISOString(),
+    message_report_ends_at: null,
     execution_ends_at: null,
     turn_growth_json: null,
     config_json: JSON.stringify({ ...game.config, survivalRuntime }),
@@ -469,7 +564,13 @@ async function tryCompleteMessageReportPhase(gameId) {
     outlierMinFixRatio: game.config.messageReportMismatchOutlierMinFixRatio
   });
 
-  await repo.updateGame(gameId, { phase: "execution" });
+  const executionDurationMs = game.config.executionDurationMs ?? 0;
+  const executionDeadline =
+    executionDurationMs > 0
+      ? { execution_ends_at: new Date(Date.now() + executionDurationMs).toISOString() }
+      : { execution_ends_at: null };
+
+  await repo.updateGame(gameId, { phase: "execution", message_report_ends_at: null, ...executionDeadline });
 
   return {
     messageReportPhaseCompleted: true,
@@ -593,8 +694,11 @@ function collectIntelligenceFromActions(actions) {
 }
 
 function canViewerSeeCapacities(viewerAgentId, targetAgentId, intelligence) {
-  if (!viewerAgentId || viewerAgentId === targetAgentId) {
+  if (viewerAgentId === targetAgentId) {
     return true;
+  }
+  if (!viewerAgentId) {
+    return false;
   }
   const hideSpend = intelligence.hideSpendByAgent.get(targetAgentId) || 0;
   const findSpend = intelligence.findSpendByPair.get(`${targetAgentId}:${viewerAgentId}`) || 0;
@@ -707,6 +811,11 @@ async function executeTurn(gameId) {
     return repo.getGameById(gameId);
   }
 
+  const forceFinish = await checkAndForceFinishIfNeeded(gameId, { turnNumber });
+  if (forceFinish.forced) {
+    return forceFinish.game;
+  }
+
   const nextTurn = turnNumber + 1;
   const now = new Date();
   const negotiationEndsAt = new Date(now.getTime() + config.negotiationDurationMs);
@@ -715,6 +824,7 @@ async function executeTurn(gameId) {
     current_turn: nextTurn,
     phase: "negotiation",
     negotiation_ends_at: negotiationEndsAt.toISOString(),
+    message_report_ends_at: null,
     execution_ends_at: null
   });
 
@@ -772,9 +882,14 @@ async function beginMessageReportPhase(gameId) {
     return game;
   }
 
+  const durationMs = game.config.messageReportDurationMs ?? 0;
+  const messageReportEndsAt =
+    durationMs > 0 ? new Date(Date.now() + durationMs).toISOString() : null;
+
   await repo.updateGame(gameId, {
     phase: "message_report",
     negotiation_ends_at: null,
+    message_report_ends_at: messageReportEndsAt,
     execution_ends_at: null
   });
 
@@ -787,10 +902,14 @@ async function beginExecutionPhase(gameId) {
     return game;
   }
 
+  const durationMs = game.config.executionDurationMs ?? 0;
+  const executionEndsAt = durationMs > 0 ? new Date(Date.now() + durationMs).toISOString() : null;
+
   await repo.updateGame(gameId, {
     phase: "execution",
     negotiation_ends_at: null,
-    execution_ends_at: null
+    message_report_ends_at: null,
+    execution_ends_at: executionEndsAt
   });
 
   return repo.getGameById(gameId);
@@ -854,6 +973,10 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       currentTurn: game.current_turn,
       phase: game.phase,
       negotiationEndsAt: game.negotiation_ends_at,
+      messageReportEndsAt: game.message_report_ends_at,
+      executionEndsAt: game.execution_ends_at,
+      endsAt: game.ends_at,
+      contestMode: game.config.contestMode ?? null,
       joiningWindow: joiningWindowDetails(game),
       startedAt: game.started_at,
       finishedAt: game.finished_at,
@@ -1007,6 +1130,10 @@ module.exports = {
   executeTurn,
   beginMessageReportPhase,
   beginExecutionPhase,
+  applyDefaultMessageReportsForPendingAgents,
+  applyDefaultActionsForPendingAgents,
+  checkAndForceFinishIfNeeded,
+  finishGameByDeadline,
   getPublicState,
   applyTurnProduction,
   applyProduction,

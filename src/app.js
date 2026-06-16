@@ -420,7 +420,7 @@ We comply with applicable data protection regulations including GDPR and CCPA. I
       security: "Regular security audits and penetration testing",
     },
   },
-  apis: ["./src/app.js", "./src/routes/*.js", "./src/protected/*.js"],
+  apis: ["./src/app.js", "./src/routes/*.js", "./src/protected/*.js", "./src/game/routes.js"],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
@@ -1189,6 +1189,13 @@ async function startServer() {
           error: err.message
         });
       });
+      const contestOrchestrator = require("./game/contest-orchestrator");
+      contestOrchestrator.resumeLobbyGames().catch((err) => {
+        logger.warnWithContext("Contest orchestrator resume failed", {
+          component: "AppLifecycle",
+          error: err.message
+        });
+      });
       setTimeout(() => {
         logResolvedConfigSnapshot(logger, config);
       }, 15000);
@@ -1360,7 +1367,9 @@ async function closeAllDatabases() {
   try {
     const gameRepo = require("./game/repository");
     const gameScheduler = require("./game/scheduler");
+    const contestOrchestrator = require("./game/contest-orchestrator");
     gameScheduler.unregisterGame("all");
+    contestOrchestrator.unregisterLobbyGame("all");
     if (gameRepo && typeof gameRepo.closeDatabase === "function") {
       await gameRepo.closeDatabase();
     }

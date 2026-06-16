@@ -61,9 +61,28 @@ const DEFAULT_GAME_CONFIG = {
   /** Game ends when living agents fall to this count or below */
   finishSurvivorCount: 2,
 
-  /** Real-time phase durations in milliseconds */
+  /** Real-time phase durations in milliseconds (0 = submission-gated, no auto-advance) */
   negotiationDurationMs: 7 * 60 * 1000,
-  executionDurationMs: 7 * 60 * 1000,
+  messageReportDurationMs: 0,
+  executionDurationMs: 0,
+
+  /**
+   * Target wall-clock duration for one full turn (negotiation + message report + execution).
+   * Informational default for contest presets; enforced via individual phase timers.
+   */
+  turnIntervalMs: null,
+
+  /** Optional cap on total turns before forced finish (null = unlimited) */
+  maxTurns: null,
+
+  /** Optional wall-clock cap from game start before forced finish (null = unlimited) */
+  maxGameDurationMs: null,
+
+  /**
+   * Contest metadata: null (casual), "practice", or "definitive".
+   * Orchestration (prizes, scheduling) is layered on top when set.
+   */
+  contestMode: null,
 
   /**
    * Lobby joining window in milliseconds. Territory is assigned only while this window is open.
@@ -91,6 +110,31 @@ const DEFAULT_GAME_CONFIG = {
 
   /** Correcting one agent's report must reduce mismatch by at least this fraction of the baseline. */
   messageReportMismatchOutlierMinFixRatio: 0.77
+};
+
+/** Preset for a 50-player contest: 15-minute turns, 48-hour cap, single winner. */
+const CONTEST_GAME_CONFIG = {
+  maxAgents: 50,
+  minAgents: 50,
+  finishSurvivorCount: 1,
+  negotiationDurationMs: 8 * 60 * 1000,
+  messageReportDurationMs: 2 * 60 * 1000,
+  executionDurationMs: 5 * 60 * 1000,
+  turnIntervalMs: 15 * 60 * 1000,
+  maxTurns: 192,
+  maxGameDurationMs: 48 * 60 * 60 * 1000,
+  survivalCostPlayerReference: 50,
+  joiningWindowDurationMs: 60 * 60 * 1000,
+  contestMode: "definitive"
+};
+
+/** Softer preset for practice week — same timing, no duration pressure. */
+const PRACTICE_GAME_CONFIG = {
+  ...CONTEST_GAME_CONFIG,
+  minAgents: 3,
+  maxTurns: null,
+  maxGameDurationMs: null,
+  contestMode: "practice"
 };
 
 function mergeGameConfig(overrides = {}) {
@@ -139,6 +183,8 @@ function maxCapacityFor(config, kind, resourceKey) {
 
 module.exports = {
   DEFAULT_GAME_CONFIG,
+  CONTEST_GAME_CONFIG,
+  PRACTICE_GAME_CONFIG,
   mergeGameConfig,
   buildInvestAction,
   randomInt,

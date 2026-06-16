@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Created** | 2026-05-29 |
-| **Last updated** | 2026-05-29 |
+| **Last updated** | 2026-06-16 |
 | **Scope** | `servertestapi` vs [discernible-io/docs](../docs/docs/) and `idclawserver-idc` |
 | **API role** | Auth reference + **CRUDA** comment showcase (no `/api/echo`) |
 
@@ -219,6 +219,75 @@ Branches ([docs/BRANCHING.md](docs/BRANCHING.md)):
 
 ---
 
+## Contest game requirements (50-player timed event)
+
+Target format: ~50 participants, one practice week, one definitive prize game, turns on a **15-minute cadence**, wall-clock cap **≤ 2 days**, live online following.
+
+### Summary matrix
+
+| Area | Status | Evidence / notes |
+|------|--------|------------------|
+| Phase timers (negotiation → message report → execution) | **Met** | Timers when duration &gt; 0; `scheduler.js` wires all phases |
+| Absent-player auto-defaults on phase timeout | **Met** | Actual message counts + `{ type: "none" }` actions |
+| `executionDurationMs` enforcement | **Met** | Enforced when &gt; 0 (0 = submission-gated for casual games) |
+| Max turns / max game duration | **Met** | `maxTurns`, `maxGameDurationMs`, `ends_at`; forced finish + ranking |
+| 50-player contest config preset | **Met** | `CONTEST_GAME_CONFIG` / `PRACTICE_GAME_CONFIG`; `GET /api/game/defaults/contest` |
+| Practice vs definitive contest mode | **Met** | `contestMode`; `POST /api/game/contests` series + lobby auto-start |
+| Scheduled lobby / auto-start | **Met** | `contest-orchestrator.js` watches joining window end + lobby full |
+| Spectator-safe public state | **Met** | Non-participants no longer bypass hide/find fog-of-war |
+| Game list / live push (SSE or WebSocket) | **Met** | `GET /api/game/games`; `GET /api/game/games/:id/events` (SSE) |
+| Prize settlement (winner → NEAR/auth) | **Partial** | `prize-settlement.js` records winner + audit ref; NEAR transfer is operator |
+| 50-player survival balance calibration | **Operator** | `scripts/calibrate-contest-50p.js` (+ `calibrate-survival-turns.js`) before locking rules |
+
+### Contest preset parameters
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| `maxAgents` / `minAgents` | 50 | Full lobby |
+| `finishSurvivorCount` | 1 | Single clear winner for prize |
+| `negotiationDurationMs` | 8 min | Main trading window |
+| `messageReportDurationMs` | 2 min | Self-report window |
+| `executionDurationMs` | 5 min | Action window (15 min total per turn) |
+| `turnIntervalMs` | 15 min | Documented cadence target (phase sum) |
+| `maxTurns` | 192 | 48 h ÷ 15 min |
+| `maxGameDurationMs` | 48 h | Hard wall-clock cap |
+| `survivalCostPlayerReference` | 50 | Survival pressure calibrated at full lobby |
+
+### Implementation files
+
+| Concern | Path |
+|---------|------|
+| Defaults + contest preset | `src/game/defaults.js` |
+| Phase scheduling | `src/game/scheduler.js` |
+| Turn resolution + forced finish | `src/game/engine.js` |
+| Persistence (`ends_at`, `message_report_ends_at`) | `src/game/schema.js`, `src/game/repository.js` |
+| HTTP surface | `src/game/routes.js` |
+| Contest orchestration | `src/game/contest-orchestrator.js`, `src/game/prize-settlement.js` |
+| Live push (SSE) | `src/game/events.js`, `GET /api/game/games/:id/events` |
+| Phase-timer smoke test | `scripts/test-phase-timers.js` |
+| 50-player calibration | `scripts/calibrate-contest-50p.js` |
+
+### Security notes for contest mode
+
+- **Phase timeouts must not leak hidden state** — auto-default message reports use server-side actual counts only; spectators must not gain intelligence visibility (see `canViewerSeeCapacities`).
+- **Forced finish at deadline** must be deterministic (survivors ranked by alive status, then total inventory, then later elimination) so prize disputes are auditable.
+- **Rate limits** on game endpoints remain via existing nginx / `userratelimitmw`; contest traffic may need tighter per-route limits (operator).
+- **Official contest creation** requires `createOfficialContest` on the JWT `permissions` array for `POST /api/game/contests` and for `POST /api/game/games` when the config matches an official contest (`contestMode: "definitive"` or 50-player min/max). Practice/casual lobbies keep standard game scopes.
+- Grant `createOfficialContest` only to operator service accounts (not general player tokens).
+
+### Verification
+
+```bash
+node scripts/test-phase-timers.js
+node scripts/test-contest-orchestrator.js
+node scripts/test-joining-window.js
+node scripts/calibrate-contest-50p.js
+node --check src/game/contest-orchestrator.js
+node --check src/game/scheduler.js
+```
+
+---
+
 ## Deferred / future
 
 | Item | Rationale |
@@ -226,6 +295,7 @@ Branches ([docs/BRANCHING.md](docs/BRANCHING.md)):
 | Geolocation middleware (`checkGeolocation`) | Policy decision; JWT geo claims unused in servertest |
 | `validateConfig` fail-fast on `main` | Optional hardening: match idc and `process.exit(1)` on validation failure |
 | Expand deploy test suite | Current script covers health, timestamp, welcome, swagger paths; extend per [test-constitution.md](../docs/docs/test-constitution.md) as needed |
+| Contest orchestration (practice week, auto-start, prizes) | Implemented — see [Contest game requirements](#contest-game-requirements-50-player-timed-event) |
 
 ---
 

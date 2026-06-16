@@ -139,6 +139,20 @@
       "entityAndProperties",
       "propertiesOnly",
       "entityOnly"
+    ],
+    "events": [
+      "entityAndProperties",
+      "propertiesOnly",
+      "entityOnly"
+    ],
+    "contests": [
+      "entityAndProperties",
+      "propertiesOnly",
+      "entityOnly",
+      "createOfficialContest"
+    ],
+    "createOfficialContest": [
+      "createOfficialContest"
     ]
   }
 }

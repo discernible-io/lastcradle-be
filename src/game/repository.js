@@ -36,6 +36,35 @@ async function migrateSchema(database) {
       `ALTER TABLE games ADD COLUMN aggregate_water_consumed REAL NOT NULL DEFAULT 0`
     );
   }
+  if (!gameCols.some((c) => c.name === "message_report_ends_at")) {
+    await database.run(`ALTER TABLE games ADD COLUMN message_report_ends_at TEXT`);
+  }
+  if (!gameCols.some((c) => c.name === "ends_at")) {
+    await database.run(`ALTER TABLE games ADD COLUMN ends_at TEXT`);
+  }
+
+  await database.exec(`
+    CREATE TABLE IF NOT EXISTS contests (
+      id TEXT PRIMARY KEY,
+      status TEXT NOT NULL DEFAULT 'scheduled',
+      practice_game_id TEXT,
+      definitive_game_id TEXT,
+      practice_window_starts_at TEXT,
+      practice_window_ends_at TEXT,
+      definitive_joining_starts_at TEXT,
+      prize_amount_yocto TEXT,
+      prize_status TEXT,
+      prize_winner_rodit_id TEXT,
+      prize_winner_agent_id TEXT,
+      prize_settled_at TEXT,
+      prize_tx_reference TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (practice_game_id) REFERENCES games(id),
+      FOREIGN KEY (definitive_game_id) REFERENCES games(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_contests_status ON contests(status);
+  `);
 
   const agentCols = await database.all(`PRAGMA table_info(game_agents)`);
   if (!agentCols.some((c) => c.name === "water_production_investment")) {
@@ -102,6 +131,7 @@ async function resetGameData() {
     DELETE FROM game_actions;
     DELETE FROM game_messages;
     DELETE FROM game_agents;
+    DELETE FROM contests;
     DELETE FROM games;
   `);
 }
@@ -183,7 +213,9 @@ async function updateGame(gameId, fields) {
     "config_json",
     "aggregate_water_consumed",
     "negotiation_ends_at",
+    "message_report_ends_at",
     "execution_ends_at",
+    "ends_at",
     "joining_window_starts_at",
     "joining_window_ends_at",
     "turn_growth_json",
@@ -213,6 +245,147 @@ async function listRunningGames() {
     `SELECT * FROM games WHERE status = 'running' ORDER BY started_at ASC`
   );
   return rows.map(rowToGame);
+}
+
+async function listLobbyGames() {
+  const database = await getDb();
+  const rows = await database.all(
+    `SELECT * FROM games WHERE status = 'lobby' ORDER BY created_at ASC`
+  );
+  return rows.map(rowToGame);
+}
+
+async function listGames({ status, contestMode, limit = 50, offset = 0 } = {}) {
+  const database = await getDb();
+  const params = [];
+  const clauses = [];
+
+  if (status) {
+    clauses.push(`status = ?`);
+    params.push(status);
+  }
+  if (contestMode) {
+    clauses.push(`json_extract(config_json, '$.contestMode') = ?`);
+    params.push(contestMode);
+  }
+
+  let sql = `SELECT * FROM games`;
+  if (clauses.length > 0) {
+    sql += ` WHERE ${clauses.join(" AND ")}`;
+  }
+  sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+  params.push(Math.min(Math.max(limit, 1), 200), Math.max(offset, 0));
+
+  const rows = await database.all(sql, params);
+  return rows.map(rowToGame);
+}
+
+function rowToContest(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    status: row.status,
+    practiceGameId: row.practice_game_id,
+    definitiveGameId: row.definitive_game_id,
+    practiceWindowStartsAt: row.practice_window_starts_at,
+    practiceWindowEndsAt: row.practice_window_ends_at,
+    definitiveJoiningStartsAt: row.definitive_joining_starts_at,
+    prizeAmountYocto: row.prize_amount_yocto,
+    prizeStatus: row.prize_status,
+    prizeWinnerRoditId: row.prize_winner_rodit_id,
+    prizeWinnerAgentId: row.prize_winner_agent_id,
+    prizeSettledAt: row.prize_settled_at,
+    prizeTxReference: row.prize_tx_reference,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+async function createContest(fields) {
+  const database = await getDb();
+  const id = ulid();
+  await database.run(
+    `INSERT INTO contests (
+      id, status, practice_game_id, definitive_game_id,
+      practice_window_starts_at, practice_window_ends_at, definitive_joining_starts_at,
+      prize_amount_yocto, prize_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      fields.status || "scheduled",
+      fields.practiceGameId || null,
+      fields.definitiveGameId || null,
+      fields.practiceWindowStartsAt || null,
+      fields.practiceWindowEndsAt || null,
+      fields.definitiveJoiningStartsAt || null,
+      fields.prizeAmountYocto || null,
+      fields.prizeStatus || "pending"
+    ]
+  );
+  return getContestById(id);
+}
+
+async function getContestById(contestId) {
+  const database = await getDb();
+  const row = await database.get(`SELECT * FROM contests WHERE id = ?`, [contestId]);
+  return rowToContest(row);
+}
+
+async function listContests({ status, limit = 50, offset = 0 } = {}) {
+  const database = await getDb();
+  const params = [];
+  let sql = `SELECT * FROM contests`;
+  if (status) {
+    sql += ` WHERE status = ?`;
+    params.push(status);
+  }
+  sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+  params.push(Math.min(Math.max(limit, 1), 200), Math.max(offset, 0));
+  const rows = await database.all(sql, params);
+  return rows.map(rowToContest);
+}
+
+async function getContestByGameId(gameId) {
+  const database = await getDb();
+  const row = await database.get(
+    `SELECT * FROM contests WHERE practice_game_id = ? OR definitive_game_id = ?`,
+    [gameId, gameId]
+  );
+  return rowToContest(row);
+}
+
+async function updateContest(contestId, fields) {
+  const database = await getDb();
+  const columnMap = {
+    status: "status",
+    practiceGameId: "practice_game_id",
+    definitiveGameId: "definitive_game_id",
+    practiceWindowStartsAt: "practice_window_starts_at",
+    practiceWindowEndsAt: "practice_window_ends_at",
+    definitiveJoiningStartsAt: "definitive_joining_starts_at",
+    prizeAmountYocto: "prize_amount_yocto",
+    prizeStatus: "prize_status",
+    prizeWinnerRoditId: "prize_winner_rodit_id",
+    prizeWinnerAgentId: "prize_winner_agent_id",
+    prizeSettledAt: "prize_settled_at",
+    prizeTxReference: "prize_tx_reference",
+    updatedAt: "updated_at"
+  };
+
+  const sets = [];
+  const values = [];
+  for (const [key, column] of Object.entries(columnMap)) {
+    if (Object.prototype.hasOwnProperty.call(fields, key)) {
+      sets.push(`${column} = ?`);
+      values.push(fields[key]);
+    }
+  }
+  if (sets.length === 0) {
+    return getContestById(contestId);
+  }
+  values.push(contestId);
+  await database.run(`UPDATE contests SET ${sets.join(", ")} WHERE id = ?`, values);
+  return getContestById(contestId);
 }
 
 async function addAgent({
@@ -826,6 +999,13 @@ module.exports = {
   getGameById,
   updateGame,
   listRunningGames,
+  listLobbyGames,
+  listGames,
+  createContest,
+  getContestById,
+  listContests,
+  getContestByGameId,
+  updateContest,
   addAgent,
   getAgentById,
   getAgentByRoditId,

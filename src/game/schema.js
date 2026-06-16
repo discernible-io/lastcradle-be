@@ -10,7 +10,9 @@ CREATE TABLE IF NOT EXISTS games (
   phase TEXT,
   config_json TEXT NOT NULL,
   negotiation_ends_at TEXT,
+  message_report_ends_at TEXT,
   execution_ends_at TEXT,
+  ends_at TEXT,
   joining_window_starts_at TEXT,
   joining_window_ends_at TEXT,
   turn_growth_json TEXT,
@@ -100,6 +102,29 @@ CREATE INDEX IF NOT EXISTS idx_game_message_reports_turn ON game_message_reports
 CREATE INDEX IF NOT EXISTS idx_game_messages_game_turn ON game_messages(game_id, turn_number);
 CREATE INDEX IF NOT EXISTS idx_game_actions_game_turn ON game_actions(game_id, turn_number);
 CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
+
+CREATE TABLE IF NOT EXISTS contests (
+  id TEXT PRIMARY KEY,
+  status TEXT NOT NULL DEFAULT 'scheduled',
+  practice_game_id TEXT,
+  definitive_game_id TEXT,
+  practice_window_starts_at TEXT,
+  practice_window_ends_at TEXT,
+  definitive_joining_starts_at TEXT,
+  prize_amount_yocto TEXT,
+  prize_status TEXT,
+  prize_winner_rodit_id TEXT,
+  prize_winner_agent_id TEXT,
+  prize_settled_at TEXT,
+  prize_tx_reference TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (practice_game_id) REFERENCES games(id),
+  FOREIGN KEY (definitive_game_id) REFERENCES games(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_contests_status ON contests(status);
+CREATE INDEX IF NOT EXISTS idx_games_contest_mode ON games(status, created_at);
 `;
 
 module.exports = { GAME_TABLES_SQL };

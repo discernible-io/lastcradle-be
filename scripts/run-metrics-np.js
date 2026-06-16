@@ -9,6 +9,7 @@ const path = require("path");
 
 const PLAYER_COUNT = Math.max(3, Number(process.argv.find((a) => /^\d+$/.test(a))) || 10);
 const RUN_UNTIL_FINISH = process.argv.includes("finish");
+const USE_CONTEST = process.argv.includes("contest");
 const MSGS_PER_PLAYER = PLAYER_COUNT > 25 ? 1 : 3;
 
 const DB_PATH = path.join(__dirname, "..", "data", `game-metrics-${PLAYER_COUNT}p.sqlite`);
@@ -27,7 +28,7 @@ const {
   communicationCostComputeForTurn,
   investmentTotal
 } = require("../src/game/survival-cost");
-const { buildInvestAction } = require("../src/game/defaults");
+const { buildInvestAction, CONTEST_GAME_CONFIG, mergeGameConfig } = require("../src/game/defaults");
 const { collectIntelligenceFromActions } = require("../src/game/engine");
 const { buildHeavyTradeActions, tradesTargetFor } = require("./sim-trading");
 
@@ -209,7 +210,7 @@ function sumProductionRow(row) {
   return total;
 }
 function productionRate(agent) {
-  if (!agent || agent.status !== "alive") return null;
+  if (!agent || agent.status !== "alive" || !agent.productionCapacity) return null;
   return {
     energy: agent.productionCapacity.energy,
     water: agent.productionCapacity.water,

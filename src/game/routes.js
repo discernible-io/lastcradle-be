@@ -10,8 +10,20 @@ const { sendError } = errorResponse;
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
 const engine = require("./engine");
 const scheduler = require("./scheduler");
+const orchestrator = require("./contest-orchestrator");
 const repo = require("./repository");
-const { DEFAULT_GAME_CONFIG } = require("./defaults");
+const events = require("./events");
+const {
+  DEFAULT_GAME_CONFIG,
+  CONTEST_GAME_CONFIG,
+  PRACTICE_GAME_CONFIG,
+  mergeGameConfig
+} = require("./defaults");
+const {
+  canCreateOfficialContest,
+  isOfficialContestConfig,
+  OFFICIAL_CONTEST_PERMISSION
+} = require("./permissions");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -30,6 +42,63 @@ function handleGameError(res, err, requestId) {
   });
 }
 
+function resolvePresetConfig(body = {}) {
+  const preset = body.preset;
+  if (preset === "contest" || preset === "definitive") {
+    return { ...CONTEST_GAME_CONFIG, ...(body.config || {}) };
+  }
+  if (preset === "practice") {
+    return { ...PRACTICE_GAME_CONFIG, ...(body.config || {}) };
+  }
+  return body.config || {};
+}
+
+function summarizeGame(game, agentCount = null) {
+  return {
+    id: game.id,
+    status: game.status,
+    contestMode: game.config?.contestMode ?? null,
+    contestSeriesId: game.config?.contestSeriesId ?? null,
+    agentCount,
+    joiningWindow: engine.joiningWindowDetails(game),
+    currentTurn: game.current_turn,
+    phase: game.phase,
+    startedAt: game.started_at,
+    finishedAt: game.finished_at,
+    winnerIds: game.winnerIds || [],
+    createdAt: game.created_at
+  };
+}
+
+/**
+ * @swagger
+ * /api/game/games:
+ *   get:
+ *     summary: List survival games (filter by status or contest mode)
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ */
+router.get("/games", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  try {
+    const status = req.query.status || null;
+    const contestMode = req.query.contestMode || null;
+    const limit = Number(req.query.limit) || 50;
+    const offset = Number(req.query.offset) || 0;
+    const games = await repo.listGames({ status, contestMode, limit, offset });
+    const summaries = [];
+    for (const game of games) {
+      const agentCount = await repo.countAgents(game.id);
+      summaries.push(summarizeGame(game, agentCount));
+    }
+    res.json({ games: summaries, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
 /**
  * @swagger
  * /api/game/games:
@@ -43,9 +112,20 @@ function handleGameError(res, err, requestId) {
 router.post("/games", validateContentType, validateJsonBody, async (req, res) => {
   const requestId = req.requestId || ulid();
   try {
-    const configOverrides = req.body?.config || {};
+    const configOverrides = resolvePresetConfig(req.body);
+    if (isOfficialContestConfig(configOverrides) && !canCreateOfficialContest(req)) {
+      return sendError(res, {
+        statusCode: 403,
+        requestId,
+        code: "FORBIDDEN",
+        message: `${OFFICIAL_CONTEST_PERMISSION} permission required for official contest games`,
+        details: { requiredPermission: OFFICIAL_CONTEST_PERMISSION }
+      });
+    }
+
     const joiningWindowStartsAt = req.body?.joiningWindowStartsAt ?? null;
     const game = await engine.createGame({ config: configOverrides, joiningWindowStartsAt });
+    orchestrator.registerLobbyGame(game);
     res.status(201).json({
       game: {
         id: game.id,
@@ -87,7 +167,8 @@ router.post("/games/:gameId/join", validateContentType, validateJsonBody, async 
       roditId,
       displayName: req.body?.displayName
     });
-    res.status(201).json({ agent, requestId });
+    const autoStart = await orchestrator.evaluateLobbyAutoStart(req.params.gameId);
+    res.status(201).json({ agent, autoStart, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
@@ -107,8 +188,121 @@ router.post("/games/:gameId/start", validateContentType, async (req, res) => {
   const requestId = req.requestId || ulid();
   try {
     const game = await engine.startGame(req.params.gameId);
+    orchestrator.unregisterLobbyGame(game.id);
     scheduler.registerGame(game);
     res.json({ game: await engine.getPublicState(game.id), requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/games/{gameId}/events:
+ *   get:
+ *     summary: Server-sent events stream for live game updates
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ */
+router.get("/games/:gameId/events", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const { gameId } = req.params;
+
+  try {
+    const game = await repo.getGameById(gameId);
+    if (!game) {
+      return sendError(res, { statusCode: 404, requestId, code: "GAME_NOT_FOUND", message: "Game not found" });
+    }
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    if (typeof res.flushHeaders === "function") {
+      res.flushHeaders();
+    }
+
+    const writeEvent = (payload) => {
+      res.write(`event: ${payload.type}\ndata: ${JSON.stringify({ ...payload, requestId })}\n\n`);
+    };
+
+    writeEvent({
+      type: "connected",
+      gameId,
+      status: game.status,
+      phase: game.phase,
+      currentTurn: game.current_turn
+    });
+
+    const unsubscribe = events.subscribeGameEvents(gameId, writeEvent);
+    const heartbeat = setInterval(() => {
+      res.write(`: ping ${Date.now()}\n\n`);
+    }, 15000);
+
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/contests:
+ *   get:
+ *     summary: List scheduled contest series (practice + definitive games)
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ */
+router.get("/contests", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  try {
+    const status = req.query.status || null;
+    const limit = Number(req.query.limit) || 50;
+    const offset = Number(req.query.offset) || 0;
+    const contests = await repo.listContests({ status, limit, offset });
+    res.json({ contests, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/contests:
+ *   post:
+ *     summary: Create an official contest series (practice week + definitive prize game)
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-permission-scopes: [createOfficialContest]
+ */
+router.post("/contests", validateContentType, validateJsonBody, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  if (!canCreateOfficialContest(req)) {
+    return sendError(res, {
+      statusCode: 403,
+      requestId,
+      code: "FORBIDDEN",
+      message: `${OFFICIAL_CONTEST_PERMISSION} permission required`,
+      details: { requiredPermission: OFFICIAL_CONTEST_PERMISSION }
+    });
+  }
+
+  try {
+    const result = await orchestrator.createContestSeries({
+      practiceStartsAt: req.body?.practiceStartsAt,
+      practiceWindowMs: req.body?.practiceWindowMs,
+      definitiveJoiningStartsAt: req.body?.definitiveJoiningStartsAt,
+      prizeAmountYoctoNear: req.body?.prizeAmountYoctoNear,
+      configOverrides: req.body?.config || {}
+    });
+    res.status(201).json({ ...result, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
@@ -250,6 +444,12 @@ router.post("/games/:gameId/message-report", validateContentType, validateJsonBo
       });
     }
     const result = await engine.submitMessageReport(req.params.gameId, agent.id, { sent, received });
+    if (result.messageReportPhaseCompleted) {
+      const game = await repo.getGameById(req.params.gameId);
+      if (game?.status === "running" && game.phase === "execution") {
+        scheduler.registerGame(game);
+      }
+    }
     res.status(201).json({ ...result, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
@@ -305,6 +505,24 @@ router.post("/games/:gameId/action", validateContentType, validateJsonBody, asyn
  */
 router.get("/defaults", (req, res) => {
   res.json({ defaults: DEFAULT_GAME_CONFIG, requestId: req.requestId || ulid() });
+});
+
+/**
+ * @swagger
+ * /api/game/defaults/contest:
+ *   get:
+ *     summary: Get contest and practice game configuration presets
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ */
+router.get("/defaults/contest", (req, res) => {
+  res.json({
+    definitive: CONTEST_GAME_CONFIG,
+    practice: PRACTICE_GAME_CONFIG,
+    requestId: req.requestId || ulid()
+  });
 });
 
 router.use((req, res) => {
