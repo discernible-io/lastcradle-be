@@ -10,15 +10,37 @@ This API provides secure authentication services using the Discernible Authentic
 
 | Branch | Role | URL |
 |--------|------|-----|
-| **`main`** | Production (SDK 9.x after merge from `development`) | https://api.discernible.io:9443 |
+| **`main`** | Main tier (SDK 9.x after merge from `development`) | https://api.discernible.io:9443 |
 | **`development`** | Staging / integration | https://api.dihola.io:9443 |
 | **`legacy`** | Archive of pre-migration `main` (read-only) | — |
 
-See [docs/BRANCHING.md](docs/BRANCHING.md).
+See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 
-## Standards compliance
+## Documentation
 
-See [security-compliance.md](security-compliance.md) for gap analysis against [discernible-io/docs](https://github.com/discernible-io/docs) standards and the ranked improvement backlog.
+| Document | Summary |
+| --- | --- |
+| [`docs/security-compliance.md`](docs/security-compliance.md) | Gap analysis and verification checklist against organization standards |
+| [`docs/BRANCHING.md`](docs/BRANCHING.md) | Branch roles (`main`, `development`, `legacy`) and promotion workflow |
+| [`scripts/README-database-init.md`](scripts/README-database-init.md) | SQLite initialization for development and deployment |
+| [`api-docs/swagger.json`](api-docs/swagger.json) | OpenAPI 3.0 spec (authoritative API contract; served at `/api-docs/swagger.json`) |
+
+### Organization standards ([`docs/`](docs/))
+
+Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at commit `606b439`. Service-relative links in these files resolve in this repository.
+
+| Document | Summary |
+| --- | --- |
+| [`docs/documentation-standard.md`](docs/documentation-standard.md) | How documentation is written, indexed, and cross-referenced |
+| [`docs/vocabulary-standard.md`](docs/vocabulary-standard.md) | Deployment tier terms (**development** / **main**) and naming conventions |
+| [`docs/configuration-standard.md`](docs/configuration-standard.md) | Config sources, priority order, secrets, and safe logging of settings |
+| [`docs/logging-standard.md`](docs/logging-standard.md) | Winston/SDK logging patterns, `LOG_LEVEL`, structured context, and Loki |
+| [`docs/error-handling-standard.md`](docs/error-handling-standard.md) | API error response shape and SDK `sendError` usage |
+| [`docs/allowed-fallback-standard.md`](docs/allowed-fallback-standard.md) | Permitted config and RPC fallbacks |
+| [`docs/cicd-deployment-standard.md`](docs/cicd-deployment-standard.md) | GHCR builds, Podman deploy, host secrets/TLS, and multi-environment CI/CD |
+| [`docs/planned-improvements.md`](docs/planned-improvements.md) | Cross-service migration and improvement backlog |
+| [`docs/rpc-configuration.md`](docs/rpc-configuration.md) | `NEAR_NETWORK_CONFIG` options for RPC reliability |
+| [`docs/frontend-branch-env-migration.md`](docs/frontend-branch-env-migration.md) | Branch-specific frontend `.env` migration notes |
 
 ## Architecture
 
@@ -85,47 +107,11 @@ See [security-compliance.md](security-compliance.md) for gap analysis against [d
 - **Token Renewal**: Automatic JWT refresh for eligible sessions
 - **Webhook Integration**: Configurable webhooks for audit events
 
-### API Endpoints
+### API contract
 
-#### Public Endpoints
-- `GET /` - Health check and API information
-- `GET /api/home` - Homepage endpoint
-- `POST /api/login` - User authentication
-- `GET /api-docs` - Interactive Swagger UI
-- `GET /api-docs/swagger.json` - OpenAPI specification
+All endpoints are defined in [`api-docs/swagger.json`](api-docs/swagger.json) (authoritative per [`docs/documentation-standard.md`](docs/documentation-standard.md)). Explore interactively at `/api-docs` or `GET /api-docs/swagger.json` on a running server.
 
-#### Protected Endpoints (Require Authentication)
-- `POST /api/logout` - Session termination
-- `GET /api/token/claims` - Inspect JWT token claims
-- `GET /api/metrics` - Performance metrics
-- `GET /api/metrics/system` - System resource metrics
-- `POST /api/metrics/reset` - Reset metrics (admin only)
-
-#### CRUDA Operations (Require Authentication + Permissions)
-- `POST /api/cruda/create` - Create comment
-- `POST /api/cruda/list` - List all comments
-- `GET /api/cruda/list` - List all comments (GET)
-- `POST /api/cruda/read` - Read specific comment
-- `GET /api/cruda/read/:id` - Read comment by ID
-- `POST /api/cruda/update` - Update comment
-- `PUT /api/cruda/update` - Update comment (PUT)
-- `POST /api/cruda/destroy` - Delete comment
-- `DELETE /api/cruda/destroy` - Delete comment (DELETE)
-
-#### Session Management (Admin)
-- `POST /api/sessions/login` - Create session
-- `POST /api/sessions/logout` - End session
-- `GET /api/sessions/list_all` - List all active sessions
-- `POST /api/sessions/close` - Terminate specific session
-- `POST /api/sessions/cleanup` - Clean up expired sessions
-
-#### MCP (Model Context Protocol)
-- `GET /api/mcp/resources` - List available resources
-- `GET /api/mcp/resource/:uri` - Get specific resource
-- `GET /api/mcp/schema` - Get OpenAPI schema
-
-#### Client Token Signing
-- `POST /api/signclient` - Sign new client RODiT token
+Surface areas: authentication, CRUDA comments, sessions, metrics, MCP, client signing, and `/api/game/*` (Resource Negotiation Survival Game).
 
 ## Installation
 
@@ -134,8 +120,8 @@ See [security-compliance.md](security-compliance.md) for gap analysis against [d
 - Node.js 20.x or higher
 - npm or compatible package manager
 - SQLite 3.x
-- (Production) Podman or Docker
-- (Production) nginx with TLS certificates
+- (main tier deploy) Podman or Docker
+- (main tier deploy) nginx with TLS certificates
 
 ### Local Development
 
@@ -172,8 +158,8 @@ Configuration is managed through the `config` package with environment variable 
 ### Required Environment Variables
 
 ```bash
-# Node Environment
-NODE_ENV=production
+# Node Environment (development or main)
+NODE_ENV=main
 LOG_LEVEL=info
 
 # NEAR Blockchain
@@ -224,7 +210,7 @@ The **`legacy`** branch is archived and does not deploy. See [docs/BRANCHING.md]
 ### Manual Deployment
 
 ```bash
-# SSH to production server
+# SSH to main-tier server
 ssh user@178.62.195.21
 
 # Navigate to application directory
@@ -240,7 +226,7 @@ podman run -d --pod servertest-pod --name servertest-container \
   -v ~/servertest-app/data:/app/data:Z \
   -v ~/servertest-app/logs:/app/logs:Z \
   -v ~/servertest-app/certs:/app/certs:ro,Z \
-  -e NODE_ENV=production \
+  -e NODE_ENV=main \
   [... other env vars ...] \
   servertest-image:latest
 
@@ -321,15 +307,11 @@ Available at `/api/metrics` (authenticated):
 servertest-rodit/
 ├── src/
 │   ├── app.js                 # Main application entry point
-│   ├── routes/                # Public route handlers
-│   │   ├── home.js
-│   │   ├── login.js
-│   │   ├── signclient.js
-│   │   └── mcproutes.js
+│   ├── routes/                # Public route handlers (incl. mcproutes.js)
 │   ├── protected/             # Protected route handlers
 │   │   ├── cruda.js           # CRUDA showcase (auth + authorize)
 │   │   └── metricsroutes.js
-│   └── mcp/                   # MCP implementation
+│   └── game/                  # Resource Negotiation Survival Game
 ├── config/                    # Configuration files
 ├── api-docs/                  # OpenAPI specification
 ├── nginx/                     # nginx configuration
@@ -342,17 +324,17 @@ servertest-rodit/
 
 ```
 
-### Running Tests
+### Local verification
 
 ```bash
-# Run all tests
-npm test
+# Permission map matches swagger (both env files)
+npm run validate:permissions
 
-# Run with coverage
-npm run test:coverage
+# Syntax / load check
+node --check src/app.js
 
-# Run specific test suite
-npm test -- --grep "Authentication"
+# Deploy smoke tests (API must be running)
+API_BASE_URL=http://127.0.0.1:8080 node scripts/run-deployment-api-tests.js
 ```
 
 ### Code Style

@@ -1,125 +1,3 @@
-/**
- * Model Context Protocol (MCP) Routes
- * 
- * This file defines routes that implement the Model Context Protocol (MCP) interface,
- * allowing AI models to access structured data from the application.
- */
-
-const express = require('express');
-const router = express.Router();
-const { ulid } = require('ulid');
-const { RoditClient, errorResponse } = require('@rodit/rodit-auth-be');
-const { sendError } = errorResponse;
-const fs = require('fs');
-const path = require('path');
-
-// Create SDK client instance to access all functionality
-const sdkClient = new RoditClient();
-
-// Create authentication middleware using the client instance
-const authenticate_apicall = (req, res, next) => {
-  return sdkClient.authenticate(req, res, next);
-};
-const logger = sdkClient.getLogger();
-// Note: mcpService may need to be accessed through a different method if available
-// Logger methods are available directly on the logger object
-
-// Minimal local MCP service implementation to satisfy tests
-// Provides resources list, resource retrieval, and schema retrieval
-const mcpCache = {
-  swagger: null
-};
-
-function loadSwaggerSpec() {
-  if (mcpCache.swagger) return mcpCache.swagger;
-  try {
-    const swaggerPath = path.join(__dirname, '../../api-docs/swagger.json');
-    const raw = fs.readFileSync(swaggerPath, 'utf8');
-    mcpCache.swagger = JSON.parse(raw);
-    return mcpCache.swagger;
-  } catch (error) {
-    logger.error('Failed to load swagger.json for MCP schema', {
-      component: 'MCPRoutes',
-      method: 'loadSwaggerSpec',
-      error: error.message
-    });
-    // Return a minimal valid OpenAPI object as fallback
-    mcpCache.swagger = {
-      openapi: '3.0.0',
-      info: { title: 'RODiT API', version: '1.0.0' },
-      paths: {}
-    };
-    return mcpCache.swagger;
-  }
-}
-
-const mcpService = {
-  async listAvailableResources(req, options = {}) {
-    const all = [
-      { uri: 'openapi:swagger', name: 'OpenAPI Schema', type: 'application/json' },
-      { uri: 'config:environment', name: 'Server Environment Config', type: 'application/json' }
-    ];
-    const start = options.cursor ? parseInt(options.cursor, 10) || 0 : 0;
-    const limit = options.limit || all.length;
-    const resources = all.slice(start, start + limit);
-    const nextCursor = start + limit < all.length ? String(start + limit) : null;
-    return { resources, nextCursor };
-  },
-
-  async getResource(uri, req) {
-    if (uri === 'openapi:swagger') {
-      return { type: 'application/json', content: loadSwaggerSpec() };
-    }
-    if (uri === 'config:environment') {
-      try {
-        const nodeEnv = process.env.NODE_ENV || 'development';
-        const cfgPath = path.join(__dirname, '../../config', `${nodeEnv}.json`);
-        const raw = fs.readFileSync(cfgPath, 'utf8');
-        return { type: 'application/json', content: JSON.parse(raw) };
-      } catch (error) {
-        logger.error('Failed to load environment config for MCP resource', {
-          component: 'MCPRoutes',
-          method: 'getResource',
-          uri,
-          error: error.message
-        });
-        throw new Error('Resource unavailable');
-      }
-    }
-    throw new Error(`Unknown resource: ${uri}`);
-  },
-
-  async getSchemaResource(req) {
-    return loadSwaggerSpec();
-  }
-};
-
-/**
- * @swagger
- * /api/mcp/resources:
- *   get:
- *     summary: List available MCP resources
- *     description: Returns a list of resources available through the MCP interface
- *     tags: [MCP]
- *     parameters:
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *         description: Maximum number of resources to return
- *       - in: query
- *         name: cursor
- *         schema:
- *           type: string
- *         description: Cursor for pagination
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of available resources with pagination info
- *       401:
- *         description: Unauthorized
- */
 router.get('/resources', async (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
@@ -196,30 +74,6 @@ router.get('/resources', async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/mcp/resource/{uri}:
- *   get:
- *     summary: Get a specific MCP resource
- *     description: Returns the content of a specific resource
- *     tags: [MCP]
- *     parameters:
- *       - in: path
- *         name: uri
- *         schema:
- *           type: string
- *         required: true
- *         description: URI of the resource to retrieve
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Resource content
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Resource not found
- */
 router.get('/resource/:uri(*)', authenticate_apicall, async (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
@@ -351,17 +205,6 @@ router.get('/resource/:uri(*)', authenticate_apicall, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/mcp/schema:
- *   get:
- *     summary: Get MCP schema
- *     description: Returns the schema for the MCP interface
- *     tags: [MCP]
- *     responses:
- *       200:
- *         description: MCP schema
- */
 router.get('/schema', async (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();

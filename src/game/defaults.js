@@ -1,5 +1,9 @@
 /**
  * Default game parameters for the Resource Negotiation Survival Game.
+ *
+ * Survival costs (energy / water / compute) represent per-turn overhead for
+ * powering, cooling, and maintaining each territory's immortal robot population
+ * as it races to reproduce the entropy-reversing god. See src/game/narrative.js.
  */
 
 const DEFAULT_GAME_CONFIG = {
@@ -88,7 +92,7 @@ const DEFAULT_GAME_CONFIG = {
    * Lobby joining window in milliseconds. Territory is assigned only while this window is open.
    * Set to 0 to allow joins anytime before the game starts (legacy behavior).
    */
-  joiningWindowDurationMs: 10 * 60 * 1000,
+  joiningWindowDurationMs: 5 * 60 * 1000,
 
   /** Delay after game creation before the joining window opens. 0 = opens immediately. */
   joiningWindowDelayMs: 0,
@@ -112,11 +116,11 @@ const DEFAULT_GAME_CONFIG = {
   messageReportMismatchOutlierMinFixRatio: 0.77
 };
 
-/** Preset for a 50-player contest: 15-minute turns, 48-hour cap, single winner. */
+/** Preset for a 50-player contest: 15-minute turns, 48-hour cap; same last-two finish rule as casual. */
 const CONTEST_GAME_CONFIG = {
   maxAgents: 50,
   minAgents: 50,
-  finishSurvivorCount: 1,
+  finishSurvivorCount: 2,
   negotiationDurationMs: 8 * 60 * 1000,
   messageReportDurationMs: 2 * 60 * 1000,
   executionDurationMs: 5 * 60 * 1000,

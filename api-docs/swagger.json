@@ -3,7 +3,7 @@
   "info": {
     "title": "RODiT Authentication API",
     "version": "2025.10.01",
-    "description": "# RODiT Authentication API (servertest)\n\nReference test API for Discernible / RODiT authentication (`@rodit/rodit-auth-be` 9.x) and **CRUDA** comment storage.\n\n## Authentication\n1. `GET /api/login/timestamp` — obtain `timestamp` and `timestamp_iso` challenge pair.\n2. Sign UTF-8 `identifier + timestamp_iso` (Ed25519, base64url).\n3. `POST /api/login` — receive `jwt_token` in JSON (Bearer only; optional `New-Token` response header).\n4. Call protected routes with `Authorization: Bearer <jwt_token>`.\n5. `POST /api/logout` — invalidates session (`authenticateForLogout` allows expired JWTs with valid signature).\n\n## Errors\nApplication errors use `{ error: { code, message, details? }, requestId, timestamp }` (see `components.schemas.ErrorResponse`).\n\n## CRUDA\n`/api/cruda/*` endpoints require authentication and authorization (unchanged contract).\n      ",
+    "description": "# RODiT Authentication API (servertest)\n\nReference test API for Discernible / RODiT authentication (`@rodit/rodit-auth-be` 9.x) and **CRUDA** comment storage.\n\n## Authentication\n1. `GET /api/login/timestamp` — obtain `timestamp` and `timestamp_iso` challenge pair.\n2. Sign UTF-8 `identifier + timestamp_iso` (Ed25519, base64url).\n3. `POST /api/login` — receive `jwt_token` in JSON (Bearer only; optional `New-Token` response header).\n4. Call protected routes with `Authorization: Bearer <jwt_token>`.\n5. `POST /api/logout` — invalidates session (`authenticateForLogout` allows expired JWTs with valid signature).\n\n## Errors\nApplication errors use `{ error: { code, message, details? }, requestId, timestamp }` (see `components.schemas.ErrorResponse`).\n\n## CRUDA\n`/api/cruda/*` endpoints require authentication and authorization (unchanged contract).\n\n## Game API\nAuthenticated `/api/game/*` routes for the Resource Negotiation Survival Game (lobbies, contests, turns, SSE). See paths tagged **Game**.\n",
     "termsOfService": "https://api.discernible.io/terms",
     "contact": {
       "name": "Discernible Inc.",
@@ -47,11 +47,18 @@
       "ErrorResponse": {
         "type": "object",
         "description": "Unified error envelope (error-handling-standard.md).",
-        "required": ["error", "requestId", "timestamp"],
+        "required": [
+          "error",
+          "requestId",
+          "timestamp"
+        ],
         "properties": {
           "error": {
             "type": "object",
-            "required": ["code", "message"],
+            "required": [
+              "code",
+              "message"
+            ],
             "properties": {
               "code": {
                 "type": "string",
@@ -85,7 +92,9 @@
       },
       "RequestResponse": {
         "type": "object",
-        "required": ["requestId"],
+        "required": [
+          "requestId"
+        ],
         "properties": {
           "requestId": {
             "type": "string",
@@ -170,7 +179,9 @@
       "get": {
         "summary": "API Welcome and Health Check",
         "description": "Returns welcome message with available API endpoints and service status.\nThis endpoint can be used for health checks and service discovery.",
-        "tags": ["System"],
+        "tags": [
+          "System"
+        ],
         "responses": {
           "200": {
             "description": "Welcome message with endpoint information",
@@ -211,7 +222,9 @@
       "get": {
         "summary": "Homepage endpoint",
         "description": "Returns a simple homepage message",
-        "tags": ["System"],
+        "tags": [
+          "System"
+        ],
         "responses": {
           "200": {
             "description": "Homepage message",
@@ -234,23 +247,36 @@
       "post": {
         "summary": "User logout",
         "description": "Invalidates the current session. Uses authenticateForLogout so expired JWTs may still be accepted when the signature is valid.",
-        "tags": ["Authentication"],
-        "security": [{ "bearerAuth": [] }],
+        "tags": [
+          "Authentication"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": false,
           "content": {
             "application/json": {
-              "schema": { "type": "object", "additionalProperties": true }
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
             }
           }
         },
         "responses": {
-          "200": { "description": "Logout successful" },
+          "200": {
+            "description": "Logout successful"
+          },
           "401": {
             "description": "Authentication required",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -258,7 +284,9 @@
             "description": "Content-Type must be application/json when body is sent",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -266,7 +294,9 @@
             "description": "Logout failed",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -277,7 +307,9 @@
       "get": {
         "summary": "API health and dependency probes",
         "description": "Returns JSON from the Node.js API (`status`: `healthy` or `degraded`, `checks` for NEAR RPC and RODiT auth client). Nginx proxies `/health` to this handler (no separate edge stub). Results are cached per `HEALTH_CHECKS_CACHE_MS`.",
-        "tags": ["System"],
+        "tags": [
+          "System"
+        ],
         "responses": {
           "200": {
             "description": "Health payload (may be degraded while process is up)",
@@ -286,16 +318,35 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "string", "enum": ["healthy", "degraded"] },
-                    "degraded": { "type": "boolean" },
-                    "checks": { "type": "object" },
-                    "service": { "type": "string" },
-                    "timestamp": { "type": "string", "format": "date-time" },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "healthy",
+                        "degraded"
+                      ]
+                    },
+                    "degraded": {
+                      "type": "boolean"
+                    },
+                    "checks": {
+                      "type": "object"
+                    },
+                    "service": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
                     "instance": {
                       "type": "object",
                       "properties": {
-                        "hostname": { "type": "string" },
-                        "pid": { "type": "integer" }
+                        "hostname": {
+                          "type": "string"
+                        },
+                        "pid": {
+                          "type": "integer"
+                        }
                       }
                     }
                   }
@@ -310,7 +361,10 @@
       "get": {
         "summary": "Inspect current JWT token claims",
         "description": "Returns the authenticated user's JWT claims as parsed and validated by the SDK middleware.\nUseful for debugging authentication issues and understanding token contents.",
-        "tags": ["Authentication", "Debug"],
+        "tags": [
+          "Authentication",
+          "Debug"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -384,7 +438,9 @@
       "get": {
         "summary": "Login challenge timestamp",
         "description": "Returns synchronized Unix seconds and canonical ISO-8601 timestamp for constructing the login signing payload.",
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "responses": {
           "200": {
             "description": "Challenge pair",
@@ -392,11 +448,22 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["timestamp", "timestamp_iso", "requestId"],
+                  "required": [
+                    "timestamp",
+                    "timestamp_iso",
+                    "requestId"
+                  ],
                   "properties": {
-                    "timestamp": { "type": "integer" },
-                    "timestamp_iso": { "type": "string", "format": "date-time" },
-                    "requestId": { "type": "string" }
+                    "timestamp": {
+                      "type": "integer"
+                    },
+                    "timestamp_iso": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -406,7 +473,9 @@
             "description": "Failed to generate challenge",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -417,7 +486,9 @@
       "post": {
         "summary": "RODiT client login",
         "description": "Ed25519 challenge-response login. Signed payload is `identifier + timestamp_iso` (no separator). Provide exactly one of `timestamp` or `timestamp_iso` from the same GET /api/login/timestamp response.",
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -426,22 +497,46 @@
                 "oneOf": [
                   {
                     "type": "object",
-                    "required": ["roditid", "base64url_signature"],
+                    "required": [
+                      "roditid",
+                      "base64url_signature"
+                    ],
                     "properties": {
-                      "roditid": { "type": "string" },
-                      "timestamp": { "type": "integer" },
-                      "timestamp_iso": { "type": "string", "format": "date-time" },
-                      "base64url_signature": { "type": "string" }
+                      "roditid": {
+                        "type": "string"
+                      },
+                      "timestamp": {
+                        "type": "integer"
+                      },
+                      "timestamp_iso": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "base64url_signature": {
+                        "type": "string"
+                      }
                     }
                   },
                   {
                     "type": "object",
-                    "required": ["roditid", "roditid_base64url_signature"],
+                    "required": [
+                      "roditid",
+                      "roditid_base64url_signature"
+                    ],
                     "properties": {
-                      "roditid": { "type": "string" },
-                      "timestamp": { "type": "integer" },
-                      "timestamp_iso": { "type": "string", "format": "date-time" },
-                      "roditid_base64url_signature": { "type": "string" }
+                      "roditid": {
+                        "type": "string"
+                      },
+                      "timestamp": {
+                        "type": "integer"
+                      },
+                      "timestamp_iso": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "roditid_base64url_signature": {
+                        "type": "string"
+                      }
                     }
                   }
                 ]
@@ -455,17 +550,26 @@
             "headers": {
               "New-Token": {
                 "description": "Same JWT as jwt_token in body",
-                "schema": { "type": "string" }
+                "schema": {
+                  "type": "string"
+                }
               }
             },
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["jwt_token", "requestId"],
+                  "required": [
+                    "jwt_token",
+                    "requestId"
+                  ],
                   "properties": {
-                    "jwt_token": { "type": "string" },
-                    "requestId": { "type": "string" }
+                    "jwt_token": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
                   },
                   "additionalProperties": true
                 }
@@ -476,7 +580,9 @@
             "description": "Invalid login payload or timestamp",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -484,7 +590,9 @@
             "description": "Authentication failed (when SILENT_LOGIN_FAILURES is false)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -585,7 +693,9 @@
       "post": {
         "summary": "Sign client RODiT token",
         "description": "Creates and signs a new client RODiT token with specified permissions",
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -597,7 +707,11 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["tobesignedValues", "mintingfee", "mintingfeeaccount"],
+                "required": [
+                  "tobesignedValues",
+                  "mintingfee",
+                  "mintingfeeaccount"
+                ],
                 "properties": {
                   "tobesignedValues": {
                     "type": "object",
@@ -633,7 +747,9 @@
       "post": {
         "summary": "Create comment",
         "description": "Creates a new comment",
-        "tags": ["CRUDA"],
+        "tags": [
+          "CRUDA"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -645,7 +761,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["comment"],
+                "required": [
+                  "comment"
+                ],
                 "properties": {
                   "comment": {
                     "type": "string",
@@ -673,7 +791,9 @@
       "post": {
         "summary": "List all comments",
         "description": "Retrieves all comments",
-        "tags": ["CRUDA"],
+        "tags": [
+          "CRUDA"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -691,11 +811,21 @@
       "get": {
         "summary": "List all comments (GET)",
         "description": "Retrieves all comments via GET",
-        "tags": ["CRUDA"],
-        "security": [ { "bearerAuth": [] } ],
+        "tags": [
+          "CRUDA"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
-          "200": { "description": "Comments retrieved successfully" },
-          "401": { "description": "Authentication required" }
+          "200": {
+            "description": "Comments retrieved successfully"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
         }
       }
     },
@@ -703,7 +833,9 @@
       "post": {
         "summary": "Read specific comment",
         "description": "Retrieves a specific comment by ID",
-        "tags": ["CRUDA"],
+        "tags": [
+          "CRUDA"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -715,7 +847,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["id"],
+                "required": [
+                  "id"
+                ],
                 "properties": {
                   "id": {
                     "type": "integer",
@@ -730,11 +864,11 @@
           "200": {
             "description": "Comment retrieved successfully"
           },
-          "404": {
-            "description": "Comment not found"
-          },
           "401": {
             "description": "Authentication required"
+          },
+          "404": {
+            "description": "Comment not found"
           }
         }
       }
@@ -743,21 +877,35 @@
       "get": {
         "summary": "Read specific comment (by path param)",
         "description": "Retrieves a specific comment by ID",
-        "tags": ["CRUDA"],
-        "security": [ { "bearerAuth": [] } ],
+        "tags": [
+          "CRUDA"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "in": "path",
             "name": "id",
-            "schema": { "type": "integer" },
+            "schema": {
+              "type": "integer"
+            },
             "required": true,
             "description": "Comment ID"
           }
         ],
         "responses": {
-          "200": { "description": "Comment retrieved successfully" },
-          "404": { "description": "Comment not found" },
-          "401": { "description": "Authentication required" }
+          "200": {
+            "description": "Comment retrieved successfully"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Comment not found"
+          }
         }
       }
     },
@@ -765,7 +913,9 @@
       "post": {
         "summary": "Update comment",
         "description": "Updates an existing comment",
-        "tags": ["CRUDA"],
+        "tags": [
+          "CRUDA"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -777,7 +927,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["id"],
+                "required": [
+                  "id"
+                ],
                 "properties": {
                   "id": {
                     "type": "integer",
@@ -796,46 +948,20 @@
           "200": {
             "description": "Comment updated successfully"
           },
-          "404": {
-            "description": "Comment not found"
-          },
           "401": {
             "description": "Authentication required"
+          },
+          "404": {
+            "description": "Comment not found"
           }
         }
       },
       "put": {
         "summary": "Update comment (PUT)",
         "description": "Updates an existing comment via PUT",
-        "tags": ["CRUDA"],
-        "security": [ { "bearerAuth": [] } ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["id", "comment"],
-                "properties": {
-                  "id": { "type": "integer", "description": "Comment ID" },
-                  "comment": { "type": "string", "description": "Updated comment text" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "Comment updated successfully" },
-          "404": { "description": "Comment not found" },
-          "401": { "description": "Authentication required" }
-        }
-      }
-    },
-    "/api/cruda/destroy": {
-      "post": {
-        "summary": "Delete comment",
-        "description": "Deletes an existing comment",
-        "tags": ["CRUDA"],
+        "tags": [
+          "CRUDA"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -847,7 +973,58 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["id"],
+                "required": [
+                  "id",
+                  "comment"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "Comment ID"
+                  },
+                  "comment": {
+                    "type": "string",
+                    "description": "Updated comment text"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Comment updated successfully"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Comment not found"
+          }
+        }
+      }
+    },
+    "/api/cruda/destroy": {
+      "post": {
+        "summary": "Delete comment",
+        "description": "Deletes an existing comment",
+        "tags": [
+          "CRUDA"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
                 "properties": {
                   "id": {
                     "type": "integer",
@@ -862,35 +1039,54 @@
           "200": {
             "description": "Comment deleted successfully"
           },
-          "404": {
-            "description": "Comment not found"
-          },
           "401": {
             "description": "Authentication required"
+          },
+          "404": {
+            "description": "Comment not found"
           }
         }
       },
       "delete": {
         "summary": "Delete comment (DELETE)",
         "description": "Deletes an existing comment via DELETE",
-        "tags": ["CRUDA"],
-        "security": [ { "bearerAuth": [] } ],
+        "tags": [
+          "CRUDA"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["id"],
-                "properties": { "id": { "type": "integer", "description": "Comment ID to delete" } }
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "Comment ID to delete"
+                  }
+                }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Comment deleted successfully" },
-          "404": { "description": "Comment not found" },
-          "401": { "description": "Authentication required" }
+          "200": {
+            "description": "Comment deleted successfully"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Comment not found"
+          }
         }
       }
     },
@@ -898,7 +1094,9 @@
       "get": {
         "summary": "List all sessions",
         "description": "Get information about all active sessions (admin only)",
-        "tags": ["Sessions"],
+        "tags": [
+          "Sessions"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -921,7 +1119,9 @@
       "post": {
         "summary": "Revoke specific session",
         "description": "Force terminate a specific session (admin only)",
-        "tags": ["Sessions"],
+        "tags": [
+          "Sessions"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -933,7 +1133,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["sessionId"],
+                "required": [
+                  "sessionId"
+                ],
                 "properties": {
                   "sessionId": {
                     "type": "string",
@@ -952,14 +1154,14 @@
           "200": {
             "description": "Session terminated successfully"
           },
-          "404": {
-            "description": "Session not found"
-          },
           "401": {
             "description": "Authentication required"
           },
           "403": {
             "description": "Permission denied"
+          },
+          "404": {
+            "description": "Session not found"
           }
         }
       }
@@ -968,7 +1170,9 @@
       "post": {
         "summary": "Cleanup expired sessions",
         "description": "Run manual cleanup of expired sessions (admin only)",
-        "tags": ["Sessions"],
+        "tags": [
+          "Sessions"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -991,7 +1195,9 @@
       "get": {
         "summary": "Get performance metrics",
         "description": "Retrieve current performance metrics",
-        "tags": ["Metrics"],
+        "tags": [
+          "Metrics"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -1011,7 +1217,9 @@
       "get": {
         "summary": "Get system metrics",
         "description": "Retrieve system resource metrics (CPU, memory, etc.)",
-        "tags": ["Metrics"],
+        "tags": [
+          "Metrics"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -1031,7 +1239,9 @@
       "post": {
         "summary": "Reset metrics",
         "description": "Reset performance metrics counters (admin only)",
-        "tags": ["Metrics"],
+        "tags": [
+          "Metrics"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -1049,6 +1259,897 @@
           }
         }
       }
+    },
+    "/api/game/games": {
+      "get": {
+        "summary": "List survival games",
+        "description": "Filter by status or contest mode.",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contestMode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Game list"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a survival game lobby",
+        "description": "Official contest configs (definitive mode or 50-player lobby) require createOfficialContest at runtime.",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "preset": {
+                    "type": "string",
+                    "enum": [
+                      "contest",
+                      "definitive",
+                      "practice"
+                    ]
+                  },
+                  "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "joiningWindowStartsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Game created"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/game/games/{gameId}/join": {
+      "post": {
+        "summary": "Join a game lobby",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "displayName": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Joined"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/game/games/{gameId}/start": {
+      "post": {
+        "summary": "Start the game",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Game started"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/game/games/{gameId}/events": {
+      "get": {
+        "summary": "Server-sent events stream for live game updates",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "text/event-stream",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/game/contests": {
+      "get": {
+        "summary": "List scheduled contest series",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contest list"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/game/contest-series": {
+      "post": {
+        "summary": "Create an official contest series",
+        "description": "Schedules a practice week and definitive prize game. Requires createOfficialContest on the JWT permissions array.",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "createOfficialContest"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "practiceStartsAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "practiceWindowMs": {
+                    "type": "integer"
+                  },
+                  "definitiveJoiningStartsAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "prizeAmountYoctoNear": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Contest series created"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/game/games/{gameId}/state": {
+      "get": {
+        "summary": "Get public game state",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Game state"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/game/games/{gameId}/message": {
+      "post": {
+        "summary": "Publish a public negotiation message",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "body"
+                ],
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Message published"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/game/games/{gameId}/messages": {
+      "get": {
+        "summary": "List public negotiation messages for a turn",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "turn",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Messages"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/game/games/{gameId}/message-report": {
+      "post": {
+        "summary": "Self-report sent/received message counts",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sent",
+                  "received"
+                ],
+                "properties": {
+                  "sent": {
+                    "type": "integer"
+                  },
+                  "received": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Report submitted"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/game/games/{gameId}/action": {
+      "post": {
+        "summary": "Submit execution-phase action",
+        "description": "Transfer, invest, or none. Optional hide/find fields.",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Action recorded"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/game/defaults": {
+      "get": {
+        "summary": "Get default game configuration parameters",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "responses": {
+          "200": {
+            "description": "Defaults"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/game/narrative": {
+      "get": {
+        "summary": "Get canonical game lore and mechanic mappings",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "responses": {
+          "200": {
+            "description": "Narrative"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/game/defaults/contest": {
+      "get": {
+        "summary": "Get contest and practice configuration presets",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "responses": {
+          "200": {
+            "description": "Contest presets"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -1057,7 +2158,7 @@
       "description": "System health and information endpoints"
     },
     {
-      "name": "Authentication", 
+      "name": "Authentication",
       "description": "User authentication and session management"
     },
     {
@@ -1083,6 +2184,10 @@
     {
       "name": "Metrics",
       "description": "Performance monitoring and system metrics"
+    },
+    {
+      "name": "Game",
+      "description": "Resource Negotiation Survival Game"
     }
   ]
 }

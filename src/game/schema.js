@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS contests (
   prize_status TEXT,
   prize_winner_rodit_id TEXT,
   prize_winner_agent_id TEXT,
+  prize_winner_ids_json TEXT,
   prize_settled_at TEXT,
   prize_tx_reference TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),

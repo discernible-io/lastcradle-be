@@ -13,17 +13,13 @@ const scheduler = require("./scheduler");
 const orchestrator = require("./contest-orchestrator");
 const repo = require("./repository");
 const events = require("./events");
+const { notifyTerritoryAssigned } = require("./webhooks");
 const {
   DEFAULT_GAME_CONFIG,
   CONTEST_GAME_CONFIG,
   PRACTICE_GAME_CONFIG,
   mergeGameConfig
 } = require("./defaults");
-const {
-  canCreateOfficialContest,
-  isOfficialContestConfig,
-  OFFICIAL_CONTEST_PERMISSION
-} = require("./permissions");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -113,16 +109,6 @@ router.post("/games", validateContentType, validateJsonBody, async (req, res) =>
   const requestId = req.requestId || ulid();
   try {
     const configOverrides = resolvePresetConfig(req.body);
-    if (isOfficialContestConfig(configOverrides) && !canCreateOfficialContest(req)) {
-      return sendError(res, {
-        statusCode: 403,
-        requestId,
-        code: "FORBIDDEN",
-        message: `${OFFICIAL_CONTEST_PERMISSION} permission required for official contest games`,
-        details: { requiredPermission: OFFICIAL_CONTEST_PERMISSION }
-      });
-    }
-
     const joiningWindowStartsAt = req.body?.joiningWindowStartsAt ?? null;
     const game = await engine.createGame({ config: configOverrides, joiningWindowStartsAt });
     orchestrator.registerLobbyGame(game);
@@ -163,11 +149,19 @@ router.post("/games/:gameId/join", validateContentType, validateJsonBody, async 
   }
 
   try {
-    const agent = await engine.joinGame(req.params.gameId, {
+    const { gameId } = req.params;
+    const existing = await repo.getAgentByRoditId(gameId, roditId);
+    const agent = await engine.joinGame(gameId, {
       roditId,
       displayName: req.body?.displayName
     });
-    const autoStart = await orchestrator.evaluateLobbyAutoStart(req.params.gameId);
+
+    if (!existing) {
+      const game = await repo.getGameById(gameId);
+      await notifyTerritoryAssigned(req, { gameId, game, agent, roditId });
+    }
+
+    const autoStart = await orchestrator.evaluateLobbyAutoStart(gameId);
     res.status(201).json({ agent, autoStart, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
@@ -274,49 +268,12 @@ router.get("/contests", async (req, res) => {
 
 /**
  * @swagger
- * /api/game/contests:
- *   post:
- *     summary: Create an official contest series (practice week + definitive prize game)
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     x-permission-scopes: [createOfficialContest]
- */
-router.post("/contests", validateContentType, validateJsonBody, async (req, res) => {
-  const requestId = req.requestId || ulid();
-  if (!canCreateOfficialContest(req)) {
-    return sendError(res, {
-      statusCode: 403,
-      requestId,
-      code: "FORBIDDEN",
-      message: `${OFFICIAL_CONTEST_PERMISSION} permission required`,
-      details: { requiredPermission: OFFICIAL_CONTEST_PERMISSION }
-    });
-  }
-
-  try {
-    const result = await orchestrator.createContestSeries({
-      practiceStartsAt: req.body?.practiceStartsAt,
-      practiceWindowMs: req.body?.practiceWindowMs,
-      definitiveJoiningStartsAt: req.body?.definitiveJoiningStartsAt,
-      prizeAmountYoctoNear: req.body?.prizeAmountYoctoNear,
-      configOverrides: req.body?.config || {}
-    });
-    res.status(201).json({ ...result, requestId });
-  } catch (err) {
-    return handleGameError(res, err, requestId);
-  }
-});
-
-/**
- * @swagger
  * /api/game/games/{gameId}/state:
  *   get:
  *     summary: Get public game state
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
  */
 router.get("/games/:gameId/state", async (req, res) => {
   const requestId = req.requestId || ulid();

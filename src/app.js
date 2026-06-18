@@ -8,10 +8,11 @@
  */
 
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 const session = require("express-session");
 const { ulid } = require("ulid");
 const swaggerUi = require("swagger-ui-express");
-const swaggerJsdoc = require("swagger-jsdoc");
 const winston = require("winston");
 const LokiTransport = require("winston-loki");
 const {
@@ -34,6 +35,18 @@ const {
 
 const SERVICE_NAME = config.get("SERVICE_NAME");
 const HEALTH_CHECKS_CACHE_MS = Number(config.get("HEALTH_CHECKS_CACHE_MS"));
+const isMainTier = () => config.get("NODE_ENV") === "main";
+
+function tierSwaggerServerUrl() {
+  return `https://${SERVICE_NAME}:9443`;
+}
+
+function abortSessionStorageSetup(message, context, error) {
+  logger.errorWithContext(message, context, error);
+  if (isMainTier()) {
+    process.exit(1);
+  }
+}
 
 // Configure winston-loki logging BEFORE creating RoditClient
 (() => {
@@ -111,7 +124,6 @@ const HEALTH_CHECKS_CACHE_MS = Number(config.get("HEALTH_CHECKS_CACHE_MS"));
 
 // Create temporary client instance to access middleware utilities
 const tempClient = new RoditClient();
-const loggingmw = tempClient.getLoggingMiddleware();
 const ratelimitmw = tempClient.getRateLimitMiddleware();
 
 // Will be set to fully initialized client later
@@ -137,63 +149,64 @@ const gameScheduler = require("./game/scheduler");
 
 // Configure SQLite session storage using express-session
 try {
-  // Check if express-session and connect-sqlite3 are available
   let SQLiteStore;
   try {
     SQLiteStore = require('connect-sqlite3')(session);
   } catch (err) {
-    logger.warn('connect-sqlite3 not installed, using in-memory session storage', {
-      component: 'SessionStorage',
-      suggestion: 'Install with: npm install express-session connect-sqlite3'
-    });
+    abortSessionStorageSetup(
+      'connect-sqlite3 not installed; persistent session storage unavailable',
+      {
+        component: 'SessionStorage',
+        suggestion: 'Install with: npm install express-session connect-sqlite3'
+      },
+      err
+    );
+    SQLiteStore = null;
   }
 
   if (SQLiteStore) {
-    // Get database configuration - same as CRUDA
-    const path = require('path');
     const DB_PATH = config.get("API_DEFAULT_OPTIONS.DB_PATH");
-    
-    // Split the path for connect-sqlite3 (requires dir and db separately)
     const dbDir = path.dirname(DB_PATH);
     const dbFile = path.basename(DB_PATH);
 
-    // Create SQLite session store
     sessionStore = new SQLiteStore({
-      db: dbFile,           // Database file name
-      dir: dbDir,           // Directory for the database
-      table: 'sessions',    // Table name (created by init-database.sh)
+      db: dbFile,
+      dir: dbDir,
+      table: 'sessions',
     });
 
-    // Inject the SQLite store into the SDK's session manager if supported by SDK version
     if (typeof setExpressSessionStore === 'function') {
       setExpressSessionStore(sessionStore);
     } else {
-      logger.warn('setExpressSessionStore is not available in this SDK version; using in-memory session storage', {
-        component: 'SessionStorage',
-        note: 'Upgrade @rodit/rodit-auth-be to enable express-session store injection'
-      });
+      abortSessionStorageSetup(
+        'setExpressSessionStore is not available in this SDK version',
+        {
+          component: 'SessionStorage',
+          note: 'Upgrade @rodit/rodit-auth-be to enable express-session store injection'
+        }
+      );
     }
 
-    logger.info('SQLite session storage configured successfully', {
+    logger.infoWithContext('SQLite session storage configured successfully', {
       component: 'SessionStorage',
       storageType: 'SQLite (connect-sqlite3)',
       dbPath: DB_PATH,
       table: 'sessions',
       persistent: true
     });
-  } else {
-    logger.info('Using default in-memory session storage', {
+  } else if (!isMainTier()) {
+    logger.warnWithContext('Using default in-memory session storage', {
       component: 'SessionStorage',
       storageType: 'InMemorySessionStorage',
       persistent: false
     });
   }
 } catch (e) {
-  logger.error('Error configuring session storage, using in-memory fallback', { 
-    component: 'SessionStorage',
-    error: e.message 
-  });
-  // Safe to continue; SDK defaults to in-memory storage
+  abortSessionStorageSetup(
+    'Error configuring session storage',
+    { component: 'SessionStorage' },
+    e instanceof Error ? e : new Error(String(e?.message || e))
+  );
 }
 
 // Log application startup
@@ -209,44 +222,8 @@ const app = express();
 
 // Set up request ID and tracing middleware
 app.use((req, res, next) => {
-  req.requestId = ulid();
-  req.startTime = process.hrtime();
-  next();
-});
-
-// Request logging middleware
-app.use((req, res, next) => {
-  const start = process.hrtime();
-  const { method, originalUrl, ip } = req;
-
-  // Log incoming request
-  logger.info("Request received", {
-    requestId: req.requestId,
-    method,
-    url: originalUrl,
-    ip,
-    userAgent: req.get("user-agent"),
-    referrer: req.get("referer"),
-  });
-
-  // Override res.end to log the response
-  const originalEnd = res.end;
-  res.end = function (chunk, encoding) {
-    const diff = process.hrtime(start);
-    const responseTimeMs = Math.round((diff[0] * 1e9 + diff[1]) / 1e6);
-
-    logger.info("Response sent", {
-      requestId: req.requestId,
-      statusCode: res.statusCode,
-      responseTimeMs,
-      contentLength: res.get("content-length") || 0,
-      method,
-      url: originalUrl,
-    });
-
-    originalEnd.call(this, chunk, encoding);
-  };
-
+  req.requestId = req.headers["x-request-id"] || req.headers["x-correlation-id"] || ulid();
+  req.startTime = Date.now();
   next();
 });
 
@@ -270,171 +247,31 @@ if (!isProduction) {
 // Default rate limits - will be updated from RODiT metadata
 let ratelimiter = ratelimitmw(100, 15);
 
-// Swagger API documentation setup
-const swaggerOptions = {
-  definition: {
-    openapi: "3.0.0",
-    info: {
-      title: "RODiT Authentication API",
-      version: "1.0.0",
-      description: `# API using Discernible Authentication system
-
-## Service Description
-The RODiT Authentication API provides secure authentication services using the Discernible Authentication system. This API enables applications to implement robust user authentication, session management, and access control using RODiT's cryptographic identity verification.
-
-## Key Features
-- Secure user authentication via RODiT credentials
-- Session management and token-based authorization
-- User identity verification
-- Access control for protected resources
-- Metrics and monitoring capabilities
-
-## Data Handling and Privacy
-All user data is handled in accordance with our privacy policy. We implement industry-standard encryption for data in transit and at rest. Personal information is processed only for the purposes of authentication and is not shared with third parties without explicit consent.
-
-We comply with applicable data protection regulations including GDPR and CCPA. In the event of a data breach, we will notify affected users within 72 hours of discovery.
-      `,
-      termsOfService: "https://api.discernible.io/terms",
-      contact: {
-        name: "Discernible Inc.",
-        url: "https://api.discernible.io/home.js",
-        email: "support@rodit-tech.com",
-      },
-      license: {
-        name: "Proprietary",
-        url: "https://api.discernible.io/license",
-      },
-      "x-api-id": "rodit-auth-api-v1",
-    },
-    servers: [], // Will be populated dynamically from RODIT token
-    externalDocs: {
-      description: "Additional API Documentation",
-      url: "https://docs.rodit-tech.com",
-    },
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: "http",
-          scheme: "bearer",
-          bearerFormat: "JWT",
-          description: "JWT token obtained after successful authentication via RODiT credentials",
-        },
-      },
-      schemas: {
-        Error: {
-          type: "object",
-          required: ["error", "requestId"],
-          properties: {
-            error: {
-              type: "string",
-              description: "Error message describing what went wrong"
-            },
-            requestId: {
-              type: "string",
-              format: "ulid",
-              description: "Unique request identifier for tracking"
-            },
-            details: {
-              type: "object",
-              description: "Additional error details (development mode only)"
-            }
-          }
-        },
-        RequestResponse: {
-          type: "object",
-          required: ["requestId"],
-          properties: {
-            requestId: {
-              type: "string",
-              format: "ulid",
-              description: "Unique request identifier"
-            }
-          }
-        }
-      },
-    },
-    "x-terms-and-conditions": {
-      "usage-rights":
-        "This API is provided for use by authorized clients only. Usage rights are granted upon acceptance of the terms and conditions.",
-      "intellectual-property":
-        "All intellectual property rights in the API, including but not limited to copyright, patents, and trademarks, are owned by Discernible Inc.",
-      liability:
-        "Discernible Inc. shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from the use or inability to use the API.",
-      termination:
-        "Discernible Inc. reserves the right to terminate API access for any user who violates these terms and conditions.",
-    },
-    "x-subscription-plans": {
-      free: {
-        description: "Limited access for development and testing",
-        "rate-limits": "100 requests per day",
-        features: ["Basic authentication", "Limited API access"],
-      },
-      basic: {
-        description: "Standard access for small applications",
-        "rate-limits": "1000 requests per day",
-        features: ["Full authentication features", "Standard support"],
-        price: "$49/month",
-      },
-      premium: {
-        description: "Enhanced access for enterprise applications",
-        "rate-limits": "10000 requests per day",
-        features: [
-          "Full authentication features",
-          "Priority support",
-          "Advanced analytics",
-        ],
-        price: "$199/month",
-      },
-    },
-    "x-rate-limits": {
-      default: {
-        rate: "100 requests per 15 minutes",
-        burst: "150 requests",
-      },
-      premium: {
-        rate: "1000 requests per 15 minutes",
-        burst: "1500 requests",
-      },
-    },
-    "x-sla": {
-      uptime: "99.9% guaranteed uptime for premium subscribers",
-      "response-time": "Average response time under 200ms",
-      support: {
-        standard: "24-hour response time",
-        premium: "4-hour response time",
-      },
-    },
-    "x-versioning": {
-      current: "v1.0.0",
-      supported: ["v1.0.0"],
-      "deprecation-policy":
-        "APIs are supported for at least 12 months after deprecation notice",
-    },
-    "x-monitoring": {
-      metrics: "Available via /api/metrics endpoint for authenticated users",
-      status: "Service status available at https://status.rodit-tech.com",
-    },
-    "x-compliance": {
-      gdpr: "Compliant with EU General Data Protection Regulation",
-      ccpa: "Compliant with California Consumer Privacy Act",
-      security: "Regular security audits and penetration testing",
-    },
-  },
-  apis: ["./src/app.js", "./src/routes/*.js", "./src/protected/*.js", "./src/game/routes.js"],
-};
-
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
+// OpenAPI spec — authoritative copy in api-docs/swagger.json (documentation-standard.md)
+const swaggerPath = path.join(__dirname, "../api-docs/swagger.json");
+const swaggerSpec = JSON.parse(fs.readFileSync(swaggerPath, "utf8"));
 
 // Configure Express to trust proxies for correct client IP detection
 // Using a specific configuration instead of 'true' to prevent IP spoofing
 app.set("trust proxy", 1);
 
 // Configure middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: "64kb" }));
+app.use(express.urlencoded({ extended: false, limit: "32kb" }));
 
-// Apply logging middleware from SDK
-app.use(loggingmw);
+// Malformed JSON bodies → standard ErrorResponse envelope
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    const requestId = req.requestId || ulid();
+    return sendError(res, {
+      statusCode: 400,
+      requestId,
+      code: "INVALID_JSON",
+      message: "Malformed JSON in request body"
+    });
+  }
+  return next(err);
+});
 
 // Setup Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -460,12 +297,8 @@ app.use((req, res, next) => {
 // Performance monitoring middleware
 app.use((req, res, next) => {
   const crypto = require("crypto");
-  req.startTime = Date.now();
-  req.requestId =
-    req.headers["x-request-id"] || req.headers["x-correlation-id"] || ulid();
   req.traceId = req.headers["x-trace-id"] || crypto.randomUUID();
 
-  // Record request start - will be updated after client initialization
   if (roditClient) {
     const performanceService = roditClient.getPerformanceService();
     if (performanceService) {
@@ -476,8 +309,8 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - req.startTime;
     req.duration = duration;
+    const pathOnly = req.originalUrl.split("?")[0];
 
-    // Record metrics in performance service
     if (roditClient) {
       const performanceService = roditClient.getPerformanceService();
       if (performanceService) {
@@ -486,8 +319,7 @@ app.use((req, res, next) => {
           path: req.path,
           status: res.statusCode,
         });
-        
-        // Record error if status code indicates error
+
         if (res.statusCode >= 400) {
           performanceService.recordMetric("error_count", 1, {
             method: req.method,
@@ -498,7 +330,18 @@ app.use((req, res, next) => {
       }
     }
 
-    // Use structured logging with context
+    logger.infoWithContext("Request completed", {
+      component: "API",
+      operation: "http.request.complete",
+      method: req.method,
+      path: pathOnly,
+      statusCode: res.statusCode,
+      duration,
+      requestId: req.requestId,
+      traceId: req.traceId,
+      userAgent: req.get("User-Agent")
+    });
+
     logger.debugWithContext("Request performance metrics", {
       component: "API",
       method: req.method,
@@ -507,13 +350,11 @@ app.use((req, res, next) => {
       duration,
       requestId: req.requestId,
       traceId: req.traceId,
-      userAgent: req.get("User-Agent"),
       referer: req.get("Referer"),
       contentLength: res.get("Content-Length"),
       contentType: res.get("Content-Type"),
     });
 
-    // Log metrics for monitoring systems
     logger.metric("request_duration_ms", duration, {
       method: req.method,
       path: req.path,
@@ -547,38 +388,6 @@ app.use((req, res, next) => {
   next();
 });
 
-/**
- * @swagger
- * /:
- *   get:
- *     summary: API Welcome and Health Check
- *     description: |
- *       Returns welcome message with available API endpoints and service status.
- *       This endpoint can be used for health checks and service discovery.
- *     tags: [System]
- *     responses:
- *       200:
- *         description: Welcome message with endpoint information
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Welcome to RODiT Authentication API"
- *                 endpoints:
- *                   type: array
- *                   items:
- *                     type: string
- *                 version:
- *                   type: string
- *                 status:
- *                   type: string
- *                   example: "healthy"
- *       500:
- *         description: Server error
- */
 // Provide actual implementation for root welcome endpoint
 app.get('/', (req, res) => {
   const endpoints = [
@@ -587,6 +396,7 @@ app.get('/', (req, res) => {
     '/api/login',
     '/api/logout',
     '/api/cruda',
+    '/api/game',
     '/api/metrics',
     '/api/mcp'
   ];
@@ -601,142 +411,58 @@ app.get('/', (req, res) => {
 
 app.use("/", homeRoute);
 
-/**
- * @swagger
- * /api/logout:
- *   post:
- *     summary: User logout
- *     description: |
- *       Invalidates the current user session and JWT token.
- *       After logout, the token will no longer be valid for authenticated requests.
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Logout successful
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Logout successful"
- *                 requestId:
- *                   type: string
- *                   format: ulid
- *       401:
- *         description: Authentication required
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Authentication required"
- *                 requestId:
- *                   type: string
- *       500:
- *         description: Internal server error
- */
 // Logout route will be mounted after middleware initialization
 
 // Protected routes will be mounted after middleware initialization
 
-/**
- * @swagger
- * /api/token/claims:
- *   get:
- *     summary: Inspect current JWT token claims
- *     description: |
- *       Returns the authenticated user's JWT claims as parsed and validated by the SDK middleware.
- *       Useful for debugging authentication issues and understanding token contents.
- *     tags: [Authentication, Debug]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Current user claims from JWT token
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 requestId:
- *                   type: string
- *                   format: ulid
- *                 user:
- *                   type: object
- *                   description: Decoded JWT claims
- *                   properties:
- *                     sub:
- *                       type: string
- *                       description: Subject (user ID)
- *                     aud:
- *                       type: string
- *                       description: Audience
- *                     iss:
- *                       type: string
- *                       description: Issuer
- *                     exp:
- *                       type: integer
- *                       description: Expiration timestamp
- *                     iat:
- *                       type: integer
- *                       description: Issued at timestamp
- *       401:
- *         description: Authentication required or token invalid
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                 requestId:
- *                   type: string
- */
 // Token claims endpoint will be mounted after middleware initialization
 
-// Enhanced error handling middleware
-app.use((err, req, res, next) => {
-  const crypto = require("crypto");
-  const requestId = req.requestId || ulid();
-  const traceId = req.traceId || crypto.randomUUID();
-  const isProductionEnv = config.get('NODE_ENV') === "production";
+function setupFallbackHandlers() {
+  app.use((err, req, res, next) => {
+    const crypto = require("crypto");
+    const requestId = req.requestId || ulid();
+    const traceId = req.traceId || crypto.randomUUID();
+    const omitStack = isMainTier();
 
-  logger.errorWithContext(
-    "Server error occurred",
-    {
-      component: "API",
-      message: err.message,
-      method: req.method,
-      url: req.originalUrl,
-      userIP: req.ip,
-      userId: req.user ? req.user.id : "anonymous",
-      roditId: req.user ? req.user.roditId : null,
-      errorCode: err.code || "106",
-      route: req.route ? req.route.path : "unknown",
-      requestId: requestId,
-      traceId: traceId,
-      timestamp: new Date().toISOString(),
-      service: req.logService,
-      action: req.logAction || "unspecified",
-      statusCode: err.statusCode || 500,
-      stack: isProductionEnv ? undefined : err.stack,
-    },
-    err // Pass the error object directly
-  );
+    logger.errorWithContext(
+      "Server error occurred",
+      {
+        component: "API",
+        message: err.message,
+        method: req.method,
+        url: req.originalUrl,
+        userIP: req.ip,
+        userId: req.user ? req.user.id : "anonymous",
+        roditId: req.user ? req.user.roditId : null,
+        errorCode: err.code || "106",
+        route: req.route ? req.route.path : "unknown",
+        requestId,
+        traceId,
+        timestamp: new Date().toISOString(),
+        service: req.logService,
+        action: req.logAction || "unspecified",
+        statusCode: err.statusCode || 500,
+        stack: omitStack ? undefined : err.stack,
+      },
+      err
+    );
 
-  return sendError(res, {
-    statusCode: err.statusCode && err.statusCode >= 400 && err.statusCode <= 599 ? err.statusCode : 500,
-    requestId,
-    code: err.code || "SERVICE_UNAVAILABLE",
-    message: err.statusCode && err.statusCode < 500 ? err.message : "Internal Server Error"
+    if (!omitStack) {
+      logger.debugWithContext("Server error stack", {
+        component: "API",
+        requestId,
+        stack: err.stack
+      });
+    }
+
+    return sendError(res, {
+      statusCode: err.statusCode && err.statusCode >= 400 && err.statusCode <= 599 ? err.statusCode : 500,
+      requestId,
+      code: err.code || "SERVICE_UNAVAILABLE",
+      message: err.statusCode && err.statusCode < 500 ? err.message : "Internal Server Error"
+    });
   });
-});
+}
 
 // Update rate limit once obtained config
 function updateRateLimit(maxRequests, maxRqWindow) {
@@ -815,21 +541,22 @@ function updateSwaggerServers(subjectuniqueidentifier_url) {
         serverUrl: subjectuniqueidentifier_url,
       });
     } else {
-      // Fallback to default servers if no URL in token
+      const tierUrl = tierSwaggerServerUrl();
       swaggerSpec.servers = [
         {
-          url: "https://api-url-not-set.example.com",
-          description: "RODiT Development server (fallback)",
+          url: tierUrl,
+          description: `${SERVICE_NAME} (${config.get("NODE_ENV")} tier)`,
         },
       ];
 
       logger.warnWithContext(
-        "No valid API URL in RODIT token, using fallback servers",
+        "No valid API URL in RODIT token; using tier server URL from config",
         {
           requestId,
           component: "SwaggerConfig",
           event: "updateSwaggerServers",
           apiUrl: subjectuniqueidentifier_url,
+          serverUrl: tierUrl,
         }
       );
     }
@@ -841,11 +568,11 @@ function updateSwaggerServers(subjectuniqueidentifier_url) {
       apiUrl: subjectuniqueidentifier_url,
     }, error);
 
-    // Use fallback configuration on error
+    const tierUrl = tierSwaggerServerUrl();
     swaggerSpec.servers = [
       {
-        url: "https://api-url-not-set.example.com",
-        description: "RODiT Development server (error fallback)",
+        url: tierUrl,
+        description: `${SERVICE_NAME} (${config.get("NODE_ENV")} tier, error fallback)`,
       },
     ];
   }
@@ -1053,15 +780,27 @@ async function startServer() {
       status: "middleware_ready"
     });
 
+    logger.infoWithContext("Running startup checks", {
+      component: "AppLifecycle",
+      operation: "startup.validateConfig"
+    });
+
     try {
       validateConfig(logger);
-      logger.info("SDK configuration validated", { component: "AppLifecycle" });
+      logger.infoWithContext("SDK configuration validated", {
+        component: "AppLifecycle",
+        operation: "startup.validateConfig"
+      });
     } catch (configErr) {
-      logger.warnWithContext(
-        "SDK configuration validation reported issues",
-        { component: "AppLifecycle" },
+      logger.errorWithContext(
+        "Configuration validation failed",
+        {
+          component: "AppLifecycle",
+          operation: "startup.validateConfig"
+        },
         configErr
       );
+      throw configErr;
     }
 
     app.get("/health", createHealthHandler({ app, config, logger, cacheMs: HEALTH_CHECKS_CACHE_MS }));
@@ -1072,7 +811,7 @@ async function startServer() {
 
     // Protected routes
     app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
-    app.use("/api/game", authenticate_apicall, validatepermissions, gameRoutes);
+    app.use("/api/game", authenticate_apicall, gameRoutes);
     app.use("/api/metrics", metricsRoutes);
     app.use("/api/sessions", sessionRoutes);
     
@@ -1099,6 +838,8 @@ async function startServer() {
         message: "Endpoint not found"
       });
     });
+
+    setupFallbackHandlers();
     
     logger.info("Protected routes mounted", {
       component: "AppLifecycle", 
@@ -1173,7 +914,7 @@ async function startServer() {
         "  POST /api/login - Login with RODiT credentials",
         "  POST /api/logout - Logout (Bearer JWT; expired tokens allowed)",
         "  /api/cruda - CRUDA showcase (requires authentication + permissions)",
-        "  /api/game - Resource Negotiation Survival Game (auth + permissions)",
+        "  /api/game - Resource Negotiation Survival Game (auth only; joining window + webhooks)",
         "  /api/sessions - Session admin (authenticate + authorize)",
         "  /api-docs - Swagger API documentation",
       ];

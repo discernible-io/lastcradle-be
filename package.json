@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@rodit/rodit-auth-be": "9.11.14",
+    "@rodit/rodit-auth-be": "9.11.20",
     "config": "^4.4.1",
     "connect-sqlite3": "^0.9.13",
     "express": "4.21.2",
@@ -8,7 +8,6 @@
     "nodemon": "^3.1.14",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
-    "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "ulid": "^3.0.2",
     "winston": "^3.19.0",

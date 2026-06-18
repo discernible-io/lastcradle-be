@@ -4,9 +4,5 @@ title = "servertestapi gitleaks config"
 description = "Documented non-secret placeholders in committed config"
 regexes = [
   '''HMAC-session-secret-is-not-set''',
-]
-paths = [
-  '''config/development\.json''',
-  '''config/main\.json''',
-  '''security-compliance\.md''',
+  '''api-url-not-set\.example\.com''',
 ]

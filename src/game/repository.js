@@ -43,6 +43,11 @@ async function migrateSchema(database) {
     await database.run(`ALTER TABLE games ADD COLUMN ends_at TEXT`);
   }
 
+  const contestCols = await database.all(`PRAGMA table_info(contests)`);
+  if (contestCols.length > 0 && !contestCols.some((c) => c.name === "prize_winner_ids_json")) {
+    await database.run(`ALTER TABLE contests ADD COLUMN prize_winner_ids_json TEXT`);
+  }
+
   await database.exec(`
     CREATE TABLE IF NOT EXISTS contests (
       id TEXT PRIMARY KEY,
@@ -56,6 +61,7 @@ async function migrateSchema(database) {
       prize_status TEXT,
       prize_winner_rodit_id TEXT,
       prize_winner_agent_id TEXT,
+      prize_winner_ids_json TEXT,
       prize_settled_at TEXT,
       prize_tx_reference TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -294,6 +300,7 @@ function rowToContest(row) {
     prizeStatus: row.prize_status,
     prizeWinnerRoditId: row.prize_winner_rodit_id,
     prizeWinnerAgentId: row.prize_winner_agent_id,
+    prizeWinnerIds: parseJson(row.prize_winner_ids_json, []),
     prizeSettledAt: row.prize_settled_at,
     prizeTxReference: row.prize_tx_reference,
     createdAt: row.created_at,
@@ -367,6 +374,7 @@ async function updateContest(contestId, fields) {
     prizeStatus: "prize_status",
     prizeWinnerRoditId: "prize_winner_rodit_id",
     prizeWinnerAgentId: "prize_winner_agent_id",
+    prizeWinnerIdsJson: "prize_winner_ids_json",
     prizeSettledAt: "prize_settled_at",
     prizeTxReference: "prize_tx_reference",
     updatedAt: "updated_at"

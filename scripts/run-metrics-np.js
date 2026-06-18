@@ -10,6 +10,7 @@ const path = require("path");
 const PLAYER_COUNT = Math.max(3, Number(process.argv.find((a) => /^\d+$/.test(a))) || 10);
 const RUN_UNTIL_FINISH = process.argv.includes("finish");
 const USE_CONTEST = process.argv.includes("contest");
+const COMPACT = process.argv.includes("compact") || PLAYER_COUNT > 20;
 const MSGS_PER_PLAYER = PLAYER_COUNT > 25 ? 1 : 3;
 
 const DB_PATH = path.join(__dirname, "..", "data", `game-metrics-${PLAYER_COUNT}p.sqlite`);
@@ -499,7 +500,7 @@ function printSection(title) {
   console.log("=".repeat(78));
 }
 
-function printMetrics(metrics, finalState, playerCount) {
+async function printMetrics(metrics, finalState, playerCount) {
   printSection("GAME OUTCOME");
   console.log(`Players: ${playerCount}`);
   console.log(`Turns played: ${metrics.turnsPlayed}`);
@@ -613,9 +614,10 @@ function printMetrics(metrics, finalState, playerCount) {
   printSection("FINAL STATE (survivors)");
   for (const agent of finalState.agents) {
     if (agent.status === "alive") {
-      const prod = productionRate(agent);
+      const full = (await repo.getAgentById(agent.id)) || agent;
+      const prod = productionRate(full);
       console.log(
-        `  ${agent.displayName.padEnd(6)} inv ${fmtR(agent.inventory)} | prod/turn ${fmtR(prod)} | waterInv ${fmt(agent.waterProductionInvestment)}`
+        `  ${agent.displayName.padEnd(6)} inv ${fmtR(full.inventory)} | prod/turn ${prod ? fmtR(prod) : "—"} | waterInv ${fmt(full.waterProductionInvestment ?? 0)}`
       );
     }
   }
@@ -692,11 +694,20 @@ async function main() {
     }
 
     if (finalState.game.status === "finished") break;
+    if (turn % 10 === 0) {
+      console.error(
+        `… turn ${turn}, living ${finalState.livingAgentCount}, status ${finalState.game.status}`
+      );
+    }
   }
 
-  printPerPlayerPerTurnTable(metrics, PLAYER_COUNT);
+  if (!COMPACT) {
+    printPerPlayerPerTurnTable(metrics, PLAYER_COUNT);
+  } else {
+    console.error(`(compact mode: skipping per-player per-turn table for ${PLAYER_COUNT} players)`);
+  }
   printTurnFlowTable(metrics);
-  printMetrics(metrics, finalState, PLAYER_COUNT);
+  await printMetrics(metrics, finalState, PLAYER_COUNT);
   await repo.closeDatabase();
 }
 

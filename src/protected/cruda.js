@@ -190,17 +190,18 @@ const logAndSendWebhook = async (payload, req = null) => {
     
     return result;
   } catch (error) {
-    // Log the webhook failure but don't let it crash the application
-    logger.error("Webhook delivery failed, continuing with request processing", {
-      component: "CRUDA",
-      event: payload?.event,
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
+    // Intentional policy (allowed-fallback-standard): webhook delivery is best-effort.
+    // CRUDA mutations succeed even when the outbound webhook fails; callers see
+    // `{ success: false }` from send_webhook and audit logs retain the failure.
+    logger.errorWithContext(
+      "Webhook delivery failed, continuing with request processing",
+      {
+        component: "CRUDA",
+        event: payload?.event,
+        requestId: req?.requestId,
       },
-      requestId: req?.requestId,
-    });
+      error
+    );
 
     // Return a failure result instead of throwing
     return {

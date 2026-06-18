@@ -8,6 +8,7 @@ const {
   buildSurvivalContext,
   communicationCostComputeForTurn
 } = require("./survival-cost");
+const { getGameNarrative, buildSurvivalNarrative } = require("./narrative");
 const repo = require("./repository");
 
 const RESOURCE_KEYS = ["energy", "water", "compute"];
@@ -311,11 +312,17 @@ function rankAgentsForFinish(agents) {
 }
 
 async function finishGameByDeadline(gameId) {
-  const agents = await repo.listAgents(gameId);
-  const ranked = rankAgentsForFinish(agents);
   const game = await repo.getGameById(gameId);
-  const finishAt = game?.config?.finishSurvivorCount ?? 1;
-  const winners = ranked.slice(0, Math.max(finishAt, 1)).map((a) => a.id);
+  const agents = await repo.listAgents(gameId);
+  const living = agents.filter((a) => a.status === "alive");
+
+  // Turn/duration cap: prize pool splits among everyone still alive (ranked for audit order).
+  const winners =
+    living.length > 0
+      ? rankAgentsForFinish(living).map((a) => a.id)
+      : rankAgentsForFinish(agents)
+          .slice(0, Math.max(game?.config?.finishSurvivorCount ?? 2, 1))
+          .map((a) => a.id);
 
   await repo.updateGame(gameId, {
     status: "finished",
@@ -991,7 +998,15 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
     execution,
     messageReport,
     messageReportPenalties,
-    projectedSurvival
+    projectedSurvival,
+    narrative: {
+      ...getGameNarrative(),
+      survival: buildSurvivalNarrative({
+        livingAgentCount: livingAgents.length,
+        turnNumber: game.current_turn,
+        playerReference: game.config.survivalCostPlayerReference
+      })
+    }
   };
 }
 
