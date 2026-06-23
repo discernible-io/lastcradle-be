@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 5-territory simulation: active negotiation (proposal/counter/accept per turn)
+ * 5-cradle simulation: active negotiation (proposal/counter/accept per turn)
  * and investment strategies aimed at maximizing survival.
  */
 
@@ -30,7 +30,7 @@ const PROFILES = [
 
 const RODIT_IDS = PROFILES.map((p) => p.roditId);
 
-/** Each territory sends proposal → counter → accept (3 msgs) per turn; 15 public messages total. */
+/** Each cradle sends proposal → counter → accept (3 msgs) per turn; 15 public messages total. */
 function buildNegotiation(turnNumber, topic) {
   const chain = [
     ["t-alpha", "Proposal"],
@@ -287,9 +287,9 @@ async function main() {
 
   await repo.initializeDatabase();
 
-  console.log("Resource Negotiation Survival Game — 5-territory simulation");
+  console.log("Bargain Against Entropy — 5-cradle simulation");
   console.log(`Database: ${DB_PATH}`);
-  console.log(`Territories: ${PROFILES.map((p) => `${p.displayName} (${p.role})`).join(", ")}`);
+  console.log(`Cradles: ${PROFILES.map((p) => `${p.displayName} (${p.role})`).join(", ")}`);
   console.log(`Mode: ${RUN_UNTIL_FINISH ? "run until ≤2 survivors" : `max ${maxTurns} turns`}${QUIET ? " (quiet)" : ""}\n`);
 
   const game = await engine.createGame({});

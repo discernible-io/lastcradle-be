@@ -976,7 +976,7 @@ async function incrementAggregateWaterConsumed(gameId, amount) {
   );
 }
 
-/** Halve cumulative water consumption — environmental relief when territories are eliminated. */
+/** Halve cumulative water consumption — environmental relief when cradles are eliminated. */
 async function halveAggregateWaterConsumed(gameId) {
   const database = await getDb();
   await database.run(

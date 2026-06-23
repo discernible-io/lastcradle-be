@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bargain Against Entropy — Field Report</title>
+  <link rel="stylesheet" href="css/blog.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <p class="kicker">Discernible Field Dispatch</p>
+      <h1>Bargain Against Entropy</h1>
+      <p class="tagline" id="tagline">Loading latest reproduction-race report…</p>
+    </div>
+  </header>
+
+  <main class="wrap layout">
+    <aside class="sidebar" id="sidebar">
+      <section class="panel">
+        <h2>Contest</h2>
+        <dl id="game-meta"></dl>
+      </section>
+      <section class="panel">
+        <h2>Cradles</h2>
+        <ul id="roster" class="roster"></ul>
+      </section>
+      <section class="panel">
+        <h2>Cycles</h2>
+        <nav id="turn-nav" class="turn-nav"></nav>
+      </section>
+    </aside>
+
+    <article class="content">
+      <section id="intro" class="intro card"></section>
+      <div id="posts"></div>
+      <section id="finale" class="finale card hidden"></section>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>Player-facing report generated from live game simulation data.</p>
+    </div>
+  </footer>
+
+  <script src="js/blog.js" type="module"></script>
+</body>
+</html>

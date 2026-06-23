@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verifies territory assignment is gated to the configured joining window.
+ * Verifies cradle assignment is gated to the configured joining window.
  */
 
 const fs = require("fs");
@@ -59,7 +59,7 @@ async function main() {
   });
   const agent = await engine.joinGame(open.id, { roditId: "on-time", displayName: "On Time" });
   if (!agent.productionCapacity || agent.productionCapacity.energy <= 0) {
-    throw new Error("expected territory assignment during open window");
+    throw new Error("expected cradle assignment during open window");
   }
 
   const legacy = await engine.createGame({

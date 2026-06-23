@@ -25,8 +25,8 @@ async function main() {
     config: {
       useRandomStartingInventory: false,
       startingInventory: { energy: 80, water: 80, compute: 80 },
-      territoryCapacityMin: 50,
-      territoryCapacityMax: 50,
+      cradleCapacityMin: 50,
+      cradleCapacityMax: 50,
       minAgents: 3,
       joiningWindowDurationMs: 0,
       productionEnergyCostRate: 0.1,

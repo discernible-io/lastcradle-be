@@ -170,11 +170,11 @@ function applyInvestmentCapacityGrowth(state, payload, config) {
   state.storageCapacity = clamped.storageCapacity;
 }
 
-function buildTerritoryAssignment(config) {
-  const territory = {
-    energy: randomInt(config.territoryCapacityMin, config.territoryCapacityMax),
-    water: randomInt(config.territoryCapacityMin, config.territoryCapacityMax),
-    compute: randomInt(config.territoryCapacityMin, config.territoryCapacityMax)
+function buildCradleAssignment(config) {
+  const cradle = {
+    energy: randomInt(config.cradleCapacityMin, config.cradleCapacityMax),
+    water: randomInt(config.cradleCapacityMin, config.cradleCapacityMax),
+    compute: randomInt(config.cradleCapacityMin, config.cradleCapacityMax)
   };
   let inventory;
   if (config.useRandomStartingInventory) {
@@ -189,7 +189,7 @@ function buildTerritoryAssignment(config) {
   } else {
     inventory = { ...config.startingInventory };
   }
-  return { territory, inventory };
+  return { cradle, inventory };
 }
 
 function resolveJoiningWindow(gameConfig, { joiningWindowStartsAt = null } = {}) {
@@ -249,7 +249,7 @@ function requireJoiningWindowOpen(game) {
   if (now < startsAt) {
     throw gameError(
       "JOIN_WINDOW_NOT_OPEN",
-      "Territory assignment has not started yet; wait until the joining window opens",
+      "Cradle assignment has not started yet; wait until the joining window opens",
       409,
       details
     );
@@ -258,7 +258,7 @@ function requireJoiningWindowOpen(game) {
   if (!isJoiningWindowOpen(game, now)) {
     throw gameError(
       "JOIN_WINDOW_CLOSED",
-      "The joining window has closed; territory assignment is no longer available",
+      "The joining window has closed; cradle assignment is no longer available",
       409,
       details
     );
@@ -410,14 +410,14 @@ async function joinGame(gameId, { roditId, displayName }) {
     throw gameError("GAME_FULL", "Game has reached maximum agent capacity", 409);
   }
 
-  const { territory, inventory } = buildTerritoryAssignment(config);
+  const { cradle, inventory } = buildCradleAssignment(config);
   return repo.addAgent({
     gameId,
     roditId,
     displayName,
-    energyCapacity: territory.energy,
-    waterCapacity: territory.water,
-    computeCapacity: territory.compute,
+    energyCapacity: cradle.energy,
+    waterCapacity: cradle.water,
+    computeCapacity: cradle.compute,
     startingInventory: inventory
   });
 }

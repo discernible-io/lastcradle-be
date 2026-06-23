@@ -312,7 +312,7 @@ async function main() {
     const inv = agent.inventory;
     const cap = agent.capacity;
     console.log(
-      `  ${profile.displayName.padEnd(6)} start inv E${inv.energy} W${inv.water} C${inv.compute} | territory cap E${cap.energy} W${cap.water} C${cap.compute}`
+      `  ${profile.displayName.padEnd(6)} start inv E${inv.energy} W${inv.water} C${inv.compute} | cradle cap E${cap.energy} W${cap.water} C${cap.compute}`
     );
   }
 

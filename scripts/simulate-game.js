@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Simulates a full 5-turn Resource Negotiation Survival Game using the engine directly.
+ * Simulates a full 5-turn Bargain Against Entropy game using the engine directly.
  * Uses an isolated SQLite file so it does not touch production data.
  */
 
@@ -24,8 +24,8 @@ const { buildInvestAction } = require("../src/game/defaults");
 const SIM_CONFIG = {
   useRandomStartingInventory: false,
   startingInventory: { energy: 90, water: 90, compute: 90 },
-  territoryCapacityMin: 40,
-  territoryCapacityMax: 40,
+  cradleCapacityMin: 40,
+  cradleCapacityMax: 40,
   minAgents: 3,
   negotiationDurationMs: 60_000,
   executionDurationMs: 60_000
@@ -225,7 +225,7 @@ async function main() {
 
   await repo.initializeDatabase();
 
-  console.log("Resource Negotiation Survival Game — simulation");
+  console.log("Bargain Against Entropy — simulation");
   console.log(`Database: ${DB_PATH}`);
   console.log(`Agents: ${AGENT_PROFILES.map((a) => a.displayName).join(", ")}`);
   console.log(`Planned rounds: ${rounds}`);
@@ -239,7 +239,7 @@ async function main() {
     const agent = await engine.joinGame(gameId, profile);
     agents.push(agent);
     console.log(
-      `  Joined ${profile.displayName} — start ${fmtInv(agent.inventory)}, territory ${fmtCap(agent.capacity)}`
+      `  Joined ${profile.displayName} — start ${fmtInv(agent.inventory)}, cradle ${fmtCap(agent.capacity)}`
     );
   }
 

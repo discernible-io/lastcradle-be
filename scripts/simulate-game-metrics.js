@@ -227,7 +227,7 @@ function printSection(title) {
   console.log("=".repeat(78));
 }
 
-function printMetrics(metrics, finalState, startingTerritory) {
+function printMetrics(metrics, finalState, startingCradle) {
   printSection("GAME OUTCOME");
   console.log(`Turns played: ${metrics.turnsPlayed}`);
   console.log(`Status: ${finalState.game.status}`);
@@ -240,7 +240,7 @@ function printMetrics(metrics, finalState, startingTerritory) {
   }
 
   printSection("STARTING TERRITORIES (capacity + initial inventory)");
-  for (const [name, row] of Object.entries(startingTerritory)) {
+  for (const [name, row] of Object.entries(startingCradle)) {
     console.log(
       `  ${name.padEnd(6)} cap ${fmtR(row.capacity)} | start inv ${fmtR(row.inventory)}`
     );
@@ -277,7 +277,7 @@ function printMetrics(metrics, finalState, startingTerritory) {
     }
   }
 
-  printSection("PRODUCTION BY TURN (per territory, at turn start)");
+  printSection("PRODUCTION BY TURN (per cradle, at turn start)");
   const turns = Object.keys(metrics.productionByTurn).sort((a, b) => a - b);
   for (const turn of turns) {
     const row = metrics.productionByTurn[turn];
@@ -329,7 +329,7 @@ async function main() {
     turnsPlayed: 0
   };
 
-  const startingTerritory = {};
+  const startingCradle = {};
 
   const game = await engine.createGame({});
   const gameId = game.id;
@@ -338,7 +338,7 @@ async function main() {
   for (const profile of PROFILES) {
     const agent = await engine.joinGame(gameId, profile);
     agents.push(agent);
-    startingTerritory[profile.displayName] = {
+    startingCradle[profile.displayName] = {
       capacity: { ...agent.capacity },
       inventory: { ...agent.inventory }
     };
@@ -381,7 +381,7 @@ async function main() {
     console.error(`Game did not finish within ${maxTurns} turns.`);
   }
 
-  printMetrics(metrics, finalState, startingTerritory);
+  printMetrics(metrics, finalState, startingCradle);
   await repo.closeDatabase();
 }
 

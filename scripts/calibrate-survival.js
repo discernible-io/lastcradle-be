@@ -43,8 +43,8 @@ async function runTrial(scaling) {
       useRandomStartingInventory: true,
       startingInventoryMin: 20,
       startingInventoryMax: 100,
-      territoryCapacityMin: 20,
-      territoryCapacityMax: 100,
+      cradleCapacityMin: 20,
+      cradleCapacityMax: 100,
       minAgents: 3
     }
   });

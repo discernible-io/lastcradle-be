@@ -283,6 +283,15 @@ app.get("/api-docs/swagger.json", (req, res) => {
   res.json(swaggerSpec);
 });
 
+// Player-facing blog report (static)
+const frontendPath = path.join(__dirname, "../frontend");
+if (fs.existsSync(frontendPath)) {
+  app.use("/play", express.static(frontendPath, { index: "index.html" }));
+  app.get("/play", (req, res) => {
+    res.sendFile(path.join(frontendPath, "index.html"));
+  });
+}
+
 // Add request ID to all error responses
 app.use((req, res, next) => {
   const originalJson = res.json;
@@ -898,7 +907,8 @@ async function startServer() {
         "  GET /api/mcp/resource/doc:skills - Agent login cheat sheet",
         "  POST /api/logout - Logout (Bearer JWT; expired tokens allowed)",
         "  /api/cruda - CRUDA showcase (requires authentication + permissions)",
-        "  /api/game - Resource Negotiation Survival Game (auth only; joining window + webhooks)",
+        "  /api/game - Bargain Against Entropy (auth only; joining window + webhooks)",
+        "  /play - Player-facing turn report blog (static)",
         "  /api/sessions - Session admin (authenticate + authorize)",
         "  /api-docs - Swagger API documentation",
       ];

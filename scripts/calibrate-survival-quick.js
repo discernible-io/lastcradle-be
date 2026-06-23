@@ -38,8 +38,8 @@ async function runTrial(scaling) {
     config: {
       useRandomStartingInventory: false,
       startingInventory: { energy: 90, water: 90, compute: 90 },
-      territoryCapacityMin: 40,
-      territoryCapacityMax: 40,
+      cradleCapacityMin: 40,
+      cradleCapacityMax: 40,
       minAgents: 3
     }
   });

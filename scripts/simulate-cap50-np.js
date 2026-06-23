@@ -20,8 +20,8 @@ const CAP = 50;
 const CAP_CONFIG = {
   maxProductionCapacity: { energy: CAP, water: CAP, compute: CAP },
   maxStorageCapacity: { energy: CAP, water: CAP, compute: CAP },
-  territoryCapacityMin: 20,
-  territoryCapacityMax: CAP,
+  cradleCapacityMin: 20,
+  cradleCapacityMax: CAP,
   minAgents: 3
 };
 

@@ -23,8 +23,8 @@ process.env.NODE_CONFIG_ENV = process.env.NODE_CONFIG_ENV || "development";
 process.env.NODE_CONFIG_DIR = path.join(__dirname, "..", "config");
 
 const SIM_CONFIG = {
-  territoryCapacityMin: 20,
-  territoryCapacityMax: 50,
+  cradleCapacityMin: 20,
+  cradleCapacityMax: 50,
   maxProductionCapacity: { energy: 50, water: 50, compute: 50 },
   maxStorageCapacity: { energy: 50, water: 50, compute: 50 },
   survivalCost: { energy: 10, water: 10, compute: 10 },

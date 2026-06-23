@@ -315,7 +315,7 @@ async function main() {
 
   await repo.initializeDatabase();
 
-  console.log(`Resource Negotiation Survival Game — ${PLAYER_COUNT}-player simulation`);
+  console.log(`Bargain Against Entropy — ${PLAYER_COUNT}-player simulation`);
   console.log(`Database: ${DB_PATH}`);
   console.log(
     `Roster: ${Object.entries(roleCounts)
@@ -339,7 +339,7 @@ async function main() {
   for (const profile of PROFILES) {
     agents.push(await engine.joinGame(gameId, profile));
   }
-  console.log(`Joined ${agents.length} territories.`);
+  console.log(`Joined ${agents.length} cradles.`);
 
   await engine.startGame(gameId);
   console.log("Turn 1 production applied.\n");

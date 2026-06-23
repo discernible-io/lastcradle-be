@@ -187,7 +187,7 @@ async function benchmarkPlayerCount(playerCount, trials, progress) {
   cleanupSimulationArtifacts();
 
   const cfg = DEFAULT_GAME_CONFIG;
-  console.log("Resource Negotiation Survival Game — length benchmark");
+  console.log("Bargain Against Entropy — length benchmark");
   console.log(
     `Config: survival base ${cfg.survivalCost.energy}/${cfg.survivalCost.water}/${cfg.survivalCost.compute}, ` +
       `increment ${cfg.survivalCostTurnIncrement}, prod energy rate ${cfg.productionEnergyCostRate}, ` +

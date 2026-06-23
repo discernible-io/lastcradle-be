@@ -21,6 +21,7 @@
   "scripts": {
     "preinstall": "node scripts/enforce-minimum-package-age.js",
     "start": "nodemon src/app.js",
+    "blog:report": "node scripts/generate-blog-report.js 7 finish",
     "update:permissions": "node scripts/update-permissionsmap.js --all-environments",
     "validate:permissions": "node scripts/update-permissionsmap.js --validate --all-environments"
   },

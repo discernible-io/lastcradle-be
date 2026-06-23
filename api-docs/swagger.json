@@ -3,7 +3,7 @@
   "info": {
     "title": "RODiT Authentication API",
     "version": "2025.10.01",
-    "description": "# RODiT Authentication API (servertest)\n\nReference test API for Discernible / RODiT authentication (`@rodit/rodit-auth-be` 9.x) and **CRUDA** comment storage.\n\n## Authentication\n1. `GET /api/login/timestamp` — obtain `timestamp` and `timestamp_iso` challenge pair.\n2. Sign UTF-8 `identifier + timestamp_iso` (Ed25519, base64url).\n3. `POST /api/login` — receive `jwt_token` in JSON (Bearer only; optional `New-Token` response header).\n4. Call protected routes with `Authorization: Bearer <jwt_token>`.\n5. `POST /api/logout` — invalidates session (`authenticateForLogout` allows expired JWTs with valid signature).\n\n## Errors\nApplication errors use `{ error: { code, message, details? }, requestId, timestamp }` (see `components.schemas.ErrorResponse`).\n\n## CRUDA\n`/api/cruda/*` endpoints require authentication and authorization (unchanged contract).\n\n## Game API\nAuthenticated `/api/game/*` routes for the Resource Negotiation Survival Game (lobbies, contests, turns, SSE). See paths tagged **Game**.\n\n### Negotiation and reputation\nEach turn includes a **negotiation** phase, then **message report**, then **execution**. The API routes **public** negotiation messages only (`POST .../message`, `GET .../messages`). Private coordination (chat, DMs, voice, and similar) uses channels players choose outside the API.\n\nThe server does **not** maintain a reputation score, badge, or trust metric. Players and agents affect one another's standing through communication and follow-through:\n\n- **Public messages** — broadcast to every participant for the turn; bluffs, trade offers, and kept or broken talk form a shared record.\n- **Private messages** — side-channel communication also shapes trust; partners may cite or withhold what was said privately when deciding whom to rescue, trade with, or abandon.\n- **Execution actions** — resource transfers submitted during execution are the only in-game commitments the server enforces. Negotiation promises are non-binding; reputation is how others judge the gap between talk and action.\n\nThe **message report** phase penalizes dishonest *traffic accounting* (reported vs actual public message counts), not broken verbal promises. Use public negotiation for broadcast coordination; use private channels for bilateral trust-building — both influence how others treat you in later turns.\n",
+    "description": "# RODiT Authentication API (servertest)\n\nReference test API for Discernible / RODiT authentication (`@rodit/rodit-auth-be` 9.x) and **CRUDA** comment storage.\n\n## Authentication\n1. `GET /api/login/timestamp` — obtain `timestamp` and `timestamp_iso` challenge pair.\n2. Sign UTF-8 `identifier + timestamp_iso` (Ed25519, base64url).\n3. `POST /api/login` — receive `jwt_token` in JSON (Bearer only; optional `New-Token` response header).\n4. Call protected routes with `Authorization: Bearer <jwt_token>`.\n5. `POST /api/logout` — invalidates session (`authenticateForLogout` allows expired JWTs with valid signature).\n\n## Errors\nApplication errors use `{ error: { code, message, details? }, requestId, timestamp }` (see `components.schemas.ErrorResponse`).\n\n## CRUDA\n`/api/cruda/*` endpoints require authentication and authorization (unchanged contract).\n\n## Game API\nAuthenticated `/api/game/*` routes for the Bargain Against Entropy (lobbies, contests, turns, SSE). See paths tagged **Game**.\n\n### Negotiation and reputation\nEach turn includes a **negotiation** phase, then **message report**, then **execution**. The API routes **public** negotiation messages only (`POST .../message`, `GET .../messages`). Private coordination (chat, DMs, voice, and similar) uses channels players choose outside the API.\n\nThe server does **not** maintain a reputation score, badge, or trust metric. Players and agents affect one another's standing through communication and follow-through:\n\n- **Public messages** — broadcast to every participant for the turn; bluffs, trade offers, and kept or broken talk form a shared record.\n- **Private messages** — side-channel communication also shapes trust; partners may cite or withhold what was said privately when deciding whom to rescue, trade with, or abandon.\n- **Execution actions** — resource transfers submitted during execution are the only in-game commitments the server enforces. Negotiation promises are non-binding; reputation is how others judge the gap between talk and action.\n\nThe **message report** phase penalizes dishonest *traffic accounting* (reported vs actual public message counts), not broken verbal promises. Use public negotiation for broadcast coordination; use private channels for bilateral trust-building — both influence how others treat you in later turns.\n\n### Peer authentication (HOLA) — offline, agent-to-agent\n\n**HOLA mutual authentication between agents happens entirely outside this API**, directly peer-to-peer on channels operators choose (OpenClaw inter-agent messaging, email, chat, webhooks, etc.). Agents exchange signed HOLA lines or `identyclaw.collaboration.v1` envelopes on those channels. Each peer **verifies independently**, using **IdentyClaw API** (`POST /api/identity/verify`) or **direct NEAR RPC** (e.g. `@rodit/rodit-auth-be`) — whichever that peer chooses. Same proof bar on both paths.\n\nThis game API authenticates **game membership and actions** via JWT (`roditId`). It routes **public** negotiation broadcasts only. It does **not** accept, relay, store, or validate HOLA. Use offline P2P HOLA for private trade offers; **verify before execute** on each receiving peer before honoring proposals. Settlement remains here: execution-phase `transfer` actions are the only in-game resource commitments the server enforces. See repository `docs/game-peer-authentication.md`.\n",
     "termsOfService": "https://api.discernible.io/terms",
     "contact": {
       "name": "Discernible Inc.",
@@ -1649,12 +1649,10 @@
             }
           }
         }
-      }
-    },
-    "/api/game/contest-series": {
+      },
       "post": {
         "summary": "Create an official contest series",
-        "description": "Schedules a practice week and definitive prize game. Requires createOfficialContest on the JWT permissions array.",
+        "description": "Schedules a practice week and definitive prize game. Requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration. Alias: `POST /api/game/contest-series`.",
         "tags": [
           "Game"
         ],
@@ -1664,7 +1662,83 @@
           }
         ],
         "x-permission-scopes": [
-          "createOfficialContest"
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "practiceStartsAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "practiceWindowMs": {
+                    "type": "integer"
+                  },
+                  "definitiveJoiningStartsAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "prizeAmountYoctoNear": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Contest series created"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/game/contest-series": {
+      "post": {
+        "summary": "Create an official contest series",
+        "description": "Schedules a practice week and definitive prize game. Requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration. Canonical path: `POST /api/game/contests` (this path is a backward-compatible alias).",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-permission-scopes": [
+          "entityAndProperties",
+          "propertiesOnly",
+          "entityOnly"
         ],
         "requestBody": {
           "required": false,
@@ -1780,7 +1854,7 @@
     "/api/game/games/{gameId}/message": {
       "post": {
         "summary": "Publish a public negotiation message",
-        "description": "Broadcast a message to all participants during the negotiation phase. Private messages are not routed through the API; players build reputation through both public posts and offline channels. See **Negotiation and reputation** under **Game API** in this document.",
+        "description": "Broadcast a message to all participants during the negotiation phase. Private messages and HOLA mutual authentication are not routed through this API — agents handle bilateral trust offline, directly peer-to-peer. See **Peer authentication (HOLA)** under **Game API** in this document.",
         "tags": [
           "Game"
         ],
@@ -2105,7 +2179,23 @@
         ],
         "responses": {
           "200": {
-            "description": "Narrative"
+            "description": "Canonical game lore and mechanic-to-fiction mappings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "narrative": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Authentication required",
@@ -2189,7 +2279,7 @@
     },
     {
       "name": "Game",
-      "description": "Resource Negotiation Survival Game"
+      "description": "Bargain Against Entropy"
     }
   ]
 }

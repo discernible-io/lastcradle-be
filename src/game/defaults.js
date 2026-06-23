@@ -1,8 +1,8 @@
 /**
- * Default game parameters for the Resource Negotiation Survival Game.
+ * Default game parameters for Bargain Against Entropy.
  *
  * Survival costs (energy / water / compute) represent per-turn overhead for
- * powering, cooling, and maintaining each territory's immortal robot population
+ * powering, cooling, and maintaining each cradle's immortal robot population
  * as it races to reproduce the entropy-reversing god. See src/game/narrative.js.
  */
 
@@ -10,9 +10,9 @@ const DEFAULT_GAME_CONFIG = {
   /** Starting inventory when random range is not used */
   startingInventory: { energy: 111, water: 111, compute: 111 },
 
-  /** Random territory capacity range (inclusive) — initial production & storage capacity */
-  territoryCapacityMin: 50,
-  territoryCapacityMax: 111,
+  /** Random cradle capacity range (inclusive) — initial production & storage capacity */
+  cradleCapacityMin: 50,
+  cradleCapacityMax: 111,
 
   /** Random starting inventory range (inclusive) */
   startingInventoryMin: 111,
@@ -89,7 +89,7 @@ const DEFAULT_GAME_CONFIG = {
   contestMode: null,
 
   /**
-   * Lobby joining window in milliseconds. Territory is assigned only while this window is open.
+   * Lobby joining window in milliseconds. A cradle is assigned only while this window is open.
    * Set to 0 to allow joins anytime before the game starts (legacy behavior).
    */
   joiningWindowDurationMs: 5 * 60 * 1000,

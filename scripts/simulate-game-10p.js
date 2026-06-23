@@ -345,7 +345,7 @@ async function main() {
 
   await repo.initializeDatabase();
 
-  console.log("Resource Negotiation Survival Game — 10-player simulation");
+  console.log("Bargain Against Entropy — 10-player simulation");
   console.log(`Database: ${DB_PATH}`);
   console.log(
     `Players: ${PROFILES.map((p) => `${p.displayName}(${p.role})`).join(", ")}`

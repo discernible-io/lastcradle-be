@@ -214,8 +214,8 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
       turnNumber,
       "The reproduction race opens",
       GAME_LORE.premise,
-      `${livingAfter.length} territories alive | aggregate production ${fmtR(flow.produced)}/cycle | ` +
-        `survival overhead ${fmtR(survivalPerPlayer)}/territory (scales with ${livingAfter.length} rivals) | ` +
+      `${livingAfter.length} cradles alive | aggregate production ${fmtR(flow.produced)}/cycle | ` +
+        `survival overhead ${fmtR(survivalPerPlayer)}/cradle (scales with ${livingAfter.length} rivals) | ` +
         `${flow.investActions} capacity investments, ${flow.transferActions} trades`
     );
     if (!metrics._loreSurvival) {
@@ -229,7 +229,7 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
       turnNumber,
       "Cradles expand reproduction lines",
       MECHANIC_NARRATIVES.investment,
-      `${flow.investActions} territories invested ${fmtR(flow.invested)} toward production/storage capacity`
+      `${flow.investActions} cradles invested ${fmtR(flow.invested)} toward production/storage capacity`
     );
   }
 
@@ -249,7 +249,7 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
       metrics,
       turnNumber,
       "Shadow diplomacy",
-      "Territories conceal fab capacity or spend compute to pierce rival fog — the race is fought in whispers as well as trade.",
+      "Cradles conceal fab capacity or spend compute to pierce rival fog — the race is fought in whispers as well as trade.",
       `hide ${fmt(flow.intelHide)} / find ${fmt(flow.intelFind)} compute spent this cycle`
     );
   }
@@ -288,7 +288,7 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
       "A cradle falls silent",
       MECHANIC_NARRATIVES.elimination,
       `Eliminated: ${dead.map((a) => a.displayName).join(", ")} | ${livingAfter.length}/${PLAYER_COUNT} remain | ` +
-        `survival overhead now ${fmtR(survivalPerPlayer)}/territory`
+        `survival overhead now ${fmtR(survivalPerPlayer)}/cradle`
     );
   }
 
@@ -334,7 +334,7 @@ function printFinalReport(metrics, state, playerCount) {
   console.log("CHRONICLE — METRIC HIGHLIGHTS");
   console.log(`${"═".repeat(78)}`);
   console.log(
-    MECHANIC_NARRATIVES.territories +
+    MECHANIC_NARRATIVES.cradles +
       " " +
       (metrics._loreSurvival || "")
   );
@@ -348,7 +348,7 @@ function printFinalReport(metrics, state, playerCount) {
   console.log(`\n${"─".repeat(78)}`);
   console.log("AGGREGATE LEDGER");
   console.log(`${"─".repeat(78)}`);
-  console.log(`Territories entered:     ${playerCount}`);
+  console.log(`Cradles entered:     ${playerCount}`);
   console.log(`Cycles played:           ${metrics.turnsPlayed}`);
   console.log(`Status:                  ${state.game.status}`);
   console.log(`Survivors:               ${state.livingAgentCount}`);
@@ -403,7 +403,7 @@ async function main() {
   };
 
   if (VERBOSE) {
-    console.log(`Adaptive simulation — ${PLAYER_COUNT} territories`);
+    console.log(`Adaptive simulation — ${PLAYER_COUNT} cradles`);
   } else {
     console.log(`Running ${PLAYER_COUNT}-player adaptive simulation to ${RUN_UNTIL_FINISH ? "finish" : `${maxTurns} cycles`}…`);
   }

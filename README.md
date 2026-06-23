@@ -20,6 +20,7 @@ See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 
 | Document | Summary |
 | --- | --- |
+| [`docs/game-peer-authentication.md`](docs/game-peer-authentication.md) | HOLA offline P2P between agents; game API scope vs Passport proof |
 | [`docs/security-compliance.md`](docs/security-compliance.md) | Gap analysis and verification checklist against organization standards |
 | [`docs/BRANCHING.md`](docs/BRANCHING.md) | Branch roles (`main`, `development`, `legacy`) and promotion workflow |
 | [`scripts/README-database-init.md`](scripts/README-database-init.md) | SQLite initialization for development and deployment |
@@ -111,7 +112,7 @@ Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at c
 
 All endpoints are defined in [`api-docs/swagger.json`](api-docs/swagger.json) (authoritative per [`docs/documentation-standard.md`](docs/documentation-standard.md)). Explore interactively at `/api-docs` or `GET /api-docs/swagger.json` on a running server.
 
-Surface areas: authentication, CRUDA comments, sessions, metrics, MCP, client signing, and `/api/game/*` (Resource Negotiation Survival Game).
+Surface areas: authentication, CRUDA comments, sessions, metrics, MCP, client signing, and `/api/game/*` (Bargain Against Entropy).
 
 ## Installation
 
@@ -314,7 +315,7 @@ servertest-rodit/
 │   ├── protected/             # Protected route handlers
 │   │   ├── cruda.js           # CRUDA showcase (auth + authorize)
 │   │   └── metricsroutes.js
-│   └── game/                  # Resource Negotiation Survival Game
+│   └── game/                  # Bargain Against Entropy
 ├── config/                    # Configuration files
 ├── api-docs/                  # OpenAPI specification
 ├── nginx/                     # nginx configuration
@@ -419,9 +420,11 @@ curl -X POST https://api.discernible.io:9443/api/cruda/create \
 
 ### Starting a game
 
-The Resource Negotiation Survival Game lives under `/api/game/*`. Routes require a valid JWT (`authenticate` only — no `METHOD_PERMISSION_MAP` permission scopes). Players receive a **territory** only if they call **join** while the lobby **joining window** is open (default **5 minutes**). On first join, the API sends a best-effort `territory_assigned` webhook to the RODiT token's configured webhook URL.
+**Bargain Against Entropy** lives under `/api/game/*`. Routes require a valid JWT (`authenticate` only — no `METHOD_PERMISSION_MAP` permission scopes). Players receive a **cradle** only if they call **join** while the lobby **joining window** is open (default **5 minutes**). On first join, the API sends a best-effort `cradle_assigned` webhook to the RODiT token's configured webhook URL.
 
-Negotiation routes **public** messages through the API; private coordination uses channels you choose offline. The server does not track a reputation score — players affect one another's standing through what they say (public and private) and whether execution matches their talk. See the **Negotiation and reputation** subsection under **Game API** in [`api-docs/swagger.json`](api-docs/swagger.json) (also served at `/api-docs`).
+Negotiation routes **public** messages through the API; **private coordination and HOLA mutual authentication happen entirely offline, directly peer-to-peer between agents** — not through this game API. Each peer **verifies independently** (IdentyClaw API or direct NEAR RPC, peer's choice) before honoring private trade proposals (**verify before execute**); game JWT is only for join, public broadcast, and execution settlement. The server does not track a reputation score — players affect one another's standing through what they say (public and private) and whether execution matches their talk.
+
+See [`docs/game-peer-authentication.md`](docs/game-peer-authentication.md), and the **Negotiation and reputation** / **Peer authentication (HOLA)** subsections under **Game API** in [`api-docs/swagger.json`](api-docs/swagger.json) (also served at `/api-docs`).
 
 Set a base URL for the examples below:
 
@@ -490,7 +493,7 @@ curl -s -X POST "$API_BASE/api/game/games" \
   }'
 ```
 
-#### 4. Join (territory assignment)
+#### 4. Join (cradle assignment)
 
 Each player must join **during** the open joining window:
 

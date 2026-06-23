@@ -594,7 +594,7 @@ async function printMetrics(metrics, finalState, playerCount) {
         total.water += prod.water;
         total.compute += prod.compute;
       }
-      console.log(`    T${turn} aggregate: ${fmtR(total)} (${Object.keys(row).length} territories)`);
+      console.log(`    T${turn} aggregate: ${fmtR(total)} (${Object.keys(row).length} cradles)`);
     }
   } else {
     console.log(`\n  Per-turn detail omitted (${prodTurns.length} turns); showing first 3 and last 3:`);
@@ -607,7 +607,7 @@ async function printMetrics(metrics, finalState, playerCount) {
         total.water += prod.water;
         total.compute += prod.compute;
       }
-      console.log(`    T${turn} aggregate: ${fmtR(total)} (${Object.keys(row).length} territories)`);
+      console.log(`    T${turn} aggregate: ${fmtR(total)} (${Object.keys(row).length} cradles)`);
     }
   }
 

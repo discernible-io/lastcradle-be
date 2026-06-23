@@ -357,8 +357,8 @@ Target format: ~50 participants, one practice week, one definitive prize game, t
 - **Forced finish at deadline** ends the game with every living agent in `winnerIds` (equal prize shares). Ranking order in `winnerIds` is for audit only (alive status, then inventory, then elimination turn).
 - **Natural finish** (living count ≤ `finishSurvivorCount`) also lists all survivors in `winnerIds` — typically the last two, who share the pool equally.
 - **Rate limits** on game endpoints remain via existing nginx / `userratelimitmw`; contest traffic may need tighter per-route limits (operator).
-- **Official contest creation** requires `createOfficialContest` on the JWT `permissions` array for `POST /api/game/contest-series` (middleware + route handler) and for `POST /api/game/games` when the config matches an official contest (`contestMode: "definitive"` or 50-player min/max). `GET /api/game/contests` uses standard game scopes. Practice/casual lobbies keep standard game scopes.
-- Grant `createOfficialContest` only to operator service accounts (not general player tokens).
+- **Official contest creation** requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration for `POST /api/game/contests` (and alias `POST /api/game/contest-series`) and for `POST /api/game/games` when the config matches an official contest (`contestMode: "definitive"` or 50-player min/max). `GET /api/game/contests` uses standard game scopes. Practice/casual lobbies keep standard game scopes.
+- Set `GAME_PRIVILEGED_RODIT_ID` only on operator service accounts (not general player tokens).
 
 ### Verification
 

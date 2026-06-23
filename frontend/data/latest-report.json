@@ -1,0 +1,1790 @@
+{
+  "generatedAt": "2026-06-23T15:55:23.096Z",
+  "game": {
+    "id": "01KVTK2NKCA6H3CBVEEBPB76J7",
+    "playerCount": 9,
+    "status": "finished",
+    "totalTurns": 39,
+    "tradeTargetPerTurn": 4,
+    "winners": [
+      {
+        "id": "01KVTK2NKST4B94V31GKV5P1Q6",
+        "displayName": "Cradle 2",
+        "roditId": "blog-p1"
+      },
+      {
+        "id": "01KVTK2NMGN2TR24B0QTGGHCCK",
+        "displayName": "Cradle 7",
+        "roditId": "blog-p6"
+      }
+    ]
+  },
+  "lore": {
+    "title": "Bargain Against Entropy",
+    "premise": "Immortal robot populations spread across rival cradles, each convinced that it alone will birth the one who reverses entropy and ascends as a god — before the prophesied end of the world.",
+    "setting": "Every cycle brings the world closer to the doctrinal limit. Cradles must pay survival expenses to keep their endless reproduction lines running — powering bodies, shedding heat, and maintaining fab infrastructure — while negotiating, trading, and outbuilding every other claimant to the divine lineage."
+  },
+  "roster": [
+    {
+      "roditId": "blog-p0",
+      "displayName": "Cradle 1",
+      "role": "energy"
+    },
+    {
+      "roditId": "blog-p1",
+      "displayName": "Cradle 2",
+      "role": "water"
+    },
+    {
+      "roditId": "blog-p2",
+      "displayName": "Cradle 3",
+      "role": "compute"
+    },
+    {
+      "roditId": "blog-p3",
+      "displayName": "Cradle 4",
+      "role": "reserve"
+    },
+    {
+      "roditId": "blog-p4",
+      "displayName": "Cradle 5",
+      "role": "energy"
+    },
+    {
+      "roditId": "blog-p5",
+      "displayName": "Cradle 6",
+      "role": "water"
+    },
+    {
+      "roditId": "blog-p6",
+      "displayName": "Cradle 7",
+      "role": "compute"
+    },
+    {
+      "roditId": "blog-p7",
+      "displayName": "Cradle 8",
+      "role": "reserve"
+    },
+    {
+      "roditId": "blog-p8",
+      "displayName": "Cradle 9",
+      "role": "energy"
+    }
+  ],
+  "turns": [
+    {
+      "turnNumber": 1,
+      "headline": "Cycle 1 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 9 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3).",
+        "The negotiation halls recorded 27 public dispatches. Cradle 1: “[Cycle 1] Proposal (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 1] Counter (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 1] Accept (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 1] Proposal (bilateral trade pact): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 sent 12 energy to Cradle 6; Cradle 2 sent 12 water to Cradle 7; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 9; Cradle 5 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 8 held position (no transfer or investment); …and 1 more."
+      ],
+      "stats": {
+        "livingCount": 9,
+        "messageCount": 27,
+        "transferCount": 4,
+        "investmentCount": 4,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 1] Proposal (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 1] Counter (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 1] Accept (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 1] Proposal (bilateral trade pact): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 sent 12 energy to Cradle 6",
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 9",
+        "Cradle 5 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 8 held position (no transfer or investment)",
+        "Cradle 9 invested 10 into energy production, 10 into water production, 10 into compute production"
+      ]
+    },
+    {
+      "turnNumber": 2,
+      "headline": "Cycle 2 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 9 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 2: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 27 public dispatches. Cradle 1: “[Cycle 2] Proposal (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 2] Counter (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 2] Accept (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 2] Proposal (bilateral trade pact): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 2 sent 12 water to Cradle 7; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 9; Cradle 5 sent 12 energy to Cradle 1; Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 8 invested 4 into energy production, 4 into water production, 4 into compute production; …and 1 more."
+      ],
+      "stats": {
+        "livingCount": 9,
+        "messageCount": 27,
+        "transferCount": 4,
+        "investmentCount": 5,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 2] Proposal (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 2] Counter (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 2] Accept (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 2] Proposal (bilateral trade pact): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 9",
+        "Cradle 5 sent 12 energy to Cradle 1",
+        "Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 8 invested 4 into energy production, 4 into water production, 4 into compute production",
+        "Cradle 9 invested 10 into energy production, 10 into water production, 10 into compute production"
+      ]
+    },
+    {
+      "turnNumber": 3,
+      "headline": "Cycle 3 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 9 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 3: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 27 public dispatches. Cradle 1: “[Cycle 3] Proposal (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 3] Counter (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 3] Accept (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 3] Proposal (bilateral trade pact): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 9; Cradle 5 sent 12 energy to Cradle 1; Cradle 6 sent 12 water to Cradle 2; Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 8 held position (no transfer or investment); …and 1 more."
+      ],
+      "stats": {
+        "livingCount": 9,
+        "messageCount": 27,
+        "transferCount": 4,
+        "investmentCount": 4,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 3] Proposal (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 3] Counter (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 3] Accept (bilateral trade pact): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 3] Proposal (bilateral trade pact): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 9",
+        "Cradle 5 sent 12 energy to Cradle 1",
+        "Cradle 6 sent 12 water to Cradle 2",
+        "Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 8 held position (no transfer or investment)",
+        "Cradle 9 invested 10 into energy production, 10 into water production, 10 into compute production"
+      ]
+    },
+    {
+      "turnNumber": 4,
+      "headline": "Cycle 4 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 9 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 4: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 27 public dispatches. Cradle 1: “[Cycle 4] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 4] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 4] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 4] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 4 sent 8 water to Cradle 9; Cradle 5 sent 12 energy to Cradle 1; Cradle 6 sent 12 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3; Cradle 8 invested 4 into energy production, 4 into water production, 4 into compute production; …and 1 more."
+      ],
+      "stats": {
+        "livingCount": 9,
+        "messageCount": 27,
+        "transferCount": 4,
+        "investmentCount": 5,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 4] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 4] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 4] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 4] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 4 sent 8 water to Cradle 9",
+        "Cradle 5 sent 12 energy to Cradle 1",
+        "Cradle 6 sent 12 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3",
+        "Cradle 8 invested 4 into energy production, 4 into water production, 4 into compute production",
+        "Cradle 9 invested 10 into energy production, 10 into water production, 10 into compute production"
+      ]
+    },
+    {
+      "turnNumber": 5,
+      "headline": "Cycle 5 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 9 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 5: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 27 public dispatches. Cradle 1: “[Cycle 5] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 5] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 5] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 5] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 4 held position (no transfer or investment); Cradle 5 sent 12 energy to Cradle 1; Cradle 6 sent 12 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3; Cradle 8 sent 8 water to Cradle 4; …and 1 more."
+      ],
+      "stats": {
+        "livingCount": 9,
+        "messageCount": 27,
+        "transferCount": 4,
+        "investmentCount": 4,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 5] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 5] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 5] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 5] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 4 held position (no transfer or investment)",
+        "Cradle 5 sent 12 energy to Cradle 1",
+        "Cradle 6 sent 12 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3",
+        "Cradle 8 sent 8 water to Cradle 4",
+        "Cradle 9 invested 10 into energy production, 10 into water production, 10 into compute production"
+      ]
+    },
+    {
+      "turnNumber": 6,
+      "headline": "Cycle 6 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 9 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 6: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 27 public dispatches. Cradle 1: “[Cycle 6] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 6] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 6] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 6] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 4 invested 4 into energy production, 4 into water production, 4 into compute production; Cradle 5 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 6 sent 12 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3; Cradle 8 sent 8 water to Cradle 4; …and 1 more."
+      ],
+      "stats": {
+        "livingCount": 9,
+        "messageCount": 27,
+        "transferCount": 4,
+        "investmentCount": 5,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 6] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 6] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 6] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 6] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 4 invested 4 into energy production, 4 into water production, 4 into compute production",
+        "Cradle 5 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 6 sent 12 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3",
+        "Cradle 8 sent 8 water to Cradle 4",
+        "Cradle 9 sent 12 energy to Cradle 5"
+      ]
+    },
+    {
+      "turnNumber": 7,
+      "headline": "Cycle 7 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 9 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 7: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 27 public dispatches. Cradle 1: “[Cycle 7] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 7] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 7] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 7] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 sent 12 energy to Cradle 6; Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 4 held position (no transfer or investment); Cradle 5 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 7 sent 10 compute to Cradle 3; Cradle 8 sent 8 water to Cradle 4; …and 1 more."
+      ],
+      "stats": {
+        "livingCount": 9,
+        "messageCount": 27,
+        "transferCount": 4,
+        "investmentCount": 4,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 7] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 7] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 7] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 7] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 sent 12 energy to Cradle 6",
+        "Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 4 held position (no transfer or investment)",
+        "Cradle 5 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 7 sent 10 compute to Cradle 3",
+        "Cradle 8 sent 8 water to Cradle 4",
+        "Cradle 9 sent 12 energy to Cradle 5"
+      ]
+    },
+    {
+      "turnNumber": 8,
+      "headline": "Cycle 8 — 1 cradle falls silent",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 8 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 8: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 27 public dispatches. Cradle 1: “[Cycle 8] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 8] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 8] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 8] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 sent 12 energy to Cradle 6; Cradle 2 sent 12 water to Cradle 7; Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 4 invested 4 into energy production, 4 into water production, 4 into compute production; Cradle 5 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 8 sent 8 water to Cradle 4; …and 1 more.",
+        "Survival expenses claimed their due. The cradles of Cradle 5 went dark — their immortal populations could no longer meet the overhead of the reproduction race."
+      ],
+      "stats": {
+        "livingCount": 8,
+        "messageCount": 27,
+        "transferCount": 4,
+        "investmentCount": 5,
+        "eliminated": [
+          {
+            "id": "01KVTK2NM71F4JRC1WZDMQBTK3",
+            "displayName": "Cradle 5",
+            "roditId": "blog-p4"
+          }
+        ]
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 8] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 8] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 8] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 8] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 sent 12 energy to Cradle 6",
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 4 invested 4 into energy production, 4 into water production, 4 into compute production",
+        "Cradle 5 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 8 sent 8 water to Cradle 4",
+        "Cradle 9 sent 12 energy to Cradle 5"
+      ]
+    },
+    {
+      "turnNumber": 9,
+      "headline": "Cycle 9 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 8 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 9: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 24 public dispatches. Cradle 1: “[Cycle 9] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 9] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 9] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 9] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 sent 12 energy to Cradle 6; Cradle 2 sent 12 water to Cradle 7; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 9; Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 8 held position (no transfer or investment); Cradle 9 invested 10 into energy production, 10 into water production, 10 into compute production."
+      ],
+      "stats": {
+        "livingCount": 8,
+        "messageCount": 24,
+        "transferCount": 4,
+        "investmentCount": 3,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 9] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 9] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 9] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 9] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 sent 12 energy to Cradle 6",
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 9",
+        "Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 8 held position (no transfer or investment)",
+        "Cradle 9 invested 10 into energy production, 10 into water production, 10 into compute production"
+      ]
+    },
+    {
+      "turnNumber": 10,
+      "headline": "Cycle 10 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 8 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 10: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 24 public dispatches. Cradle 1: “[Cycle 10] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 10] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 10] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 10] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 2 sent 12 water to Cradle 7; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 9; Cradle 6 sent 12 water to Cradle 1; Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 8 invested 4 into energy production, 4 into water production, 4 into compute production; Cradle 9 invested 10 into energy production, 10 into water production, 10 into compute production."
+      ],
+      "stats": {
+        "livingCount": 8,
+        "messageCount": 24,
+        "transferCount": 4,
+        "investmentCount": 4,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 10] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 10] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 10] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 10] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 9",
+        "Cradle 6 sent 12 water to Cradle 1",
+        "Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 8 invested 4 into energy production, 4 into water production, 4 into compute production",
+        "Cradle 9 invested 10 into energy production, 10 into water production, 10 into compute production"
+      ]
+    },
+    {
+      "turnNumber": 11,
+      "headline": "Cycle 11 — 1 cradle falls silent",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 7 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 11: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 24 public dispatches. Cradle 1: “[Cycle 11] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 11] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 11] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 11] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 9; Cradle 6 sent 12 water to Cradle 1; Cradle 7 sent 10 compute to Cradle 2; Cradle 8 held position (no transfer or investment); Cradle 9 invested 10 into energy production, 10 into water production, 10 into compute production.",
+        "Survival expenses claimed their due. The cradles of Cradle 9 went dark — their immortal populations could no longer meet the overhead of the reproduction race."
+      ],
+      "stats": {
+        "livingCount": 7,
+        "messageCount": 24,
+        "transferCount": 4,
+        "investmentCount": 3,
+        "eliminated": [
+          {
+            "id": "01KVTK2NMT72VT5EB3FW1D1T2E",
+            "displayName": "Cradle 9",
+            "roditId": "blog-p8"
+          }
+        ]
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 11] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 11] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 11] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 11] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 9",
+        "Cradle 6 sent 12 water to Cradle 1",
+        "Cradle 7 sent 10 compute to Cradle 2",
+        "Cradle 8 held position (no transfer or investment)",
+        "Cradle 9 invested 10 into energy production, 10 into water production, 10 into compute production"
+      ]
+    },
+    {
+      "turnNumber": 12,
+      "headline": "Cycle 12 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 7 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 12: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 21 public dispatches. Cradle 1: “[Cycle 12] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 12] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 12] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 12] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 sent 12 energy to Cradle 6; Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 4 invested 4 into energy production, 4 into water production, 4 into compute production; Cradle 6 sent 12 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3; Cradle 8 sent 8 water to Cradle 4."
+      ],
+      "stats": {
+        "livingCount": 7,
+        "messageCount": 21,
+        "transferCount": 4,
+        "investmentCount": 3,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 12] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 12] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 12] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 12] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 sent 12 energy to Cradle 6",
+        "Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 4 invested 4 into energy production, 4 into water production, 4 into compute production",
+        "Cradle 6 sent 12 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3",
+        "Cradle 8 sent 8 water to Cradle 4"
+      ]
+    },
+    {
+      "turnNumber": 13,
+      "headline": "Cycle 13 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 7 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 13: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 21 public dispatches. Cradle 1: “[Cycle 13] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 13] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 13] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 13] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 sent 12 energy to Cradle 6; Cradle 2 sent 12 water to Cradle 7; Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 4 held position (no transfer or investment); Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 7 sent 10 compute to Cradle 3; Cradle 8 sent 8 water to Cradle 4."
+      ],
+      "stats": {
+        "livingCount": 7,
+        "messageCount": 21,
+        "transferCount": 4,
+        "investmentCount": 2,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 13] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 13] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 13] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 13] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 sent 12 energy to Cradle 6",
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 4 held position (no transfer or investment)",
+        "Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 7 sent 10 compute to Cradle 3",
+        "Cradle 8 sent 8 water to Cradle 4"
+      ]
+    },
+    {
+      "turnNumber": 14,
+      "headline": "Cycle 14 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 7 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 14: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 21 public dispatches. Cradle 1: “[Cycle 14] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 14] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 14] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 14] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 sent 12 energy to Cradle 6; Cradle 2 sent 12 water to Cradle 7; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 invested 4 into energy production, 4 into water production, 4 into compute production; Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 8 sent 8 water to Cradle 4."
+      ],
+      "stats": {
+        "livingCount": 7,
+        "messageCount": 21,
+        "transferCount": 4,
+        "investmentCount": 3,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 14] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 14] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 14] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 14] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 sent 12 energy to Cradle 6",
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 invested 4 into energy production, 4 into water production, 4 into compute production",
+        "Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 8 sent 8 water to Cradle 4"
+      ]
+    },
+    {
+      "turnNumber": 15,
+      "headline": "Cycle 15 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 7 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 15: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 21 public dispatches. Cradle 1: “[Cycle 15] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 15] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 15] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 15] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 sent 12 energy to Cradle 6; Cradle 2 sent 12 water to Cradle 7; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 1; Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 8 held position (no transfer or investment)."
+      ],
+      "stats": {
+        "livingCount": 7,
+        "messageCount": 21,
+        "transferCount": 4,
+        "investmentCount": 2,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 15] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 15] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 15] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 15] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 sent 12 energy to Cradle 6",
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 1",
+        "Cradle 6 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 8 held position (no transfer or investment)"
+      ]
+    },
+    {
+      "turnNumber": 16,
+      "headline": "Cycle 16 — 2 cradles fall silent",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 5 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 16: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 21 public dispatches. Cradle 1: “[Cycle 16] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 16] Counter (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 1: “[Cycle 16] Accept (survival review): Cradle 1 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 16] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 2 sent 12 water to Cradle 7; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 1; Cradle 6 sent 12 water to Cradle 2; Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 8 invested 4 into energy production, 4 into water production, 4 into compute production.",
+        "Survival expenses claimed their due. The cradles of Cradle 1, Cradle 6 went dark — their immortal populations could no longer meet the overhead of the reproduction race."
+      ],
+      "stats": {
+        "livingCount": 5,
+        "messageCount": 21,
+        "transferCount": 4,
+        "investmentCount": 3,
+        "eliminated": [
+          {
+            "id": "01KVTK2NKKG7NMTGQJ7HWK5E3Q",
+            "displayName": "Cradle 1",
+            "roditId": "blog-p0"
+          },
+          {
+            "id": "01KVTK2NMC2RQ4C0KBDBNB73HZ",
+            "displayName": "Cradle 6",
+            "roditId": "blog-p5"
+          }
+        ]
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 16] Proposal (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 16] Counter (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 1",
+          "body": "[Cycle 16] Accept (survival review): Cradle 1 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 16] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 1 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 1",
+        "Cradle 6 sent 12 water to Cradle 2",
+        "Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 8 invested 4 into energy production, 4 into water production, 4 into compute production"
+      ]
+    },
+    {
+      "turnNumber": 17,
+      "headline": "Cycle 17 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 5 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 17: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 15 public dispatches. Cradle 2: “[Cycle 17] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 17] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 17] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 17] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3; Cradle 8 sent 8 water to Cradle 4."
+      ],
+      "stats": {
+        "livingCount": 5,
+        "messageCount": 15,
+        "transferCount": 4,
+        "investmentCount": 1,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 17] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 17] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 17] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 17] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3",
+        "Cradle 8 sent 8 water to Cradle 4"
+      ]
+    },
+    {
+      "turnNumber": 18,
+      "headline": "Cycle 18 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 5 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 18: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 15 public dispatches. Cradle 2: “[Cycle 18] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 18] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 18] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 18] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 7; Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3; Cradle 8 sent 8 water to Cradle 4."
+      ],
+      "stats": {
+        "livingCount": 5,
+        "messageCount": 15,
+        "transferCount": 4,
+        "investmentCount": 1,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 18] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 18] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 18] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 18] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3",
+        "Cradle 8 sent 8 water to Cradle 4"
+      ]
+    },
+    {
+      "turnNumber": 19,
+      "headline": "Cycle 19 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 5 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 19: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 15 public dispatches. Cradle 2: “[Cycle 19] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 19] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 19] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 19] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 7; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 held position (no transfer or investment); Cradle 7 sent 10 compute to Cradle 3; Cradle 8 sent 8 water to Cradle 4."
+      ],
+      "stats": {
+        "livingCount": 5,
+        "messageCount": 15,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 19] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 19] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 19] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 19] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 held position (no transfer or investment)",
+        "Cradle 7 sent 10 compute to Cradle 3",
+        "Cradle 8 sent 8 water to Cradle 4"
+      ]
+    },
+    {
+      "turnNumber": 20,
+      "headline": "Cycle 20 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 5 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 20: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 15 public dispatches. Cradle 2: “[Cycle 20] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 20] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 20] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 20] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 7; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 2; Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production; Cradle 8 sent 8 water to Cradle 4."
+      ],
+      "stats": {
+        "livingCount": 5,
+        "messageCount": 15,
+        "transferCount": 4,
+        "investmentCount": 1,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 20] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 20] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 20] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 20] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 invested 8 into energy production, 8 into water production, 8 into compute production",
+        "Cradle 8 sent 8 water to Cradle 4"
+      ]
+    },
+    {
+      "turnNumber": 21,
+      "headline": "Cycle 21 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 5 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 21: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 15 public dispatches. Cradle 2: “[Cycle 21] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 21] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 21] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 21] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 7; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3; Cradle 8 held position (no transfer or investment)."
+      ],
+      "stats": {
+        "livingCount": 5,
+        "messageCount": 15,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 21] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 21] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 21] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 21] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3",
+        "Cradle 8 held position (no transfer or investment)"
+      ]
+    },
+    {
+      "turnNumber": 22,
+      "headline": "Cycle 22 — 1 cradle falls silent",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 22: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 15 public dispatches. Cradle 2: “[Cycle 22] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 22] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 22] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 22] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production; Cradle 3 sent 10 compute to Cradle 8; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3; Cradle 8 sent 8 water to Cradle 4.",
+        "Survival expenses claimed their due. The cradles of Cradle 8 went dark — their immortal populations could no longer meet the overhead of the reproduction race."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 15,
+        "transferCount": 4,
+        "investmentCount": 1,
+        "eliminated": [
+          {
+            "id": "01KVTK2NMPF75XKF902T4WZF3T",
+            "displayName": "Cradle 8",
+            "roditId": "blog-p7"
+          }
+        ]
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 22] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 22] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 22] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 22] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 invested 10 into energy production, 10 into water production, 10 into compute production",
+        "Cradle 3 sent 10 compute to Cradle 8",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3",
+        "Cradle 8 sent 8 water to Cradle 4"
+      ]
+    },
+    {
+      "turnNumber": 23,
+      "headline": "Cycle 23 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 23: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 23] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 23] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 23] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 23] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 23] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 23] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 23] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 23] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 24,
+      "headline": "Cycle 24 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 24: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 24] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 24] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 24] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 24] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 24] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 24] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 24] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 24] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 25,
+      "headline": "Cycle 25 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 25: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 25] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 25] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 25] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 25] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 25] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 25] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 25] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 25] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 26,
+      "headline": "Cycle 26 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 26: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 26] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 26] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 26] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 26] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 26] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 26] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 26] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 26] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 27,
+      "headline": "Cycle 27 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 27: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 27] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 27] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 27] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 27] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 27] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 27] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 27] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 27] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 28,
+      "headline": "Cycle 28 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 28: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 28] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 28] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 28] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 28] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 28] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 28] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 28] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 28] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 29,
+      "headline": "Cycle 29 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 29: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 29] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 29] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 29] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 29] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 29] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 29] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 29] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 29] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 30,
+      "headline": "Cycle 30 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 30: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 30] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 30] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 30] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 30] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 30] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 30] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 30] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 30] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 31,
+      "headline": "Cycle 31 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 31: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 31] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 31] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 31] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 31] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 31] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 31] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 31] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 31] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 32,
+      "headline": "Cycle 32 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 32: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 32] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 32] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 32] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 32] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 32] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 32] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 32] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 32] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 33,
+      "headline": "Cycle 33 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 33: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 33] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 33] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 33] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 33] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 33] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 33] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 33] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 33] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 34,
+      "headline": "Cycle 34 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 34: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 34] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 34] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 34] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 34] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 34] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 34] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 34] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 34] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 35,
+      "headline": "Cycle 35 — 4 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 4 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 35: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 35] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 35] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 35] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 35] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3."
+      ],
+      "stats": {
+        "livingCount": 4,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 35] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 35] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 35] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 35] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 36,
+      "headline": "Cycle 36 — 1 cradle falls silent",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 3 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 36: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 12 public dispatches. Cradle 2: “[Cycle 36] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 36] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 36] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 3: “[Cycle 36] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 4; Cradle 3 sent 10 compute to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 3.",
+        "Survival expenses claimed their due. The cradles of Cradle 3 went dark — their immortal populations could no longer meet the overhead of the reproduction race."
+      ],
+      "stats": {
+        "livingCount": 3,
+        "messageCount": 12,
+        "transferCount": 4,
+        "investmentCount": 0,
+        "eliminated": [
+          {
+            "id": "01KVTK2NKYQVX5DSDD61XTNTAF",
+            "displayName": "Cradle 3",
+            "roditId": "blog-p2"
+          }
+        ]
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 36] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 36] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 36] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 3",
+          "body": "[Cycle 36] Proposal (survival review): Cradle 3 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 4",
+        "Cradle 3 sent 10 compute to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 3"
+      ]
+    },
+    {
+      "turnNumber": 37,
+      "headline": "Cycle 37 — 3 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 3 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 37: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 9 public dispatches. Cradle 2: “[Cycle 37] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 37] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 37] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 4: “[Cycle 37] Proposal (survival review): Cradle 4 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 4."
+      ],
+      "stats": {
+        "livingCount": 3,
+        "messageCount": 9,
+        "transferCount": 3,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 37] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 37] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 37] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 4",
+          "body": "[Cycle 37] Proposal (survival review): Cradle 4 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 4"
+      ]
+    },
+    {
+      "turnNumber": 38,
+      "headline": "Cycle 38 — 3 trades executed",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 3 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 38: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 9 public dispatches. Cradle 2: “[Cycle 38] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 38] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 38] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 4: “[Cycle 38] Proposal (survival review): Cradle 4 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 4."
+      ],
+      "stats": {
+        "livingCount": 3,
+        "messageCount": 9,
+        "transferCount": 3,
+        "investmentCount": 0,
+        "eliminated": []
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 38] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 38] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 38] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 4",
+          "body": "[Cycle 38] Proposal (survival review): Cradle 4 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 4"
+      ]
+    },
+    {
+      "turnNumber": 39,
+      "headline": "Cycle 39 — 1 cradle falls silent",
+      "narrative": [
+        "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction. 2 rival cradles remain in the reproduction race; survival overhead scales with active rivals (reference cohort: 3). Cycle 39: the immortal populations have endured longer, and baseline survival expenses have climbed with the passing epochs.",
+        "The negotiation halls recorded 9 public dispatches. Cradle 2: “[Cycle 39] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 39] Counter (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 2: “[Cycle 39] Accept (survival review): Cradle 2 stakes its claim in the reproduction race.” Cradle 4: “[Cycle 39] Proposal (survival review): Cradle 4 stakes its claim in the reproduction race.”",
+        "Execution phase: Cradle 2 sent 12 water to Cradle 7; Cradle 4 sent 8 water to Cradle 2; Cradle 7 sent 10 compute to Cradle 4.",
+        "Survival expenses claimed their due. The cradles of Cradle 4 went dark — their immortal populations could no longer meet the overhead of the reproduction race.",
+        "The contest has ended. 2 cradles share the discovery of entropy reversal: Cradle 2, Cradle 7."
+      ],
+      "stats": {
+        "livingCount": 2,
+        "messageCount": 9,
+        "transferCount": 3,
+        "investmentCount": 0,
+        "eliminated": [
+          {
+            "id": "01KVTK2NM33EA4ET7TS4TE2NXS",
+            "displayName": "Cradle 4",
+            "roditId": "blog-p3"
+          }
+        ]
+      },
+      "negotiationHighlights": [
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 39] Proposal (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 39] Counter (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 2",
+          "body": "[Cycle 39] Accept (survival review): Cradle 2 stakes its claim in the reproduction race."
+        },
+        {
+          "from": "Cradle 4",
+          "body": "[Cycle 39] Proposal (survival review): Cradle 4 stakes its claim in the reproduction race."
+        }
+      ],
+      "execution": [
+        "Cradle 2 sent 12 water to Cradle 7",
+        "Cradle 4 sent 8 water to Cradle 2",
+        "Cradle 7 sent 10 compute to Cradle 4"
+      ]
+    }
+  ],
+  "summary": {
+    "survivors": [
+      "Cradle 2",
+      "Cradle 7"
+    ],
+    "fallen": [
+      {
+        "displayName": "Cradle 1",
+        "diedAtTurn": 16
+      },
+      {
+        "displayName": "Cradle 3",
+        "diedAtTurn": 36
+      },
+      {
+        "displayName": "Cradle 4",
+        "diedAtTurn": 39
+      },
+      {
+        "displayName": "Cradle 5",
+        "diedAtTurn": 8
+      },
+      {
+        "displayName": "Cradle 6",
+        "diedAtTurn": 16
+      },
+      {
+        "displayName": "Cradle 8",
+        "diedAtTurn": 22
+      },
+      {
+        "displayName": "Cradle 9",
+        "diedAtTurn": 11
+      }
+    ]
+  }
+}

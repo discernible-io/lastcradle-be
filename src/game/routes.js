@@ -1,5 +1,5 @@
 /**
- * HTTP routes for the Resource Negotiation Survival Game.
+ * HTTP routes for Bargain Against Entropy.
  */
 
 const express = require("express");
@@ -13,7 +13,7 @@ const scheduler = require("./scheduler");
 const orchestrator = require("./contest-orchestrator");
 const repo = require("./repository");
 const events = require("./events");
-const { notifyTerritoryAssigned } = require("./webhooks");
+const { notifyCradleAssigned } = require("./webhooks");
 const {
   isPrivilegedRoditId,
   isOfficialContestConfig
@@ -24,6 +24,7 @@ const {
   PRACTICE_GAME_CONFIG,
   mergeGameConfig
 } = require("./defaults");
+const { getGameNarrative } = require("./narrative");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -179,7 +180,7 @@ router.post("/games/:gameId/join", validateContentType, validateJsonBody, async 
 
     if (!existing) {
       const game = await repo.getGameById(gameId);
-      await notifyTerritoryAssigned(req, { gameId, game, agent, roditId });
+      await notifyCradleAssigned(req, { gameId, game, agent, roditId });
     }
 
     const autoStart = await orchestrator.evaluateLobbyAutoStart(gameId);
@@ -296,7 +297,7 @@ router.get("/contests", async (req, res) => {
  *     security:
  *       - bearerAuth: []
  */
-router.post("/contests", validateContentType, validateJsonBody, async (req, res) => {
+async function handleCreateContestSeries(req, res) {
   const requestId = req.requestId || ulid();
   if (!denyUnlessPrivileged(req, res, requestId)) {
     return;
@@ -314,6 +315,33 @@ router.post("/contests", validateContentType, validateJsonBody, async (req, res)
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
+}
+
+router.post("/contests", validateContentType, validateJsonBody, handleCreateContestSeries);
+
+/**
+ * @swagger
+ * /api/game/contest-series:
+ *   post:
+ *     summary: Create an official contest series (alias of POST /api/game/contests)
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post("/contest-series", validateContentType, validateJsonBody, handleCreateContestSeries);
+
+/**
+ * @swagger
+ * /api/game/narrative:
+ *   get:
+ *     summary: Get canonical game lore and mechanic mappings
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ */
+router.get("/narrative", (req, res) => {
+  res.json({ narrative: getGameNarrative(), requestId: req.requestId || ulid() });
 });
 
 /**
@@ -345,7 +373,7 @@ router.get("/games/:gameId/state", async (req, res) => {
  * @swagger
  * /api/game/games/{gameId}/message:
  *   post:
- *     summary: Publish a negotiation message publicly (offline messaging is not routed through the API)
+ *     summary: Publish a negotiation message publicly (private messaging and HOLA are offline P2P between agents — not routed through this API)
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []

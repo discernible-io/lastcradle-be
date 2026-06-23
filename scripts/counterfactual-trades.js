@@ -29,8 +29,8 @@ function runScenario(name, tradeFn) {
   const FIXED = {
     useRandomStartingInventory: false,
     startingInventory: { energy: 100, water: 100, compute: 100 },
-    territoryCapacityMin: 60,
-    territoryCapacityMax: 60
+    cradleCapacityMin: 60,
+    cradleCapacityMax: 60
   };
 
   const BASE_PLANS = [
@@ -201,7 +201,7 @@ async function main() {
     results.push(await runScenario(name, fn));
   }
 
-  console.log("Counterfactual scenarios (fixed 60/60/60 territories, 100 start inv):\n");
+  console.log("Counterfactual scenarios (fixed 60/60/60 cradles, 100 start inv):\n");
   for (const r of results) {
     console.log(`${r.name}:`);
     console.log(`  Turns=${r.turns} status=${r.status} winners=${r.winners}`);

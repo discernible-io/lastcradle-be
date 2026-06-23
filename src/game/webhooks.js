@@ -1,5 +1,5 @@
 /**
- * Best-effort outbound webhooks for game events (territory assignment, etc.).
+ * Best-effort outbound webhooks for game events (cradle assignment, etc.).
  */
 
 const { RoditClient } = require("@rodit/rodit-auth-be");
@@ -37,7 +37,7 @@ async function sendGameWebhook(payload, req = null) {
   }
 }
 
-function buildTerritoryPayload(agent) {
+function buildCradlePayload(agent) {
   return {
     productionCapacity: agent.productionCapacity,
     storageCapacity: agent.storageCapacity,
@@ -45,16 +45,16 @@ function buildTerritoryPayload(agent) {
   };
 }
 
-async function notifyTerritoryAssigned(req, { gameId, game, agent, roditId }) {
+async function notifyCradleAssigned(req, { gameId, game, agent, roditId }) {
   return sendGameWebhook(
     {
-      event: "territory_assigned",
+      event: "cradle_assigned",
       data: {
         gameId,
         agentId: agent.id,
         roditId,
         displayName: agent.displayName,
-        territory: buildTerritoryPayload(agent),
+        cradle: buildCradlePayload(agent),
         joiningWindow: game ? {
           startsAt: game.joining_window_starts_at,
           endsAt: game.joining_window_ends_at
@@ -67,5 +67,5 @@ async function notifyTerritoryAssigned(req, { gameId, game, agent, roditId }) {
 
 module.exports = {
   sendGameWebhook,
-  notifyTerritoryAssigned
+  notifyCradleAssigned
 };

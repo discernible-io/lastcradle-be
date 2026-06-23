@@ -161,11 +161,11 @@ async function runTurn(gameId, agents, turnNumber, gameRow) {
 async function main() {
   await repo.initializeDatabase();
 
-  console.log("Resource Negotiation Survival Game — 5-player adaptive simulation");
+  console.log("Bargain Against Entropy — 5-player adaptive simulation");
   console.log(`Database: ${DB_PATH}`);
   console.log(`Strategy: context-driven (margins, pressure, rescue trades, intelligence)`);
   console.log(
-    `Territories: ${PROFILES.map((p) => `${p.displayName} (${p.role})`).join(", ")}`
+    `Cradles: ${PROFILES.map((p) => `${p.displayName} (${p.role})`).join(", ")}`
   );
   console.log(`Mode: ${RUN_UNTIL_FINISH ? "run until ≤2 survivors" : `max ${maxTurns} turns`}\n`);
 
