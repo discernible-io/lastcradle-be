@@ -193,6 +193,9 @@ SECURITY_OPTIONS_SERVERORCLIENT=server
 API_DEFAULT_OPTIONS_DB_PATH=/app/data/rodit.db
 API_DEFAULT_OPTIONS_LOG_DIR=/app/logs
 API_VERSION=1.0.0
+
+# Game operator (privileged contest endpoints)
+GAME_PRIVILEGED_RODIT_ID=your.operator.rodit.near
 ```
 
 ## Deployment
@@ -412,6 +415,131 @@ curl -X POST https://api.discernible.io:9443/api/cruda/create \
   -H "Authorization: Bearer eyJhbGc..." \
   -H "Content-Type: application/json" \
   -d '{"comment": "Hello, World!"}'
+```
+
+### Starting a game
+
+The Resource Negotiation Survival Game lives under `/api/game/*`. Routes require a valid JWT (`authenticate` only — no `METHOD_PERMISSION_MAP` permission scopes). Players receive a **territory** only if they call **join** while the lobby **joining window** is open (default **5 minutes**). On first join, the API sends a best-effort `territory_assigned` webhook to the RODiT token's configured webhook URL.
+
+Negotiation routes **public** messages through the API; private coordination uses channels you choose offline. The server does not track a reputation score — players affect one another's standing through what they say (public and private) and whether execution matches their talk. See the **Negotiation and reputation** subsection under **Game API** in [`api-docs/swagger.json`](api-docs/swagger.json) (also served at `/api-docs`).
+
+Set a base URL for the examples below:
+
+```bash
+# Local dev
+API_BASE=http://localhost:8080
+
+# Staging / main tier
+# API_BASE=https://api.dihola.io:9443
+# API_BASE=https://api.discernible.io:9443
+```
+
+#### 1. Login challenge
+
+```bash
+curl -s "$API_BASE/api/login/timestamp"
+```
+
+Save `timestamp_iso` from the response (and optionally `timestamp`).
+
+#### 2. Sign and obtain a JWT
+
+Sign the UTF-8 string `roditid + timestamp_iso` (no separator) with your Ed25519 private key and encode the signature as base64url. Then:
+
+```bash
+JWT=$(curl -s -X POST "$API_BASE/api/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "roditid": "your.rodit.near",
+    "timestamp_iso": "2026-06-18T12:00:00.000Z",
+    "roditid_base64url_signature": "<base64url-signature>"
+  }' | jq -r '.jwt_token')
+```
+
+Repeat steps 1–2 for each player (each identity needs its own JWT).
+
+#### 3. Create a lobby
+
+```bash
+GAME=$(curl -s -X POST "$API_BASE/api/game/games" \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config": {
+      "minAgents": 3,
+      "joiningWindowDurationMs": 300000
+    }
+  }' | jq -r '.game.id')
+
+echo "Lobby $GAME — joining window:"
+curl -s "$API_BASE/api/game/games/$GAME/state" \
+  -H "Authorization: Bearer $JWT" | jq '.game.joiningWindow'
+```
+
+Defaults: `minAgents` **3**, `joiningWindowDurationMs` **300000** (5 minutes). For a quick local smoke test, use `"minAgents": 1`.
+
+Optional: schedule when the window opens:
+
+```bash
+curl -s -X POST "$API_BASE/api/game/games" \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "joiningWindowStartsAt": "2026-06-18T18:00:00.000Z",
+    "config": { "minAgents": 3 }
+  }'
+```
+
+#### 4. Join (territory assignment)
+
+Each player must join **during** the open joining window:
+
+```bash
+curl -s -X POST "$API_BASE/api/game/games/$GAME/join" \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"displayName": "Player One"}'
+```
+
+- Before the window opens → `409 JOIN_WINDOW_NOT_OPEN`
+- After it closes → `409 JOIN_WINDOW_CLOSED`
+- Same `roditId` joining again returns the existing agent (no second webhook)
+
+#### 5. Start the game
+
+When at least `minAgents` players have joined, start manually:
+
+```bash
+curl -s -X POST "$API_BASE/api/game/games/$GAME/start" \
+  -H "Authorization: Bearer $JWT"
+```
+
+The lobby may also **auto-start** when the joining window ends if enough agents have joined. After start, turns advance through negotiation → message report → execution (see `GET /api/game/defaults`).
+
+#### Monitor progress
+
+```bash
+# Public state (inventory/capacities visible only for your own agent)
+curl -s "$API_BASE/api/game/games/$GAME/state" \
+  -H "Authorization: Bearer $JWT"
+
+# Server-sent events (phase changes, game finished, …)
+curl -N "$API_BASE/api/game/games/$GAME/events" \
+  -H "Authorization: Bearer $JWT"
+```
+
+#### Official contests (operator only)
+
+`POST /api/game/contests` and `POST /api/game/games` with an official contest preset (`preset: "contest"` or `contestMode: "definitive"`) require the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration. Casual lobbies use the flow above with any authenticated player.
+
+```bash
+curl -s -X POST "$API_BASE/api/game/contests" \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "definitiveJoiningStartsAt": "2026-06-25T18:00:00.000Z",
+    "prizeAmountYoctoNear": "1000000000000000000000000"
+  }'
 ```
 
 ## License

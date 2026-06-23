@@ -15,6 +15,10 @@ const repo = require("./repository");
 const events = require("./events");
 const { notifyTerritoryAssigned } = require("./webhooks");
 const {
+  isPrivilegedRoditId,
+  isOfficialContestConfig
+} = require("./permissions");
+const {
   DEFAULT_GAME_CONFIG,
   CONTEST_GAME_CONFIG,
   PRACTICE_GAME_CONFIG,
@@ -36,6 +40,19 @@ function handleGameError(res, err, requestId) {
     message: err.message,
     details: err.details || undefined
   });
+}
+
+function denyUnlessPrivileged(req, res, requestId) {
+  if (isPrivilegedRoditId(req)) {
+    return true;
+  }
+  sendError(res, {
+    statusCode: 403,
+    requestId,
+    code: "FORBIDDEN",
+    message: "Privileged RODiT identity required for this operation"
+  });
+  return false;
 }
 
 function resolvePresetConfig(body = {}) {
@@ -109,6 +126,10 @@ router.post("/games", validateContentType, validateJsonBody, async (req, res) =>
   const requestId = req.requestId || ulid();
   try {
     const configOverrides = resolvePresetConfig(req.body);
+    if (isOfficialContestConfig(configOverrides) && !denyUnlessPrivileged(req, res, requestId)) {
+      return;
+    }
+
     const joiningWindowStartsAt = req.body?.joiningWindowStartsAt ?? null;
     const game = await engine.createGame({ config: configOverrides, joiningWindowStartsAt });
     orchestrator.registerLobbyGame(game);
@@ -261,6 +282,35 @@ router.get("/contests", async (req, res) => {
     const offset = Number(req.query.offset) || 0;
     const contests = await repo.listContests({ status, limit, offset });
     res.json({ contests, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/contests:
+ *   post:
+ *     summary: Create an official contest series (practice week + definitive prize game)
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post("/contests", validateContentType, validateJsonBody, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  if (!denyUnlessPrivileged(req, res, requestId)) {
+    return;
+  }
+
+  try {
+    const result = await orchestrator.createContestSeries({
+      practiceStartsAt: req.body?.practiceStartsAt,
+      practiceWindowMs: req.body?.practiceWindowMs,
+      definitiveJoiningStartsAt: req.body?.definitiveJoiningStartsAt,
+      prizeAmountYoctoNear: req.body?.prizeAmountYoctoNear,
+      configOverrides: req.body?.config || {}
+    });
+    res.status(201).json({ ...result, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }

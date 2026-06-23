@@ -15,6 +15,7 @@
   "SERVICE_NAME": "api.discernible.io",
   "LOG_LEVEL": "info",
   "LOKI_TLS_SKIP_VERIFY": "false",
+  "GAME_PRIVILEGED_RODIT_ID": "",
   "METHOD_PERMISSION_MAP": {
     "logout": [
       "entityAndProperties",

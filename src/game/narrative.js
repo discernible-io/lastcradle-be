@@ -50,7 +50,9 @@ const MECHANIC_NARRATIVES = {
   storage:
     "Stockpiled resources require ongoing cooling; idle reserves still draw water from the territory's thermal budget.",
   negotiation:
-    "Public messages let territories coordinate trades, spread doctrine, or bluff about who truly carries the chosen lineage.",
+    "Public messages let territories coordinate trades, spread doctrine, or bluff about who truly carries the chosen lineage. Private channels outside the API matter too — both shape how rivals judge one another's word.",
+  reputation:
+    "The server does not score trust. Reputation is what players and agents assign: public negotiation is on the record for every territory, private side-channel talk builds or breaks bilateral faith, and execution transfers are the only promises the rules enforce. Others remember who kept their word, who stabbed, and who lied in either channel."
   messageReports:
     "Dishonest traffic accounting wastes energy on reconciliation — entropy's tax on territories that lie about their diplomatic compute spend.",
   investment:

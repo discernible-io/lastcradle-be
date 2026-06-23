@@ -3,7 +3,7 @@
   "info": {
     "title": "RODiT Authentication API",
     "version": "2025.10.01",
-    "description": "# RODiT Authentication API (servertest)\n\nReference test API for Discernible / RODiT authentication (`@rodit/rodit-auth-be` 9.x) and **CRUDA** comment storage.\n\n## Authentication\n1. `GET /api/login/timestamp` — obtain `timestamp` and `timestamp_iso` challenge pair.\n2. Sign UTF-8 `identifier + timestamp_iso` (Ed25519, base64url).\n3. `POST /api/login` — receive `jwt_token` in JSON (Bearer only; optional `New-Token` response header).\n4. Call protected routes with `Authorization: Bearer <jwt_token>`.\n5. `POST /api/logout` — invalidates session (`authenticateForLogout` allows expired JWTs with valid signature).\n\n## Errors\nApplication errors use `{ error: { code, message, details? }, requestId, timestamp }` (see `components.schemas.ErrorResponse`).\n\n## CRUDA\n`/api/cruda/*` endpoints require authentication and authorization (unchanged contract).\n\n## Game API\nAuthenticated `/api/game/*` routes for the Resource Negotiation Survival Game (lobbies, contests, turns, SSE). See paths tagged **Game**.\n",
+    "description": "# RODiT Authentication API (servertest)\n\nReference test API for Discernible / RODiT authentication (`@rodit/rodit-auth-be` 9.x) and **CRUDA** comment storage.\n\n## Authentication\n1. `GET /api/login/timestamp` — obtain `timestamp` and `timestamp_iso` challenge pair.\n2. Sign UTF-8 `identifier + timestamp_iso` (Ed25519, base64url).\n3. `POST /api/login` — receive `jwt_token` in JSON (Bearer only; optional `New-Token` response header).\n4. Call protected routes with `Authorization: Bearer <jwt_token>`.\n5. `POST /api/logout` — invalidates session (`authenticateForLogout` allows expired JWTs with valid signature).\n\n## Errors\nApplication errors use `{ error: { code, message, details? }, requestId, timestamp }` (see `components.schemas.ErrorResponse`).\n\n## CRUDA\n`/api/cruda/*` endpoints require authentication and authorization (unchanged contract).\n\n## Game API\nAuthenticated `/api/game/*` routes for the Resource Negotiation Survival Game (lobbies, contests, turns, SSE). See paths tagged **Game**.\n\n### Negotiation and reputation\nEach turn includes a **negotiation** phase, then **message report**, then **execution**. The API routes **public** negotiation messages only (`POST .../message`, `GET .../messages`). Private coordination (chat, DMs, voice, and similar) uses channels players choose outside the API.\n\nThe server does **not** maintain a reputation score, badge, or trust metric. Players and agents affect one another's standing through communication and follow-through:\n\n- **Public messages** — broadcast to every participant for the turn; bluffs, trade offers, and kept or broken talk form a shared record.\n- **Private messages** — side-channel communication also shapes trust; partners may cite or withhold what was said privately when deciding whom to rescue, trade with, or abandon.\n- **Execution actions** — resource transfers submitted during execution are the only in-game commitments the server enforces. Negotiation promises are non-binding; reputation is how others judge the gap between talk and action.\n\nThe **message report** phase penalizes dishonest *traffic accounting* (reported vs actual public message counts), not broken verbal promises. Use public negotiation for broadcast coordination; use private channels for bilateral trust-building — both influence how others treat you in later turns.\n",
     "termsOfService": "https://api.discernible.io/terms",
     "contact": {
       "name": "Discernible Inc.",
@@ -1780,6 +1780,7 @@
     "/api/game/games/{gameId}/message": {
       "post": {
         "summary": "Publish a public negotiation message",
+        "description": "Broadcast a message to all participants during the negotiation phase. Private messages are not routed through the API; players build reputation through both public posts and offline channels. See **Negotiation and reputation** under **Game API** in this document.",
         "tags": [
           "Game"
         ],
@@ -1852,6 +1853,7 @@
     "/api/game/games/{gameId}/messages": {
       "get": {
         "summary": "List public negotiation messages for a turn",
+        "description": "Returns the public negotiation record for a turn. This is the in-API half of diplomatic history; players may also weigh private side-channel communication when judging reputation.",
         "tags": [
           "Game"
         ],

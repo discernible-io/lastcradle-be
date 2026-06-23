@@ -137,9 +137,10 @@ let validatepermissions;
 // Import routes
 const homeRoute = require("./routes/home");
 const authPublicRoutes = require("./routes/auth.public.routes");
-const authTimestampRoutes = require("./routes/auth-timestamp.public.routes");
+const agentPublicRoutes = require("./routes/agent.public.routes");
+const discoveryRoutes = require("./routes/discovery.public.routes");
 const signclientRoute = require("./routes/signclient");
-const mcpRoutes = require("./routes/mcproutes");
+const mcpRoutes = require("./routes/mcp.public.routes");
 
 // Import protected routes (require authentication)
 const metricsRoutes = require("./protected/metricsroutes");
@@ -228,6 +229,7 @@ app.use((req, res, next) => {
 });
 
 // Mount public routes
+app.use("/", discoveryRoutes);
 app.use("/api", homeRoute);
 app.use("/api", signclientRoute);
 app.use("/api/mcp", mcpRoutes);
@@ -386,27 +388,6 @@ app.use((req, res, next) => {
     });
   }
   next();
-});
-
-// Provide actual implementation for root welcome endpoint
-app.get('/', (req, res) => {
-  const endpoints = [
-    '/health',
-    '/api/home',
-    '/api/login',
-    '/api/logout',
-    '/api/cruda',
-    '/api/game',
-    '/api/metrics',
-    '/api/mcp'
-  ];
-  res.json({
-    message: 'Welcome to RODiT Authentication API',
-    endpoints,
-    version: config.has('npm_package_version') ? config.get('npm_package_version') : 'unknown',
-    status: 'healthy',
-    requestId: req.requestId
-  });
 });
 
 app.use("/", homeRoute);
@@ -805,9 +786,9 @@ async function startServer() {
 
     app.get("/health", createHealthHandler({ app, config, logger, cacheMs: HEALTH_CHECKS_CACHE_MS }));
 
-    // Auth routes (aligned with idclawserver-idc)
+    // Auth routes (aligned with idclawserver-idc / OpenClaw plugin)
     app.use("/api", authPublicRoutes);
-    app.use("/api", authTimestampRoutes);
+    app.use("/api", agentPublicRoutes);
 
     // Protected routes
     app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
@@ -909,9 +890,12 @@ async function startServer() {
       logger.info(`\nRODiT Authentication API Server running on port ${port}`);
 
       const endpoints = [
-        "  / - Public welcome page",
+        "  / - API discovery (agentGuide, OpenClaw login paths)",
+        "  /.well-known/mcp - MCP discovery for agents",
         "  GET /api/login/timestamp - Login challenge (timestamp pair)",
         "  POST /api/login - Login with RODiT credentials",
+        "  GET /api/mcp/resources - Public MCP doc list (no JWT)",
+        "  GET /api/mcp/resource/doc:skills - Agent login cheat sheet",
         "  POST /api/logout - Logout (Bearer JWT; expired tokens allowed)",
         "  /api/cruda - CRUDA showcase (requires authentication + permissions)",
         "  /api/game - Resource Negotiation Survival Game (auth only; joining window + webhooks)",

@@ -15,6 +15,7 @@
   "SERVICE_NAME": "api.dihola.io",
   "LOG_LEVEL": "debug",
   "LOKI_TLS_SKIP_VERIFY": "true",
+  "GAME_PRIVILEGED_RODIT_ID": "",
   "METHOD_PERMISSION_MAP": {
     "logout": [
       "entityAndProperties",
