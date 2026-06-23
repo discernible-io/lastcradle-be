@@ -1,6 +1,10 @@
 /**
- * Privileged game operations are allowed only for a configured RODiT identity.
- * Does not use rodit-auth-be METHOD_PERMISSION_MAP authorization.
+ * Game API authentication policy (see api-docs/swagger.json — Game API authentication):
+ *
+ * - **Players:** Any authenticated IdentyClaw / RODiT passport holder (JWT from POST /api/login).
+ *   `/api/game/*` is mounted with authenticate only — no METHOD_PERMISSION_MAP / validatepermissions.
+ * - **Operator:** POST /api/game/contests, POST /api/game/contest-series, and official contest lobbies
+ *   require JWT roditId === GAME_PRIVILEGED_RODIT_ID (hardcoded administrator in server config).
  */
 
 const { config } = require("@rodit/rodit-auth-be");

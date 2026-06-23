@@ -3,7 +3,7 @@
 > **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
 
 **Created:** 2026-05-29  
-**Last updated:** 2026-06-18 (compliance pass applied)
+**Last updated:** 2026-06-23 (game auth policy + OpenAPI alignment)
 
 | | |
 |---|---|
@@ -31,6 +31,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Priority | Standard | Gap | Evidence | Suggested fix |
 |----------|----------|-----|----------|---------------|
 | P2 | [`configuration-standard.md`](configuration-standard.md) | Config via SDK, not ad-hoc `process.env` mutation | `src/app.js`: `process.env.NEAR_RPC_URL = selectedRpcUrl` after `resolveHealthyNearRpcUrl()` | Pass selected URL into SDK config layer when available; **reference app `idclawserver-idc` uses the same pattern today** |
+| P3 | [`documentation-standard.md`](documentation-standard.md) | Game OpenAPI response schemas still minimal for some routes | Join/state/SSE payloads | Extend swagger components as game API stabilizes |
 | P4 | [`configuration-standard.md`](configuration-standard.md) | Branch JSON self-contained for all tier-tunable keys | `NEAR_CONTRACT_ID`, `LOKI_URL`, `MINTING_FEE`, etc. only in `custom-environment-variables.json` / host `secrets.env` | Commit tier-specific non-secret values to `config/development.json` and `config/main.json` where branch merges require them |
 
 ### Operator-only (not repo gaps)
@@ -66,7 +67,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | CI/CD tini sourcing | **Met** | `api.Dockerfile` — `/sbin/tini` from `apk` only |
 | Gitleaks | **Met** | CI scan + placeholder regex allowlist in `.gitleaks.toml` |
 | Package age gate | **Met** | `scripts/enforce-minimum-package-age.js` |
-| Permission map vs swagger | **Met** | `scripts/update-permissionsmap.js`; CI validate + generate (30 ops) |
+| Permission map vs swagger | **Met** | `scripts/update-permissionsmap.js` skips `/api/game/*`; 16 CRUDA/session/metrics ops; CI validate passes |
 | Logging (no `console.*` in `src/`) | **Met** | Grep clean; deploy test script uses `console.log` for JSON lines only |
 | Logging structure (`*WithContext`, completion) | **Met** | Single `Request completed` at `info` with `component: "API"` |
 | Stack trace redaction on main | **Met** | `isMainTier()` gates stacks in `setupFallbackHandlers()` |
@@ -98,7 +99,8 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Health probes | `src/services/health.service.js`, `near-rpc-probe.service.js` |
 | Startup config log | `src/services/startup-config.service.js` |
 | OpenAPI (source of truth) | `api-docs/swagger.json` |
-| Permission map generator | `scripts/update-permissionsmap.js` |
+| Permission map generator | `scripts/update-permissionsmap.js`, `scripts/sync-game-openapi-auth.js` |
+| Game permissions / auth policy | `src/game/permissions.js`, `src/game/routes.js` |
 | Deploy workflow | `.github/workflows/deploy.yml` |
 | nginx (per env) | `nginx/nginx.main.conf`, `nginx/nginx.development.conf` |
 | Container images | `api.Dockerfile`, `nginx.Dockerfile` |
@@ -181,11 +183,11 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
-| Swagger as contract | **Met** | Auth, CRUDA, sessions, `/health`, full `/api/game/*` in `api-docs/swagger.json` |
+| Swagger as contract | **Met** | Auth, CRUDA, sessions, `/health`, full `/api/game/*` with `x-game-auth` policy |
 | Runtime serves static swagger | **Met** | `/api-docs` and `/api-docs/swagger.json` load `api-docs/swagger.json` (no swagger-jsdoc drift) |
-| `npm run validate:permissions` | **Met** | Game paths included; config regenerated from swagger |
+| `npm run validate:permissions` | **Met** | Game paths excluded; map matches swagger (16 ops) |
 | Dual server URLs | **Met** | `api.discernible.io:9443`, `api.dihola.io:9443` |
-| README indexes all docs | **Met** | Standards, service docs, `scripts/README-database-init.md` |
+| README indexes all docs | **Met** | Standards, game howtos, `scripts/README-database-init.md` |
 | README commands match `package.json` | **Met** | Local verification section lists `validate:permissions`, `node --check`, deploy smoke tests |
 
 ---
@@ -357,7 +359,7 @@ Target format: ~50 participants, one practice week, one definitive prize game, t
 - **Forced finish at deadline** ends the game with every living agent in `winnerIds` (equal prize shares). Ranking order in `winnerIds` is for audit only (alive status, then inventory, then elimination turn).
 - **Natural finish** (living count ≤ `finishSurvivorCount`) also lists all survivors in `winnerIds` — typically the last two, who share the pool equally.
 - **Rate limits** on game endpoints remain via existing nginx / `userratelimitmw`; contest traffic may need tighter per-route limits (operator).
-- **Official contest creation** requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration for `POST /api/game/contests` (and alias `POST /api/game/contest-series`) and for `POST /api/game/games` when the config matches an official contest (`contestMode: "definitive"` or 50-player min/max). `GET /api/game/contests` uses standard game scopes. Practice/casual lobbies keep standard game scopes.
+- **Official contest creation** requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration for `POST /api/game/contests` (and alias `POST /api/game/contest-series`) and for `POST /api/game/games` when the config matches an official contest (`contestMode: "definitive"` or 50-player min/max). All other game routes accept any authenticated IdentyClaw / RODiT passport JWT (no `METHOD_PERMISSION_MAP`). See swagger `x-game-auth` and [`docs/game-player-onboarding-howto.md`](game-player-onboarding-howto.md).
 - Set `GAME_PRIVILEGED_RODIT_ID` only on operator service accounts (not general player tokens).
 
 ### Verification
@@ -388,6 +390,9 @@ node --check src/game/scheduler.js
 - Standards index: [`documentation-standard.md`](documentation-standard.md) (vendored from [discernible-io/docs](https://github.com/discernible-io/docs))
 - Reference app: `../idclawserver-idc`
 - OpenAPI: [`../api-docs/swagger.json`](../api-docs/swagger.json)
+- Game player onboarding: [`game-player-onboarding-howto.md`](game-player-onboarding-howto.md)
+- Game peer auth (HOLA): [`game-peer-authentication.md`](game-peer-authentication.md)
+- Game permissions: [`../src/game/permissions.js`](../src/game/permissions.js)
 - Deploy workflow: [`../.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
 - Local deploy: [`../scripts/deploy-local-podman.sh`](../scripts/deploy-local-podman.sh)
 - Operator README: [`../README.md`](../README.md)

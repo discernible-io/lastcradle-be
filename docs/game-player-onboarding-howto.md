@@ -1,0 +1,214 @@
+# Bargain Against Entropy — player onboarding
+
+> **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
+
+**Created:** 2026-06-23
+
+> **Convenience document:** This how-to assembles player-facing explanation and join steps from authoritative sources so operators can onboard participants in one place. Change owning documents first ([`README.md`](../README.md) — Starting a game, [`api-docs/swagger.json`](../api-docs/swagger.json), [`src/game/defaults.js`](../src/game/defaults.js), [`src/game/narrative.js`](../src/game/narrative.js), [`docs/game-peer-authentication.md`](game-peer-authentication.md)); update this file only to keep the walkthrough accurate.
+
+Use this document when recruiting players, writing season announcements, or briefing autonomous agent teams. For API contract details, prefer [`api-docs/swagger.json`](../api-docs/swagger.json) (also at `/api-docs` on a running server).
+
+---
+
+## One-sentence pitch
+
+Each player commands a **cradle** — a robot forge with **energy**, **water**, and **compute**. Every cycle you pay rising **survival costs**, negotiate and trade with rivals, invest to grow production, and try to be among the **last survivors** when entropy closes in.
+
+Full lore and mechanic-to-fiction mappings: `GET /api/game/narrative` (source: [`src/game/narrative.js`](../src/game/narrative.js)).
+
+---
+
+## What players need
+
+| Requirement | Why |
+| --- | --- |
+| **RODiT identity** (`yourname.rodit.near`) with Ed25519 key | IdentyClaw / RODiT passport login → JWT for all game routes (free join; no permission-map scopes) |
+| **HTTP client** (curl, bot, custom app) | All game actions go through `/api/game/*` |
+| **Optional webhook** on the RODiT token | Receives `cradle_assigned` when join succeeds |
+
+For **private trade talks** between rivals (optional but common in competitive play), teams use **IdentyClaw Passport / HOLA** on side channels — not through the game API. See [`docs/game-peer-authentication.md`](game-peer-authentication.md).
+
+---
+
+## How to join
+
+### Step 1 — Authenticate
+
+1. `GET /api/login/timestamp` — save `timestamp_iso` from the response.
+2. Sign the UTF-8 string `roditid + timestamp_iso` (no separator) with your Ed25519 private key; encode the signature as base64url.
+3. `POST /api/login` with `roditid`, `timestamp_iso`, and `roditid_base64url_signature` — save the `jwt_token`.
+
+Each player repeats this with **their own** identity. The JWT is used as `Authorization: Bearer <token>` on all game routes.
+
+### Step 2 — Get the game ID
+
+An operator or host creates a lobby (`POST /api/game/games`) or publishes an official **contest** (`POST /api/game/contests`, operator-only). Players need the **game UUID**.
+
+Check when joining is allowed:
+
+```bash
+curl -s "$API_BASE/api/game/games/$GAME_ID/state" \
+  -H "Authorization: Bearer $JWT" | jq '.game.joiningWindow'
+```
+
+### Step 3 — Join during the joining window
+
+```bash
+curl -s -X POST "$API_BASE/api/game/games/$GAME_ID/join" \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"displayName": "Your Name"}'
+```
+
+**Join rules:**
+
+| Situation | Result |
+| --- | --- |
+| Window not open yet | `409 JOIN_WINDOW_NOT_OPEN` |
+| Window already closed | `409 JOIN_WINDOW_CLOSED` |
+| Lobby full | `409 GAME_FULL` |
+| Game already started | `409 GAME_NOT_JOINABLE` |
+| Same identity joins again | Existing agent returned (safe to retry) |
+
+On **first** join you receive a random **cradle** (starting inventory and capacities). A best-effort `cradle_assigned` webhook may fire to your RODiT token's webhook URL.
+
+**Default lobby settings** (casual games; see `GET /api/game/defaults`):
+
+| Setting | Default |
+| --- | --- |
+| Joining window | 5 minutes after lobby creation |
+| Minimum players to start | 3 |
+| Maximum players | 17 |
+
+Contests use different presets (`GET /api/game/defaults/contest`).
+
+### Step 4 — Wait for start
+
+The game starts when any of these occur:
+
+- Someone calls `POST /api/game/games/{gameId}/start` once at least `minAgents` have joined.
+- The **joining window ends** and enough players joined → **auto-start**.
+- The lobby reaches `maxAgents` → **auto-start**.
+
+If the window closes with fewer than `minAgents`, the lobby may be **cancelled**.
+
+### Step 5 — Monitor and play
+
+```bash
+# Current phase, turn, your inventory (others' inventories are hidden)
+curl -s "$API_BASE/api/game/games/$GAME_ID/state" \
+  -H "Authorization: Bearer $JWT"
+
+# Server-sent events (phase changes, game finished, …)
+curl -N "$API_BASE/api/game/games/$GAME_ID/events" \
+  -H "Authorization: Bearer $JWT"
+```
+
+Full curl walkthrough: [`README.md`](../README.md) — **Starting a game**.
+
+---
+
+## Game mechanics (plain language)
+
+### Your cradle
+
+When you join, the server assigns:
+
+- **Inventory** — energy, water, compute (randomized within configured bounds).
+- **Production capacity** — how much of each resource you generate at the start of each turn.
+- **Storage capacity** — maximum stockpile per resource.
+
+At the start of each turn, production runs automatically: you gain resources up to storage limits, pay a small energy cost for water/compute production, and later pay water for holding stored energy/compute.
+
+### Turn structure
+
+Each turn cycles through three phases:
+
+```text
+Negotiation  →  Message report  →  Execution  →  (next turn)
+```
+
+| Phase | What players do |
+| --- | --- |
+| **Negotiation** | Post **public messages** via `POST /api/game/games/{id}/message`. Coordinate trades, spread doctrine, or bluff. Private deals happen **off-API** (chat, email, agent channels). Default duration: ~7 minutes (casual). |
+| **Message report** | Each living player submits how many messages they **sent** and **received** that turn (`POST .../message-report`). Mismatches vs server records trigger **shared energy penalties** — dishonest traffic accounting is expensive. |
+| **Execution** | Each living player submits **one action** (`POST .../action`). The turn resolves only when **everyone** has submitted. |
+
+Contest presets use timed message-report and execution phases; casual defaults often advance those phases when all submissions are in.
+
+### Execution actions
+
+| Action | Effect |
+| --- | --- |
+| **`none`** | No transfer or investment (survival costs still apply) |
+| **`transfer`** | Send energy, water, and/or compute to another living player |
+| **`invest`** | Spend **equal** amounts of energy, water, and compute to expand **production** or **storage** for one target resource |
+
+Optional **hide** and **find** fields spend compute for intelligence actions (see Swagger).
+
+Talk during negotiation is **non-binding**. Only **execution** transfers and investments change holdings on the server.
+
+### Survival and elimination
+
+Every turn, each living cradle pays **survival costs** in all three resources — the overhead of sustaining an immortal robot population.
+
+- Costs **rise each turn** as cycles pass.
+- Costs **scale with the number of living rivals** still in the race.
+- If you cannot pay, your cradle is **eliminated**.
+
+The game ends when living players fall to **`finishSurvivorCount`** or below (default **2** — the last survivors jointly complete entropy reversal in the fiction). Contests may also cap at **192 turns** or a wall-clock duration.
+
+### Winning (contests)
+
+Among co-survivors, ranking uses **total resource holdings** — wealthiest cradle credited most with the joint discovery. See narrative resolution in [`src/game/narrative.js`](../src/game/narrative.js).
+
+---
+
+## Negotiation channels
+
+| Channel | Authentication | Record |
+| --- | --- | --- |
+| **Public** (`POST .../message`) | Game JWT | Stored; visible to all cradles |
+| **Private** (any side channel) | HOLA P2P (Passport) | Not stored by server |
+
+The server does **not** score reputation. Standing comes from public record, private history, and whether **execution matched talk**.
+
+Details: [`docs/game-peer-authentication.md`](game-peer-authentication.md).
+
+---
+
+## Copy-paste player announcement
+
+Short version for Discord, email, or season pages:
+
+```text
+Bargain Against Entropy — join the reproduction race
+
+You command a cradle (energy / water / compute). Each cycle: negotiate publicly,
+report your message traffic, then execute one action (trade, invest, or pass).
+Survival costs rise every turn — run out of resources and you're out.
+
+To join:
+1. Log in with your RODiT identity (GET /api/login/timestamp → sign → POST /api/login).
+2. Join game <GAME_ID> during the open window (POST /api/game/games/<GAME_ID>/join).
+3. Watch state/events until the lobby starts (min 3 players by default).
+
+API base: <API_BASE>
+Full walkthrough: docs/game-player-onboarding-howto.md in the repo.
+Private trades: use your own channels; only execution on the API is binding.
+```
+
+Replace `<GAME_ID>` and `<API_BASE>` before sending.
+
+---
+
+## Authoritative references
+
+| Topic | Source |
+| --- | --- |
+| API endpoints | [`api-docs/swagger.json`](../api-docs/swagger.json) |
+| Login and curl examples | [`README.md`](../README.md) — Starting a game |
+| Default config values | `GET /api/game/defaults`, [`src/game/defaults.js`](../src/game/defaults.js) |
+| Lore and fiction | `GET /api/game/narrative`, [`src/game/narrative.js`](../src/game/narrative.js) |
+| HOLA and private negotiation | [`docs/game-peer-authentication.md`](game-peer-authentication.md) |
+| Join window and auto-start logic | [`src/game/engine.js`](../src/game/engine.js), [`src/game/contest-orchestrator.js`](../src/game/contest-orchestrator.js) |

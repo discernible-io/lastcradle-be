@@ -184,6 +184,8 @@ npm run update:permissions
 
 The generator uses the **last path segment** of each authenticated swagger path (for example `/api/me/identity` → `identity`). Unauthenticated routes are omitted.
 
+**Game API (`/api/game/*`):** Excluded from `METHOD_PERMISSION_MAP`. Game routes use JWT-only player access (IdentyClaw / RODiT passport login) or runtime checks against `GAME_PRIVILEGED_RODIT_ID` for operator endpoints — see `x-game-auth` on swagger Game operations and [`src/game/permissions.js`](../src/game/permissions.js).
+
 ---
 
 ## Validation

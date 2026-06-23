@@ -23,7 +23,8 @@
     "start": "nodemon src/app.js",
     "blog:report": "node scripts/generate-blog-report.js 7 finish",
     "update:permissions": "node scripts/update-permissionsmap.js --all-environments",
-    "validate:permissions": "node scripts/update-permissionsmap.js --validate --all-environments"
+    "validate:permissions": "node scripts/update-permissionsmap.js --validate --all-environments",
+    "sync:game-openapi": "node scripts/sync-game-openapi-auth.js"
   },
   "overrides": {
     "undici": "^6.24.1"

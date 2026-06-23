@@ -907,7 +907,7 @@ async function startServer() {
         "  GET /api/mcp/resource/doc:skills - Agent login cheat sheet",
         "  POST /api/logout - Logout (Bearer JWT; expired tokens allowed)",
         "  /api/cruda - CRUDA showcase (requires authentication + permissions)",
-        "  /api/game - Bargain Against Entropy (auth only; joining window + webhooks)",
+        "  /api/game - Bargain Against Entropy (JWT passport login; operator via GAME_PRIVILEGED_RODIT_ID)",
         "  /play - Player-facing turn report blog (static)",
         "  /api/sessions - Session admin (authenticate + authorize)",
         "  /api-docs - Swagger API documentation",

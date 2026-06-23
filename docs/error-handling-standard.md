@@ -157,6 +157,26 @@ OUTPUTS:
 | `AGENT_DISCOVERY_FAILED` | 500 | Failed to fetch agent list |
 | `LOGIN_FAILED` | 500 | Authentication service error |
 
+### Game API (`/api/game/*`)
+| Code | Status | Meaning |
+|------|--------|---------|
+| `AUTH_REQUIRED` | 401 | Missing JWT or roditId on a player action |
+| `FORBIDDEN` | 403 | Operator route; JWT roditId ≠ `GAME_PRIVILEGED_RODIT_ID` |
+| `GAME_NOT_FOUND` | 404 | Unknown game id |
+| `AGENT_NOT_IN_GAME` | 404 | Caller has not joined this game |
+| `JOIN_WINDOW_NOT_OPEN` | 409 | Joining window not yet open |
+| `JOIN_WINDOW_CLOSED` | 409 | Joining window closed |
+| `GAME_FULL` | 409 | Lobby at `maxAgents` |
+| `GAME_NOT_JOINABLE` | 409 | Game not in lobby status |
+| `GAME_ALREADY_STARTED` | 409 | Manual start after game began |
+| `INSUFFICIENT_AGENTS` | 400 | Start with fewer than `minAgents` |
+| `NOT_NEGOTIATION_PHASE` | 409 | Message outside negotiation |
+| `NOT_MESSAGE_REPORT_PHASE` | 409 | Report outside message-report phase |
+| `NOT_EXECUTION_PHASE` | 409 | Action outside execution |
+| `AGENT_DEAD` | 409 | Agent eliminated |
+
+Authoritative list: swagger tag **Game** in [`api-docs/swagger.json`](../api-docs/swagger.json).
+
 ---
 
 ## Key Principles

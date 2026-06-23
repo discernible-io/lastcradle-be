@@ -92,7 +92,7 @@ function summarizeGame(game, agentCount = null) {
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.get("/games", async (req, res) => {
   const requestId = req.requestId || ulid();
@@ -121,7 +121,7 @@ router.get("/games", async (req, res) => {
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.post("/games", validateContentType, validateJsonBody, async (req, res) => {
   const requestId = req.requestId || ulid();
@@ -156,7 +156,7 @@ router.post("/games", validateContentType, validateJsonBody, async (req, res) =>
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.post("/games/:gameId/join", validateContentType, validateJsonBody, async (req, res) => {
   const requestId = req.requestId || ulid();
@@ -198,7 +198,7 @@ router.post("/games/:gameId/join", validateContentType, validateJsonBody, async 
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.post("/games/:gameId/start", validateContentType, async (req, res) => {
   const requestId = req.requestId || ulid();
@@ -220,7 +220,7 @@ router.post("/games/:gameId/start", validateContentType, async (req, res) => {
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.get("/games/:gameId/events", async (req, res) => {
   const requestId = req.requestId || ulid();
@@ -273,7 +273,7 @@ router.get("/games/:gameId/events", async (req, res) => {
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.get("/contests", async (req, res) => {
   const requestId = req.requestId || ulid();
@@ -296,6 +296,7 @@ router.get("/contests", async (req, res) => {
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
+ *     x-game-auth: privileged-rodit-id
  */
 async function handleCreateContestSeries(req, res) {
   const requestId = req.requestId || ulid();
@@ -327,6 +328,7 @@ router.post("/contests", validateContentType, validateJsonBody, handleCreateCont
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
+ *     x-game-auth: privileged-rodit-id
  */
 router.post("/contest-series", validateContentType, validateJsonBody, handleCreateContestSeries);
 
@@ -338,7 +340,7 @@ router.post("/contest-series", validateContentType, validateJsonBody, handleCrea
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.get("/narrative", (req, res) => {
   res.json({ narrative: getGameNarrative(), requestId: req.requestId || ulid() });
@@ -377,7 +379,7 @@ router.get("/games/:gameId/state", async (req, res) => {
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.post("/games/:gameId/message", validateContentType, validateJsonBody, async (req, res) => {
   const requestId = req.requestId || ulid();
@@ -421,7 +423,7 @@ router.post("/games/:gameId/message", validateContentType, validateJsonBody, asy
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.get("/games/:gameId/messages", async (req, res) => {
   const requestId = req.requestId || ulid();
@@ -449,7 +451,7 @@ router.get("/games/:gameId/messages", async (req, res) => {
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.post("/games/:gameId/message-report", validateContentType, validateJsonBody, async (req, res) => {
   const requestId = req.requestId || ulid();
@@ -499,7 +501,7 @@ router.post("/games/:gameId/message-report", validateContentType, validateJsonBo
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.post("/games/:gameId/action", validateContentType, validateJsonBody, async (req, res) => {
   const requestId = req.requestId || ulid();
@@ -536,7 +538,7 @@ router.post("/games/:gameId/action", validateContentType, validateJsonBody, asyn
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.get("/defaults", (req, res) => {
   res.json({ defaults: DEFAULT_GAME_CONFIG, requestId: req.requestId || ulid() });
@@ -550,7 +552,7 @@ router.get("/defaults", (req, res) => {
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
- *     x-permission-scopes: [entityAndProperties, propertiesOnly, entityOnly]
+ *     x-game-auth: jwt-passport
  */
 router.get("/defaults/contest", (req, res) => {
   res.json({
