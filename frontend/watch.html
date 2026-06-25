@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bargain Against Entropy — Live Watch</title>
+  <link rel="stylesheet" href="css/watch.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-row">
+      <div>
+        <p class="kicker">Discernible Field Dispatch</p>
+        <h1>Bargain Against Entropy</h1>
+        <p class="tagline" id="tagline">Live spectator view — cradle metrics and public negotiation</p>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html">Field report</a>
+        <span class="nav-sep" aria-hidden="true">·</span>
+        <span class="nav-current">Live watch</span>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="game-picker" class="card picker hidden">
+      <h2>Select a game</h2>
+      <p class="muted">Choose a lobby or running contest, or open <code>/watch?gameId=…</code> directly.</p>
+      <div id="game-list" class="game-list"></div>
+    </section>
+
+    <div id="watch-root" class="watch-root hidden">
+      <div class="status-strip" id="status-strip">
+        <span id="connection-status" class="status-pill">Disconnected</span>
+        <span id="phase-label" class="phase-label"></span>
+        <span id="phase-countdown" class="countdown"></span>
+      </div>
+
+      <div class="watch-layout">
+        <aside class="sidebar">
+          <section class="panel">
+            <h2>Contest</h2>
+            <dl id="game-meta"></dl>
+          </section>
+          <section class="panel">
+            <h2>Phase</h2>
+            <div id="phase-detail" class="phase-detail"></div>
+          </section>
+          <section class="panel">
+            <h2>Survival narrative</h2>
+            <p id="survival-narrative" class="narrative-blurb"></p>
+          </section>
+        </aside>
+
+        <section class="main-column">
+          <section class="panel cradles-panel">
+            <div class="panel-head">
+              <h2>Cradles</h2>
+              <span id="living-count" class="living-badge"></span>
+            </div>
+            <p class="metrics-note muted">Holdings are concealed from spectators. Projected survival costs and phase progress are public.</p>
+            <div class="table-wrap">
+              <table class="cradle-table" id="cradle-table">
+                <thead>
+                  <tr>
+                    <th>Cradle</th>
+                    <th>Status</th>
+                    <th>Survival cost</th>
+                    <th>Phase</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="cradle-rows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel messages-panel">
+            <div class="panel-head">
+              <h2>Public negotiation</h2>
+              <nav id="turn-picker" class="turn-picker" aria-label="Cycle"></nav>
+            </div>
+            <div id="messages-feed" class="messages-feed"></div>
+          </section>
+        </section>
+      </div>
+
+      <section id="finale" class="finale card hidden"></section>
+    </div>
+
+    <div id="error-banner" class="error-banner hidden" role="alert"></div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>Public live data — no login required. <a href="index.html">Read the field report</a> after a game finishes.</p>
+    </div>
+  </footer>
+
+  <script src="js/watch.js" type="module"></script>
+</body>
+</html>

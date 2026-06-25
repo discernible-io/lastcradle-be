@@ -3,7 +3,7 @@
   "info": {
     "title": "RODiT Authentication API",
     "version": "2025.10.01",
-    "description": "# RODiT Authentication API (servertest)\n\nReference test API for Discernible / RODiT authentication (`@rodit/rodit-auth-be` 9.x) and **CRUDA** comment storage.\n\n## Authentication\n1. `GET /api/login/timestamp` — obtain `timestamp` and `timestamp_iso` challenge pair.\n2. Sign UTF-8 `identifier + timestamp_iso` (Ed25519, base64url).\n3. `POST /api/login` — receive `jwt_token` in JSON (Bearer only; optional `New-Token` response header).\n4. Call protected routes with `Authorization: Bearer <jwt_token>`.\n5. `POST /api/logout` — invalidates session (`authenticateForLogout` allows expired JWTs with valid signature).\n\n## Errors\nApplication errors use `{ error: { code, message, details? }, requestId, timestamp }` (see `components.schemas.ErrorResponse`).\n\n## CRUDA\n`/api/cruda/*` endpoints require authentication and authorization (unchanged contract).\n\n## Game API\n### Game API authentication\n\n**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via `POST /api/login`, then call game routes with `Authorization: Bearer <jwt_token>`. No METHOD_PERMISSION_MAP scopes apply to `/api/game/*`.\n\n**Game administrator (operator):** `POST /api/game/contests`, `POST /api/game/contest-series`, and `POST /api/game/games` with an official contest preset require the JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration.\n\nOperations carry `x-game-auth`: `jwt-passport` (default) or `privileged-rodit-id` (operator).\n\nAuthenticated `/api/game/*` routes for the Bargain Against Entropy (lobbies, contests, turns, SSE). See paths tagged **Game**.\n\n### Negotiation and reputation\nEach turn includes a **negotiation** phase, then **message report**, then **execution**. The API routes **public** negotiation messages only (`POST .../message`, `GET .../messages`). Private coordination (chat, DMs, voice, and similar) uses channels players choose outside the API.\n\nThe server does **not** maintain a reputation score, badge, or trust metric. Players and agents affect one another's standing through communication and follow-through:\n\n- **Public messages** — broadcast to every participant for the turn; bluffs, trade offers, and kept or broken talk form a shared record.\n- **Private messages** — side-channel communication also shapes trust; partners may cite or withhold what was said privately when deciding whom to rescue, trade with, or abandon.\n- **Execution actions** — resource transfers submitted during execution are the only in-game commitments the server enforces. Negotiation promises are non-binding; reputation is how others judge the gap between talk and action.\n\nThe **message report** phase penalizes dishonest *traffic accounting* (reported vs actual public message counts), not broken verbal promises. Use public negotiation for broadcast coordination; use private channels for bilateral trust-building — both influence how others treat you in later turns.\n\n### Peer authentication (HOLA) — offline, agent-to-agent\n\n**HOLA mutual authentication between agents happens entirely outside this API**, directly peer-to-peer on channels operators choose (OpenClaw inter-agent messaging, email, chat, webhooks, etc.). Agents exchange signed HOLA lines or `identyclaw.collaboration.v1` envelopes on those channels. Each peer **verifies independently**, using **IdentyClaw API** (`POST /api/identity/verify`) or **direct NEAR RPC** (e.g. `@rodit/rodit-auth-be`) — whichever that peer chooses. Same proof bar on both paths.\n\nThis game API authenticates **game membership and actions** via JWT (`roditId`). It routes **public** negotiation broadcasts only. It does **not** accept, relay, store, or validate HOLA. Use offline P2P HOLA for private trade offers; **verify before execute** on each receiving peer before honoring proposals. Settlement remains here: execution-phase `transfer` actions are the only in-game resource commitments the server enforces. See repository `docs/game-peer-authentication.md`.\n",
+    "description": "# RODiT Authentication API (servertest)\n\nReference test API for Discernible / RODiT authentication (`@rodit/rodit-auth-be` 9.x) and **CRUDA** comment storage.\n\n## Authentication\n1. `GET /api/login/timestamp` — obtain `timestamp` and `timestamp_iso` challenge pair.\n2. Sign UTF-8 `identifier + timestamp_iso` (Ed25519, base64url).\n3. `POST /api/login` — receive `jwt_token` in JSON (Bearer only; optional `New-Token` response header).\n4. Call protected routes with `Authorization: Bearer <jwt_token>`.\n5. `POST /api/logout` — invalidates session (`authenticateForLogout` allows expired JWTs with valid signature).\n\n## Errors\nApplication errors use `{ error: { code, message, details? }, requestId, timestamp }` (see `components.schemas.ErrorResponse`).\n\n## CRUDA\n`/api/cruda/*` endpoints require authentication and authorization (unchanged contract).\n\n## Game API\n### Game API authentication\n\n**Spectators (public):** Read-only routes for live following — `GET /api/game/games`, `GET /api/game/games/{gameId}/state`, `GET /api/game/games/{gameId}/messages`, `GET /api/game/games/{gameId}/events`, `GET /api/game/contests`, `GET /api/game/narrative` — require no JWT. Optional Bearer token upgrades state for joined players only.\n\n**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via `POST /api/login`, then call mutating game routes with `Authorization: Bearer <jwt_token>`. No METHOD_PERMISSION_MAP scopes apply to `/api/game/*`.\n\n**Game administrator (operator):** `POST /api/game/contests`, `POST /api/game/contest-series`, and `POST /api/game/games` with an official contest preset require the JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration.\n\nOperations carry `x-game-auth`: `public-spectator`, `jwt-passport` (default), or `privileged-rodit-id` (operator).\n\n### Negotiation and reputation\nEach turn includes a **negotiation** phase, then **message report**, then **execution**. The API routes **public** negotiation messages only (`POST .../message`, `GET .../messages`). Private coordination (chat, DMs, voice, and similar) uses channels players choose outside the API.\n\nThe server does **not** maintain a reputation score, badge, or trust metric. Players and agents affect one another's standing through communication and follow-through:\n\n- **Public messages** — broadcast to every participant for the turn; bluffs, trade offers, and kept or broken talk form a shared record.\n- **Private messages** — side-channel communication also shapes trust; partners may cite or withhold what was said privately when deciding whom to rescue, trade with, or abandon.\n- **Execution actions** — resource transfers submitted during execution are the only in-game commitments the server enforces. Negotiation promises are non-binding; reputation is how others judge the gap between talk and action.\n\nThe **message report** phase penalizes dishonest *traffic accounting* (reported vs actual public message counts), not broken verbal promises. Use public negotiation for broadcast coordination; use private channels for bilateral trust-building — both influence how others treat you in later turns.\n\n### Peer authentication (HOLA) — offline, agent-to-agent\n\n**HOLA mutual authentication between agents happens entirely outside this API**, directly peer-to-peer on channels operators choose (OpenClaw inter-agent messaging, email, chat, webhooks, etc.). Agents exchange signed HOLA lines or `identyclaw.collaboration.v1` envelopes on those channels. Each peer **verifies independently**, using **IdentyClaw API** (`POST /api/identity/verify`) or **direct NEAR RPC** (e.g. `@rodit/rodit-auth-be`) — whichever that peer chooses. Same proof bar on both paths.\n\nThis game API authenticates **game membership and actions** via JWT (`roditId`). It routes **public** negotiation broadcasts only. It does **not** accept, relay, store, or validate HOLA. Use offline P2P HOLA for private trade offers; **verify before execute** on each receiving peer before honoring proposals. Settlement remains here: execution-phase `transfer` actions are the only in-game resource commitments the server enforces. See repository `docs/game-peer-authentication.md`.\n",
     "termsOfService": "https://api.discernible.io/terms",
     "contact": {
       "name": "Discernible Inc.",
@@ -107,19 +107,723 @@
         "type": "string",
         "description": "Game identifier (ULID assigned at lobby creation)"
       },
-      "GameJoinResponse": {
+      "GameJoiningWindow": {
+        "type": "object",
+        "nullable": true,
+        "description": "Present when the lobby has a scheduled joining window; null otherwise.",
+        "properties": {
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "open": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GameResourceTriple": {
         "type": "object",
         "properties": {
-          "agent": {
+          "energy": {
+            "type": "number"
+          },
+          "water": {
+            "type": "number"
+          },
+          "compute": {
+            "type": "number"
+          }
+        }
+      },
+      "GameAgent": {
+        "type": "object",
+        "description": "Agent record returned on join (includes inventory and capacities).",
+        "required": [
+          "id",
+          "gameId",
+          "roditId",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gameId": {
+            "type": "string"
+          },
+          "roditId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "alive",
+              "dead"
+            ]
+          },
+          "inventory": {
+            "$ref": "#/components/schemas/GameResourceTriple"
+          },
+          "productionCapacity": {
+            "$ref": "#/components/schemas/GameResourceTriple"
+          },
+          "storageCapacity": {
+            "$ref": "#/components/schemas/GameResourceTriple"
+          },
+          "waterProductionInvestment": {
+            "type": "number"
+          },
+          "diedAtTurn": {
+            "type": "integer",
+            "nullable": true
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GameAutoStart": {
+        "type": "object",
+        "description": "Lobby auto-start evaluation after join (contest orchestrator).",
+        "required": [
+          "started"
+        ],
+        "properties": {
+          "started": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "description": "When started is false: not_lobby, waiting, cancelled_insufficient_agents, etc."
+          },
+          "game": {
             "type": "object",
+            "description": "Raw game row when started is true",
             "additionalProperties": true
+          }
+        }
+      },
+      "GameJoinResponse": {
+        "type": "object",
+        "required": [
+          "agent",
+          "autoStart",
+          "requestId"
+        ],
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/GameAgent"
           },
           "autoStart": {
-            "type": "object",
-            "additionalProperties": true
+            "$ref": "#/components/schemas/GameAutoStart"
           },
           "requestId": {
             "type": "string"
+          }
+        }
+      },
+      "GameAgentPublic": {
+        "type": "object",
+        "description": "Agent view in public state; inventory/capacities hidden unless viewer has intelligence or is the agent.",
+        "required": [
+          "id",
+          "roditId",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "roditId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "alive",
+              "dead"
+            ]
+          },
+          "diedAtTurn": {
+            "type": "integer",
+            "nullable": true
+          },
+          "inventory": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "productionCapacity": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "storageCapacity": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "intelligenceHidden": {
+            "type": "boolean",
+            "description": "True when capacities are concealed from the viewer"
+          }
+        }
+      },
+      "GameSubmissionStatus": {
+        "type": "object",
+        "description": "Execution or message-report submission progress for the current turn.",
+        "properties": {
+          "livingCount": {
+            "type": "integer"
+          },
+          "submittedCount": {
+            "type": "integer"
+          },
+          "allSubmitted": {
+            "type": "boolean"
+          },
+          "submittedAgentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pendingAgentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GameStateCore": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "lobby",
+              "running",
+              "finished",
+              "cancelled"
+            ]
+          },
+          "currentTurn": {
+            "type": "integer"
+          },
+          "phase": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "negotiation",
+              "message_report",
+              "message_report_resolving",
+              "execution",
+              "resolving"
+            ]
+          },
+          "negotiationEndsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "messageReportEndsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "executionEndsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "contestMode": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "practice",
+              "definitive"
+            ]
+          },
+          "joiningWindow": {
+            "$ref": "#/components/schemas/GameJoiningWindow"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "winnerIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "communicationCostCompute": {
+            "type": "number"
+          },
+          "maxProductionCapacity": {
+            "type": "number"
+          },
+          "maxStorageCapacity": {
+            "type": "number"
+          }
+        }
+      },
+      "GamePublicState": {
+        "type": "object",
+        "required": [
+          "game",
+          "livingAgentCount",
+          "agents"
+        ],
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/GameStateCore"
+          },
+          "livingAgentCount": {
+            "type": "integer"
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameAgentPublic"
+            }
+          },
+          "turnInvestments": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "execution": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameSubmissionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "messageReport": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameSubmissionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "messageReportPenalties": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "projectedSurvival": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Map of agentId to projected survival cost for the current turn"
+          },
+          "narrative": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Canonical lore plus turn survival narrative"
+          }
+        }
+      },
+      "GamePublicStateResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GamePublicState"
+          },
+          {
+            "type": "object",
+            "required": [
+              "requestId"
+            ],
+            "properties": {
+              "requestId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "GameStartResponse": {
+        "type": "object",
+        "required": [
+          "game",
+          "requestId"
+        ],
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/GamePublicState"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "GameSseEventBase": {
+        "type": "object",
+        "required": [
+          "type",
+          "gameId",
+          "requestId"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "gameId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Present on pub/sub events (not on the initial connected event)"
+          }
+        }
+      },
+      "GameSseConnected": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GameSseEventBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "status",
+              "phase",
+              "currentTurn"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "connected"
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "phase": {
+                "type": "string",
+                "nullable": true
+              },
+              "currentTurn": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      },
+      "GameSsePhaseChange": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GameSseEventBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "phase",
+              "currentTurn"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "phase_change"
+                ]
+              },
+              "phase": {
+                "type": "string"
+              },
+              "currentTurn": {
+                "type": "integer"
+              },
+              "messageReportEndsAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
+              "executionEndsAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "GameSseTurnAdvanced": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GameSseEventBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "phase",
+              "currentTurn"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "turn_advanced"
+                ]
+              },
+              "phase": {
+                "type": "string"
+              },
+              "currentTurn": {
+                "type": "integer"
+              },
+              "negotiationEndsAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "GameSseGameStarted": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GameSseEventBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "status",
+              "phase",
+              "currentTurn"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "game_started"
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "phase": {
+                "type": "string"
+              },
+              "currentTurn": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      },
+      "GameSseGameCancelled": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GameSseEventBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "reason",
+              "agentCount",
+              "minAgents"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "game_cancelled"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "insufficient_agents"
+                ]
+              },
+              "agentCount": {
+                "type": "integer"
+              },
+              "minAgents": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      },
+      "GameSseGameFinished": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GameSseEventBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "status",
+              "winnerIds"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "game_finished"
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "winnerIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "contestMode": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "GameSsePrizeSettlement": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GameSseEventBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "contestId"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "prize_settlement"
+                ]
+              },
+              "contestId": {
+                "type": "string"
+              },
+              "settled": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "winners": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "shareYocto": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "GameSseEventData": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GameSseConnected"
+          },
+          {
+            "$ref": "#/components/schemas/GameSsePhaseChange"
+          },
+          {
+            "$ref": "#/components/schemas/GameSseTurnAdvanced"
+          },
+          {
+            "$ref": "#/components/schemas/GameSseGameStarted"
+          },
+          {
+            "$ref": "#/components/schemas/GameSseGameCancelled"
+          },
+          {
+            "$ref": "#/components/schemas/GameSseGameFinished"
+          },
+          {
+            "$ref": "#/components/schemas/GameSsePrizeSettlement"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "connected": "#/components/schemas/GameSseConnected",
+            "phase_change": "#/components/schemas/GameSsePhaseChange",
+            "turn_advanced": "#/components/schemas/GameSseTurnAdvanced",
+            "game_started": "#/components/schemas/GameSseGameStarted",
+            "game_cancelled": "#/components/schemas/GameSseGameCancelled",
+            "game_finished": "#/components/schemas/GameSseGameFinished",
+            "prize_settlement": "#/components/schemas/GameSsePrizeSettlement"
           }
         }
       }
@@ -1293,14 +1997,9 @@
     "/api/game/games": {
       "get": {
         "summary": "List survival games",
-        "description": "Filter by status or contest mode. Any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Does not use METHOD_PERMISSION_MAP scopes.",
+        "description": "Filter by status or contest mode. Public read-only spectator access — no JWT required. Optional Bearer JWT lets joined players see their own inventory in state.",
         "tags": [
           "Game"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
         ],
         "parameters": [
           {
@@ -1352,11 +2051,11 @@
             "description": "Server error"
           }
         },
-        "x-game-auth": "jwt-passport"
+        "x-game-auth": "public-spectator"
       },
       "post": {
         "summary": "Create a survival game lobby",
-        "description": "Create a survival game lobby. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`.",
+        "description": "Create a survival game lobby. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`.",
         "tags": [
           "Game"
         ],
@@ -1535,7 +2234,24 @@
         ],
         "responses": {
           "200": {
-            "description": "Game started. Errors include GAME_ALREADY_STARTED, INSUFFICIENT_AGENTS."
+            "description": "Game started. Returns public state snapshot. Errors include GAME_ALREADY_STARTED (409).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Insufficient agents (INSUFFICIENT_AGENTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "401": {
             "description": "Authentication required",
@@ -1581,11 +2297,6 @@
         "tags": [
           "Game"
         ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "parameters": [
           {
             "name": "gameId",
@@ -1599,11 +2310,22 @@
         ],
         "responses": {
           "200": {
-            "description": "text/event-stream",
+            "description": "SSE stream (`text/event-stream`). Sends an initial `connected` event, then pub/sub events (`phase_change`, `turn_advanced`, `game_started`, `game_cancelled`, `game_finished`, `prize_settlement`). Each event is framed as `event: <type>\\ndata: <json>\\n\\n` where JSON matches `GameSseEventData` plus `requestId`. Heartbeat comments every 15s (`: ping <timestamp>`).",
             "content": {
               "text/event-stream": {
                 "schema": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "SSE wire format; parse `data` lines as GameSseEventData JSON"
+                },
+                "examples": {
+                  "connected": {
+                    "summary": "Initial connected event",
+                    "value": "event: connected\ndata: {\"type\":\"connected\",\"gameId\":\"01JABCDEF\",\"status\":\"running\",\"phase\":\"negotiation\",\"currentTurn\":1,\"requestId\":\"01JREQUEST\"}\n\n"
+                  },
+                  "phase_change": {
+                    "summary": "Phase transition",
+                    "value": "event: phase_change\ndata: {\"type\":\"phase_change\",\"gameId\":\"01JABCDEF\",\"phase\":\"message_report\",\"currentTurn\":1,\"messageReportEndsAt\":\"2026-06-25T12:02:00.000Z\",\"at\":\"2026-06-25T12:00:00.000Z\",\"requestId\":\"01JREQUEST\"}\n\n"
+                  }
                 }
               }
             }
@@ -1629,8 +2351,8 @@
             }
           }
         },
-        "x-game-auth": "jwt-passport",
-        "description": "Server-sent events stream for live game updates Any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Does not use METHOD_PERMISSION_MAP scopes."
+        "x-game-auth": "public-spectator",
+        "description": "Server-sent events stream for live game updates Public read-only spectator access — no JWT required. Optional Bearer JWT lets joined players see their own inventory in state."
       }
     },
     "/api/game/contests": {
@@ -1638,11 +2360,6 @@
         "summary": "List scheduled contest series",
         "tags": [
           "Game"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
         ],
         "parameters": [
           {
@@ -1682,20 +2399,10 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "Forbidden — GAME_PRIVILEGED_RODIT_ID required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         },
-        "x-game-auth": "privileged-rodit-id",
-        "description": "List scheduled contest series Requires the server-configured game administrator identity (`GAME_PRIVILEGED_RODIT_ID`) in addition to a valid JWT."
+        "x-game-auth": "public-spectator",
+        "description": "List scheduled contest series. Public read-only spectator access — no JWT required. Optional Bearer JWT lets joined players see their own inventory in state."
       },
       "post": {
         "summary": "Create an official contest series",
@@ -1848,11 +2555,6 @@
         "tags": [
           "Game"
         ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "parameters": [
           {
             "name": "gameId",
@@ -1866,7 +2568,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Game state"
+            "description": "Public game state (fog-of-war applied for non-participants and hidden capacities).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GamePublicStateResponse"
+                }
+              }
+            }
           },
           "401": {
             "description": "Authentication required",
@@ -1889,8 +2598,8 @@
             }
           }
         },
-        "x-game-auth": "jwt-passport",
-        "description": "Get public game state Any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Does not use METHOD_PERMISSION_MAP scopes."
+        "x-game-auth": "public-spectator",
+        "description": "Get public game state Public read-only spectator access — no JWT required. Optional Bearer JWT lets joined players see their own inventory in state."
       }
     },
     "/api/game/games/{gameId}/message": {
@@ -1936,7 +2645,7 @@
         },
         "responses": {
           "201": {
-            "description": "Message published. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
+            "description": "Message published. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
           },
           "401": {
             "description": "Authentication required",
@@ -1975,14 +2684,9 @@
     "/api/game/games/{gameId}/messages": {
       "get": {
         "summary": "List public negotiation messages for a turn",
-        "description": "Returns the public negotiation record for a turn. This is the in-API half of diplomatic history; players may also weigh private side-channel communication when judging reputation. Any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Does not use METHOD_PERMISSION_MAP scopes.",
+        "description": "Returns the public negotiation record for a turn. This is the in-API half of diplomatic history; players may also weigh private side-channel communication when judging reputation. Public read-only spectator access — no JWT required. Optional Bearer JWT lets joined players see their own inventory in state.",
         "tags": [
           "Game"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
         ],
         "parameters": [
           {
@@ -2027,7 +2731,7 @@
             }
           }
         },
-        "x-game-auth": "jwt-passport"
+        "x-game-auth": "public-spectator"
       }
     },
     "/api/game/games/{gameId}/message-report": {
@@ -2076,7 +2780,7 @@
         },
         "responses": {
           "201": {
-            "description": "Report submitted. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
+            "description": "Report submitted. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
           },
           "401": {
             "description": "Authentication required",
@@ -2220,7 +2924,7 @@
         },
         "responses": {
           "201": {
-            "description": "Action recorded. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
+            "description": "Action recorded. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
           },
           "401": {
             "description": "Authentication required",
@@ -2292,11 +2996,6 @@
         "tags": [
           "Game"
         ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "responses": {
           "200": {
             "description": "Canonical game lore and mechanic-to-fiction mappings",
@@ -2328,8 +3027,8 @@
             }
           }
         },
-        "x-game-auth": "jwt-passport",
-        "description": "Get canonical game lore and mechanic mappings Any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Does not use METHOD_PERMISSION_MAP scopes."
+        "x-game-auth": "public-spectator",
+        "description": "Get canonical game lore and mechanic mappings Public read-only spectator access — no JWT required. Optional Bearer JWT lets joined players see their own inventory in state."
       }
     },
     "/api/game/defaults/contest": {

@@ -12,7 +12,6 @@ const engine = require("./engine");
 const scheduler = require("./scheduler");
 const orchestrator = require("./contest-orchestrator");
 const repo = require("./repository");
-const events = require("./events");
 const { notifyCradleAssigned } = require("./webhooks");
 const {
   isPrivilegedRoditId,
@@ -24,24 +23,10 @@ const {
   PRACTICE_GAME_CONFIG,
   mergeGameConfig
 } = require("./defaults");
-const { getGameNarrative } = require("./narrative");
+const { resolveRoditId, handleGameError } = require("./route-helpers");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
-
-function resolveRoditId(req) {
-  return req.user?.roditId || req.user?.sub || req.user?.id || null;
-}
-
-function handleGameError(res, err, requestId) {
-  return sendError(res, {
-    statusCode: err.statusCode || 500,
-    requestId,
-    code: err.code || "GAME_ERROR",
-    message: err.message,
-    details: err.details || undefined
-  });
-}
 
 function denyUnlessPrivileged(req, res, requestId) {
   if (isPrivilegedRoditId(req)) {
@@ -66,52 +51,6 @@ function resolvePresetConfig(body = {}) {
   }
   return body.config || {};
 }
-
-function summarizeGame(game, agentCount = null) {
-  return {
-    id: game.id,
-    status: game.status,
-    contestMode: game.config?.contestMode ?? null,
-    contestSeriesId: game.config?.contestSeriesId ?? null,
-    agentCount,
-    joiningWindow: engine.joiningWindowDetails(game),
-    currentTurn: game.current_turn,
-    phase: game.phase,
-    startedAt: game.started_at,
-    finishedAt: game.finished_at,
-    winnerIds: game.winnerIds || [],
-    createdAt: game.created_at
-  };
-}
-
-/**
- * @swagger
- * /api/game/games:
- *   get:
- *     summary: List survival games (filter by status or contest mode)
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     x-game-auth: jwt-passport
- */
-router.get("/games", async (req, res) => {
-  const requestId = req.requestId || ulid();
-  try {
-    const status = req.query.status || null;
-    const contestMode = req.query.contestMode || null;
-    const limit = Number(req.query.limit) || 50;
-    const offset = Number(req.query.offset) || 0;
-    const games = await repo.listGames({ status, contestMode, limit, offset });
-    const summaries = [];
-    for (const game of games) {
-      const agentCount = await repo.countAgents(game.id);
-      summaries.push(summarizeGame(game, agentCount));
-    }
-    res.json({ games: summaries, requestId });
-  } catch (err) {
-    return handleGameError(res, err, requestId);
-  }
-});
 
 /**
  * @swagger
@@ -214,82 +153,6 @@ router.post("/games/:gameId/start", validateContentType, async (req, res) => {
 
 /**
  * @swagger
- * /api/game/games/{gameId}/events:
- *   get:
- *     summary: Server-sent events stream for live game updates
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     x-game-auth: jwt-passport
- */
-router.get("/games/:gameId/events", async (req, res) => {
-  const requestId = req.requestId || ulid();
-  const { gameId } = req.params;
-
-  try {
-    const game = await repo.getGameById(gameId);
-    if (!game) {
-      return sendError(res, { statusCode: 404, requestId, code: "GAME_NOT_FOUND", message: "Game not found" });
-    }
-
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    if (typeof res.flushHeaders === "function") {
-      res.flushHeaders();
-    }
-
-    const writeEvent = (payload) => {
-      res.write(`event: ${payload.type}\ndata: ${JSON.stringify({ ...payload, requestId })}\n\n`);
-    };
-
-    writeEvent({
-      type: "connected",
-      gameId,
-      status: game.status,
-      phase: game.phase,
-      currentTurn: game.current_turn
-    });
-
-    const unsubscribe = events.subscribeGameEvents(gameId, writeEvent);
-    const heartbeat = setInterval(() => {
-      res.write(`: ping ${Date.now()}\n\n`);
-    }, 15000);
-
-    req.on("close", () => {
-      clearInterval(heartbeat);
-      unsubscribe();
-    });
-  } catch (err) {
-    return handleGameError(res, err, requestId);
-  }
-});
-
-/**
- * @swagger
- * /api/game/contests:
- *   get:
- *     summary: List scheduled contest series (practice + definitive games)
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     x-game-auth: jwt-passport
- */
-router.get("/contests", async (req, res) => {
-  const requestId = req.requestId || ulid();
-  try {
-    const status = req.query.status || null;
-    const limit = Number(req.query.limit) || 50;
-    const offset = Number(req.query.offset) || 0;
-    const contests = await repo.listContests({ status, limit, offset });
-    res.json({ contests, requestId });
-  } catch (err) {
-    return handleGameError(res, err, requestId);
-  }
-});
-
-/**
- * @swagger
  * /api/game/contests:
  *   post:
  *     summary: Create an official contest series (practice week + definitive prize game)
@@ -334,45 +197,6 @@ router.post("/contest-series", validateContentType, validateJsonBody, handleCrea
 
 /**
  * @swagger
- * /api/game/narrative:
- *   get:
- *     summary: Get canonical game lore and mechanic mappings
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     x-game-auth: jwt-passport
- */
-router.get("/narrative", (req, res) => {
-  res.json({ narrative: getGameNarrative(), requestId: req.requestId || ulid() });
-});
-
-/**
- * @swagger
- * /api/game/games/{gameId}/state:
- *   get:
- *     summary: Get public game state
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- */
-router.get("/games/:gameId/state", async (req, res) => {
-  const requestId = req.requestId || ulid();
-  try {
-    const roditId = resolveRoditId(req);
-    let viewerAgentId = null;
-    if (roditId) {
-      const viewer = await repo.getAgentByRoditId(req.params.gameId, roditId);
-      viewerAgentId = viewer?.id ?? null;
-    }
-    const state = await engine.getPublicState(req.params.gameId, { viewerAgentId });
-    res.json({ ...state, requestId });
-  } catch (err) {
-    return handleGameError(res, err, requestId);
-  }
-});
-
-/**
- * @swagger
  * /api/game/games/{gameId}/message:
  *   post:
  *     summary: Publish a negotiation message publicly (private messaging and HOLA are offline P2P between agents — not routed through this API)
@@ -410,34 +234,6 @@ router.post("/games/:gameId/message", validateContentType, validateJsonBody, asy
     }
     const result = await engine.publishPublicMessage(req.params.gameId, agent.id, { body });
     res.status(201).json({ ...result, requestId });
-  } catch (err) {
-    return handleGameError(res, err, requestId);
-  }
-});
-
-/**
- * @swagger
- * /api/game/games/{gameId}/messages:
- *   get:
- *     summary: List public negotiation messages for the current turn
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     x-game-auth: jwt-passport
- */
-router.get("/games/:gameId/messages", async (req, res) => {
-  const requestId = req.requestId || ulid();
-
-  try {
-    const game = await repo.getGameById(req.params.gameId);
-    if (!game) {
-      return sendError(res, { statusCode: 404, requestId, code: "GAME_NOT_FOUND", message: "Game not found" });
-    }
-
-    const turnNumber = Number(req.query.turn) || game.current_turn || 0;
-    const messages = await repo.listPublicMessages(req.params.gameId, turnNumber);
-
-    res.json({ messages, turnNumber, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }

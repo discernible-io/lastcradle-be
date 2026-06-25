@@ -146,6 +146,7 @@ const mcpRoutes = require("./routes/mcp.public.routes");
 const metricsRoutes = require("./protected/metricsroutes");
 const sessionRoutes = require("./routes/session.privileged.routes");
 const gameRoutes = require("./game/routes");
+const gameSpectatorRoutes = require("./game/spectator-routes");
 const gameScheduler = require("./game/scheduler");
 
 // Configure SQLite session storage using express-session
@@ -283,12 +284,16 @@ app.get("/api-docs/swagger.json", (req, res) => {
   res.json(swaggerSpec);
 });
 
-// Player-facing blog report (static)
+// Player-facing blog report and live spectator UI (static)
 const frontendPath = path.join(__dirname, "../frontend");
 if (fs.existsSync(frontendPath)) {
   app.use("/play", express.static(frontendPath, { index: "index.html" }));
   app.get("/play", (req, res) => {
     res.sendFile(path.join(frontendPath, "index.html"));
+  });
+  app.use("/watch", express.static(frontendPath, { index: "watch.html" }));
+  app.get("/watch", (req, res) => {
+    res.sendFile(path.join(frontendPath, "watch.html"));
   });
 }
 
@@ -760,6 +765,14 @@ async function startServer() {
     authenticate_apicall = (req, res, next) => {
       return roditClient.authenticate(req, res, next);
     };
+
+    const optionalAuthenticate = (req, res, next) => {
+      const authHeader = req.headers.authorization || "";
+      if (!authHeader.toLowerCase().startsWith("bearer ")) {
+        return next();
+      }
+      return roditClient.authenticate(req, res, next);
+    };
     
     validatepermissions = (req, res, next) => {
       return roditClient.authorize(req, res, next);
@@ -801,6 +814,7 @@ async function startServer() {
 
     // Protected routes
     app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
+    app.use("/api/game", optionalAuthenticate, gameSpectatorRoutes);
     app.use("/api/game", authenticate_apicall, gameRoutes);
     app.use("/api/metrics", metricsRoutes);
     app.use("/api/sessions", sessionRoutes);
