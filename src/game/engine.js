@@ -9,6 +9,7 @@ const {
   communicationCostComputeForTurn
 } = require("./survival-cost");
 const { getGameNarrative, buildSurvivalNarrative } = require("./narrative");
+const { normalizeTransferDisclosure } = require("./trade-disclosure");
 const repo = require("./repository");
 
 const RESOURCE_KEYS = ["energy", "water", "compute"];
@@ -607,6 +608,8 @@ async function submitAction(gameId, agentId, action) {
       delete normalized.energy;
       delete normalized.water;
       delete normalized.compute;
+      delete normalized.rationale;
+      delete normalized.privateDealSnippets;
     }
   }
 
@@ -1057,6 +1060,9 @@ function normalizeAction(action) {
   const normalized = { ...action, type };
   if (type === "invest") {
     return normalizeInvestAction(normalized);
+  }
+  if (type === "transfer") {
+    return normalizeTransferDisclosure(normalized);
   }
   return normalized;
 }

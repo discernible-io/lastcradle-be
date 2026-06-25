@@ -168,4 +168,30 @@ router.get("/games/:gameId/messages", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/game/games/{gameId}/trades:
+ *   get:
+ *     summary: List transfer actions for a turn (with optional rationale and curated private-deal snippets)
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/games/:gameId/trades", async (req, res) => {
+  const requestId = req.requestId || ulid();
+
+  try {
+    const game = await repo.getGameById(req.params.gameId);
+    if (!game) {
+      return handleGameError(res, { code: "GAME_NOT_FOUND", message: "Game not found", statusCode: 404 }, requestId);
+    }
+
+    const turnNumber = Number(req.query.turn) || game.current_turn || 0;
+    const trades = await repo.listPublicTrades(req.params.gameId, turnNumber);
+
+    res.json({ trades, turnNumber, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
 module.exports = router;

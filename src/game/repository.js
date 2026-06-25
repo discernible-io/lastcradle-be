@@ -652,6 +652,15 @@ async function listTurnInvestments(gameId, turnNumber) {
     }));
 }
 
+async function listPublicTrades(gameId, turnNumber) {
+  const { publicTradeFromAction } = require("./trade-disclosure");
+  const actions = await listTurnActions(gameId, turnNumber);
+  return actions
+    .map((row) => publicTradeFromAction(row, parseJson))
+    .filter(Boolean)
+    .filter((trade) => trade.status !== "skipped");
+}
+
 async function getExecutionSubmissionStatus(gameId, turnNumber) {
   const database = await getDb();
   const livingAgents = await listAgents(gameId, { status: "alive" });
@@ -1031,6 +1040,7 @@ module.exports = {
   listTurnActions,
   markActionExecuted,
   listTurnInvestments,
+  listPublicTrades,
   getExecutionSubmissionStatus,
   allLivingAgentsSubmitted,
   getActualMessageCounts,

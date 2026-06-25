@@ -382,6 +382,69 @@
   font-style: italic;
 }
 
+.trades-panel .panel-sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+}
+
+.trades-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
+.trade-card {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.trade-card .trade-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.trade-card .trade-route {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.trade-card .trade-amounts {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.trade-card .trade-rationale {
+  margin: 0 0 0.5rem;
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.trade-card .trade-snippets {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.trade-card .trade-snippets li {
+  margin-bottom: 0.35rem;
+}
+
+.trade-card .snippet-meta {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .phase-detail {
   font-size: 0.9rem;
 }

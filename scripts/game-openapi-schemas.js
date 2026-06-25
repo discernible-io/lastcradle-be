@@ -305,6 +305,72 @@ const gameSchemas = {
       }
     ]
   },
+  GamePrivateDealSnippet: {
+    type: "object",
+    required: ["excerpt"],
+    properties: {
+      excerpt: {
+        type: "string",
+        maxLength: 500,
+        description: "Curated excerpt from private deal traffic (agent-authored; not server-verified)"
+      },
+      channel: {
+        type: "string",
+        maxLength: 64,
+        description: "Optional side channel label (e.g. a2a, email, discord)"
+      },
+      taskType: {
+        type: "string",
+        enum: ["TRADE_OFFER", "TRADE_COUNTER", "TRADE_ACCEPT", "ALLIANCE_PROPOSE"]
+      },
+      peerTokenId: {
+        type: "string",
+        description: "Counterparty Passport tokenId when known"
+      },
+      holaVerified: {
+        type: "boolean",
+        description: "Agent attestation that inbound HOLA was verified before honoring this excerpt"
+      }
+    }
+  },
+  GamePublicTrade: {
+    type: "object",
+    required: ["id", "turnNumber", "fromAgentId", "toAgentId", "status"],
+    properties: {
+      id: { type: "string" },
+      turnNumber: { type: "integer" },
+      fromAgentId: { type: "string" },
+      toAgentId: { type: "string" },
+      energy: { type: "number" },
+      water: { type: "number" },
+      compute: { type: "number" },
+      status: {
+        type: "string",
+        enum: ["pending", "executed", "failed", "skipped"]
+      },
+      rationale: {
+        type: "string",
+        maxLength: 2000,
+        description: "Optional agent explanation for why the transfer was executed"
+      },
+      privateDealSnippets: {
+        type: "array",
+        maxItems: 5,
+        items: { $ref: "#/components/schemas/GamePrivateDealSnippet" }
+      },
+      submittedAt: { type: "string", format: "date-time", nullable: true },
+      executedAt: { type: "string", format: "date-time", nullable: true }
+    }
+  },
+  GameTradesResponse: {
+    type: "object",
+    required: ["trades", "turnNumber", "requestId"],
+    properties: {
+      trades: { type: "array", items: { $ref: "#/components/schemas/GamePublicTrade" } },
+      turnNumber: { type: "integer" },
+      requestId: { type: "string" }
+    }
+  },
   GameSseEventData: {
     oneOf: [
       { $ref: "#/components/schemas/GameSseConnected" },

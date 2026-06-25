@@ -22,7 +22,20 @@ function summarizeAction(actionRow, agentById) {
     if (payload.energy) parts.push(`${payload.energy} energy`);
     if (payload.water) parts.push(`${payload.water} water`);
     if (payload.compute) parts.push(`${payload.compute} compute`);
-    return `${from} sent ${parts.join(", ") || "resources"} to ${to}`;
+    let summary = `${from} sent ${parts.join(", ") || "resources"} to ${to}`;
+    if (payload.rationale) {
+      summary += ` — why: “${payload.rationale}”`;
+    }
+    if (payload.privateDealSnippets?.length) {
+      const snippetText = payload.privateDealSnippets
+        .map((s) => {
+          const label = [s.taskType, s.channel].filter(Boolean).join(" via ");
+          return label ? `${label}: “${s.excerpt}”` : `“${s.excerpt}”`;
+        })
+        .join("; ");
+      summary += ` [private deal: ${snippetText}]`;
+    }
+    return summary;
   }
 
   if (type === "invest") {

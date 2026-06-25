@@ -23,6 +23,7 @@ const PUBLIC_SPECTATOR_PATHS = new Set([
   "/api/game/narrative",
   "/api/game/games/{gameId}/state",
   "/api/game/games/{gameId}/messages",
+  "/api/game/games/{gameId}/trades",
   "/api/game/games/{gameId}/events"
 ]);
 
@@ -200,7 +201,7 @@ function wireGameResponseSchemas(spec) {
 function patchInfoDescription(description) {
   const authBlock = `### Game API authentication
 
-**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\` — require no JWT. Optional Bearer token upgrades state for joined players only.
+**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\` — require no JWT. Optional Bearer token upgrades state for joined players only.
 
 **Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
 

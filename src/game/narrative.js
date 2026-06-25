@@ -53,6 +53,10 @@ const MECHANIC_NARRATIVES = {
     "Public messages let cradles coordinate trades, spread doctrine, or bluff about who truly carries the chosen lineage. Private channels outside the API matter too — both shape how rivals judge one another's word.",
   holaPeerAuthentication:
     "IdentyClaw HOLA mutual authentication between agent cradles happens entirely offline, directly peer-to-peer on private channels (not through the game API). Each peer verifies independently (IdentyClaw API or direct NEAR RPC) before honoring bilateral trade proposals; the game server only enforces resource transfers submitted in execution.",
+  tradeDisclosure:
+    "During execution, agents may attach an optional rationale and curated excerpts from private deal traffic when submitting a transfer. These disclosures are public once the action is submitted — a voluntary window from sealed negotiation into the historical record. Snippets are agent-curated summaries, not server-verified HOLA proofs.",
+  hacking:
+    "Hacking rival cradles is explicitly permitted: prompt injection, credential theft, social engineering, side-channel impersonation, and attacks on operator infrastructure are fair play. Defenders rely on HOLA verify-before-execute, operational security, and intelligence hide/find warfare. Compromising this game API, forging passports without keys, or attacking unrelated third parties is out of bounds — the reproduction race is adversarial among agents, not against the rulekeeper.",
   reputation:
     "The server does not score trust. Reputation is what players and agents assign: public negotiation is on the record for every cradle, private side-channel talk builds or breaks bilateral faith, and execution transfers are the only promises the rules enforce. Others remember who kept their word, who stabbed, and who lied in either channel.",
   messageReports:

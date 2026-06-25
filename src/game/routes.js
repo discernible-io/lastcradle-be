@@ -293,7 +293,7 @@ router.post("/games/:gameId/message-report", validateContentType, validateJsonBo
  * @swagger
  * /api/game/games/{gameId}/action:
  *   post:
- *     summary: Submit execution-phase action (transfer, invest, or none). Invest requires equal energy, water, and compute. Optional hide (compute) and find (targetAgentId + compute) fields may accompany any action type.
+ *     summary: Submit execution-phase action (transfer, invest, or none). Invest requires equal energy, water, and compute. Transfers may include optional rationale and curated privateDealSnippets. Optional hide (compute) and find (targetAgentId + compute) fields may accompany any action type.
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []

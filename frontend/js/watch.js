@@ -172,6 +172,7 @@ const app = {
   gameId: null,
   state: null,
   messages: [],
+  trades: [],
   selectedTurn: null,
   sse: null,
   countdownTimer: null,
@@ -261,12 +262,14 @@ async function openGame(gameId) {
 }
 
 async function refreshAll() {
-  const [stateBody, messagesBody] = await Promise.all([
+  const [stateBody, messagesBody, tradesBody] = await Promise.all([
     apiFetch(`/api/game/games/${app.gameId}/state`),
-    fetchMessagesForTurn(app.selectedTurn)
+    fetchMessagesForTurn(app.selectedTurn),
+    fetchTradesForTurn(app.selectedTurn)
   ]);
   app.state = stateBody;
   app.messages = messagesBody.messages || [];
+  app.trades = tradesBody.trades || [];
   if (app.selectedTurn == null) {
     app.selectedTurn = stateBody.game?.currentTurn || 0;
   }
@@ -278,6 +281,11 @@ async function fetchMessagesForTurn(turn) {
   return apiFetch(`/api/game/games/${app.gameId}/messages${turnQuery}`);
 }
 
+async function fetchTradesForTurn(turn) {
+  const turnQuery = turn != null ? `?turn=${turn}` : "";
+  return apiFetch(`/api/game/games/${app.gameId}/trades${turnQuery}`);
+}
+
 async function refreshMessages() {
   try {
     const body = await fetchMessagesForTurn(app.selectedTurn);
@@ -285,6 +293,16 @@ async function refreshMessages() {
     renderMessages(buildAgentMap(app.state?.agents || []));
   } catch (err) {
     showError(`Messages: ${err.message}`);
+  }
+}
+
+async function refreshTrades() {
+  try {
+    const body = await fetchTradesForTurn(app.selectedTurn);
+    app.trades = body.trades || [];
+    renderTrades(buildAgentMap(app.state?.agents || []));
+  } catch (err) {
+    showError(`Trades: ${err.message}`);
   }
 }
 
@@ -317,6 +335,7 @@ function startSse() {
         if (payload.type === "turn_advanced" || payload.type === "phase_change") {
           app.selectedTurn = payload.currentTurn ?? app.selectedTurn;
           refreshMessages();
+          refreshTrades();
         }
       }
     },
@@ -337,6 +356,7 @@ function startTimers() {
   app.countdownTimer = setInterval(updateCountdown, 1000);
   app.messagePollTimer = setInterval(() => {
     if (app.state?.game?.phase === "negotiation") refreshMessages();
+    if (app.state?.game?.phase === "execution") refreshTrades();
   }, MESSAGE_POLL_MS);
   app.fallbackPollTimer = setInterval(refreshState, FALLBACK_POLL_MS);
 }
@@ -381,6 +401,7 @@ function renderAll() {
   renderCradles(state, agentById);
   renderTurnPicker(game);
   renderMessages(agentById);
+  renderTrades(agentById);
   renderFinale(state, agentById);
   updateCountdown();
 
@@ -542,7 +563,7 @@ function renderTurnPicker(game) {
     btn.addEventListener("click", async () => {
       app.selectedTurn = t;
       renderTurnPicker(game);
-      await refreshMessages();
+      await Promise.all([refreshMessages(), refreshTrades()]);
     });
     nav.append(btn);
   }
@@ -577,6 +598,62 @@ function renderMessages(agentById) {
     feed.append(card);
   }
   feed.scrollTop = feed.scrollHeight;
+}
+
+function renderTrades(agentById) {
+  const feed = document.getElementById("trades-feed");
+  feed.replaceChildren();
+
+  const trades = app.trades || [];
+  if (!trades.length) {
+    feed.append(
+      el(
+        "div",
+        "messages-empty",
+        app.state?.game?.phase === "execution" && app.selectedTurn === app.state?.game?.currentTurn
+          ? "No transfers submitted yet this cycle."
+          : "No transfers recorded for this cycle."
+      )
+    );
+    return;
+  }
+
+  for (const trade of trades) {
+    const card = el("article", "trade-card");
+    const head = el("div", "trade-head");
+    head.append(
+      el(
+        "span",
+        "trade-route",
+        `${agentName(agentById, trade.fromAgentId)} → ${agentName(agentById, trade.toAgentId)}`
+      ),
+      el("span", null, trade.status || "pending"),
+      el("span", null, formatTime(trade.submittedAt))
+    );
+    card.append(head);
+    card.append(el("p", "trade-amounts", formatTriple(trade)));
+
+    if (trade.rationale) {
+      card.append(el("p", "trade-rationale", `Why: ${trade.rationale}`));
+    }
+
+    if (trade.privateDealSnippets?.length) {
+      const list = el("ul", "trade-snippets");
+      for (const snippet of trade.privateDealSnippets) {
+        const li = el("li");
+        const metaParts = [snippet.taskType, snippet.channel, snippet.peerTokenId].filter(Boolean);
+        if (snippet.holaVerified) metaParts.push("HOLA verified");
+        if (metaParts.length) {
+          li.append(el("div", "snippet-meta", metaParts.join(" · ")));
+        }
+        li.append(el("span", null, `“${snippet.excerpt}”`));
+        list.append(li);
+      }
+      card.append(list);
+    }
+
+    feed.append(card);
+  }
 }
 
 function renderFinale(state, agentById) {
