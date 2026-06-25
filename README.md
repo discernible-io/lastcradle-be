@@ -8,11 +8,11 @@ This API provides secure authentication services using the Discernible Authentic
 
 **Version**: 2025.10.01  
 
-| Branch | Role | URL |
-|--------|------|-----|
-| **`main`** | Main tier (SDK 9.x after merge from `development`) | https://api.discernible.io:9443 |
-| **`development`** | Development / integration | https://api.dihola.io:9443 |
-| **`legacy`** | Archive of pre-migration `main` (read-only) | — |
+| Branch | Role | API | Game frontend |
+|--------|------|-----|---------------|
+| **`main`** | Production (BAE) | https://api.bae.identyclaw.com:444 | https://bae.identyclaw.com |
+| **`development`** | Development / integration | https://api.dihola.io:9443 | `/play`, `/watch` on API host |
+| **`legacy`** | Archive of pre-migration `main` (read-only) | — | — |
 
 See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 
@@ -480,7 +480,7 @@ API_BASE=http://localhost:8080
 
 # Development / main tier
 # API_BASE=https://api.dihola.io:9443
-# API_BASE=https://api.discernible.io:9443
+# API_BASE=https://api.bae.identyclaw.com:444
 ```
 
 #### 1. Login challenge

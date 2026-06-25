@@ -1,3 +1,8 @@
+/**
+ * Hall of fame — public contest honors from the game API.
+ */
+import { apiUrl } from "./api-base.js";
+
 const METRIC_LABELS = {
   totalTurns: "Cycles played",
   playerCount: "Cradles",
@@ -64,7 +69,7 @@ function formatNumber(value) {
 }
 
 async function apiFetch(path) {
-  const response = await fetch(path);
+  const response = await fetch(apiUrl(path));
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(body.message || body.error || `Request failed (${response.status})`);

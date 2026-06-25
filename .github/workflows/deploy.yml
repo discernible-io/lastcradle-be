@@ -16,8 +16,9 @@ env:
   SSH_USER: ${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}
   SSH_PRIVATE_KEY: ${{ github.ref == 'refs/heads/main' && secrets.SSH_PRIVATE_KEY_MAIN || secrets.SSH_PRIVATE_KEY_DEVELOPMENT }}
   SSH_KNOWN_HOSTS: ${{ github.ref == 'refs/heads/main' && secrets.SSH_KNOWN_HOSTS_MAIN || secrets.SSH_KNOWN_HOSTS_DEVELOPMENT }}
-  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'api.discernible.io' || 'api.dihola.io' }}
-  APP_PORT: 9443
+  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'api.bae.identyclaw.com' || 'api.dihola.io' }}
+  APP_PORT: ${{ github.ref == 'refs/heads/main' && '444' || '9443' }}
+  FRONTEND_PORT: ${{ github.ref == 'refs/heads/main' && '443' || '' }}
   APP_DIR: /home/${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}/servertest-app
   POD_NAME: servertest-pod
   APP_CONTAINER_NAME: servertest-container
@@ -158,7 +159,13 @@ jobs:
             podman pull ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
             podman pull ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:${{ github.sha }}
 
-            podman pod create --name ${{ env.POD_NAME }} -p ${{ env.APP_PORT }}:${{ env.APP_PORT }}
+            if [ -n '${{ env.FRONTEND_PORT }}' ]; then
+              podman pod create --name ${{ env.POD_NAME }} \
+                -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
+                -p ${{ env.FRONTEND_PORT }}:${{ env.FRONTEND_PORT }}
+            else
+              podman pod create --name ${{ env.POD_NAME }} -p ${{ env.APP_PORT }}:${{ env.APP_PORT }}
+            fi
 
             mkdir -p ${{ env.APP_DIR }}/logs ${{ env.APP_DIR }}/data
             podman unshare chown -R 1000:1000 ${{ env.APP_DIR }}/logs ${{ env.APP_DIR }}/data || true

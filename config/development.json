@@ -13,6 +13,8 @@
   },
   "SERVERPORT": 8080,
   "SERVICE_NAME": "api.dihola.io",
+  "PUBLIC_PORT": "9443",
+  "FRONTEND_ORIGIN": "",
   "LOG_LEVEL": "debug",
   "LOKI_TLS_SKIP_VERIFY": "true",
   "GAME_PRIVILEGED_RODIT_ID": "",

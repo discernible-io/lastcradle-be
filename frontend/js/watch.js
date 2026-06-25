@@ -1,3 +1,5 @@
+import { apiUrl } from "./api-base.js";
+
 const MESSAGE_POLL_MS = 4000;
 const FALLBACK_POLL_MS = 15000;
 
@@ -26,9 +28,6 @@ const el = (tag, className, text) => {
   return node;
 };
 
-function apiUrl(path) {
-  return path;
-}
 
 async function apiFetch(path, options = {}) {
   const response = await fetch(apiUrl(path), options);
