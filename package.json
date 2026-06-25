@@ -14,7 +14,7 @@
     "winston-daily-rotate-file": "^5.0.0",
     "winston-loki": "^6.1.4"
   },
-  "name": "servertest",
+  "name": "bargainagainstentropy",
   "version": "2025.10.01",
   "description": "Description",
   "main": "src/app.js",
@@ -31,12 +31,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rodit/servertest.git"
+    "url": "git+https://github.com/discernible-io/bargainagainstentropy.git"
   },
   "author": "Discernible Ltd",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/rodit/servertest/issues"
+    "url": "https://github.com/discernible-io/bargainagainstentropy/issues"
   },
-  "homepage": "https://github.com/rodit/servertest#readme"
+  "homepage": "https://github.com/discernible-io/bargainagainstentropy#readme"
 }

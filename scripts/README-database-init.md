@@ -6,7 +6,7 @@
 
 ## Overview
 
-The `init-database.sh` script initializes the SQLite database for the servertest-rodit application. It handles both development and production deployment scenarios.
+The `init-database.sh` script initializes the SQLite database for the bargainagainstentropy application. It handles both development and production deployment scenarios.
 
 ## Quick Start
 

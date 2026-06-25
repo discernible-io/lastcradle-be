@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Database initialization script for servertest-rodit
+# Database initialization script for bargainagainstentropy
 # 
 # This script creates the SQLite database and initializes all tables for both
 # development and production deployment environments.
@@ -37,11 +37,11 @@ if [[ "${1:-}" == "--deployment" ]]; then
     DEPLOYMENT_MODE=true
     DATA_DIR="${HOME}/servertest-app/data"
     LOGS_DIR="${HOME}/servertest-app/logs"
-    echo "Starting database initialization for servertest-rodit (DEPLOYMENT MODE)"
+    echo "Starting database initialization for bargainagainstentropy (DEPLOYMENT MODE)"
 else
     DATA_DIR="${PROJECT_ROOT}/data"
     LOGS_DIR="${PROJECT_ROOT}/logs"
-    echo "Starting database initialization for servertest-rodit (DEVELOPMENT MODE)"
+    echo "Starting database initialization for bargainagainstentropy (DEVELOPMENT MODE)"
 fi
 
 NGINX_LOGS_DIR="${LOGS_DIR}/nginx"

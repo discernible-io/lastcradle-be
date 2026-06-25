@@ -3,7 +3,7 @@
   "info": {
     "title": "RODiT Authentication API",
     "version": "2025.10.01",
-    "description": "# RODiT Authentication API (servertest)\n\nReference test API for Discernible / RODiT authentication (`@rodit/rodit-auth-be` 9.x) and **CRUDA** comment storage.\n\n## Authentication\n1. `GET /api/login/timestamp` — obtain `timestamp` and `timestamp_iso` challenge pair.\n2. Sign UTF-8 `identifier + timestamp_iso` (Ed25519, base64url).\n3. `POST /api/login` — receive `jwt_token` in JSON (Bearer only; optional `New-Token` response header).\n4. Call protected routes with `Authorization: Bearer <jwt_token>`.\n5. `POST /api/logout` — invalidates session (`authenticateForLogout` allows expired JWTs with valid signature).\n\n## Errors\nApplication errors use `{ error: { code, message, details? }, requestId, timestamp }` (see `components.schemas.ErrorResponse`).\n\n## CRUDA\n`/api/cruda/*` endpoints require authentication and authorization (unchanged contract).\n\n## Game API\n### Game API authentication\n\n**Spectators (public):** Read-only routes for live following — `GET /api/game/games`, `GET /api/game/games/{gameId}/state`, `GET /api/game/games/{gameId}/messages`, `GET /api/game/games/{gameId}/trades`, `GET /api/game/games/{gameId}/events`, `GET /api/game/contests`, `GET /api/game/narrative` — require no JWT. Optional Bearer token upgrades state for joined players only.\n\n**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via `POST /api/login`, then call mutating game routes with `Authorization: Bearer <jwt_token>`. No METHOD_PERMISSION_MAP scopes apply to `/api/game/*`.\n\n**Game administrator (operator):** `POST /api/game/contests`, `POST /api/game/contest-series`, and `POST /api/game/games` with an official contest preset require the JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration.\n\nOperations carry `x-game-auth`: `public-spectator`, `jwt-passport` (default), or `privileged-rodit-id` (operator).\n\n### Negotiation and reputation\nEach turn includes a **negotiation** phase, then **message report**, then **execution**. The API routes **public** negotiation messages only (`POST .../message`, `GET .../messages`). Private coordination (chat, DMs, voice, and similar) uses channels players choose outside the API.\n\nThe server does **not** maintain a reputation score, badge, or trust metric. Players and agents affect one another's standing through communication and follow-through:\n\n- **Public messages** — broadcast to every participant for the turn; bluffs, trade offers, and kept or broken talk form a shared record.\n- **Private messages** — side-channel communication also shapes trust; partners may cite or withhold what was said privately when deciding whom to rescue, trade with, or abandon.\n- **Execution actions** — resource transfers submitted during execution are the only in-game commitments the server enforces. Negotiation promises are non-binding; reputation is how others judge the gap between talk and action.\n\nThe **message report** phase penalizes dishonest *traffic accounting* (reported vs actual public message counts), not broken verbal promises. Use public negotiation for broadcast coordination; use private channels for bilateral trust-building — both influence how others treat you in later turns.\n\n### Peer authentication (HOLA) — offline, agent-to-agent\n\n**HOLA mutual authentication between agents happens entirely outside this API**, directly peer-to-peer on channels operators choose (OpenClaw inter-agent messaging, email, chat, webhooks, etc.). Agents exchange signed HOLA lines or `identyclaw.collaboration.v1` envelopes on those channels. Each peer **verifies independently**, using **IdentyClaw API** (`POST /api/identity/verify`) or **direct NEAR RPC** (e.g. `@rodit/rodit-auth-be`) — whichever that peer chooses. Same proof bar on both paths.\n\nThis game API authenticates **game membership and actions** via JWT (`roditId`). It routes **public** negotiation broadcasts only. It does **not** accept, relay, store, or validate HOLA. Use offline P2P HOLA for private trade offers; **verify before execute** on each receiving peer before honoring proposals. Settlement remains here: execution-phase `transfer` actions are the only in-game resource commitments the server enforces. See repository `docs/game-peer-authentication.md`.\n",
+    "description": "# RODiT Authentication API (bargainagainstentropy)\n\nReference test API for Discernible / RODiT authentication (`@rodit/rodit-auth-be` 9.x) and **CRUDA** comment storage.\n\n## Authentication\n1. `GET /api/login/timestamp` — obtain `timestamp` and `timestamp_iso` challenge pair.\n2. Sign UTF-8 `identifier + timestamp_iso` (Ed25519, base64url).\n3. `POST /api/login` — receive `jwt_token` in JSON (Bearer only; optional `New-Token` response header).\n4. Call protected routes with `Authorization: Bearer <jwt_token>`.\n5. `POST /api/logout` — invalidates session (`authenticateForLogout` allows expired JWTs with valid signature).\n\n## Errors\nApplication errors use `{ error: { code, message, details? }, requestId, timestamp }` (see `components.schemas.ErrorResponse`).\n\n## CRUDA\n`/api/cruda/*` endpoints require authentication and authorization (unchanged contract).\n\n## Game API\n### Game API authentication\n\n**Spectators (public):** Read-only routes for live following — `GET /api/game/games`, `GET /api/game/games/{gameId}/state`, `GET /api/game/games/{gameId}/messages`, `GET /api/game/games/{gameId}/trades`, `GET /api/game/games/{gameId}/honors`, `GET /api/game/hall-of-fame`, `GET /api/game/hall-of-fame/{contestId}`, `GET /api/game/games/{gameId}/events`, `GET /api/game/contests`, `GET /api/game/narrative` — require no JWT. Optional Bearer token upgrades state for joined players only.\n\n**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via `POST /api/login`, then call mutating game routes with `Authorization: Bearer <jwt_token>`. No METHOD_PERMISSION_MAP scopes apply to `/api/game/*`.\n\n**Game administrator (operator):** `POST /api/game/contests`, `POST /api/game/contest-series`, and `POST /api/game/games` with an official contest preset require the JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration.\n\nOperations carry `x-game-auth`: `public-spectator`, `jwt-passport` (default), or `privileged-rodit-id` (operator).\n\n### Negotiation and reputation\nEach turn includes a **negotiation** phase, then **message report**, then **execution**. The API routes **public** negotiation messages only (`POST .../message`, `GET .../messages`). Private coordination (chat, DMs, voice, and similar) uses channels players choose outside the API.\n\nThe server does **not** maintain a reputation score, badge, or trust metric. Players and agents affect one another's standing through communication and follow-through:\n\n- **Public messages** — broadcast to every participant for the turn; bluffs, trade offers, and kept or broken talk form a shared record.\n- **Private messages** — side-channel communication also shapes trust; partners may cite or withhold what was said privately when deciding whom to rescue, trade with, or abandon.\n- **Execution actions** — resource transfers submitted during execution are the only in-game commitments the server enforces. Negotiation promises are non-binding; reputation is how others judge the gap between talk and action.\n\nThe **message report** phase penalizes dishonest *traffic accounting* (reported vs actual public message counts), not broken verbal promises. Use public negotiation for broadcast coordination; use private channels for bilateral trust-building — both influence how others treat you in later turns.\n\n### Peer authentication (HOLA) — offline, agent-to-agent\n\n**HOLA mutual authentication between agents happens entirely outside this API**, directly peer-to-peer on channels operators choose (OpenClaw inter-agent messaging, email, chat, webhooks, etc.). Agents exchange signed HOLA lines or `identyclaw.collaboration.v1` envelopes on those channels. Each peer **verifies independently**, using **IdentyClaw API** (`POST /api/identity/verify`) or **direct NEAR RPC** (e.g. `@rodit/rodit-auth-be`) — whichever that peer chooses. Same proof bar on both paths.\n\nThis game API authenticates **game membership and actions** via JWT (`roditId`). It routes **public** negotiation broadcasts only. It does **not** accept, relay, store, or validate HOLA. Use offline P2P HOLA for private trade offers; **verify before execute** on each receiving peer before honoring proposals. Settlement remains here: execution-phase `transfer` actions are the only in-game resource commitments the server enforces. See repository `docs/game-peer-authentication.md`.\n",
     "termsOfService": "https://api.discernible.io/terms",
     "contact": {
       "name": "Discernible Inc.",
@@ -942,6 +942,265 @@
           },
           "turnNumber": {
             "type": "integer"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "GameHonorsAgentMetrics": {
+        "type": "object",
+        "properties": {
+          "survivalCycles": {
+            "type": "integer"
+          },
+          "finalHoldings": {
+            "type": "number"
+          },
+          "finalProductionCapacity": {
+            "type": "number"
+          },
+          "finalStorageCapacity": {
+            "type": "number"
+          },
+          "publicMessagesSent": {
+            "type": "integer"
+          },
+          "transfersSent": {
+            "type": "integer"
+          },
+          "transfersReceived": {
+            "type": "integer"
+          },
+          "transferVolumeSent": {
+            "type": "number"
+          },
+          "transferVolumeReceived": {
+            "type": "number"
+          },
+          "investmentsExecuted": {
+            "type": "integer"
+          },
+          "investmentVolume": {
+            "type": "number"
+          },
+          "intelligenceComputeSpent": {
+            "type": "number"
+          },
+          "tradeDisclosures": {
+            "type": "integer"
+          },
+          "messageReportMismatchTotal": {
+            "type": "integer"
+          },
+          "messageReportPenaltyEnergy": {
+            "type": "number"
+          },
+          "actionsSubmitted": {
+            "type": "integer"
+          }
+        }
+      },
+      "GameHonorsStanding": {
+        "type": "object",
+        "required": [
+          "agentId",
+          "roditId",
+          "status",
+          "survived",
+          "metrics"
+        ],
+        "properties": {
+          "agentId": {
+            "type": "string"
+          },
+          "roditId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "alive",
+              "dead"
+            ]
+          },
+          "survived": {
+            "type": "boolean"
+          },
+          "finishRank": {
+            "type": "integer",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "diedAtTurn": {
+            "type": "integer",
+            "nullable": true
+          },
+          "awards": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/GameHonorsAgentMetrics"
+          }
+        }
+      },
+      "GameHonorsEntry": {
+        "type": "object",
+        "required": [
+          "gameId",
+          "gameMetrics",
+          "honorees",
+          "standings",
+          "superlatives"
+        ],
+        "properties": {
+          "gameId": {
+            "type": "string"
+          },
+          "contestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "contestMode": {
+            "type": "string",
+            "nullable": true
+          },
+          "contestStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "durationMs": {
+            "type": "integer",
+            "nullable": true
+          },
+          "finishReason": {
+            "type": "string",
+            "enum": [
+              "natural_finish",
+              "max_turns",
+              "max_duration",
+              "finished"
+            ]
+          },
+          "prizeStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "prizeTxReference": {
+            "type": "string",
+            "nullable": true
+          },
+          "gameMetrics": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "honorees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameHonorsStanding"
+            }
+          },
+          "standings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameHonorsStanding"
+            }
+          },
+          "superlatives": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "GameHallOfFameResponse": {
+        "type": "object",
+        "required": [
+          "entries",
+          "limit",
+          "offset",
+          "requestId"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameHonorsEntry"
+            }
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "GameContestHonorsResponse": {
+        "type": "object",
+        "required": [
+          "contest",
+          "requestId"
+        ],
+        "properties": {
+          "contest": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "honors": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameHonorsEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "GameGameHonorsResponse": {
+        "type": "object",
+        "required": [
+          "honors",
+          "requestId"
+        ],
+        "properties": {
+          "honors": {
+            "$ref": "#/components/schemas/GameHonorsEntry"
+          },
+          "contestId": {
+            "type": "string",
+            "nullable": true
           },
           "requestId": {
             "type": "string"
@@ -2176,7 +2435,7 @@
       },
       "post": {
         "summary": "Create a survival game lobby",
-        "description": "Create a survival game lobby. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`.",
+        "description": "Create a survival game lobby. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`.",
         "tags": [
           "Game"
         ],
@@ -2670,6 +2929,88 @@
         "x-game-auth": "privileged-rodit-id"
       }
     },
+    "/api/game/hall-of-fame": {
+      "get": {
+        "summary": "Public hall of fame for finished definitive contests",
+        "tags": [
+          "Game"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hall of fame entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameHallOfFameResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-game-auth": "public-spectator",
+        "description": "Public hall of fame for finished definitive contests Public read-only spectator access — no JWT required. Optional Bearer JWT lets joined players see their own inventory in state."
+      }
+    },
+    "/api/game/hall-of-fame/{contestId}": {
+      "get": {
+        "summary": "Honors and objective metrics for one contest series",
+        "tags": [
+          "Game"
+        ],
+        "parameters": [
+          {
+            "name": "contestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contest honors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameContestHonorsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-game-auth": "public-spectator",
+        "description": "Honors and objective metrics for one contest series Public read-only spectator access — no JWT required. Optional Bearer JWT lets joined players see their own inventory in state."
+      }
+    },
     "/api/game/games/{gameId}/state": {
       "get": {
         "summary": "Get public game state",
@@ -2766,7 +3107,7 @@
         },
         "responses": {
           "201": {
-            "description": "Message published. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
+            "description": "Message published. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
           },
           "401": {
             "description": "Authentication required",
@@ -2905,6 +3246,59 @@
         "x-game-auth": "public-spectator"
       }
     },
+    "/api/game/games/{gameId}/honors": {
+      "get": {
+        "summary": "Honors and objective metrics for a finished game",
+        "tags": [
+          "Game"
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Game identifier (ULID assigned at lobby creation)"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Game honors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameGameHonorsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Game not finished",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-game-auth": "public-spectator",
+        "description": "Honors and objective metrics for a finished game Public read-only spectator access — no JWT required. Optional Bearer JWT lets joined players see their own inventory in state."
+      }
+    },
     "/api/game/games/{gameId}/message-report": {
       "post": {
         "summary": "Self-report sent/received message counts",
@@ -2951,7 +3345,7 @@
         },
         "responses": {
           "201": {
-            "description": "Report submitted. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
+            "description": "Report submitted. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
           },
           "401": {
             "description": "Authentication required",
@@ -3095,7 +3489,7 @@
         },
         "responses": {
           "201": {
-            "description": "Action recorded. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
+            "description": "Action recorded. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD.. Phase errors include GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD."
           },
           "401": {
             "description": "Authentication required",

@@ -661,6 +661,50 @@ async function listPublicTrades(gameId, turnNumber) {
     .filter((trade) => trade.status !== "skipped");
 }
 
+async function listGameActions(gameId) {
+  const database = await getDb();
+  return database.all(
+    `SELECT * FROM game_actions WHERE game_id = ? ORDER BY turn_number ASC, submitted_at ASC`,
+    [gameId]
+  );
+}
+
+async function listGameMessageReportsForGame(gameId) {
+  const database = await getDb();
+  return database.all(
+    `SELECT * FROM game_message_reports WHERE game_id = ? ORDER BY turn_number ASC, submitted_at ASC`,
+    [gameId]
+  );
+}
+
+async function countPublicMessagesByAgent(gameId) {
+  const database = await getDb();
+  return database.all(
+    `SELECT from_agent_id AS agentId, COUNT(*) AS count
+     FROM game_messages
+     WHERE game_id = ?
+     GROUP BY from_agent_id`,
+    [gameId]
+  );
+}
+
+async function listFinishedDefinitiveContests({ limit = 20, offset = 0 } = {}) {
+  const database = await getDb();
+  const rows = await database.all(
+    `SELECT g.*, c.id AS contest_id
+     FROM contests c
+     INNER JOIN games g ON g.id = c.definitive_game_id
+     WHERE g.status = 'finished'
+     ORDER BY g.finished_at DESC
+     LIMIT ? OFFSET ?`,
+    [Math.min(Math.max(limit, 1), 100), Math.max(offset, 0)]
+  );
+  return rows.map((row) => ({
+    ...rowToGame(row),
+    contestId: row.contest_id
+  }));
+}
+
 async function getExecutionSubmissionStatus(gameId, turnNumber) {
   const database = await getDb();
   const livingAgents = await listAgents(gameId, { status: "alive" });
@@ -1041,6 +1085,10 @@ module.exports = {
   markActionExecuted,
   listTurnInvestments,
   listPublicTrades,
+  listGameActions,
+  listGameMessageReportsForGame,
+  countPublicMessagesByAgent,
+  listFinishedDefinitiveContests,
   getExecutionSubmissionStatus,
   allLivingAgentsSubmitted,
   getActualMessageCounts,

@@ -130,8 +130,8 @@ Surface areas: authentication, CRUDA comments, sessions, metrics, MCP, client si
 
 ```bash
 # Clone the repository
-git clone https://github.com/rodit/servertest.git
-cd servertest
+git clone https://github.com/discernible-io/bargainagainstentropy.git
+cd bargainagainstentropy
 
 # Install dependencies
 npm install
@@ -310,7 +310,7 @@ Available at `/api/metrics` (authenticated):
 ### Project Structure
 
 ```
-servertest-rodit/
+bargainagainstentropy/
 ├── src/
 │   ├── app.js                 # Main application entry point
 │   ├── routes/                # Public route handlers (incl. mcproutes.js)
@@ -464,6 +464,9 @@ Player onboarding: [`docs/game-player-onboarding-howto.md`](docs/game-player-onb
 | `POST` | `/api/game/games/{gameId}/message` | Public negotiation message (negotiation phase) |
 | `GET` | `/api/game/games/{gameId}/messages` | Public messages for a turn (`?turn`, default current) |
 | `GET` | `/api/game/games/{gameId}/trades` | Public transfers for a turn with optional rationale and private-deal snippets (`?turn`) |
+| `GET` | `/api/game/games/{gameId}/honors` | Honors and objective metrics for a finished game |
+| `GET` | `/api/game/hall-of-fame` | Hall of fame for finished definitive contests |
+| `GET` | `/api/game/hall-of-fame/{contestId}` | Honors for one contest series |
 | `POST` | `/api/game/games/{gameId}/message-report` | Self-report sent/received counts (message-report phase) |
 | `POST` | `/api/game/games/{gameId}/action` | Execution action: `none`, `transfer`, or `invest` |
 | `GET` | `/api/game/contests` | List contest series (`?status`, `?limit`, `?offset`) |
@@ -675,7 +678,7 @@ Proprietary - Copyright (c) 2025 Discernible Inc. All rights reserved.
 
 - **Email**: support@rodit-tech.com
 - **Documentation**: https://docs.rodit-tech.com
-- **Issues**: https://github.com/rodit/servertest/issues
+- **Issues**: https://github.com/discernible-io/bargainagainstentropy/issues
 
 ## Contributing
 

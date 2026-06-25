@@ -7,7 +7,7 @@
 
 | | |
 |---|---|
-| **Scope** | `servertestapi` vs organization standards in [`docs/`](.) and `idclawserver-idc` |
+| **Scope** | `bargainagainstentropy` vs organization standards in [`docs/`](.) and `idclawserver-idc` |
 | **API role** | Auth reference + **CRUDA** comment showcase (no `/api/echo`) |
 
 ## Executive summary
@@ -19,7 +19,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | **Met** | Implemented and verifiable in this repo |
 | **Gap** | Standard requirement not yet met; repo change tracked below |
 | **Operator** | Documented; configured on hosts / in GitHub, not in git |
-| **Deferred** | Intentionally out of scope for servertest |
+| **Deferred** | Intentionally out of scope for bargainagainstentropy |
 | **Nuanced** | Mostly met with a documented difference from idc or the standard |
 
 ---
@@ -49,7 +49,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 
 | Item | Rationale |
 |------|-----------|
-| Geolocation middleware (`checkGeolocation`) | Policy decision; JWT geo claims unused in servertest |
+| Geolocation middleware (`checkGeolocation`) | Policy decision; JWT geo claims unused in bargainagainstentropy |
 | See also [Deferred / future](#deferred--future) | Contest prize transfer, calibration |
 
 ---
@@ -379,7 +379,7 @@ node --check src/game/scheduler.js
 
 | Item | Rationale |
 |------|-----------|
-| Geolocation middleware (`checkGeolocation`) | Policy decision; JWT geo claims unused in servertest |
+| Geolocation middleware (`checkGeolocation`) | Policy decision; JWT geo claims unused in bargainagainstentropy |
 | Contest prize NEAR transfer | `prize-settlement.js` splits pool in-app; on-chain transfer is operator |
 | 50-player survival calibration | Run `scripts/calibrate-contest-50p.js` before locking contest rules |
 

@@ -371,6 +371,95 @@ const gameSchemas = {
       requestId: { type: "string" }
     }
   },
+  GameHonorsAgentMetrics: {
+    type: "object",
+    properties: {
+      survivalCycles: { type: "integer" },
+      finalHoldings: { type: "number" },
+      finalProductionCapacity: { type: "number" },
+      finalStorageCapacity: { type: "number" },
+      publicMessagesSent: { type: "integer" },
+      transfersSent: { type: "integer" },
+      transfersReceived: { type: "integer" },
+      transferVolumeSent: { type: "number" },
+      transferVolumeReceived: { type: "number" },
+      investmentsExecuted: { type: "integer" },
+      investmentVolume: { type: "number" },
+      intelligenceComputeSpent: { type: "number" },
+      tradeDisclosures: { type: "integer" },
+      messageReportMismatchTotal: { type: "integer" },
+      messageReportPenaltyEnergy: { type: "number" },
+      actionsSubmitted: { type: "integer" }
+    }
+  },
+  GameHonorsStanding: {
+    type: "object",
+    required: ["agentId", "roditId", "status", "survived", "metrics"],
+    properties: {
+      agentId: { type: "string" },
+      roditId: { type: "string" },
+      displayName: { type: "string", nullable: true },
+      status: { type: "string", enum: ["alive", "dead"] },
+      survived: { type: "boolean" },
+      finishRank: { type: "integer", nullable: true },
+      title: { type: "string", nullable: true },
+      diedAtTurn: { type: "integer", nullable: true },
+      awards: { type: "array", items: { type: "string" } },
+      metrics: { $ref: "#/components/schemas/GameHonorsAgentMetrics" }
+    }
+  },
+  GameHonorsEntry: {
+    type: "object",
+    required: ["gameId", "gameMetrics", "honorees", "standings", "superlatives"],
+    properties: {
+      gameId: { type: "string" },
+      contestId: { type: "string", nullable: true },
+      contestMode: { type: "string", nullable: true },
+      contestStatus: { type: "string", nullable: true },
+      finishedAt: { type: "string", format: "date-time", nullable: true },
+      startedAt: { type: "string", format: "date-time", nullable: true },
+      durationMs: { type: "integer", nullable: true },
+      finishReason: {
+        type: "string",
+        enum: ["natural_finish", "max_turns", "max_duration", "finished"]
+      },
+      prizeStatus: { type: "string", nullable: true },
+      prizeTxReference: { type: "string", nullable: true },
+      gameMetrics: { type: "object", additionalProperties: true },
+      honorees: { type: "array", items: { $ref: "#/components/schemas/GameHonorsStanding" } },
+      standings: { type: "array", items: { $ref: "#/components/schemas/GameHonorsStanding" } },
+      superlatives: { type: "object", additionalProperties: true }
+    }
+  },
+  GameHallOfFameResponse: {
+    type: "object",
+    required: ["entries", "limit", "offset", "requestId"],
+    properties: {
+      entries: { type: "array", items: { $ref: "#/components/schemas/GameHonorsEntry" } },
+      limit: { type: "integer" },
+      offset: { type: "integer" },
+      requestId: { type: "string" }
+    }
+  },
+  GameContestHonorsResponse: {
+    type: "object",
+    required: ["contest", "requestId"],
+    properties: {
+      contest: { type: "object", additionalProperties: true },
+      honors: { oneOf: [{ $ref: "#/components/schemas/GameHonorsEntry" }, { type: "null" }] },
+      reason: { type: "string", nullable: true },
+      requestId: { type: "string" }
+    }
+  },
+  GameGameHonorsResponse: {
+    type: "object",
+    required: ["honors", "requestId"],
+    properties: {
+      honors: { $ref: "#/components/schemas/GameHonorsEntry" },
+      contestId: { type: "string", nullable: true },
+      requestId: { type: "string" }
+    }
+  },
   GameSseEventData: {
     oneOf: [
       { $ref: "#/components/schemas/GameSseConnected" },

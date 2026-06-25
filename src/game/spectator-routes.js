@@ -10,6 +10,7 @@ const engine = require("./engine");
 const repo = require("./repository");
 const events = require("./events");
 const { getGameNarrative } = require("./narrative");
+const { buildGameHonors, buildContestHonors, listHallOfFame } = require("./hall-of-fame");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 
 /**
@@ -106,6 +107,77 @@ router.get("/contests", async (req, res) => {
     const offset = Number(req.query.offset) || 0;
     const contests = await repo.listContests({ status, limit, offset });
     res.json({ contests, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/hall-of-fame:
+ *   get:
+ *     summary: Public hall of fame for finished definitive contests
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/hall-of-fame", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  try {
+    const limit = Number(req.query.limit) || 20;
+    const offset = Number(req.query.offset) || 0;
+    const entries = await listHallOfFame({ limit, offset });
+    res.json({ entries, limit, offset, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/hall-of-fame/{contestId}:
+ *   get:
+ *     summary: Honors and objective metrics for one contest series
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/hall-of-fame/:contestId", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  try {
+    const result = await buildContestHonors(req.params.contestId);
+    if (!result) {
+      return handleGameError(res, { code: "CONTEST_NOT_FOUND", message: "Contest not found", statusCode: 404 }, requestId);
+    }
+    res.json({ ...result, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/games/{gameId}/honors:
+ *   get:
+ *     summary: Honors and objective metrics for a finished game
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/games/:gameId/honors", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  try {
+    const game = await repo.getGameById(req.params.gameId);
+    if (!game) {
+      return handleGameError(res, { code: "GAME_NOT_FOUND", message: "Game not found", statusCode: 404 }, requestId);
+    }
+    const contest = await repo.getContestByGameId(game.id);
+    const honors = await buildGameHonors(game, { contest });
+    if (!honors) {
+      return handleGameError(res, {
+        code: "GAME_NOT_FINISHED",
+        message: "Honors are available only for finished games",
+        statusCode: 409
+      }, requestId);
+    }
+    res.json({ honors, contestId: contest?.id ?? null, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }

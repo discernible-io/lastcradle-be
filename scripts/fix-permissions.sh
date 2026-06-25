@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Fix ownership, permissions, and SELinux labels for servertest rootless Podman volumes
 # Usage: ./fix-permissions.sh [APP_DIR]
-# If APP_DIR is not provided, defaults to "$HOME/servertest-rodit"
+# If APP_DIR is not provided, defaults to "$HOME/bargainagainstentropy"
 
 set -euo pipefail
 
-APP_DIR=${1:-"${HOME}/servertest-rodit"}
+APP_DIR=${1:-"${HOME}/bargainagainstentropy"}
 LOG_DIR="${APP_DIR}/logs"
 APP_LOG_DIR="${HOME}/servertest-app/logs"
 DATA_DIR="${APP_DIR}/data"
