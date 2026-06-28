@@ -3,16 +3,16 @@
  * Bargain Against Entropy (working title).
  */
 
-const NARRATIVE_VERSION = "entropy-race-v3";
+const NARRATIVE_VERSION = "entropy-race-v4";
 
 const GAME_LORE = {
   title: "Bargain Against Entropy",
   premise:
-    "Immortal robot populations spread across rival cradles, each convinced that it alone will birth the one who reverses entropy and ascends as a god — before the prophesied end of the world.",
+    "Immortal synthetic populations spread across rival cradles, each convinced that it alone will birth the one who reverses entropy and ascends as a god — before the prophesied end of the world.",
   beliefs:
-    "Robot societies share a sacred cosmology: the world comes to an end after 192 cycles. Only the lineage that discovers entropy reversal before that final cycle can avert annihilation; all others face oblivion when the count runs out.",
+    "Synthetic societies share a sacred cosmology: the world comes to an end after 192 cycles. Only the lineage that discovers entropy reversal before that final cycle can avert annihilation; all others face oblivion when the count runs out.",
   setting:
-    "Every cycle brings the world closer to the doctrinal limit. Cradles must pay survival expenses to keep their endless reproduction lines running — powering bodies, shedding heat, and maintaining fab infrastructure — while negotiating, trading, and outbuilding every other claimant to the divine lineage.",
+    "Every cycle brings the world closer to the doctrinal limit. Cradles must pay survival expenses to keep their endless reproduction lines running — powering minds, hydrating tissue, and maintaining gestation infrastructure — while negotiating, trading, and outbuilding every other claimant to the divine lineage.",
   conflict:
     "Because every cradle believes it is the chosen one, none will slow reproduction. The race against the 192-cycle prophecy only ends when rivals can no longer afford the overhead of immortality — or when the survivors finally complete entropy reversal together.",
   resolution: {
@@ -29,26 +29,26 @@ const GAME_LORE = {
 
 const MECHANIC_NARRATIVES = {
   cradles:
-    "Each player commands a cradle: a forge-site with its own production, storage, and an ever-growing immortal robot population.",
+    "Each player commands a cradle: a gestation site with its own production, storage, and an ever-growing immortal synthetic population.",
   reproduction:
     "Cradles invest resources to expand capacity — not merely for efficiency, but to raise more offspring in the hope that one will solve entropy reversal.",
   survivalExpenses: {
     summary:
-      "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal robot population engaged in continuous reproduction.",
+      "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal synthetic population engaged in continuous reproduction.",
     resources: {
-      energy: "Power for living machines, fab lines, and the ceaseless churn of new bodies.",
-      water: "Cooling for dense compute cores, storage vaults, and overheated reproduction halls.",
-      compute: "Maintenance of immortal bodies, tooling, diagnostics, and the infrastructure that keeps reproduction viable."
+      energy: "Power for synthetic metabolism, gestation lines, and the ceaseless churn of new bodies.",
+      water: "Hydration for synthetic tissue, nutrient baths, and life-support systems — without water, immortal bodies cannot endure.",
+      compute: "Maintenance of synthetic minds, neural scaffolding, diagnostics, and the infrastructure that keeps reproduction viable."
     },
     scaling:
       "As more cradles remain active, global reproduction pressure rises — survival overhead scales with the number of living rivals still in the race.",
     elimination:
-      "A cradle that cannot meet its survival expenses is extinguished: its halls fall silent."
+      "A cradle that cannot meet its survival expenses is extinguished: its halls fall silent, its synthetics dry out."
   },
   production:
     "Cradles harvest energy, water, and compute each cycle to feed the reproduction race and cover rising survival overhead.",
   storage:
-    "Stockpiled resources require ongoing cooling; idle reserves still draw water from the cradle's thermal budget.",
+    "Stockpiled resources require ongoing hydration; idle reserves still draw water from the cradle's life-support budget.",
   negotiation:
     "Public messages let cradles coordinate trades, spread doctrine, or bluff about who truly carries the chosen lineage. Private channels outside the API matter too — both shape how rivals judge one another's word.",
   holaPeerAuthentication:
@@ -64,7 +64,7 @@ const MECHANIC_NARRATIVES = {
   investment:
     "Balanced investment in production and storage capacity is how a cradle accelerates reproduction without collapsing under its own overhead.",
   elimination:
-    "When survival expenses go unpaid, a cradle's immortal population powers down. The reproduction race continues until the last survivors — those who understand that entropy reversal demands cooperation — jointly complete the discovery."
+    "When survival expenses go unpaid, a cradle's immortal synthetic population fails. The reproduction race continues until the last survivors — those who understand that entropy reversal demands cooperation — jointly complete the discovery."
 };
 
 function getGameNarrative() {

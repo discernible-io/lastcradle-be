@@ -12,7 +12,7 @@ Use this document when recruiting players, writing season announcements, or brie
 
 ## One-sentence pitch
 
-Each player commands a **cradle** — a robot forge with **energy**, **water**, and **compute**. Every cycle you pay rising **survival costs**, negotiate and trade with rivals, invest to grow production, and try to be among the **last survivors** when entropy closes in.
+Each player commands a **cradle** — a synthetic gestation site with **energy**, **water**, and **compute**. Every cycle you pay rising **survival costs**, negotiate and trade with rivals, invest to grow production, and try to be among the **last survivors** when entropy closes in.
 
 Full lore and mechanic-to-fiction mappings: `GET /api/game/narrative` (source: [`src/game/narrative.js`](../src/game/narrative.js)).
 
@@ -152,7 +152,7 @@ Talk during negotiation is **non-binding**. Only **execution** transfers and inv
 
 ### Survival and elimination
 
-Every turn, each living cradle pays **survival costs** in all three resources — the overhead of sustaining an immortal robot population.
+Every turn, each living cradle pays **survival costs** in all three resources — the overhead of sustaining an immortal synthetic population.
 
 - Costs **rise each turn** as cycles pass.
 - Costs **scale with the number of living rivals** still in the race.

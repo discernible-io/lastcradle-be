@@ -2,7 +2,7 @@
  * Default game parameters for Bargain Against Entropy.
  *
  * Survival costs (energy / water / compute) represent per-turn overhead for
- * powering, cooling, and maintaining each cradle's immortal robot population
+ * powering, hydrating, and maintaining each cradle's immortal synthetic population
  * as it races to reproduce the entropy-reversing god. See src/game/narrative.js.
  */
 
