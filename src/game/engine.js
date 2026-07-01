@@ -11,6 +11,7 @@ const {
 const { getGameNarrative, buildSurvivalNarrative } = require("./narrative");
 const { normalizeTransferDisclosure } = require("./trade-disclosure");
 const repo = require("./repository");
+const { notifyElimination } = require("./webhooks");
 
 const RESOURCE_KEYS = ["energy", "water", "compute"];
 const INVESTMENT_TARGETS = ["energy", "water", "compute"];
@@ -301,6 +302,51 @@ function inventoryTotal(agent) {
   return (inv?.energy ?? 0) + (inv?.water ?? 0) + (inv?.compute ?? 0);
 }
 
+/**
+ * Snapshot each cradle's opening inventory (before turn-1 production).
+ * `agents` must be ordered by join time (see repository.listAgents).
+ */
+function buildOpeningInventoryReport(agents) {
+  return agents.map((agent) => ({
+    agentId: agent.id,
+    roditId: agent.roditId,
+    displayName: agent.displayName,
+    inventory: cloneInventory(agent.inventory),
+    total: inventoryTotal(agent)
+  }));
+}
+
+/** Cradle with the lowest opening inventory total; earliest join wins ties. */
+function selectOpeningInventoryScout(agents) {
+  if (!agents.length) {
+    return null;
+  }
+  let scout = agents[0];
+  let scoutTotal = inventoryTotal(scout);
+  for (let i = 1; i < agents.length; i++) {
+    const total = inventoryTotal(agents[i]);
+    if (total < scoutTotal) {
+      scout = agents[i];
+      scoutTotal = total;
+    }
+  }
+  return scout;
+}
+
+function openingInventoryReportForViewer(game, viewerAgentId) {
+  const runtime = game.config?.survivalRuntime;
+  const scoutId = runtime?.openingInventoryScoutAgentId;
+  const inventories = runtime?.openingInventories;
+  if (!viewerAgentId || viewerAgentId !== scoutId || !inventories?.length) {
+    return null;
+  }
+  return {
+    scoutAgentId: scoutId,
+    capturedBeforeTurnProduction: true,
+    agents: inventories
+  };
+}
+
 function rankAgentsForFinish(agents) {
   return [...agents].sort((a, b) => {
     if (a.status === "alive" && b.status !== "alive") return -1;
@@ -442,9 +488,17 @@ async function startGame(gameId) {
     );
   }
 
+  const agents = await repo.listAgents(gameId);
+  const openingInventories = buildOpeningInventoryReport(agents);
+  const openingScout = selectOpeningInventoryScout(agents);
+
   const now = new Date();
   const negotiationEndsAt = new Date(now.getTime() + game.config.negotiationDurationMs);
-  const survivalRuntime = { startingAgentCount: agentCount };
+  const survivalRuntime = {
+    startingAgentCount: agentCount,
+    openingInventoryScoutAgentId: openingScout?.id ?? null,
+    openingInventories
+  };
   const endsAt =
     game.config.maxGameDurationMs > 0
       ? new Date(now.getTime() + game.config.maxGameDurationMs).toISOString()
@@ -799,15 +853,19 @@ async function executeTurn(gameId) {
       energyPenalty
     });
     if (!hasSufficient(state.inventory, survivalCost)) {
-      deaths.push(agentId);
+      deaths.push({ agentId, agent });
       continue;
     }
     state.inventory = deduct(state.inventory, survivalCost);
   }
 
+  for (const { agentId, agent } of deaths) {
+    await repo.killAgent(agentId, turnNumber);
+    notifyElimination({ gameId, agent, turnNumber }).catch(() => {});
+  }
+
   for (const [agentId, state] of agentState.entries()) {
-    if (deaths.includes(agentId)) {
-      await repo.killAgent(agentId, turnNumber);
+    if (deaths.some((entry) => entry.agentId === agentId)) {
       continue;
     }
     await repo.updateAgentInventory(agentId, state.inventory);
@@ -1002,6 +1060,7 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
     messageReport,
     messageReportPenalties,
     projectedSurvival,
+    openingInventoryReport: openingInventoryReportForViewer(game, viewerAgentId),
     narrative: {
       ...getGameNarrative(),
       survival: buildSurvivalNarrative({
@@ -1168,5 +1227,9 @@ module.exports = {
   normalizeFindTargets,
   normalizeHideSpend,
   canViewerSeeCapacities,
-  collectIntelligenceFromActions
+  collectIntelligenceFromActions,
+  buildOpeningInventoryReport,
+  selectOpeningInventoryScout,
+  openingInventoryReportForViewer,
+  inventoryTotal
 };

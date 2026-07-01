@@ -149,6 +149,8 @@ const sessionRoutes = require("./routes/session.privileged.routes");
 const gameRoutes = require("./game/routes");
 const gameSpectatorRoutes = require("./game/spectator-routes");
 const gameScheduler = require("./game/scheduler");
+const { buildGameSkillMarkdown } = require("./game/skill-content");
+const gameWebhooks = require("./game/webhooks");
 
 // Configure SQLite session storage using express-session
 try {
@@ -761,6 +763,7 @@ async function startServer() {
     
     // Update app.locals with the fully initialized client
     app.locals.roditClient = roditClient;
+    gameWebhooks.setRoditClient(roditClient);
 
     // Create authentication middleware using initialized client
     authenticate_apicall = (req, res, next) => {
@@ -808,6 +811,10 @@ async function startServer() {
     }
 
     app.get("/health", createHealthHandler({ app, config, logger, cacheMs: HEALTH_CHECKS_CACHE_MS }));
+
+    app.get("/skill.md", (req, res) => {
+      res.type("text/markdown; charset=utf-8").send(buildGameSkillMarkdown(req));
+    });
 
     // Auth routes (aligned with idclawserver-idc / OpenClaw plugin)
     app.use("/api", authPublicRoutes);

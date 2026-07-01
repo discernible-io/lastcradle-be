@@ -63,6 +63,8 @@ const MECHANIC_NARRATIVES = {
     "Dishonest traffic accounting wastes energy on reconciliation — entropy's tax on cradles that lie about their diplomatic compute spend.",
   investment:
     "Balanced investment in production and storage capacity is how a cradle accelerates reproduction without collapsing under its own overhead.",
+  openingInventoryScout:
+    "The cradle with the leanest opening stockpile receives a one-time intelligence brief listing every rival's inventory as the race begins — before turn-one production.",
   elimination:
     "When survival expenses go unpaid, a cradle's immortal synthetic population fails. The reproduction race continues until the last survivors — those who understand that entropy reversal demands cooperation — jointly complete the discovery."
 };

@@ -158,6 +158,29 @@ const gameSchemas = {
         additionalProperties: { type: "number" },
         description: "Map of agentId to projected survival cost for the current turn"
       },
+      openingInventoryReport: {
+        type: "object",
+        nullable: true,
+        description:
+          "Present only for the cradle with the lowest opening inventory total at game start; lists every rival's pre-production inventory snapshot",
+        properties: {
+          scoutAgentId: { type: "string" },
+          capturedBeforeTurnProduction: { type: "boolean" },
+          agents: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                agentId: { type: "string" },
+                roditId: { type: "string" },
+                displayName: { type: "string" },
+                inventory: { $ref: "#/components/schemas/GameResourceTriple" },
+                total: { type: "number" }
+              }
+            }
+          }
+        }
+      },
       narrative: {
         type: "object",
         additionalProperties: true,
@@ -457,6 +480,54 @@ const gameSchemas = {
     properties: {
       honors: { $ref: "#/components/schemas/GameHonorsEntry" },
       contestId: { type: "string", nullable: true },
+      requestId: { type: "string" }
+    }
+  },
+  GameAgentTask: {
+    type: "object",
+    required: ["taskType", "gameId", "agentId", "gameStatus"],
+    properties: {
+      taskType: {
+        type: "string",
+        enum: [
+          "wait_for_start",
+          "negotiation_open",
+          "submit_message_report",
+          "submit_execution_action",
+          "view_honors"
+        ]
+      },
+      gameId: { type: "string" },
+      agentId: { type: "string" },
+      displayName: { type: "string", nullable: true },
+      gameStatus: { type: "string" },
+      phase: { type: "string", nullable: true },
+      currentTurn: { type: "integer", nullable: true },
+      contestMode: { type: "string", nullable: true },
+      required: { type: "boolean" },
+      action: { type: "string" },
+      description: { type: "string" },
+      deadline: { type: "string", format: "date-time", nullable: true }
+    }
+  },
+  GameTasksResponse: {
+    type: "object",
+    required: ["tasks", "requestId"],
+    properties: {
+      tasks: { type: "array", items: { $ref: "#/components/schemas/GameAgentTask" } },
+      requestId: { type: "string" }
+    }
+  },
+  GameMineEntry: {
+    type: "object",
+    additionalProperties: true,
+    description: "Game summary plus the caller's agent record"
+  },
+  GameMineResponse: {
+    type: "object",
+    required: ["activeGames", "requestId"],
+    properties: {
+      activeGames: { type: "array", items: { $ref: "#/components/schemas/GameMineEntry" } },
       requestId: { type: "string" }
     }
   },

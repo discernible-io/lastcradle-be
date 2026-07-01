@@ -8,6 +8,7 @@ const engine = require("./engine");
 const repo = require("./repository");
 const events = require("./events");
 const prizeSettlement = require("./prize-settlement");
+const { notifyOpeningInventoryReport, notifyGameFinished, onGamePhaseUpdated } = require("./webhooks");
 const { CONTEST_GAME_CONFIG, PRACTICE_GAME_CONFIG, mergeGameConfig } = require("./defaults");
 
 function scheduler() {
@@ -68,6 +69,8 @@ async function evaluateLobbyAutoStart(gameId) {
 
   if ((windowEnded || lobbyFull) && agentCount >= minAgents) {
     const started = await engine.startGame(gameId);
+    const startedRow = await repo.getGameById(gameId);
+    await notifyOpeningInventoryReport(null, { gameId, game: startedRow });
     scheduler().registerGame(started);
     clearLobbyTimer(gameId);
     events.publishGameEvent(gameId, {
@@ -82,6 +85,13 @@ async function evaluateLobbyAutoStart(gameId) {
       gameId,
       agentCount,
       trigger: lobbyFull ? "lobby_full" : "join_window_end"
+    });
+    onGamePhaseUpdated(gameId).catch((err) => {
+      logger.warnWithContext("Phase webhook delivery failed", {
+        component: "ContestOrchestrator",
+        gameId,
+        error: err.message
+      });
     });
     return { started: true, game: started };
   }
@@ -147,6 +157,14 @@ async function onGameFinished(game) {
     status: game.status,
     winnerIds: game.winnerIds || [],
     contestMode: game.config?.contestMode ?? null
+  });
+
+  notifyGameFinished(game).catch((err) => {
+    logger.warnWithContext("Game finished webhook delivery failed", {
+      component: "ContestOrchestrator",
+      gameId: game.id,
+      error: err.message
+    });
   });
 
   const contest = await repo.getContestByGameId(game.id);

@@ -18,8 +18,53 @@ const engine = require("../src/game/engine");
 const repo = require("../src/game/repository");
 const { buildInvestAction } = require("../src/game/defaults");
 
+async function testOpeningInventoryScout() {
+  const scoutGame = await engine.createGame({
+    config: {
+      useRandomStartingInventory: false,
+      startingInventory: { energy: 80, water: 80, compute: 80 },
+      cradleCapacityMin: 50,
+      cradleCapacityMax: 50,
+      minAgents: 3,
+      joiningWindowDurationMs: 0
+    }
+  });
+
+  await engine.joinGame(scoutGame.id, { roditId: "scout-a", displayName: "A" });
+  await engine.joinGame(scoutGame.id, { roditId: "scout-b", displayName: "B" });
+  await engine.joinGame(scoutGame.id, { roditId: "scout-c", displayName: "C" });
+
+  const joined = await repo.listAgents(scoutGame.id);
+  const scoutAgent = joined.find((a) => a.roditId === "scout-b");
+  await repo.updateAgentInventory(scoutAgent.id, { energy: 60, water: 60, compute: 60 });
+
+  await engine.startGame(scoutGame.id);
+
+  const scoutView = await engine.getPublicState(scoutGame.id, { viewerAgentId: scoutAgent.id });
+  const otherAgent = joined.find((a) => a.roditId === "scout-a");
+  const otherView = await engine.getPublicState(scoutGame.id, { viewerAgentId: otherAgent.id });
+
+  if (!scoutView.openingInventoryReport) {
+    throw new Error("Lowest-inventory player should receive openingInventoryReport");
+  }
+  if (scoutView.openingInventoryReport.agents.length !== 3) {
+    throw new Error("Opening inventory report should list every cradle");
+  }
+  const scoutEntry = scoutView.openingInventoryReport.agents.find((e) => e.agentId === scoutAgent.id);
+  if (!scoutEntry || scoutEntry.total !== 180) {
+    throw new Error("Report should snapshot pre-production opening inventories");
+  }
+  if (otherView.openingInventoryReport) {
+    throw new Error("Only the opening-inventory scout may receive the report");
+  }
+
+  console.log("Opening inventory scout test passed.");
+}
+
 async function main() {
   await repo.initializeDatabase();
+
+  await testOpeningInventoryScout();
 
   const game = await engine.createGame({
     config: {

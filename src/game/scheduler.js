@@ -7,6 +7,7 @@ const repo = require("./repository");
 const engine = require("./engine");
 const events = require("./events");
 const orchestrator = require("./contest-orchestrator");
+const { onGamePhaseUpdated } = require("./webhooks");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -67,6 +68,13 @@ async function onNegotiationEnd(gameId) {
     turn: game.current_turn,
     endsAt: game.message_report_ends_at
   });
+  onGamePhaseUpdated(gameId).catch((err) => {
+    logger.warnWithContext("Phase webhook delivery failed", {
+      component: "GameScheduler",
+      gameId,
+      error: err.message
+    });
+  });
   scheduleGame(game);
 }
 
@@ -101,6 +109,13 @@ async function onMessageReportEnd(gameId) {
     gameId,
     turn: game.current_turn,
     endsAt: game.execution_ends_at
+  });
+  onGamePhaseUpdated(gameId).catch((err) => {
+    logger.warnWithContext("Phase webhook delivery failed", {
+      component: "GameScheduler",
+      gameId,
+      error: err.message
+    });
   });
   scheduleGame(game);
 }
@@ -165,6 +180,13 @@ function onTurnCompleted(game) {
     phase: game.phase,
     currentTurn: game.current_turn,
     negotiationEndsAt: game.negotiation_ends_at
+  });
+  onGamePhaseUpdated(game.id).catch((err) => {
+    logger.warnWithContext("Phase webhook delivery failed", {
+      component: "GameScheduler",
+      gameId: game.id,
+      error: err.message
+    });
   });
   scheduleGame(game);
 }

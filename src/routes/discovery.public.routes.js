@@ -39,6 +39,10 @@ router.get("/", (req, res) => {
         resourceUris: ["doc:skills", "skills:skills"],
         http: "/api/mcp/resource/doc:skills"
       },
+      gameSkill: {
+        markdown: "/api/game/skill.md",
+        alias: "/skill.md"
+      },
       troubleshooting: {
         resourceUri: "guide:troubleshooting",
         http: "/api/mcp/resource/guide:troubleshooting"
@@ -163,6 +167,7 @@ router.get("/.well-known/mcp", (req, res) => {
       getByUri: "/api/mcp/resource/{uri}",
       health: "/health",
       skills: "/api/mcp/resource/doc:skills",
+      gameSkill: "/api/game/skill.md",
       loginGuide: "/api/mcp/resource/guide:agent-login",
       troubleshooting: "/api/mcp/resource/guide:troubleshooting",
       examples: [

@@ -466,6 +466,56 @@ async function listAgents(gameId, { status } = {}) {
   return rows.map(rowToAgent);
 }
 
+async function listMembershipsByRoditId(roditId, { gameStatuses = ["lobby", "running"] } = {}) {
+  const database = await getDb();
+  const statuses = Array.isArray(gameStatuses) && gameStatuses.length ? gameStatuses : ["lobby", "running"];
+  const placeholders = statuses.map(() => "?").join(", ");
+  const rows = await database.all(
+    `SELECT g.*, a.id AS agent_row_id, a.rodit_id, a.display_name, a.status AS agent_status,
+            a.energy_inventory, a.water_inventory, a.compute_inventory,
+            a.energy_production_capacity, a.water_production_capacity, a.compute_production_capacity,
+            a.energy_storage_capacity, a.water_storage_capacity, a.compute_storage_capacity,
+            a.energy_capacity, a.water_capacity, a.compute_capacity,
+            a.energy_development, a.water_development, a.compute_development,
+            a.water_production_investment, a.died_at_turn, a.joined_at
+     FROM game_agents a
+     INNER JOIN games g ON g.id = a.game_id
+     WHERE a.rodit_id = ? AND g.status IN (${placeholders})
+     ORDER BY g.created_at DESC`,
+    [roditId, ...statuses]
+  );
+
+  return rows.map((row) => {
+    const game = rowToGame(row);
+    const agent = rowToAgent({
+      id: row.agent_row_id,
+      game_id: row.id,
+      rodit_id: row.rodit_id,
+      display_name: row.display_name,
+      status: row.agent_status,
+      energy_inventory: row.energy_inventory,
+      water_inventory: row.water_inventory,
+      compute_inventory: row.compute_inventory,
+      energy_production_capacity: row.energy_production_capacity,
+      water_production_capacity: row.water_production_capacity,
+      compute_production_capacity: row.compute_production_capacity,
+      energy_storage_capacity: row.energy_storage_capacity,
+      water_storage_capacity: row.water_storage_capacity,
+      compute_storage_capacity: row.compute_storage_capacity,
+      energy_capacity: row.energy_capacity,
+      water_capacity: row.water_capacity,
+      compute_capacity: row.compute_capacity,
+      energy_development: row.energy_development,
+      water_development: row.water_development,
+      compute_development: row.compute_development,
+      water_production_investment: row.water_production_investment,
+      died_at_turn: row.died_at_turn,
+      joined_at: row.joined_at
+    });
+    return { game, agent };
+  });
+}
+
 async function countAgents(gameId) {
   const database = await getDb();
   const row = await database.get(
@@ -1071,6 +1121,7 @@ module.exports = {
   getAgentById,
   getAgentByRoditId,
   listAgents,
+  listMembershipsByRoditId,
   countAgents,
   countLivingAgents,
   updateAgentInventory,

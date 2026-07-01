@@ -12,7 +12,7 @@ const engine = require("./engine");
 const scheduler = require("./scheduler");
 const orchestrator = require("./contest-orchestrator");
 const repo = require("./repository");
-const { notifyCradleAssigned } = require("./webhooks");
+const { notifyCradleAssigned, notifyOpeningInventoryReport, onGamePhaseUpdated } = require("./webhooks");
 const {
   isPrivilegedRoditId,
   isOfficialContestConfig
@@ -24,6 +24,7 @@ const {
   mergeGameConfig
 } = require("./defaults");
 const { resolveRoditId, handleGameError } = require("./route-helpers");
+const { listActiveGamesForRodit, listTasksForRodit } = require("./agent-tasks");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -89,6 +90,67 @@ router.post("/games", validateContentType, validateJsonBody, async (req, res) =>
 
 /**
  * @swagger
+ * /api/game/tasks:
+ *   get:
+ *     summary: List pending agent tasks across joined games
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-game-auth: jwt-passport
+ */
+router.get("/tasks", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const roditId = resolveRoditId(req);
+  if (!roditId) {
+    return sendError(res, {
+      statusCode: 401,
+      requestId,
+      code: "AUTH_REQUIRED",
+      message: "Authenticated agent identity required"
+    });
+  }
+
+  try {
+    const includeFinished = req.query.includeFinished === "true" || req.query.includeFinished === "1";
+    const tasks = await listTasksForRodit(roditId, { includeFinished });
+    res.json({ tasks, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/games/mine:
+ *   get:
+ *     summary: List active games the authenticated agent has joined
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-game-auth: jwt-passport
+ */
+router.get("/games/mine", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const roditId = resolveRoditId(req);
+  if (!roditId) {
+    return sendError(res, {
+      statusCode: 401,
+      requestId,
+      code: "AUTH_REQUIRED",
+      message: "Authenticated agent identity required"
+    });
+  }
+
+  try {
+    const activeGames = await listActiveGamesForRodit(roditId);
+    res.json({ activeGames, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
  * /api/game/games/{gameId}/join:
  *   post:
  *     summary: Join a game lobby as an agent
@@ -143,8 +205,17 @@ router.post("/games/:gameId/start", validateContentType, async (req, res) => {
   const requestId = req.requestId || ulid();
   try {
     const game = await engine.startGame(req.params.gameId);
+    const gameRow = await repo.getGameById(game.id);
+    await notifyOpeningInventoryReport(req, { gameId: game.id, game: gameRow });
     orchestrator.unregisterLobbyGame(game.id);
     scheduler.registerGame(game);
+    onGamePhaseUpdated(game.id).catch((err) => {
+      logger.warnWithContext("Phase webhook delivery failed", {
+        component: "GameRoutes",
+        gameId: game.id,
+        error: err.message
+      });
+    });
     res.json({ game: await engine.getPublicState(game.id), requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
@@ -281,6 +352,13 @@ router.post("/games/:gameId/message-report", validateContentType, validateJsonBo
       const game = await repo.getGameById(req.params.gameId);
       if (game?.status === "running" && game.phase === "execution") {
         scheduler.registerGame(game);
+        onGamePhaseUpdated(game.id).catch((err) => {
+          logger.warnWithContext("Phase webhook delivery failed", {
+            component: "GameRoutes",
+            gameId: game.id,
+            error: err.message
+          });
+        });
       }
     }
     res.status(201).json({ ...result, requestId });
@@ -319,6 +397,14 @@ router.post("/games/:gameId/action", validateContentType, validateJsonBody, asyn
     const result = await engine.submitAction(req.params.gameId, agent.id, req.body);
     if (result.turnCompleted && result.game) {
       scheduler.onTurnCompleted(result.game);
+    } else if (result.game?.status === "running" && result.game.phase === "execution") {
+      onGamePhaseUpdated(result.game.id).catch((err) => {
+        logger.warnWithContext("Phase webhook delivery failed", {
+          component: "GameRoutes",
+          gameId: result.game.id,
+          error: err.message
+        });
+      });
     }
     res.status(201).json({ ...result, requestId });
   } catch (err) {

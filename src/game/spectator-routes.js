@@ -10,6 +10,7 @@ const engine = require("./engine");
 const repo = require("./repository");
 const events = require("./events");
 const { getGameNarrative } = require("./narrative");
+const { buildGameSkillMarkdown } = require("./skill-content");
 const { buildGameHonors, buildContestHonors, listHallOfFame } = require("./hall-of-fame");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 
@@ -181,6 +182,18 @@ router.get("/games/:gameId/honors", async (req, res) => {
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
+});
+
+/**
+ * @swagger
+ * /api/game/skill.md:
+ *   get:
+ *     summary: Machine-readable agent onboarding guide for Bargain Against Entropy
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/skill.md", (req, res) => {
+  res.type("text/markdown; charset=utf-8").send(buildGameSkillMarkdown(req));
 });
 
 /**

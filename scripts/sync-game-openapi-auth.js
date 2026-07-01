@@ -21,6 +21,7 @@ const PUBLIC_SPECTATOR_PATHS = new Set([
   "/api/game/games",
   "/api/game/contests",
   "/api/game/narrative",
+  "/api/game/skill.md",
   "/api/game/games/{gameId}/state",
   "/api/game/games/{gameId}/messages",
   "/api/game/games/{gameId}/trades",
@@ -204,9 +205,9 @@ function wireGameResponseSchemas(spec) {
 function patchInfoDescription(description) {
   const authBlock = `### Game API authentication
 
-**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\` — require no JWT. Optional Bearer token upgrades state for joined players only.
+**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /skill.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
 
-**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
+**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Poll \`GET /api/game/tasks\` or \`GET /api/game/games/mine\` for pending work. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\`, \`your_turn\`, \`elimination\`, and \`game_finished\`. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
 
 **Game administrator (operator):** \`POST /api/game/contests\`, \`POST /api/game/contest-series\`, and \`POST /api/game/games\` with an official contest preset require the JWT identity to match \`GAME_PRIVILEGED_RODIT_ID\` in server configuration.
 
