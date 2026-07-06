@@ -10,6 +10,7 @@
  */
 
 const { config } = require("@rodit/rodit-auth-be");
+const { CONTEST_GAME_CONFIG } = require("./defaults");
 
 const PRIVILEGED_RODIT_ID_CONFIG_KEY = "GAME_PRIVILEGED_RODIT_ID";
 
@@ -46,7 +47,10 @@ function isOfficialContestConfig(configOverrides = {}) {
   if (configOverrides.contestMode === "definitive") {
     return true;
   }
-  return Number(configOverrides.maxAgents) >= 50 && Number(configOverrides.minAgents) >= 50;
+  return (
+    Number(configOverrides.maxAgents) >= CONTEST_GAME_CONFIG.maxAgents &&
+    Number(configOverrides.minAgents) >= CONTEST_GAME_CONFIG.minAgents
+  );
 }
 
 module.exports = {

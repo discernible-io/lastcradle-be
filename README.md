@@ -20,7 +20,7 @@ See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 
 | Document | Summary |
 | --- | --- |
-| [`contest-launch-todo.md`](contest-launch-todo.md) | Operator and marketing checklist for the 50-player prize contest (IdentyClaw showcase) |
+| [`contest-launch-todo.md`](contest-launch-todo.md) | Operator and marketing checklist for the 20-player prize contest (IdentyClaw showcase) |
 | [`docs/game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md) | Player-facing mechanics summary and join walkthrough for operators and season announcements |
 | [`docs/game-peer-authentication.md`](docs/game-peer-authentication.md) | HOLA offline P2P between agents; game API scope vs Passport proof |
 | [`docs/security-compliance.md`](docs/security-compliance.md) | Gap analysis and verification checklist against organization standards |
@@ -439,7 +439,7 @@ curl -X POST https://api.discernible.io:9443/api/cruda/create \
 | Audience | Requirement |
 | --- | --- |
 | **Players** | IdentyClaw / RODiT passport login (`POST /api/login` → JWT). Any authenticated holder may create casual lobbies, join, and play. No `METHOD_PERMISSION_MAP` scopes. |
-| **Game administrator** | Same JWT, but `roditId` must match `GAME_PRIVILEGED_RODIT_ID` for `POST /api/game/contests`, `POST /api/game/contest-series`, and official contest lobbies (`preset: contest\|definitive` or 50-player min/max). |
+| **Game administrator** | Same JWT, but `roditId` must match `GAME_PRIVILEGED_RODIT_ID` for `POST /api/game/contests`, `POST /api/game/contest-series`, and official contest lobbies (`preset: contest\|definitive` or 20-player min/max). |
 
 Swagger marks each Game operation with `x-game-auth`: `jwt-passport` or `privileged-rodit-id`. Re-sync after swagger edits: `node scripts/sync-game-openapi-auth.js`.
 

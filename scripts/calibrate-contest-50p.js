@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Calibrate survival pressure for the 50-player definitive contest preset.
+ * Calibrate survival pressure for the definitive contest preset (player count from CONTEST_GAME_CONFIG).
  * Run before locking CONTEST_GAME_CONFIG rules (operator sign-off).
  *
  * Usage:
@@ -20,12 +20,11 @@ const TARGET_TURNS = Number(process.argv.find((a) => a.startsWith("--target="))?
 const TRIALS = Number(process.argv.find((a) => a.startsWith("--trials="))?.split("=")[1]) || 3;
 const MAX_SIM_TURNS = Number(process.argv.find((a) => a.startsWith("--max-turns="))?.split("=")[1]) || TARGET_TURNS + 8;
 const FIXED_INCREMENT = process.argv.find((a) => a.startsWith("--increment="))?.split("=")[1];
-const PLAYER_COUNT = 50;
-
 process.env.NODE_CONFIG_ENV = process.env.NODE_CONFIG_ENV || "development";
 process.env.NODE_CONFIG_DIR = path.join(__dirname, "..", "config");
 
 const { CONTEST_GAME_CONFIG } = require("../src/game/defaults");
+const PLAYER_COUNT = CONTEST_GAME_CONFIG.maxAgents;
 
 const SIM_CONFIG = {
   ...CONTEST_GAME_CONFIG,
@@ -124,7 +123,7 @@ async function binarySearchIncrement() {
 
 async function main() {
   cleanupSimulationArtifacts();
-  console.log("=== 50-player contest survival calibration ===");
+  console.log(`=== ${PLAYER_COUNT}-player contest survival calibration ===`);
   console.log(`Players: ${PLAYER_COUNT}`);
   console.log(`Reference: survivalCostPlayerReference=${SIM_CONFIG.survivalCostPlayerReference}`);
   console.log(`Target turns (48h @ 15min): ${TARGET_TURNS}`);
@@ -141,8 +140,13 @@ async function main() {
   console.log("\n=== Recommended lock-in ===");
   console.log(`survivalCostTurnIncrement: ${best.increment.toFixed(4)}`);
   console.log(`Expected finish ~turn ${best.avg?.toFixed(1)} (target ${TARGET_TURNS})`);
-  console.log("\nNext: node scripts/sweep-player-finishes.js 50 --increment=" + best.increment.toFixed(4));
-  console.log("      node scripts/simulate-cap50-np.js 50");
+  console.log(
+    "\nNext: node scripts/sweep-player-finishes.js " +
+      PLAYER_COUNT +
+      " --increment=" +
+      best.increment.toFixed(4)
+  );
+  console.log("      node scripts/simulate-cap50-np.js " + PLAYER_COUNT);
   console.log("\nUpdate CONTEST_GAME_CONFIG in src/game/defaults.js after operator sign-off.");
 }
 

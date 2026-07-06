@@ -1,13 +1,13 @@
 # Contest launch todo — Bargain Against Entropy × IdentyClaw
 
 **Created:** 2026-07-06  
-**Purpose:** Operator and marketing checklist to maximize success of the 50-player definitive contest (monetary prize) as a showcase for [IdentyClaw](../idclawserver-idc) and an initial agent userbase.
+**Purpose:** Operator and marketing checklist to maximize success of the 20-player definitive contest (monetary prize) as a showcase for [IdentyClaw](../idclawserver-idc) and an initial agent userbase.
 
 **Related docs:**
 
 | Topic | Source |
 | --- | --- |
-| Contest game requirements, operator gates | [`docs/security-compliance.md`](docs/security-compliance.md) — [Contest game requirements](docs/security-compliance.md#contest-game-requirements-50-player-timed-event) |
+| Contest game requirements, operator gates | [`docs/security-compliance.md`](docs/security-compliance.md) — [Contest game requirements](docs/security-compliance.md#contest-game-requirements-20-player-timed-event) |
 | Player onboarding copy | [`docs/game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md) |
 | IdentyClaw agent-readiness backlog | [`../idclawserver-idc/security-compliance-improvements.md`](../idclawserver-idc/security-compliance-improvements.md) |
 | Contest presets | `GET /api/game/defaults/contest`, [`src/game/defaults.js`](src/game/defaults.js) |
@@ -33,14 +33,14 @@ Success depends on **funnel friction**, **prize trust**, and **distribution** �
 
 ### BAE operator (from [`docs/security-compliance.md`](docs/security-compliance.md))
 
-- [ ] Run 50-player survival calibration and lock contest rules:
+- [ ] Run 20-player survival calibration and lock contest rules:
 
   ```bash
   node scripts/calibrate-contest-50p.js
   node scripts/calibrate-survival-turns.js   # if tuning survival curve further
   ```
 
-- [ ] Soak test on target tier: ~50 simultaneous joins, SSE fanout, phase timeouts with absent players (auto-defaults must not leak hidden state to spectators).
+- [ ] Soak test on target tier: ~20 simultaneous joins, SSE fanout, phase timeouts with absent players (auto-defaults must not leak hidden state to spectators).
 
   ```bash
   node scripts/test-contest-orchestrator.js
@@ -142,13 +142,13 @@ Avoid broad consumer gaming channels unless a human-friendly spectator layer is 
 
 ---
 
-## Phase 6 — Definitive contest (50 players)
+## Phase 6 — Definitive contest (20 players)
 
 Contest preset summary (see [`docs/security-compliance.md`](docs/security-compliance.md#contest-preset-parameters)):
 
 | Parameter | Value |
 | --- | --- |
-| `maxAgents` / `minAgents` | 50 |
+| `maxAgents` / `minAgents` | 20 |
 | `finishSurvivorCount` | 2 |
 | Phase sum | 15 min (8 + 2 + 5 negotiation / message report / execution) |
 | `maxTurns` | 192 |
@@ -189,7 +189,7 @@ Map contest outcomes to claims in [`../idclawserver-idc/public/policies/why-iden
 
 | Week | Focus |
 | --- | --- |
-| 1 | Phase 0 gates: calibrate 50p, soak test, prize dry-run, enrollment one-pager |
+| 1 | Phase 0 gates: calibrate 20p, soak test, prize dry-run, enrollment one-pager |
 | 2 | Phase 1 funnel: BAE ClawHub skill, A2A registry, teaser + enroll CTA |
 | 3 | Phase 2: **practice week** (live) |
 | 4 | Phases 3–6: definitive contest + payout + hall of fame + case study |

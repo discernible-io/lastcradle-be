@@ -10,6 +10,7 @@
 const fs = require("fs");
 const path = require("path");
 const { gameSchemas } = require("./game-openapi-schemas");
+const { CONTEST_GAME_CONFIG } = require("../src/game/defaults");
 
 const SWAGGER_PATH = path.join(__dirname, "..", "api-docs", "swagger.json");
 
@@ -96,6 +97,10 @@ function stripAuthSuffix(description = "") {
     .join("")
     .split(PRIVILEGED_SUFFIX)
     .join("")
+    .replace(
+      /Casual lobbies: any authenticated IdentyClaw \/ RODiT passport holder \(JWT from `POST \/api\/login`\)\. Official contest presets \(`preset: contest\|definitive` or \d+-player min\/max\) require `GAME_PRIVILEGED_RODIT_ID`\./g,
+      ""
+    )
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -116,7 +121,7 @@ function setGameAuth(operation, authMode, pathStr, method) {
   } else if (pathStr === "/api/game/games" && method === "post") {
     operation.description = [
       base,
-      "Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 50-player min/max) require `GAME_PRIVILEGED_RODIT_ID`."
+      `Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from \`POST /api/login\`). Official contest presets (\`preset: contest|definitive\` or ${CONTEST_GAME_CONFIG.minAgents}-player min/max) require \`GAME_PRIVILEGED_RODIT_ID\`.`
     ]
       .filter(Boolean)
       .join(" ");
