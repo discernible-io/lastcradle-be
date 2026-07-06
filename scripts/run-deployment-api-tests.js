@@ -98,10 +98,11 @@ async function run() {
   const { status: rootStatus, body: rootBody } = await fetchJson("/");
   if (rootStatus !== 200) {
     finding("/", "HTTP 200 welcome", `HTTP ${rootStatus}`);
-  } else if (!Array.isArray(rootBody?.endpoints)) {
-    finding("/", "endpoints array in JSON", rootBody);
+  } else if (!Array.isArray(rootBody?.endpoints) && !Array.isArray(rootBody?.endpointsList)) {
+    finding("/", "endpoints or endpointsList array in JSON", rootBody);
   } else {
-    pass("/", `${rootBody.endpoints.length} endpoints listed`);
+    const list = rootBody.endpointsList || rootBody.endpoints;
+    pass("/", `${list.length} endpoints listed`);
   }
 
   const requiredPublic = ["/health", "/api/login/timestamp"];

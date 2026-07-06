@@ -1,0 +1,491 @@
+@import url("blog.css");
+
+.header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header-nav {
+  font-size: 0.92rem;
+  color: var(--muted);
+  padding-top: 0.5rem;
+}
+
+.header-nav a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.header-nav a:hover {
+  text-decoration: underline;
+}
+
+.nav-sep {
+  margin: 0 0.35rem;
+}
+
+.nav-current {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.auth-bar {
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.auth-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-end;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  min-width: 10rem;
+}
+
+.auth-form label.auth-token {
+  flex: 1 1 16rem;
+  min-width: 14rem;
+}
+
+.auth-form input {
+  font: inherit;
+  font-size: 0.95rem;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.auth-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.btn {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  background: #fff;
+}
+
+.btn-primary {
+  background: var(--highlight);
+  border-color: var(--highlight);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.picker {
+  margin: 1.5rem 0;
+}
+
+.game-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.game-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  width: 100%;
+}
+
+.game-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.game-card strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.game-card span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.watch-root {
+  margin: 1.5rem 0 3rem;
+}
+
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1.25rem;
+  margin-bottom: 1.25rem;
+  padding: 0.65rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.status-pill {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #f0ebe3;
+}
+
+.status-pill.live {
+  background: #e0f0ea;
+  color: var(--highlight);
+}
+
+.status-pill.error {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.phase-label {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.countdown {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.countdown.urgent {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.watch-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.main-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.panel-head h2 {
+  margin: 0;
+}
+
+.living-badge {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: #e0f0ea;
+  color: var(--highlight);
+}
+
+.metrics-note {
+  margin: 0 0 0.75rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.cradle-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.cradle-table th,
+.cradle-table td {
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.cradle-table th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.cradle-table tr.dead td {
+  color: var(--muted);
+}
+
+.cradle-table tr.dead .cradle-name {
+  text-decoration: line-through;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: #f0ebe3;
+  margin-right: 0.25rem;
+  margin-bottom: 0.15rem;
+}
+
+.tag.done {
+  background: #e0f0ea;
+  color: var(--highlight);
+}
+
+.tag.pending {
+  background: #fff3e0;
+  color: #8a5a00;
+}
+
+.tag.penalty {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tag.invest {
+  background: #e8eef8;
+  color: #2a4a7a;
+}
+
+.resource-triple {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.turn-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.turn-picker button {
+  font: inherit;
+  font-size: 0.8rem;
+  min-width: 2rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+}
+
+.turn-picker button:hover,
+.turn-picker button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.messages-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: min(52vh, 520px);
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.message-card {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.message-card .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.message-card .from {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.message-card .body {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.messages-empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.trades-panel .panel-sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+}
+
+.trades-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
+.trade-card {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.trade-card .trade-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.trade-card .trade-route {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.trade-card .trade-amounts {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.trade-card .trade-rationale {
+  margin: 0 0 0.5rem;
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.trade-card .trade-snippets {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.trade-card .trade-snippets li {
+  margin-bottom: 0.35rem;
+}
+
+.trade-card .snippet-meta {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.phase-detail {
+  font-size: 0.9rem;
+}
+
+.phase-detail .progress-bar {
+  height: 6px;
+  background: #f0ebe3;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 0.5rem 0;
+}
+
+.phase-detail .progress-fill {
+  height: 100%;
+  background: var(--highlight);
+  transition: width 0.3s ease;
+}
+
+.narrative-blurb {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.finale {
+  margin-top: 1.5rem;
+}
+
+.finale h2 {
+  font-family: var(--serif);
+  margin: 0 0 0.75rem;
+}
+
+@media (max-width: 960px) {
+  .watch-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+  }
+}

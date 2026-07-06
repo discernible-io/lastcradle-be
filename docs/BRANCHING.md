@@ -1,5 +1,9 @@
 # Branching model
 
+> **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
+
+**Created:** 2026-05-29
+
 ## What happened
 
 1. All migration work landed on **`development`** while **`main`** stayed on the pre-migration stack (SDK 6.x, legacy routes).
@@ -11,14 +15,14 @@
 
 | Branch | Purpose | Auto-deploy |
 |--------|---------|-------------|
-| **`main`** | Production (`api.discernible.io`, `NODE_ENV=main`) | Yes |
-| **`development`** | Staging (`api.dihola.io`, `NODE_ENV=development`) | Yes |
+| **`main`** | Production BAE (`api.bae.identyclaw.com:444`, `bae.identyclaw.com`) | Yes |
+| **`development`** | Development tier (`api.dihola.io`, `NODE_ENV=development`) | Yes |
 | **`legacy`** | Frozen snapshot of pre-migration `main` | No |
 
 ## Day-to-day workflow
 
 - Feature work → branch from **`development`** → PR into **`development`**.
-- Promote to production → merge **`development`** into **`main`** (or PR), then push **`main`**.
+- Promote to **main** → merge **`development`** into **`main`** (or PR), then push **`main`**.
 
 ```bash
 git checkout main

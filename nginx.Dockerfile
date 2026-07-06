@@ -8,10 +8,11 @@ RUN apk update && apk upgrade --no-cache && \
     mkdir -p /app/certs
 
 COPY nginx/nginx.${NODE_ENV}.conf /etc/nginx/nginx.conf
+COPY frontend /app/frontend
 
 RUN chown -R nginx:nginx /etc/nginx/nginx.conf /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /app
 
 USER nginx
-EXPOSE 9443
+EXPOSE 443 444 9443
 
 CMD ["nginx", "-g", "daemon off;"]

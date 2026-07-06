@@ -1,0 +1,263 @@
+:root {
+  --ink: #1a1612;
+  --muted: #5c5348;
+  --paper: #f7f2e8;
+  --card: #fffdf8;
+  --accent: #8b3a2a;
+  --accent-soft: #e8d5cf;
+  --line: #ddd3c4;
+  --highlight: #2f5d50;
+  --shadow: 0 12px 40px rgba(26, 22, 18, 0.08);
+  --radius: 12px;
+  --serif: "Literata", Georgia, "Times New Roman", serif;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top right, #efe2d2 0%, transparent 45%),
+    linear-gradient(180deg, #f3ebe0 0%, var(--paper) 30%, #f0e8dc 100%);
+  line-height: 1.6;
+}
+
+.wrap {
+  width: min(1120px, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.site-header {
+  padding: 3rem 0 2rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 253, 248, 0.7);
+  backdrop-filter: blur(8px);
+}
+
+.kicker {
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.site-header h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  line-height: 1.1;
+}
+
+.tagline {
+  margin: 0.75rem 0 0;
+  max-width: 52ch;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 2rem;
+  padding: 2rem 0 4rem;
+}
+
+.sidebar {
+  position: sticky;
+  top: 1.5rem;
+  align-self: start;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.panel dl {
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.panel dt {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.panel dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.roster {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.roster li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.92rem;
+}
+
+.roster li:last-child {
+  border-bottom: none;
+}
+
+.role {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.turn-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.turn-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 0.82rem;
+  background: #fff;
+}
+
+.turn-nav a:hover,
+.turn-nav a.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.intro h2,
+.post h2,
+.finale h2 {
+  font-family: var(--serif);
+  margin: 0 0 0.75rem;
+  line-height: 1.25;
+}
+
+.intro p,
+.post p,
+.finale p {
+  margin: 0 0 1rem;
+  font-family: var(--serif);
+  font-size: 1.08rem;
+}
+
+.post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #f0ebe3;
+}
+
+.stat-pill.eliminated {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.negotiation {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border-left: 3px solid var(--highlight);
+  background: #f3f8f5;
+  border-radius: 0 8px 8px 0;
+}
+
+.negotiation blockquote {
+  margin: 0.35rem 0 0;
+  font-family: var(--serif);
+  font-style: italic;
+  color: #2b3d36;
+}
+
+.execution-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.95rem;
+}
+
+.execution-list li {
+  margin-bottom: 0.35rem;
+}
+
+.hidden {
+  display: none;
+}
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  padding: 1.5rem 0 2.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.error-banner {
+  background: #fdecea;
+  border: 1px solid #f5c2c0;
+  color: #7a1f1a;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+  }
+}

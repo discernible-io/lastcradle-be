@@ -101,6 +101,14 @@ function generatePermissionMap(swaggerSpec, { quiet = false } = {}) {
       continue;
     }
 
+    // Game routes use JWT-only or GAME_PRIVILEGED_RODIT_ID — not METHOD_PERMISSION_MAP.
+    if (pathStr.startsWith("/api/game/")) {
+      if (!quiet) {
+        console.log(`ℹ️  Skipping game endpoint (x-game-auth, not permission map): ${pathStr}`);
+      }
+      continue;
+    }
+
     const requiresAuth = requiresAuthentication(pathItem);
 
     if (!requiresAuth) {

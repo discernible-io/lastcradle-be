@@ -8,34 +8,35 @@
     "nodemon": "^3.1.14",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
-    "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "ulid": "^3.0.2",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
     "winston-loki": "^6.1.4"
   },
-  "name": "servertest",
+  "name": "bargainagainstentropy",
   "version": "2025.10.01",
   "description": "Description",
   "main": "src/app.js",
   "scripts": {
     "preinstall": "node scripts/enforce-minimum-package-age.js",
     "start": "nodemon src/app.js",
+    "blog:report": "node scripts/generate-blog-report.js 7 finish",
     "update:permissions": "node scripts/update-permissionsmap.js --all-environments",
-    "validate:permissions": "node scripts/update-permissionsmap.js --validate --all-environments"
+    "validate:permissions": "node scripts/update-permissionsmap.js --validate --all-environments",
+    "sync:game-openapi": "node scripts/sync-game-openapi-auth.js"
   },
   "overrides": {
     "undici": "^6.24.1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rodit/servertest.git"
+    "url": "git+https://github.com/discernible-io/bargainagainstentropy.git"
   },
   "author": "Discernible Ltd",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/rodit/servertest/issues"
+    "url": "https://github.com/discernible-io/bargainagainstentropy/issues"
   },
-  "homepage": "https://github.com/rodit/servertest#readme"
+  "homepage": "https://github.com/discernible-io/bargainagainstentropy#readme"
 }

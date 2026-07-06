@@ -12,10 +12,6 @@ FROM node:20-alpine AS production
 ARG NODE_ENV=main
 ENV NODE_ENV=${NODE_ENV}
 
-ENV TINI_VERSION=v0.19.0
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static /tini
-RUN chmod +x /tini
-
 RUN apk add --no-cache tini \
     && adduser -D -H -s /sbin/nologin nodeuser \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
@@ -26,5 +22,5 @@ COPY --from=builder --chown=nodeuser:nodeuser /app ./
 USER nodeuser
 EXPOSE 8080
 
-ENTRYPOINT ["/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "src/app.js"]

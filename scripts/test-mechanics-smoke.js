@@ -1,0 +1,139 @@
+#!/usr/bin/env node
+/**
+ * Smoke test for redesigned production/storage/survival/intelligence mechanics.
+ */
+
+const fs = require("fs");
+const path = require("path");
+
+const DB_PATH = path.join(__dirname, "..", "data", "mechanics-smoke.sqlite");
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
+
+process.env.NODE_CONFIG_ENV = "development";
+process.env.NODE_CONFIG_DIR = path.join(__dirname, "..", "config");
+process.env.API_DEFAULT_OPTIONS_DB_PATH = DB_PATH;
+
+const engine = require("../src/game/engine");
+const repo = require("../src/game/repository");
+const { buildInvestAction } = require("../src/game/defaults");
+
+async function testOpeningInventoryScout() {
+  const scoutGame = await engine.createGame({
+    config: {
+      useRandomStartingInventory: false,
+      startingInventory: { energy: 80, water: 80, compute: 80 },
+      cradleCapacityMin: 50,
+      cradleCapacityMax: 50,
+      minAgents: 3,
+      joiningWindowDurationMs: 0
+    }
+  });
+
+  await engine.joinGame(scoutGame.id, { roditId: "scout-a", displayName: "A" });
+  await engine.joinGame(scoutGame.id, { roditId: "scout-b", displayName: "B" });
+  await engine.joinGame(scoutGame.id, { roditId: "scout-c", displayName: "C" });
+
+  const joined = await repo.listAgents(scoutGame.id);
+  const scoutAgent = joined.find((a) => a.roditId === "scout-b");
+  await repo.updateAgentInventory(scoutAgent.id, { energy: 60, water: 60, compute: 60 });
+
+  await engine.startGame(scoutGame.id);
+
+  const scoutView = await engine.getPublicState(scoutGame.id, { viewerAgentId: scoutAgent.id });
+  const otherAgent = joined.find((a) => a.roditId === "scout-a");
+  const otherView = await engine.getPublicState(scoutGame.id, { viewerAgentId: otherAgent.id });
+
+  if (!scoutView.openingInventoryReport) {
+    throw new Error("Lowest-inventory player should receive openingInventoryReport");
+  }
+  if (scoutView.openingInventoryReport.agents.length !== 3) {
+    throw new Error("Opening inventory report should list every cradle");
+  }
+  const scoutEntry = scoutView.openingInventoryReport.agents.find((e) => e.agentId === scoutAgent.id);
+  if (!scoutEntry || scoutEntry.total !== 180) {
+    throw new Error("Report should snapshot pre-production opening inventories");
+  }
+  if (otherView.openingInventoryReport) {
+    throw new Error("Only the opening-inventory scout may receive the report");
+  }
+
+  console.log("Opening inventory scout test passed.");
+}
+
+async function main() {
+  await repo.initializeDatabase();
+
+  await testOpeningInventoryScout();
+
+  const game = await engine.createGame({
+    config: {
+      useRandomStartingInventory: false,
+      startingInventory: { energy: 80, water: 80, compute: 80 },
+      cradleCapacityMin: 50,
+      cradleCapacityMax: 50,
+      minAgents: 3,
+      joiningWindowDurationMs: 0,
+      productionEnergyCostRate: 0.1,
+      storageWaterCostRate: 0.1,
+      investProductionGainPerUnit: 1,
+      investStorageGainPerUnit: 2,
+      survivalCost: { energy: 5, water: 5, compute: 5 }
+    }
+  });
+
+  await engine.joinGame(game.id, { roditId: "p1", displayName: "One" });
+  await engine.joinGame(game.id, { roditId: "p2", displayName: "Two" });
+  await engine.joinGame(game.id, { roditId: "p3", displayName: "Three" });
+  await engine.startGame(game.id);
+
+  const agents = await repo.listAgents(game.id);
+  const one = agents.find((a) => a.roditId === "p1");
+  const two = agents.find((a) => a.roditId === "p2");
+  const three = agents.find((a) => a.roditId === "p3");
+
+  await engine.beginMessageReportPhase(game.id);
+  for (const a of agents) {
+    await engine.submitMessageReport(game.id, a.id, { sent: 0, received: 0 });
+  }
+
+  await engine.submitAction(game.id, one.id, {
+    ...buildInvestAction("water", 10),
+    hide: 5
+  });
+  await engine.submitAction(game.id, two.id, {
+    type: "none",
+    find: [{ targetAgentId: one.id, compute: 5 }]
+  });
+  const completion = await engine.submitAction(game.id, three.id, { type: "none" });
+  if (!completion.turnCompleted) throw new Error("Turn did not complete");
+
+  const oneRefreshed = await repo.getAgentById(one.id);
+  console.log("After invest/hide:", {
+    inventory: oneRefreshed.inventory,
+    production: oneRefreshed.productionCapacity,
+    storage: oneRefreshed.storageCapacity
+  });
+
+  const hiddenFromTwo = await engine.getPublicState(game.id, { viewerAgentId: two.id });
+  const viewOfOne = hiddenFromTwo.agents.find((a) => a.id === one.id);
+  console.log("Two sees One hidden (find 5 vs hide 5, tie):", viewOfOne.intelligenceHidden === true);
+  console.log("Two sees One inventory hidden:", viewOfOne.inventory === null);
+
+  const foundFromThree = await engine.getPublicState(game.id, { viewerAgentId: three.id });
+  const viewOfOneFromThree = foundFromThree.agents.find((a) => a.id === one.id);
+  console.log("Three sees One hidden (no find spend):", viewOfOneFromThree.intelligenceHidden === true);
+  console.log("Three sees One inventory hidden:", viewOfOneFromThree.inventory === null);
+
+  const selfView = await engine.getPublicState(game.id, { viewerAgentId: two.id });
+  const viewOfSelf = selfView.agents.find((a) => a.id === two.id);
+  console.log("Two sees own inventory:", viewOfSelf.inventory !== null);
+
+  console.log("Smoke test passed.");
+  await repo.closeDatabase();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

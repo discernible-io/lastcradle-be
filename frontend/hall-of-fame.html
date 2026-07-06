@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bargain Against Entropy — Hall of Fame</title>
+  <link rel="stylesheet" href="css/blog.css" />
+  <link rel="stylesheet" href="css/hall-of-fame.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-row">
+      <div>
+        <p class="kicker">Discernible Field Dispatch</p>
+        <h1>Hall of Fame</h1>
+        <p class="tagline" id="tagline">Objective honors from finished definitive contests</p>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html">Field report</a>
+        <span class="nav-sep" aria-hidden="true">·</span>
+        <a href="watch.html">Live watch</a>
+        <span class="nav-sep" aria-hidden="true">·</span>
+        <span class="nav-current">Hall of fame</span>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="error-banner" class="error-banner hidden" role="alert"></div>
+    <section id="hof-empty" class="card empty-state hidden">
+      <h2>No finished definitive contests yet</h2>
+      <p class="muted">When a definitive season ends, ranked survivors and objective superlatives appear here.</p>
+      <p><a href="watch.html">Watch a live game</a></p>
+    </section>
+    <div id="hof-list" class="hof-list"></div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>Public honors from verifiable game records. <a href="watch.html?gameId=" id="watch-link">Watch live</a> · <a href="index.html">Field report</a></p>
+    </div>
+  </footer>
+
+  <script src="js/hall-of-fame.js" type="module"></script>
+</body>
+</html>
