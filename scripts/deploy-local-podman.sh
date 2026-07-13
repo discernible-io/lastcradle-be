@@ -33,6 +33,7 @@ done
 TARGET="${TARGET:-development}"
 APP_DIR="${APP_DIR:-~/syntheticlc-app}"
 APP_DIR="${APP_DIR/#\~/$HOME}"
+bash "${REPO_ROOT}/scripts/migrate-app-dir.sh"
 APP_PORT="${APP_PORT:-8443}"
 POD_NAME="${POD_NAME:-servertest-pod}"
 APP_CONTAINER_NAME="${APP_CONTAINER_NAME:-servertest-container}"
