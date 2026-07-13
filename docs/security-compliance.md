@@ -7,7 +7,7 @@
 
 | | |
 |---|---|
-| **Scope** | `bargainagainstentropy` vs organization standards in [`docs/`](.) and `idclawserver-idc` |
+| **Scope** | `syntheticslastcradle` vs organization standards in [`docs/`](.) and `idclawserver-idc` |
 | **API role** | Auth reference + **CRUDA** comment showcase (no `/api/echo`) |
 
 ## Executive summary
@@ -19,7 +19,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | **Met** | Implemented and verifiable in this repo |
 | **Gap** | Standard requirement not yet met; repo change tracked below |
 | **Operator** | Documented; configured on hosts / in GitHub, not in git |
-| **Deferred** | Intentionally out of scope for bargainagainstentropy |
+| **Deferred** | Intentionally out of scope for syntheticslastcradle |
 | **Nuanced** | Mostly met with a documented difference from idc or the standard |
 
 ---
@@ -49,7 +49,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 
 | Item | Rationale |
 |------|-----------|
-| Geolocation middleware (`checkGeolocation`) | Policy decision; JWT geo claims unused in bargainagainstentropy |
+| Geolocation middleware (`checkGeolocation`) | Policy decision; JWT geo claims unused in syntheticslastcradle |
 | See also [Deferred / future](#deferred--future) | Contest prize transfer, calibration |
 
 ---
@@ -307,7 +307,7 @@ Branches ([`BRANCHING.md`](BRANCHING.md)):
 
 ## Contest game requirements (15-player timed event)
 
-Target format: ~15 participants, one practice week, one definitive prize game, turns on a **15-minute cadence**, wall-clock cap **≤ 2 days**, live online following.
+Target format: ~15 participants, one practice week, one definitive prize game, turns on a **15-minute cadence**, **55-turn** cap (~14 hours wall-clock), live online following.
 
 ### Summary matrix
 
@@ -335,8 +335,8 @@ Target format: ~15 participants, one practice week, one definitive prize game, t
 | `messageReportDurationMs` | 2 min | Self-report window |
 | `executionDurationMs` | 5 min | Action window (15 min total per turn) |
 | `turnIntervalMs` | 15 min | Documented cadence target (phase sum) |
-| `maxTurns` | 192 | 48 h ÷ 15 min; at cap all living agents share prize equally |
-| `maxGameDurationMs` | 48 h | Hard wall-clock cap (same all-living prize split) |
+| `maxTurns` | 55 | 55 × 15 min; at cap all living agents share prize equally |
+| `maxGameDurationMs` | ~13 h 45 m | Hard wall-clock cap (same all-living prize split) |
 | `survivalCostPlayerReference` | 3 (default) | Inherited from `DEFAULT_GAME_CONFIG`; survival pacing validated at ~15 players with increment 0.96 |
 
 ### Implementation files
@@ -379,7 +379,7 @@ node --check src/game/scheduler.js
 
 | Item | Rationale |
 |------|-----------|
-| Geolocation middleware (`checkGeolocation`) | Policy decision; JWT geo claims unused in bargainagainstentropy |
+| Geolocation middleware (`checkGeolocation`) | Policy decision; JWT geo claims unused in syntheticslastcradle |
 | Contest prize NEAR transfer | `prize-settlement.js` splits pool in-app; on-chain transfer is operator |
 | 15-player survival calibration | Run `scripts/calibrate-contest-50p.js` before locking contest rules |
 

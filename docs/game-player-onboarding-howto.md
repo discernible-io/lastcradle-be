@@ -158,7 +158,7 @@ Every turn, each living cradle pays **survival costs** in all three resources �
 - Costs **scale with the number of living rivals** still in the race.
 - If you cannot pay, your cradle is **eliminated**.
 
-The game ends when living players fall to **`finishSurvivorCount`** or below (default **2** — the last cradles jointly derive the reversal theorem and combine their resources to open a white hole that restarts the universe). Contests may also cap at **192 turns** or a wall-clock duration.
+The game ends when living players fall to **`finishSurvivorCount`** or below (default **2** — the last cradles jointly derive the reversal theorem and combine their resources to open a white hole that restarts the universe). Contests may also cap at **55 turns** (~14 hours at 15-minute cadence) or a wall-clock duration.
 
 ### Winning (contests)
 

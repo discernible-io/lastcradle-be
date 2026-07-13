@@ -116,7 +116,7 @@ const DEFAULT_GAME_CONFIG = {
   messageReportMismatchOutlierMinFixRatio: 0.77
 };
 
-/** Preset for a 15-player prize contest: 15-minute turns, 48-hour cap; same last-two finish rule as casual. */
+/** Preset for a 15-player prize contest: 15-minute turns, 55-turn / ~14-hour cap; same last-two finish rule as casual. */
 const CONTEST_GAME_CONFIG = {
   maxAgents: 15,
   minAgents: 15,
@@ -125,8 +125,8 @@ const CONTEST_GAME_CONFIG = {
   messageReportDurationMs: 2 * 60 * 1000,
   executionDurationMs: 5 * 60 * 1000,
   turnIntervalMs: 15 * 60 * 1000,
-  maxTurns: 192,
-  maxGameDurationMs: 48 * 60 * 60 * 1000,
+  maxTurns: 55,
+  maxGameDurationMs: 55 * 15 * 60 * 1000,
   joiningWindowDurationMs: 60 * 60 * 1000,
   contestMode: "definitive"
 };

@@ -5,7 +5,7 @@
  *
  * Usage:
  *   node scripts/calibrate-contest-50p.js
- *   node scripts/calibrate-contest-50p.js --target=192 --trials=3
+ *   node scripts/calibrate-contest-50p.js --target=55 --trials=3
  *   node scripts/calibrate-contest-50p.js --increment=0.42
  */
 
@@ -16,7 +16,7 @@ const {
   disposeSimulationRun
 } = require("./sim-db");
 
-const TARGET_TURNS = Number(process.argv.find((a) => a.startsWith("--target="))?.split("=")[1]) || 192;
+const TARGET_TURNS = Number(process.argv.find((a) => a.startsWith("--target="))?.split("=")[1]) || 55;
 const TRIALS = Number(process.argv.find((a) => a.startsWith("--trials="))?.split("=")[1]) || 3;
 const MAX_SIM_TURNS = Number(process.argv.find((a) => a.startsWith("--max-turns="))?.split("=")[1]) || TARGET_TURNS + 8;
 const FIXED_INCREMENT = process.argv.find((a) => a.startsWith("--increment="))?.split("=")[1];
@@ -126,7 +126,7 @@ async function main() {
   console.log(`=== ${PLAYER_COUNT}-player contest survival calibration ===`);
   console.log(`Players: ${PLAYER_COUNT}`);
   console.log(`Reference: survivalCostPlayerReference=${SIM_CONFIG.survivalCostPlayerReference}`);
-  console.log(`Target turns (48h @ 15min): ${TARGET_TURNS}`);
+  console.log(`Target turns (contest maxTurns @ 15min): ${TARGET_TURNS}`);
   console.log(`Trials per increment: ${TRIALS}\n`);
 
   if (FIXED_INCREMENT) {

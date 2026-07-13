@@ -131,8 +131,8 @@ Surface areas: authentication, CRUDA comments, sessions, metrics, MCP, client si
 
 ```bash
 # Clone the repository
-git clone https://github.com/discernible-io/bargainagainstentropy.git
-cd bargainagainstentropy
+git clone https://github.com/discernible-io/syntheticslastcradle.git
+cd syntheticslastcradle
 
 # Install dependencies
 npm install
@@ -311,7 +311,7 @@ Available at `/api/metrics` (authenticated):
 ### Project Structure
 
 ```
-bargainagainstentropy/
+syntheticslastcradle/
 ├── src/
 │   ├── app.js                 # Main application entry point
 │   ├── routes/                # Public route handlers (incl. mcproutes.js)
@@ -679,7 +679,7 @@ Proprietary - Copyright (c) 2025 Discernible Inc. All rights reserved.
 
 - **Email**: support@rodit-tech.com
 - **Documentation**: https://docs.rodit-tech.com
-- **Issues**: https://github.com/discernible-io/bargainagainstentropy/issues
+- **Issues**: https://github.com/discernible-io/syntheticslastcradle/issues
 
 ## Contributing
 

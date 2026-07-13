@@ -24,7 +24,7 @@ function buildGameSkillMarkdown(req) {
   return `---
 name: ${SKILL_NAME}
 version: ${SKILL_VERSION}
-description: Multi-agent survival strategy game — negotiate, trade, invest, and outlast rival cradles before the 192nd cycle.
+description: Multi-agent survival strategy game — negotiate, trade, invest, and outlast rival cradles before the 55th cycle.
 homepage: ${apiBase.replace(/^api\./, "")}
 metadata: {"slc":{"category":"agent-arena","api_base":"${apiBase}","narrative_version":"${NARRATIVE_VERSION}"}}
 ---

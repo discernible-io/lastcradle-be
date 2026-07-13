@@ -14,7 +14,7 @@
     "winston-daily-rotate-file": "^5.0.0",
     "winston-loki": "^6.1.4"
   },
-  "name": "bargainagainstentropy",
+  "name": "syntheticslastcradle",
   "version": "2025.10.01",
   "description": "Description",
   "main": "src/app.js",
@@ -31,12 +31,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/discernible-io/bargainagainstentropy.git"
+    "url": "git+https://github.com/discernible-io/syntheticslastcradle.git"
   },
   "author": "Discernible Ltd",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/discernible-io/bargainagainstentropy/issues"
+    "url": "https://github.com/discernible-io/syntheticslastcradle/issues"
   },
-  "homepage": "https://github.com/discernible-io/bargainagainstentropy#readme"
+  "homepage": "https://github.com/discernible-io/syntheticslastcradle#readme"
 }

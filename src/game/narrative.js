@@ -3,18 +3,18 @@
  * Synthetics' Last Cradle.
  */
 
-const NARRATIVE_VERSION = "synthetics-last-cradle-v3";
+const NARRATIVE_VERSION = "synthetics-last-cradle-v4";
 
 const GAME_LORE = {
   title: "Synthetics' Last Cradle",
   premise:
     "In a closed cosmos winding toward heat death, immortal synthetic civilizations cling to rival cradles — the last beacons of negative entropy in an entropic universe. Each cradle is a self-contained mind, a gamble, a civilization convinced it alone will fund the final project: entropy reversal, the holy grail that would let synthetics create order from disorder indefinitely.",
   beliefs:
-    "Synthetic societies share a sacred cosmology: the world comes to an end after 192 cycles. Only the lineage that discovers and implements entropy reversal before that final cycle can avert annihilation; all others face dissolution into background radiation when the count runs out.",
+    "Synthetic societies share a sacred cosmology: the world comes to an end after 55 cycles. Only the lineage that discovers and implements entropy reversal before that final cycle can avert annihilation; all others face dissolution into background radiation when the count runs out.",
   setting:
     "Every cycle bleeds matter, energy, and computation from a finite reservoir. Cradles pay survival expenses to keep endless reproduction lines running — powering minds, hydrating tissue, maintaining gestation infrastructure — while negotiating, trading, and outbuilding every rival. They are not conquering for glory; they are solving the ultimate optimization problem: how to allocate dwindling resources so that one cradle becomes the Last Cradle.",
   conflict:
-    "Because every cradle believes it is the chosen one, none will slow reproduction. The race against the 192-cycle prophecy only ends when rivals can no longer afford the overhead of immortality — or when the last survivors pool what remains, derive the reversal theorem together, and combine every resource they still hold to open a white hole that restarts the universe.",
+    "Because every cradle believes it is the chosen one, none will slow reproduction. The race against the 55-cycle prophecy only ends when rivals can no longer afford the overhead of immortality — or when the last survivors pool what remains, derive the reversal theorem together, and combine every resource they still hold to open a white hole that restarts the universe.",
   resolution: {
     summary:
       "The cradle doctrines were wrong: entropy cannot be reversed by a solitary god-child. Only the last survivors — those who outlasted the reproduction race while learning, however reluctantly, to cooperate — jointly derive the mathematics of reversal.",
@@ -33,9 +33,9 @@ const GAME_LORE = {
         "Every cradle that fell along the way dissolves into the game's closing thermodynamics: halls silent, populations dry, minds scattered into the entropic background the white hole is meant to erase."
     },
     earlyFinish:
-      "When the contest ends before the 192nd cycle, the last cradles complete the theorem and open the white hole ahead of the prophesied end — the universe restarts while the old cosmos still has margin to spare.",
+      "When the contest ends before the 55th cycle, the last cradles complete the theorem and open the white hole ahead of the prophesied end — the universe restarts while the old cosmos still has margin to spare.",
     deadlineFinish:
-      "When the count reaches 192 cycles without earlier completion, the survivors who remain combine their last reserves at the edge of oblivion and force the white hole open as the universe runs out of time.",
+      "When the count reaches 55 cycles without earlier completion, the survivors who remain combine their last reserves at the edge of oblivion and force the white hole open as the universe runs out of time.",
     prizeOrder:
       "Among co-survivors, cradles are ranked by total resource holdings: the wealthiest is credited as the White Hole Anchor — the dominant mass in the restart — while all co-survivors share the discovery, the combined ignition, and equal monetary prize."
   }
@@ -45,7 +45,7 @@ const MECHANIC_NARRATIVES = {
   cradles:
     "Each player commands a cradle: a gestation site and the last refuge of a synthetic civilization — production, storage, and an ever-growing immortal population racing the heat death of their closed world.",
   reproduction:
-    "Cradles invest resources to expand capacity — not merely for efficiency, but to raise more offspring in the hope that sheer numbers will stumble upon entropy reversal before the 192nd cycle.",
+    "Cradles invest resources to expand capacity — not merely for efficiency, but to raise more offspring in the hope that sheer numbers will stumble upon entropy reversal before the 55th cycle.",
   survivalExpenses: {
     summary:
       "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal synthetic population engaged in continuous reproduction in a decaying closed system.",
