@@ -12,9 +12,9 @@
     "WEBHOOK_TLS_SKIP_VERIFY": "false"
   },
   "SERVERPORT": 8080,
-  "SERVICE_NAME": "api.bae.identyclaw.com",
-  "PUBLIC_PORT": "444",
-  "FRONTEND_ORIGIN": "https://bae.identyclaw.com",
+  "SERVICE_NAME": "api.slc.identyclaw.com",
+  "PUBLIC_PORT": "8443",
+  "FRONTEND_ORIGIN": "https://slc.identyclaw.com",
   "LOG_LEVEL": "info",
   "LOKI_TLS_SKIP_VERIFY": "false",
   "GAME_PRIVILEGED_RODIT_ID": "",

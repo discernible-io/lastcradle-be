@@ -38,7 +38,7 @@ const HEALTH_CHECKS_CACHE_MS = Number(config.get("HEALTH_CHECKS_CACHE_MS"));
 const isMainTier = () => config.get("NODE_ENV") === "main";
 
 function tierSwaggerServerUrl() {
-  const publicPort = config.has("PUBLIC_PORT") ? config.get("PUBLIC_PORT") : "9443";
+  const publicPort = config.has("PUBLIC_PORT") ? config.get("PUBLIC_PORT") : "8443";
   return `https://${SERVICE_NAME}:${publicPort}`;
 }
 
@@ -929,7 +929,7 @@ async function startServer() {
         "  GET /api/mcp/resource/doc:skills - Agent login cheat sheet",
         "  POST /api/logout - Logout (Bearer JWT; expired tokens allowed)",
         "  /api/cruda - CRUDA showcase (requires authentication + permissions)",
-        "  /api/game - Bargain Against Entropy (JWT passport login; operator via GAME_PRIVILEGED_RODIT_ID)",
+        "  /api/game - Synthetics' Last Cradle (JWT passport login; operator via GAME_PRIVILEGED_RODIT_ID)",
         "  /play - Player-facing turn report blog (static)",
         "  /api/sessions - Session admin (authenticate + authorize)",
         "  /api-docs - Swagger API documentation",

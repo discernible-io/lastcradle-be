@@ -128,7 +128,7 @@ router.get("/.well-known/mcp", (req, res) => {
   const baseUrl = host ? `${protocol}://${host}` : null;
 
   return res.status(200).json({
-    title: "bargainagainstentropy MCP Discovery",
+    title: "syntheticslastcradle MCP Discovery",
     transport: {
       protocol: "streamable-http",
       endpoint: "/mcp",

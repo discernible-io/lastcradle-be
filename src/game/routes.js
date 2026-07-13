@@ -1,5 +1,5 @@
 /**
- * HTTP routes for Bargain Against Entropy.
+ * HTTP routes for Synthetics' Last Cradle.
  */
 
 const express = require("express");

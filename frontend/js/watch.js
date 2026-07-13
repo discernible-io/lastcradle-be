@@ -667,7 +667,13 @@ function renderFinale(state, agentById) {
 
   if (game.winnerIds?.length) {
     const names = game.winnerIds.map((id) => agentName(agentById, id)).join(", ");
-    finale.append(el("p", null, `Entropy reversal credited to: ${names}.`));
+    finale.append(
+      el(
+        "p",
+        null,
+        `The reversal theorem and combined reserves opened a white hole — universe restart credited to: ${names}. Holdings rank each cradle's contribution to the anchor mass.`
+      )
+    );
   }
 
   const fallen = (state.agents || []).filter((a) => a.status === "dead");

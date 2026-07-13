@@ -284,7 +284,8 @@ async function finishGameIfFewSurvivors(gameId) {
   if (livingCount > finishAt) {
     return false;
   }
-  const winners = await repo.listAgents(gameId, { status: "alive" });
+  const living = await repo.listAgents(gameId, { status: "alive" });
+  const winners = rankAgentsForFinish(living);
   await repo.updateGame(gameId, {
     status: "finished",
     phase: null,

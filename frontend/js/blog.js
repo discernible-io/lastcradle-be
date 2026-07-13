@@ -140,7 +140,7 @@ function renderFinale(report) {
       el(
         "p",
         null,
-        `Entropy reversal credited to: ${names}. Among co-survivors, holdings determine contribution rank.`
+        `The reversal theorem and combined reserves opened a white hole — universe restart credited to: ${names}. Holdings rank each cradle's contribution to the anchor mass.`
       )
     );
   }

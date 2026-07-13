@@ -2,7 +2,7 @@
   "dependencies": {
     "@rodit/rodit-auth-be": "9.12.0",
     "config": "^4.4.1",
-    "connect-sqlite3": "^0.9.13",
+    "connect-sqlite3": "0.9.16",
     "express": "4.21.2",
     "express-session": "^1.19.0",
     "nodemon": "^3.1.14",
@@ -14,7 +14,7 @@
     "winston-daily-rotate-file": "^5.0.0",
     "winston-loki": "^6.1.4"
   },
-  "name": "bargainagainstentropy",
+  "name": "syntheticslastcradle",
   "version": "2025.10.01",
   "description": "Description",
   "main": "src/app.js",
@@ -31,12 +31,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/discernible-io/bargainagainstentropy.git"
+    "url": "git+https://github.com/discernible-io/syntheticslastcradle.git"
   },
   "author": "Discernible Ltd",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/discernible-io/bargainagainstentropy/issues"
+    "url": "https://github.com/discernible-io/syntheticslastcradle/issues"
   },
-  "homepage": "https://github.com/discernible-io/bargainagainstentropy#readme"
+  "homepage": "https://github.com/discernible-io/syntheticslastcradle#readme"
 }

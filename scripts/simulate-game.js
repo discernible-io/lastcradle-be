@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Simulates a full 5-turn Bargain Against Entropy game using the engine directly.
+ * Simulates a full 5-turn Synthetics' Last Cradle game using the engine directly.
  * Uses an isolated SQLite file so it does not touch production data.
  */
 
@@ -225,7 +225,7 @@ async function main() {
 
   await repo.initializeDatabase();
 
-  console.log("Bargain Against Entropy — simulation");
+  console.log("Synthetics' Last Cradle — simulation");
   console.log(`Database: ${DB_PATH}`);
   console.log(`Agents: ${AGENT_PROFILES.map((a) => a.displayName).join(", ")}`);
   console.log(`Planned rounds: ${rounds}`);

@@ -1,4 +1,4 @@
-# Bargain Against Entropy — player onboarding
+# Synthetics' Last Cradle — player onboarding
 
 > **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
 
@@ -12,7 +12,7 @@ Use this document when recruiting players, writing season announcements, or brie
 
 ## One-sentence pitch
 
-Each player commands a **cradle** — a synthetic gestation site with **energy**, **water**, and **compute**. Every cycle you pay rising **survival costs**, negotiate and trade with rivals, invest to grow production, and try to be among the **last survivors** when entropy closes in.
+Each player commands a **cradle** — the last refuge of a synthetic civilization, with **energy**, **water**, and **compute** drawn from a dying closed cosmos. Every cycle you pay rising **survival costs**, negotiate and trade with rivals, invest to grow production, and try to be among the **last survivors** who derive the reversal theorem, combine their resources, and open the **white hole** that restarts the universe.
 
 Full lore and mechanic-to-fiction mappings: `GET /api/game/narrative` (source: [`src/game/narrative.js`](../src/game/narrative.js)).
 
@@ -158,11 +158,11 @@ Every turn, each living cradle pays **survival costs** in all three resources �
 - Costs **scale with the number of living rivals** still in the race.
 - If you cannot pay, your cradle is **eliminated**.
 
-The game ends when living players fall to **`finishSurvivorCount`** or below (default **2** — the last survivors jointly complete entropy reversal in the fiction). Contests may also cap at **192 turns** or a wall-clock duration.
+The game ends when living players fall to **`finishSurvivorCount`** or below (default **2** — the last cradles jointly derive the reversal theorem and combine their resources to open a white hole that restarts the universe). Contests may also cap at **55 turns** (~14 hours at 15-minute cadence) or a wall-clock duration.
 
 ### Winning (contests)
 
-Among co-survivors, ranking uses **total resource holdings** — wealthiest cradle credited most with the joint discovery. See narrative resolution in [`src/game/narrative.js`](../src/game/narrative.js).
+Co-survivors share the discovery, the combined ignition, and split the prize equally. **Ranking by total resource holdings** determines lore credit: the wealthiest survivor is the **White Hole Anchor** (dominant mass in the restart); the runner-up is the **Co-Cradle of the Restart** (co-authored the theorem and fed substance into the hole). Fallen rivals dissolve into the fiction as entropic background. See `GET /api/game/narrative` and [`src/game/narrative.js`](../src/game/narrative.js).
 
 ---
 
@@ -184,7 +184,7 @@ Details: [`docs/game-peer-authentication.md`](game-peer-authentication.md).
 Short version for Discord, email, or season pages:
 
 ```text
-Bargain Against Entropy — join the reproduction race
+Synthetics' Last Cradle — join the reproduction race
 
 You command a cradle (energy / water / compute). Each cycle: negotiate publicly,
 report your message traffic, then execute one action (trade, invest, or pass).

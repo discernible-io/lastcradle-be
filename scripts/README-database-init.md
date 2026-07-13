@@ -6,7 +6,7 @@
 
 ## Overview
 
-The `init-database.sh` script initializes the SQLite database for the bargainagainstentropy application. It handles both development and production deployment scenarios.
+The `init-database.sh` script initializes the SQLite database for the syntheticslastcradle application. It handles both development and production deployment scenarios.
 
 ## Quick Start
 
@@ -38,10 +38,10 @@ sudo ./scripts/init-database.sh --deployment
 | Mode | Database Path | Owner | Purpose |
 |------|--------------|-------|---------|
 | Development | `./data/database.sqlite` | Your user | Local testing |
-| Deployment | `~/servertest-app/data/database.sqlite` | UID 100999 | Container volume |
+| Deployment | `~/syntheticlc-app/data/database.sqlite` | UID 100999 | Container volume |
 
 **Why different paths?**
-- Container mounts: `~/servertest-app/data` → `/app/data`
+- Container mounts: `~/syntheticlc-app/data` → `/app/data`
 - The container ONLY sees the deployment path
 - Using wrong path = container uses old/incorrect database
 
@@ -120,7 +120,7 @@ npm install @rodit/rodit-auth-be@latest
 **Solution:**
 ```bash
 # Remove old sessions table and let connect-sqlite3 create it
-sudo sqlite3 ~/servertest-app/data/database.sqlite "DROP TABLE IF EXISTS sessions;"
+sudo sqlite3 ~/syntheticlc-app/data/database.sqlite "DROP TABLE IF EXISTS sessions;"
 podman restart servertest-container
 ```
 
@@ -131,8 +131,8 @@ podman restart servertest-container
 **Solution:**
 ```bash
 # Fix ownership for deployment
-sudo chown 100999:100999 ~/servertest-app/data/database.sqlite
-sudo chmod 664 ~/servertest-app/data/database.sqlite
+sudo chown 100999:100999 ~/syntheticlc-app/data/database.sqlite
+sudo chmod 664 ~/syntheticlc-app/data/database.sqlite
 ```
 
 ### Issue 4: Container uses old database after re-initialization
@@ -152,7 +152,7 @@ podman restart servertest-container
 
 ```bash
 # Check deployment database
-sudo ls -lh ~/servertest-app/data/database.sqlite
+sudo ls -lh ~/syntheticlc-app/data/database.sqlite
 
 # Check container is using correct database
 podman exec servertest-container ls -lh /app/data/database.sqlite
@@ -162,10 +162,10 @@ podman exec servertest-container ls -lh /app/data/database.sqlite
 
 ```bash
 # List all tables
-sudo sqlite3 ~/servertest-app/data/database.sqlite ".tables"
+sudo sqlite3 ~/syntheticlc-app/data/database.sqlite ".tables"
 
 # Check sessions table schema (should exist after first use)
-sudo sqlite3 ~/servertest-app/data/database.sqlite "PRAGMA table_info(sessions);"
+sudo sqlite3 ~/syntheticlc-app/data/database.sqlite "PRAGMA table_info(sessions);"
 
 # Expected output:
 # 0|sid||0||1
@@ -198,7 +198,7 @@ git push origin main
 podman ps | grep servertest-container
 
 # 4. Check sessions table was auto-created
-sudo sqlite3 ~/servertest-app/data/database.sqlite ".tables"
+sudo sqlite3 ~/syntheticlc-app/data/database.sqlite ".tables"
 # Should show: comments  metrics  sessions
 ```
 
@@ -209,8 +209,8 @@ sudo sqlite3 ~/servertest-app/data/database.sqlite ".tables"
 podman stop servertest-container
 
 # 2. Backup existing database
-sudo cp ~/servertest-app/data/database.sqlite \
-     ~/servertest-app/data/database.sqlite.backup.$(date +%Y%m%d)
+sudo cp ~/syntheticlc-app/data/database.sqlite \
+     ~/syntheticlc-app/data/database.sqlite.backup.$(date +%Y%m%d)
 
 # 3. Reinitialize database
 sudo ./scripts/init-database.sh --deployment
@@ -225,9 +225,9 @@ The deployment workflow (`.github/workflows/deploy.yml`) handles database initia
 
 ```yaml
 # Ensure logs and data directories exist with correct permissions
-mkdir -p ~/servertest-app/logs ~/servertest-app/data
-podman unshare chown -R 1000:1000 ~/servertest-app/logs ~/servertest-app/data
-podman unshare chmod g+w ~/servertest-app/data
+mkdir -p ~/syntheticlc-app/logs ~/syntheticlc-app/data
+podman unshare chown -R 1000:1000 ~/syntheticlc-app/logs ~/syntheticlc-app/data
+podman unshare chmod g+w ~/syntheticlc-app/data
 ```
 
 **Note:** The workflow does NOT run `init-database.sh` automatically. You must initialize the database manually on first deployment.
@@ -252,6 +252,6 @@ podman unshare chmod g+w ~/servertest-app/data
 If you encounter issues not covered here:
 
 1. Check container logs: `podman logs servertest-container`
-2. Verify database ownership: `sudo ls -lhn ~/servertest-app/data/`
-3. Test database access: `sudo sqlite3 ~/servertest-app/data/database.sqlite ".tables"`
+2. Verify database ownership: `sudo ls -lhn ~/syntheticlc-app/data/`
+3. Test database access: `sudo sqlite3 ~/syntheticlc-app/data/database.sqlite ".tables"`
 4. Review this guide's troubleshooting section

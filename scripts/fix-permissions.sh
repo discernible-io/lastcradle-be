@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Fix ownership, permissions, and SELinux labels for servertest rootless Podman volumes
 # Usage: ./fix-permissions.sh [APP_DIR]
-# If APP_DIR is not provided, defaults to "$HOME/bargainagainstentropy"
+# If APP_DIR is not provided, defaults to "$HOME/syntheticslastcradle"
 
 set -euo pipefail
 
-APP_DIR=${1:-"${HOME}/bargainagainstentropy"}
+APP_DIR=${1:-"${HOME}/syntheticslastcradle"}
 LOG_DIR="${APP_DIR}/logs"
-APP_LOG_DIR="${HOME}/servertest-app/logs"
+APP_LOG_DIR="${HOME}/syntheticlc-app/logs"
 DATA_DIR="${APP_DIR}/data"
 CERTS_DIR="${APP_DIR}/certs"
 NGINX_DIR="${APP_DIR}/nginx"
@@ -30,7 +30,7 @@ chmod -R u+rwX,g+rwX,o+rX "${LOG_DIR}" || true
 find "${LOG_DIR}" -type d -exec chmod 0775 {} + 2>/dev/null || true
 find "${LOG_DIR}" -type f -exec chmod 0664 {} + 2>/dev/null || true
 
-# Set permissions for servertest-app logs
+# Set permissions for syntheticlc-app logs
 chmod -R u+rwX,g+rwX,o+rX "${APP_LOG_DIR}" || true
 find "${APP_LOG_DIR}" -type d -exec chmod 0775 {} + 2>/dev/null || true
 find "${APP_LOG_DIR}" -type f -exec chmod 0664 {} + 2>/dev/null || true

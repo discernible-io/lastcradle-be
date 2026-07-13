@@ -1,4 +1,4 @@
-title = "bargainagainstentropy gitleaks config"
+title = "syntheticslastcradle gitleaks config"
 
 [allowlist]
 description = "Documented non-secret placeholders in committed config"

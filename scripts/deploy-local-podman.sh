@@ -31,9 +31,9 @@ done
 [[ -f "${REPO_ROOT}/.deploy.local.env" ]] && set -a && source "${REPO_ROOT}/.deploy.local.env" && set +a
 
 TARGET="${TARGET:-development}"
-APP_DIR="${APP_DIR:-~/servertest-app}"
+APP_DIR="${APP_DIR:-~/syntheticlc-app}"
 APP_DIR="${APP_DIR/#\~/$HOME}"
-APP_PORT="${APP_PORT:-9443}"
+APP_PORT="${APP_PORT:-8443}"
 POD_NAME="${POD_NAME:-servertest-pod}"
 APP_CONTAINER_NAME="${APP_CONTAINER_NAME:-servertest-container}"
 NGINX_CONTAINER_NAME="${NGINX_CONTAINER_NAME:-servertest-nginx}"
@@ -44,13 +44,13 @@ case "$TARGET" in
   development)
     NODE_ENV=development
     DOMAIN="${DOMAIN:-api.dihola.io}"
-    APP_PORT="${APP_PORT:-9443}"
+    APP_PORT="${APP_PORT:-8443}"
     FRONTEND_PORT="${FRONTEND_PORT:-}"
     ;;
   main)
     NODE_ENV=main
-    DOMAIN="${DOMAIN:-api.bae.identyclaw.com}"
-    APP_PORT="${APP_PORT:-444}"
+    DOMAIN="${DOMAIN:-api.slc.identyclaw.com}"
+    APP_PORT="${APP_PORT:-8443}"
     FRONTEND_PORT="${FRONTEND_PORT:-443}"
     ;;
   *) echo "TARGET must be development or main" >&2; exit 1 ;;
@@ -62,7 +62,7 @@ default_repo() {
   case "$url" in
     git@github.com:*) echo "${url#git@github.com:}" | sed 's/\.git$//' ;;
     https://github.com/*) echo "${url#https://github.com/}" | sed 's/\.git$//' ;;
-    *) echo "discernible-io/bargainagainstentropy" ;;
+    *) echo "discernible-io/syntheticslastcradle" ;;
   esac
 }
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-$(default_repo)}"

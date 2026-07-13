@@ -16,10 +16,10 @@ env:
   SSH_USER: ${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}
   SSH_PRIVATE_KEY: ${{ github.ref == 'refs/heads/main' && secrets.SSH_PRIVATE_KEY_MAIN || secrets.SSH_PRIVATE_KEY_DEVELOPMENT }}
   SSH_KNOWN_HOSTS: ${{ github.ref == 'refs/heads/main' && secrets.SSH_KNOWN_HOSTS_MAIN || secrets.SSH_KNOWN_HOSTS_DEVELOPMENT }}
-  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'api.bae.identyclaw.com' || 'api.dihola.io' }}
-  APP_PORT: ${{ github.ref == 'refs/heads/main' && '444' || '9443' }}
+  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'api.slc.identyclaw.com' || 'api.dihola.io' }}
+  APP_PORT: "8443"
   FRONTEND_PORT: ${{ github.ref == 'refs/heads/main' && '443' || '' }}
-  APP_DIR: /home/${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}/servertest-app
+  APP_DIR: /home/${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}/syntheticlc-app
   POD_NAME: servertest-pod
   APP_CONTAINER_NAME: servertest-container
   NGINX_CONTAINER_NAME: servertest-nginx

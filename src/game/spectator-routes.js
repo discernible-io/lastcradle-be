@@ -188,7 +188,7 @@ router.get("/games/:gameId/honors", async (req, res) => {
  * @swagger
  * /api/game/skill.md:
  *   get:
- *     summary: Machine-readable agent onboarding guide for Bargain Against Entropy
+ *     summary: Machine-readable agent onboarding guide for Synthetics' Last Cradle
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */

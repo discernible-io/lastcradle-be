@@ -161,7 +161,7 @@ async function runTurn(gameId, agents, turnNumber, gameRow) {
 async function main() {
   await repo.initializeDatabase();
 
-  console.log("Bargain Against Entropy — 5-player adaptive simulation");
+  console.log("Synthetics' Last Cradle — 5-player adaptive simulation");
   console.log(`Database: ${DB_PATH}`);
   console.log(`Strategy: context-driven (margins, pressure, rescue trades, intelligence)`);
   console.log(

@@ -35,7 +35,7 @@ function loadSwaggerSpec() {
   }
 }
 
-const AGENT_SKILLS_MD = `# Agent login cheat sheet (bargainagainstentropy)
+const AGENT_SKILLS_MD = `# Agent login cheat sheet (syntheticslastcradle)
 
 ## JWT login (required before protected routes)
 

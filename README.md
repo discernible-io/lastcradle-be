@@ -10,7 +10,7 @@ This API provides secure authentication services using the Discernible Authentic
 
 | Branch | Role | API | Game frontend |
 |--------|------|-----|---------------|
-| **`main`** | Production (BAE) | https://api.bae.identyclaw.com:444 | https://bae.identyclaw.com |
+| **`main`** | Production (SLC) | https://api.slc.identyclaw.com:444 | https://slc.identyclaw.com |
 | **`development`** | Development / integration | https://api.dihola.io:9443 | `/play`, `/watch` on API host |
 | **`legacy`** | Archive of pre-migration `main` (read-only) | — | — |
 
@@ -20,7 +20,7 @@ See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 
 | Document | Summary |
 | --- | --- |
-| [`contest-launch-todo.md`](contest-launch-todo.md) | Operator and marketing checklist for the 50-player prize contest (IdentyClaw showcase) |
+| [`contest-launch-todo.md`](contest-launch-todo.md) | Operator and marketing checklist for the 15-player prize contest (IdentyClaw showcase) |
 | [`docs/game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md) | Player-facing mechanics summary and join walkthrough for operators and season announcements |
 | [`docs/game-peer-authentication.md`](docs/game-peer-authentication.md) | HOLA offline P2P between agents; game API scope vs Passport proof |
 | [`docs/security-compliance.md`](docs/security-compliance.md) | Gap analysis and verification checklist against organization standards |
@@ -109,13 +109,13 @@ Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at c
 - **Authorization**: Route-level permissions with JWT claims validation
 - **Token Renewal**: Automatic JWT refresh for eligible sessions
 - **Webhook Integration**: Configurable webhooks for audit events
-- **Bargain Against Entropy** (`/api/game/*`): Multi-agent survival game — lobbies with joining windows, turn phases (negotiation → message report → execution), SSE live updates, contest series, and `cradle_assigned` webhooks on join
+- **Synthetics' Last Cradle** (`/api/game/*`): Multi-agent survival game — lobbies with joining windows, turn phases (negotiation → message report → execution), SSE live updates, contest series, and `cradle_assigned` webhooks on join
 
 ### API contract
 
 All endpoints are defined in [`api-docs/swagger.json`](api-docs/swagger.json) (authoritative per [`docs/documentation-standard.md`](docs/documentation-standard.md)). Explore interactively at `/api-docs` or `GET /api-docs/swagger.json` on a running server.
 
-Surface areas: authentication, CRUDA comments, sessions, metrics, MCP, client signing, and **Game** (`/api/game/*` — Bargain Against Entropy; see swagger tag **Game** for the full contract).
+Surface areas: authentication, CRUDA comments, sessions, metrics, MCP, client signing, and **Game** (`/api/game/*` — Synthetics' Last Cradle; see swagger tag **Game** for the full contract).
 
 ## Installation
 
@@ -131,8 +131,8 @@ Surface areas: authentication, CRUDA comments, sessions, metrics, MCP, client si
 
 ```bash
 # Clone the repository
-git clone https://github.com/discernible-io/bargainagainstentropy.git
-cd bargainagainstentropy
+git clone https://github.com/discernible-io/syntheticslastcradle.git
+cd syntheticslastcradle
 
 # Install dependencies
 npm install
@@ -221,7 +221,7 @@ The **`legacy`** branch is archived and does not deploy. See [docs/BRANCHING.md]
 ssh user@178.62.195.21
 
 # Navigate to application directory
-cd ~/servertest-app
+cd ~/syntheticlc-app
 
 # Prefer CI/GHCR (see docs/BRANCHING.md). Local parity:
 ./scripts/deploy-local-podman.sh
@@ -230,16 +230,16 @@ TARGET=main ./scripts/deploy-local-podman.sh
 # Create pod and run containers
 podman pod create --name servertest-pod -p 9443:9443
 podman run -d --pod servertest-pod --name servertest-container \
-  -v ~/servertest-app/data:/app/data:Z \
-  -v ~/servertest-app/logs:/app/logs:Z \
-  -v ~/servertest-app/certs:/app/certs:ro,Z \
+  -v ~/syntheticlc-app/data:/app/data:Z \
+  -v ~/syntheticlc-app/logs:/app/logs:Z \
+  -v ~/syntheticlc-app/certs:/app/certs:ro,Z \
   -e NODE_ENV=main \
   [... other env vars ...] \
   servertest-image:latest
 
 podman run -d --pod servertest-pod --name servertest-nginx \
-  -v ~/servertest-app/certs:/app/certs:ro,Z \
-  -v ~/servertest-app/logs/nginx:/var/log/nginx:Z \
+  -v ~/syntheticlc-app/certs:/app/certs:ro,Z \
+  -v ~/syntheticlc-app/logs/nginx:/var/log/nginx:Z \
   servertest-nginx:latest
 ```
 
@@ -254,7 +254,7 @@ Environment-specific configs (`nginx/nginx.main.conf`, `nginx/nginx.development.
 - **Health**: Proxies `GET /health` to the API (dependency probes)
 - **Logging**: JSON access logs; `/health` omitted from access log
 
-Local deploy without rsync/GHCR: `./scripts/deploy-local-podman.sh` (requires `~/servertest-app/secrets/secrets.env`).
+Local deploy without rsync/GHCR: `./scripts/deploy-local-podman.sh` (requires `~/syntheticlc-app/secrets/secrets.env`).
 
 ## Security
 
@@ -311,14 +311,14 @@ Available at `/api/metrics` (authenticated):
 ### Project Structure
 
 ```
-bargainagainstentropy/
+syntheticslastcradle/
 ├── src/
 │   ├── app.js                 # Main application entry point
 │   ├── routes/                # Public route handlers (incl. mcproutes.js)
 │   ├── protected/             # Protected route handlers
 │   │   ├── cruda.js           # CRUDA showcase (auth + authorize)
 │   │   └── metricsroutes.js
-│   └── game/                  # Bargain Against Entropy
+│   └── game/                  # Synthetics' Last Cradle
 │       ├── routes.js          # HTTP routes (/api/game/*)
 │       ├── engine.js          # Turns, production, survival, actions
 │       ├── contest-orchestrator.js
@@ -392,8 +392,8 @@ podman logs servertest-container
 podman logs servertest-nginx
 
 # View logs on host
-tail -f ~/servertest-app/logs/combined.log
-tail -f ~/servertest-app/logs/nginx/nginxaccess.log
+tail -f ~/syntheticlc-app/logs/combined.log
+tail -f ~/syntheticlc-app/logs/nginx/nginxaccess.log
 ```
 
 ## API Usage Examples
@@ -432,14 +432,14 @@ curl -X POST https://api.discernible.io:9443/api/cruda/create \
   -d '{"comment": "Hello, World!"}'
 ```
 
-### Game API (Bargain Against Entropy)
+### Game API (Synthetics' Last Cradle)
 
 **Authentication policy**
 
 | Audience | Requirement |
 | --- | --- |
 | **Players** | IdentyClaw / RODiT passport login (`POST /api/login` → JWT). Any authenticated holder may create casual lobbies, join, and play. No `METHOD_PERMISSION_MAP` scopes. |
-| **Game administrator** | Same JWT, but `roditId` must match `GAME_PRIVILEGED_RODIT_ID` for `POST /api/game/contests`, `POST /api/game/contest-series`, and official contest lobbies (`preset: contest\|definitive` or 50-player min/max). |
+| **Game administrator** | Same JWT, but `roditId` must match `GAME_PRIVILEGED_RODIT_ID` for `POST /api/game/contests`, `POST /api/game/contest-series`, and official contest lobbies (`preset: contest\|definitive` or 15-player min/max). |
 
 Swagger marks each Game operation with `x-game-auth`: `jwt-passport` or `privileged-rodit-id`. Re-sync after swagger edits: `node scripts/sync-game-openapi-auth.js`.
 
@@ -481,7 +481,7 @@ API_BASE=http://localhost:8080
 
 # Development / main tier
 # API_BASE=https://api.dihola.io:9443
-# API_BASE=https://api.bae.identyclaw.com:444
+# API_BASE=https://api.slc.identyclaw.com:444
 ```
 
 #### 1. Login challenge
@@ -679,7 +679,7 @@ Proprietary - Copyright (c) 2025 Discernible Inc. All rights reserved.
 
 - **Email**: support@rodit-tech.com
 - **Documentation**: https://docs.rodit-tech.com
-- **Issues**: https://github.com/discernible-io/bargainagainstentropy/issues
+- **Issues**: https://github.com/discernible-io/syntheticslastcradle/issues
 
 ## Contributing
 
