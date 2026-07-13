@@ -315,7 +315,7 @@ async function main() {
 
   await repo.initializeDatabase();
 
-  console.log(`Bargain Against Entropy — ${PLAYER_COUNT}-player simulation`);
+  console.log(`Synthetics' Last Cradle — ${PLAYER_COUNT}-player simulation`);
   console.log(`Database: ${DB_PATH}`);
   console.log(
     `Roster: ${Object.entries(roleCounts)

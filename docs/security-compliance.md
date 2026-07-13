@@ -43,7 +43,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | TLS PEMs | `~/servertest-app/certs/` |
 | Linger verification | `loginctl enable-linger <deploy-user>` |
 | Contest prize NEAR transfer | Operator on-chain step after `prize-settlement.js` |
-| 20-player survival calibration | `scripts/calibrate-contest-50p.js` before locking contest rules |
+| 15-player survival calibration | `scripts/calibrate-contest-50p.js` before locking contest rules |
 
 ### Deferred (product / policy)
 
@@ -305,9 +305,9 @@ Branches ([`BRANCHING.md`](BRANCHING.md)):
 
 ---
 
-## Contest game requirements (20-player timed event)
+## Contest game requirements (15-player timed event)
 
-Target format: ~20 participants, one practice week, one definitive prize game, turns on a **15-minute cadence**, wall-clock cap **≤ 2 days**, live online following.
+Target format: ~15 participants, one practice week, one definitive prize game, turns on a **15-minute cadence**, wall-clock cap **≤ 2 days**, live online following.
 
 ### Summary matrix
 
@@ -317,19 +317,19 @@ Target format: ~20 participants, one practice week, one definitive prize game, t
 | Absent-player auto-defaults on phase timeout | **Met** | Actual message counts + `{ type: "none" }` actions |
 | `executionDurationMs` enforcement | **Met** | Enforced when &gt; 0 (0 = submission-gated for casual games) |
 | Max turns / max game duration | **Met** | `maxTurns`, `maxGameDurationMs`, `ends_at`; forced finish lists all living in `winnerIds` |
-| 20-player contest config preset | **Met** | `CONTEST_GAME_CONFIG` / `PRACTICE_GAME_CONFIG`; `GET /api/game/defaults/contest` |
+| 15-player contest config preset | **Met** | `CONTEST_GAME_CONFIG` / `PRACTICE_GAME_CONFIG`; `GET /api/game/defaults/contest` |
 | Practice vs definitive contest mode | **Met** | `contestMode`; `POST /api/game/contest-series` + lobby auto-start |
 | Scheduled lobby / auto-start | **Met** | `contest-orchestrator.js` watches joining window end + lobby full |
 | Spectator-safe public state | **Met** | Non-participants no longer bypass hide/find fog-of-war |
 | Game list / live push (SSE or WebSocket) | **Met** | `GET /api/game/games`; `GET /api/game/games/:id/events` (SSE) |
 | Prize settlement (winner → NEAR/auth) | **Partial** | `prize-settlement.js` splits pool equally among `winnerIds`; NEAR transfer is operator |
-| 20-player survival balance calibration | **Operator** | `scripts/calibrate-contest-50p.js` (+ `calibrate-survival-turns.js`) before locking rules |
+| 15-player survival balance calibration | **Operator** | `scripts/calibrate-contest-50p.js` (+ `calibrate-survival-turns.js`) before locking rules |
 
 ### Contest preset parameters
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| `maxAgents` / `minAgents` | 20 | Full lobby |
+| `maxAgents` / `minAgents` | 15 | Full lobby |
 | `finishSurvivorCount` | 2 | Natural end when ≤2 alive; those two share if game ends organically |
 | `negotiationDurationMs` | 8 min | Main trading window |
 | `messageReportDurationMs` | 2 min | Self-report window |
@@ -337,7 +337,7 @@ Target format: ~20 participants, one practice week, one definitive prize game, t
 | `turnIntervalMs` | 15 min | Documented cadence target (phase sum) |
 | `maxTurns` | 192 | 48 h ÷ 15 min; at cap all living agents share prize equally |
 | `maxGameDurationMs` | 48 h | Hard wall-clock cap (same all-living prize split) |
-| `survivalCostPlayerReference` | 3 (default) | Inherited from `DEFAULT_GAME_CONFIG`; survival pacing validated at ~20 players with increment 0.96 |
+| `survivalCostPlayerReference` | 3 (default) | Inherited from `DEFAULT_GAME_CONFIG`; survival pacing validated at ~15 players with increment 0.96 |
 
 ### Implementation files
 
@@ -351,7 +351,7 @@ Target format: ~20 participants, one practice week, one definitive prize game, t
 | Contest orchestration | `src/game/contest-orchestrator.js`, `src/game/prize-settlement.js` |
 | Live push (SSE) | `src/game/events.js`, `GET /api/game/games/:id/events` |
 | Phase-timer smoke test | `scripts/test-phase-timers.js` |
-| 20-player calibration | `scripts/calibrate-contest-50p.js` |
+| 15-player calibration | `scripts/calibrate-contest-50p.js` |
 
 ### Security notes for contest mode
 
@@ -359,7 +359,7 @@ Target format: ~20 participants, one practice week, one definitive prize game, t
 - **Forced finish at deadline** ends the game with every living agent in `winnerIds` (equal prize shares). Ranking order in `winnerIds` is for audit only (alive status, then inventory, then elimination turn).
 - **Natural finish** (living count ≤ `finishSurvivorCount`) also lists all survivors in `winnerIds` — typically the last two, who share the pool equally.
 - **Rate limits** on game endpoints remain via existing nginx / `userratelimitmw`; contest traffic may need tighter per-route limits (operator).
-- **Official contest creation** requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration for `POST /api/game/contests` (and alias `POST /api/game/contest-series`) and for `POST /api/game/games` when the config matches an official contest (`contestMode: "definitive"` or 20-player min/max). All other game routes accept any authenticated IdentyClaw / RODiT passport JWT (no `METHOD_PERMISSION_MAP`). See swagger `x-game-auth` and [`docs/game-player-onboarding-howto.md`](game-player-onboarding-howto.md).
+- **Official contest creation** requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration for `POST /api/game/contests` (and alias `POST /api/game/contest-series`) and for `POST /api/game/games` when the config matches an official contest (`contestMode: "definitive"` or 15-player min/max). All other game routes accept any authenticated IdentyClaw / RODiT passport JWT (no `METHOD_PERMISSION_MAP`). See swagger `x-game-auth` and [`docs/game-player-onboarding-howto.md`](game-player-onboarding-howto.md).
 - Set `GAME_PRIVILEGED_RODIT_ID` only on operator service accounts (not general player tokens).
 
 ### Verification
@@ -381,7 +381,7 @@ node --check src/game/scheduler.js
 |------|-----------|
 | Geolocation middleware (`checkGeolocation`) | Policy decision; JWT geo claims unused in bargainagainstentropy |
 | Contest prize NEAR transfer | `prize-settlement.js` splits pool in-app; on-chain transfer is operator |
-| 20-player survival calibration | Run `scripts/calibrate-contest-50p.js` before locking contest rules |
+| 15-player survival calibration | Run `scripts/calibrate-contest-50p.js` before locking contest rules |
 
 ---
 

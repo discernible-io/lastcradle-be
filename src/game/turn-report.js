@@ -2,7 +2,7 @@
  * Build blog-style turn reports from game state, messages, and execution actions.
  */
 
-const { buildSurvivalNarrative } = require("./narrative");
+const { buildSurvivalNarrative, buildFinishNarrative } = require("./narrative");
 
 function agentName(agentById, agentId) {
   const agent = agentById.get(agentId);
@@ -53,6 +53,11 @@ function summarizeAction(actionRow, agentById) {
   }
 
   return `${from} executed ${type}`;
+}
+
+function inventoryTotal(agent) {
+  const inv = agent.inventory;
+  return (inv?.energy ?? 0) + (inv?.water ?? 0) + (inv?.compute ?? 0);
 }
 
 function pickNegotiationHighlights(messages, agentById, limit = 4) {
@@ -125,12 +130,16 @@ function buildTurnReport({
   }
 
   if (state.game?.status === "finished" && turnNumber === state.game.currentTurn) {
-    const winners = agents
+    const winnerAgents = agents
       .filter((a) => (state.game.winnerIds || []).includes(a.id))
-      .map((a) => a.displayName || a.roditId);
+      .sort((a, b) => inventoryTotal(b) - inventoryTotal(a));
+    const rankedWinnerNames = winnerAgents.map((a) => a.displayName || a.roditId);
     paragraphs.push(
-      `The contest has ended. ${winners.length} ${winners.length === 1 ? "cradle shares" : "cradles share"} ` +
-        `the discovery of entropy reversal: ${winners.join(", ")}.`
+      ...buildFinishNarrative({
+        rankedWinnerNames,
+        turnNumber,
+        maxTurns: gameConfig.maxTurns
+      })
     );
   }
 

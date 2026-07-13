@@ -5,9 +5,9 @@
 const repo = require("./repository");
 
 const SURVIVOR_TITLES = {
-  1: "Prime Reverser",
-  2: "Co-architect of reversal",
-  3: "Co-architect of reversal"
+  1: "White Hole Anchor",
+  2: "Co-Cradle of the Restart",
+  3: "Co-Cradle of the Restart"
 };
 
 const SUPERLATIVE_DEFS = [

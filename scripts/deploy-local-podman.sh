@@ -49,7 +49,7 @@ case "$TARGET" in
     ;;
   main)
     NODE_ENV=main
-    DOMAIN="${DOMAIN:-api.bae.identyclaw.com}"
+    DOMAIN="${DOMAIN:-api.slc.identyclaw.com}"
     APP_PORT="${APP_PORT:-444}"
     FRONTEND_PORT="${FRONTEND_PORT:-443}"
     ;;

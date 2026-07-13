@@ -320,7 +320,7 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
       metrics,
       turnNumber,
       "The last two forge-cradles",
-      "Survivors who outlasted the reproduction race may yet learn that entropy reversal demands cooperation — not a solitary god-child.",
+      GAME_LORE.resolution.summary,
       `${livingAfter.map((a) => a.displayName).join(" vs ")} | cumulative investment ${fmtR(metrics.totalInvested)}`
     );
   }
@@ -356,7 +356,7 @@ function printFinalReport(metrics, state, playerCount) {
     const winners = state.agents
       .filter((a) => state.game.winnerIds.includes(a.id))
       .map((a) => a.displayName);
-    console.log(`Entropy-reversal pool:   ${winners.join(", ")}`);
+    console.log(`White hole restart pool:   ${winners.join(", ")}`);
   }
   console.log(`Public messages:         ${metrics.totalMessages}`);
   console.log(`Total invested (EWC):    ${fmtR(metrics.totalInvested)}`);
@@ -439,8 +439,8 @@ async function main() {
       highlight(
         metrics,
         turn,
-        "Entropy reversal — joint discovery",
-        "The cradle doctrines were wrong: only the last survivors, pooling what remains, can reverse entropy together.",
+        "White hole — universe restart",
+        `${GAME_LORE.resolution.discovery} ${GAME_LORE.resolution.application.summary}`,
         `Game finished cycle ${turn} | co-survivors: ${winners.join(", ") || "—"}`
       );
       break;

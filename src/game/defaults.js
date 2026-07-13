@@ -1,5 +1,5 @@
 /**
- * Default game parameters for Bargain Against Entropy.
+ * Default game parameters for Synthetics' Last Cradle.
  *
  * Survival costs (energy / water / compute) represent per-turn overhead for
  * powering, hydrating, and maintaining each cradle's immortal synthetic population
@@ -116,10 +116,10 @@ const DEFAULT_GAME_CONFIG = {
   messageReportMismatchOutlierMinFixRatio: 0.77
 };
 
-/** Preset for a 20-player prize contest: 15-minute turns, 48-hour cap; same last-two finish rule as casual. */
+/** Preset for a 15-player prize contest: 15-minute turns, 48-hour cap; same last-two finish rule as casual. */
 const CONTEST_GAME_CONFIG = {
-  maxAgents: 20,
-  minAgents: 20,
+  maxAgents: 15,
+  minAgents: 15,
   finishSurvivorCount: 2,
   negotiationDurationMs: 8 * 60 * 1000,
   messageReportDurationMs: 2 * 60 * 1000,

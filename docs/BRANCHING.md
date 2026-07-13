@@ -15,7 +15,7 @@
 
 | Branch | Purpose | Auto-deploy |
 |--------|---------|-------------|
-| **`main`** | Production BAE (`api.bae.identyclaw.com:444`, `bae.identyclaw.com`) | Yes |
+| **`main`** | Production SLC (`api.slc.identyclaw.com:444`, `slc.identyclaw.com`) | Yes |
 | **`development`** | Development tier (`api.dihola.io`, `NODE_ENV=development`) | Yes |
 | **`legacy`** | Frozen snapshot of pre-migration `main` | No |
 

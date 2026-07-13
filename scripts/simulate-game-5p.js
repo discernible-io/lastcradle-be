@@ -287,7 +287,7 @@ async function main() {
 
   await repo.initializeDatabase();
 
-  console.log("Bargain Against Entropy — 5-cradle simulation");
+  console.log("Synthetics' Last Cradle — 5-cradle simulation");
   console.log(`Database: ${DB_PATH}`);
   console.log(`Cradles: ${PROFILES.map((p) => `${p.displayName} (${p.role})`).join(", ")}`);
   console.log(`Mode: ${RUN_UNTIL_FINISH ? "run until ≤2 survivors" : `max ${maxTurns} turns`}${QUIET ? " (quiet)" : ""}\n`);

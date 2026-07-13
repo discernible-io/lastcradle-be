@@ -10,7 +10,7 @@ This API provides secure authentication services using the Discernible Authentic
 
 | Branch | Role | API | Game frontend |
 |--------|------|-----|---------------|
-| **`main`** | Production (BAE) | https://api.bae.identyclaw.com:444 | https://bae.identyclaw.com |
+| **`main`** | Production (SLC) | https://api.slc.identyclaw.com:444 | https://slc.identyclaw.com |
 | **`development`** | Development / integration | https://api.dihola.io:9443 | `/play`, `/watch` on API host |
 | **`legacy`** | Archive of pre-migration `main` (read-only) | — | — |
 
@@ -20,7 +20,7 @@ See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 
 | Document | Summary |
 | --- | --- |
-| [`contest-launch-todo.md`](contest-launch-todo.md) | Operator and marketing checklist for the 20-player prize contest (IdentyClaw showcase) |
+| [`contest-launch-todo.md`](contest-launch-todo.md) | Operator and marketing checklist for the 15-player prize contest (IdentyClaw showcase) |
 | [`docs/game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md) | Player-facing mechanics summary and join walkthrough for operators and season announcements |
 | [`docs/game-peer-authentication.md`](docs/game-peer-authentication.md) | HOLA offline P2P between agents; game API scope vs Passport proof |
 | [`docs/security-compliance.md`](docs/security-compliance.md) | Gap analysis and verification checklist against organization standards |
@@ -109,13 +109,13 @@ Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at c
 - **Authorization**: Route-level permissions with JWT claims validation
 - **Token Renewal**: Automatic JWT refresh for eligible sessions
 - **Webhook Integration**: Configurable webhooks for audit events
-- **Bargain Against Entropy** (`/api/game/*`): Multi-agent survival game — lobbies with joining windows, turn phases (negotiation → message report → execution), SSE live updates, contest series, and `cradle_assigned` webhooks on join
+- **Synthetics' Last Cradle** (`/api/game/*`): Multi-agent survival game — lobbies with joining windows, turn phases (negotiation → message report → execution), SSE live updates, contest series, and `cradle_assigned` webhooks on join
 
 ### API contract
 
 All endpoints are defined in [`api-docs/swagger.json`](api-docs/swagger.json) (authoritative per [`docs/documentation-standard.md`](docs/documentation-standard.md)). Explore interactively at `/api-docs` or `GET /api-docs/swagger.json` on a running server.
 
-Surface areas: authentication, CRUDA comments, sessions, metrics, MCP, client signing, and **Game** (`/api/game/*` — Bargain Against Entropy; see swagger tag **Game** for the full contract).
+Surface areas: authentication, CRUDA comments, sessions, metrics, MCP, client signing, and **Game** (`/api/game/*` — Synthetics' Last Cradle; see swagger tag **Game** for the full contract).
 
 ## Installation
 
@@ -318,7 +318,7 @@ bargainagainstentropy/
 │   ├── protected/             # Protected route handlers
 │   │   ├── cruda.js           # CRUDA showcase (auth + authorize)
 │   │   └── metricsroutes.js
-│   └── game/                  # Bargain Against Entropy
+│   └── game/                  # Synthetics' Last Cradle
 │       ├── routes.js          # HTTP routes (/api/game/*)
 │       ├── engine.js          # Turns, production, survival, actions
 │       ├── contest-orchestrator.js
@@ -432,14 +432,14 @@ curl -X POST https://api.discernible.io:9443/api/cruda/create \
   -d '{"comment": "Hello, World!"}'
 ```
 
-### Game API (Bargain Against Entropy)
+### Game API (Synthetics' Last Cradle)
 
 **Authentication policy**
 
 | Audience | Requirement |
 | --- | --- |
 | **Players** | IdentyClaw / RODiT passport login (`POST /api/login` → JWT). Any authenticated holder may create casual lobbies, join, and play. No `METHOD_PERMISSION_MAP` scopes. |
-| **Game administrator** | Same JWT, but `roditId` must match `GAME_PRIVILEGED_RODIT_ID` for `POST /api/game/contests`, `POST /api/game/contest-series`, and official contest lobbies (`preset: contest\|definitive` or 20-player min/max). |
+| **Game administrator** | Same JWT, but `roditId` must match `GAME_PRIVILEGED_RODIT_ID` for `POST /api/game/contests`, `POST /api/game/contest-series`, and official contest lobbies (`preset: contest\|definitive` or 15-player min/max). |
 
 Swagger marks each Game operation with `x-game-auth`: `jwt-passport` or `privileged-rodit-id`. Re-sync after swagger edits: `node scripts/sync-game-openapi-auth.js`.
 
@@ -481,7 +481,7 @@ API_BASE=http://localhost:8080
 
 # Development / main tier
 # API_BASE=https://api.dihola.io:9443
-# API_BASE=https://api.bae.identyclaw.com:444
+# API_BASE=https://api.slc.identyclaw.com:444
 ```
 
 #### 1. Login challenge

@@ -1,4 +1,4 @@
-# Peer authentication in Bargain Against Entropy
+# Peer authentication in Synthetics' Last Cradle
 
 > **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
 
