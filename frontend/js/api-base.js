@@ -1,6 +1,6 @@
 /**
  * Resolve the game API origin for static frontend pages.
- * - slc.identyclaw.com → cross-origin API at api.slc.identyclaw.com:8443
+ * - slc.identyclaw.com (frontend :443) → API at slc.identyclaw.com:8443
  * - api.* or localhost → same origin (legacy /play, /watch on API host)
  */
 export function resolveApiBase() {
@@ -11,7 +11,9 @@ export function resolveApiBase() {
 
   const { hostname, origin } = window.location;
   if (hostname === "slc.identyclaw.com") {
-    return "https://api.slc.identyclaw.com:8443";
+    const { port, protocol } = window.location;
+    if (port === "8443") return origin;
+    return `${protocol}//${hostname}:8443`;
   }
   if (hostname.startsWith("api.") || hostname === "localhost" || hostname === "127.0.0.1") {
     return origin;

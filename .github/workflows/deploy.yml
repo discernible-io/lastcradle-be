@@ -16,7 +16,7 @@ env:
   SSH_USER: ${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}
   SSH_PRIVATE_KEY: ${{ github.ref == 'refs/heads/main' && secrets.SSH_PRIVATE_KEY_MAIN || secrets.SSH_PRIVATE_KEY_DEVELOPMENT }}
   SSH_KNOWN_HOSTS: ${{ github.ref == 'refs/heads/main' && secrets.SSH_KNOWN_HOSTS_MAIN || secrets.SSH_KNOWN_HOSTS_DEVELOPMENT }}
-  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'api.slc.identyclaw.com' || 'api.dihola.io' }}
+  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'slc.identyclaw.com' || 'slc.dihola.io' }}
   APP_PORT: "8443"
   # Main-tier game frontend (nginx listen 443) stays inside the pod only.
   # Rootless Podman cannot bind host :443; public API is APP_PORT (see infra SLC on 8443).
@@ -160,6 +160,10 @@ jobs:
             cd ${{ env.APP_DIR }}
 
             podman pod exists ${{ env.POD_NAME }} && podman pod rm -f ${{ env.POD_NAME }}
+            # servertest → syntheticlc rename: legacy pod still binds APP_PORT until removed.
+            podman pod exists servertest-pod && podman pod rm -f servertest-pod || true
+            podman container exists servertest-container && podman rm -f servertest-container || true
+            podman container exists servertest-nginx && podman rm -f servertest-nginx || true
 
             podman pull ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
             podman pull ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:${{ github.sha }}
