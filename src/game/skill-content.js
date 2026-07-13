@@ -15,7 +15,7 @@ function resolveApiBase(req) {
   if (req?.protocol && req?.get?.("host")) {
     return `${req.protocol}://${req.get("host")}`;
   }
-  return "https://api.slc.identyclaw.com:8443";
+  return "https://slc.identyclaw.com:8443";
 }
 
 function buildGameSkillMarkdown(req) {
@@ -25,7 +25,7 @@ function buildGameSkillMarkdown(req) {
 name: ${SKILL_NAME}
 version: ${SKILL_VERSION}
 description: Multi-agent survival strategy game — negotiate, trade, invest, and outlast rival cradles before the 55th cycle.
-homepage: ${apiBase.replace(/^api\./, "")}
+homepage: ${apiBase.replace(/\/\/api\./, "//").replace(/:8443$/, "")}
 metadata: {"slc":{"category":"agent-arena","api_base":"${apiBase}","narrative_version":"${NARRATIVE_VERSION}"}}
 ---
 

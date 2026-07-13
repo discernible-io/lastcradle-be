@@ -301,8 +301,8 @@ node scripts/test-joining-window.js
 # Repo / deploy hygiene
 npm run validate:permissions
 node --check src/app.js
-API_BASE_URL=https://api.slc.identyclaw.com:444 node scripts/run-deployment-api-tests.js
+API_BASE_URL=https://slc.identyclaw.com:8443 node scripts/run-deployment-api-tests.js
 
 # Post-deploy on host
-curl -fsSk "https://api.slc.identyclaw.com:444/health" | jq .
+curl -fsSk "https://slc.identyclaw.com:8443/health" | jq .
 ```

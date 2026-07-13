@@ -49,7 +49,7 @@ case "$TARGET" in
     ;;
   main)
     NODE_ENV=main
-    DOMAIN="${DOMAIN:-api.slc.identyclaw.com}"
+    DOMAIN="${DOMAIN:-slc.identyclaw.com}"
     APP_PORT="${APP_PORT:-8443}"
     ;;
   *) echo "TARGET must be development or main" >&2; exit 1 ;;
@@ -79,6 +79,9 @@ if [[ "$DEPLOY_MODE" == "local" ]]; then
 
   mkdir -p "${APP_DIR}/"{certs,logs,data,nginx,secrets} "${APP_DIR}/logs/nginx"
   podman pod exists "$POD_NAME" && podman pod rm -f "$POD_NAME"
+  podman pod exists servertest-pod && podman pod rm -f servertest-pod || true
+  podman container exists servertest-container && podman rm -f servertest-container || true
+  podman container exists servertest-nginx && podman rm -f servertest-nginx || true
   podman pod create --name "$POD_NAME" -p "${APP_PORT}:${APP_PORT}"
 
   podman run -d \
