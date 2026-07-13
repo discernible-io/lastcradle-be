@@ -221,7 +221,7 @@ The **`legacy`** branch is archived and does not deploy. See [docs/BRANCHING.md]
 ssh user@178.62.195.21
 
 # Navigate to application directory
-cd ~/servertest-app
+cd ~/syntheticlc-app
 
 # Prefer CI/GHCR (see docs/BRANCHING.md). Local parity:
 ./scripts/deploy-local-podman.sh
@@ -230,16 +230,16 @@ TARGET=main ./scripts/deploy-local-podman.sh
 # Create pod and run containers
 podman pod create --name servertest-pod -p 9443:9443
 podman run -d --pod servertest-pod --name servertest-container \
-  -v ~/servertest-app/data:/app/data:Z \
-  -v ~/servertest-app/logs:/app/logs:Z \
-  -v ~/servertest-app/certs:/app/certs:ro,Z \
+  -v ~/syntheticlc-app/data:/app/data:Z \
+  -v ~/syntheticlc-app/logs:/app/logs:Z \
+  -v ~/syntheticlc-app/certs:/app/certs:ro,Z \
   -e NODE_ENV=main \
   [... other env vars ...] \
   servertest-image:latest
 
 podman run -d --pod servertest-pod --name servertest-nginx \
-  -v ~/servertest-app/certs:/app/certs:ro,Z \
-  -v ~/servertest-app/logs/nginx:/var/log/nginx:Z \
+  -v ~/syntheticlc-app/certs:/app/certs:ro,Z \
+  -v ~/syntheticlc-app/logs/nginx:/var/log/nginx:Z \
   servertest-nginx:latest
 ```
 
@@ -254,7 +254,7 @@ Environment-specific configs (`nginx/nginx.main.conf`, `nginx/nginx.development.
 - **Health**: Proxies `GET /health` to the API (dependency probes)
 - **Logging**: JSON access logs; `/health` omitted from access log
 
-Local deploy without rsync/GHCR: `./scripts/deploy-local-podman.sh` (requires `~/servertest-app/secrets/secrets.env`).
+Local deploy without rsync/GHCR: `./scripts/deploy-local-podman.sh` (requires `~/syntheticlc-app/secrets/secrets.env`).
 
 ## Security
 
@@ -392,8 +392,8 @@ podman logs servertest-container
 podman logs servertest-nginx
 
 # View logs on host
-tail -f ~/servertest-app/logs/combined.log
-tail -f ~/servertest-app/logs/nginx/nginxaccess.log
+tail -f ~/syntheticlc-app/logs/combined.log
+tail -f ~/syntheticlc-app/logs/nginx/nginxaccess.log
 ```
 
 ## API Usage Examples

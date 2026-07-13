@@ -40,7 +40,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 |------|--------|
 | GitHub `SSH_*` / `GHCR_PULL_TOKEN` | GitHub Actions secrets |
 | Host `secrets/secrets.env` (`SESSION_SECRET`, NEAR creds, `NEAR_RPC_URL`, …) | Deploy host |
-| TLS PEMs | `~/servertest-app/certs/` |
+| TLS PEMs | `~/syntheticlc-app/certs/` |
 | Linger verification | `loginctl enable-linger <deploy-user>` |
 | Contest prize NEAR transfer | Operator on-chain step after `prize-settlement.js` |
 | 15-player survival calibration | `scripts/calibrate-contest-50p.js` before locking contest rules |
@@ -129,7 +129,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Gitleaks before `npm ci` | **Met** | `fetch-depth: 0` checkout |
 | Minimum package age | **Met** | `enforce-minimum-package-age.js` |
 | Branches `main` / `development` | **Met** | `DOMAIN` / `NODE_ENV` per branch |
-| `APP_DIR` from `SSH_USER_*` | **Met** | `/home/<user>/servertest-app` |
+| `APP_DIR` from `SSH_USER_*` | **Met** | `/home/<user>/syntheticlc-app` |
 | Host `secrets/secrets.env` | **Met** | No workflow `-e` for secrets |
 | Linger on every deploy | **Met** | SSH + `ensure-podman-linger.sh` |
 | Advisory HTTPS health | **Met** | `continue-on-error: true`; JSON `status` grep |
@@ -258,8 +258,8 @@ Configure **once per environment** (not stored in this repo):
 | `SSH_HOST_MAIN`, `SSH_USER_MAIN`, `SSH_PRIVATE_KEY_MAIN`, `SSH_KNOWN_HOSTS_MAIN` | GitHub Actions secrets |
 | `SSH_HOST_DEVELOPMENT`, `SSH_USER_DEVELOPMENT`, … | GitHub Actions secrets |
 | `GHCR_PULL_TOKEN` | GitHub Actions + host `podman login ghcr.io` |
-| `~/servertest-app/secrets/secrets.env` | Deploy host (`SESSION_SECRET`, NEAR creds, etc.) |
-| TLS PEMs | `~/servertest-app/certs/fullchain.pem`, `privkey.pem` |
+| `~/syntheticlc-app/secrets/secrets.env` | Deploy host (`SESSION_SECRET`, NEAR creds, etc.) |
+| TLS PEMs | `~/syntheticlc-app/certs/fullchain.pem`, `privkey.pem` |
 | Linger | `loginctl enable-linger <deploy-user>` or rely on deploy script |
 
 Branches ([`BRANCHING.md`](BRANCHING.md)):

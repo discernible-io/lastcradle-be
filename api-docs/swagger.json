@@ -18,11 +18,11 @@
   },
   "servers": [
     {
-      "url": "https://api.slc.identyclaw.com:444",
+      "url": "https://api.slc.identyclaw.com:8443",
       "description": "Main (main branch) — Synthetics' Last Cradle API"
     },
     {
-      "url": "https://api.dihola.io:9443",
+      "url": "https://api.dihola.io:8443",
       "description": "Development (development branch)"
     },
     {

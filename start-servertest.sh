@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to start servertest containers on port 9443
+# Script to start servertest containers on port 8443
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -56,7 +56,7 @@ start_container() {
 }
 
 # Main script
-echo "Starting servertest containers on port 9443..."
+echo "Starting servertest containers on port 8443..."
 
 # Define the containers in the order they should be started
 CONTAINERS=(
@@ -98,7 +98,7 @@ done
 
 if [ "$all_running" = true ]; then
     echo -e "\n${GREEN}All containers started successfully!${NC}"
-    echo -e "servertest service is now accessible on port 9443"
+    echo -e "servertest service is now accessible on port 8443"
 else
     echo -e "\n${YELLOW}Some containers had issues. Please check the logs above for more information.${NC}"
     exit 1
