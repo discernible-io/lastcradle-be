@@ -168,7 +168,7 @@ if [ -f "${DB_PATH}" ] && [ -s "${DB_PATH}" ]; then
             echo "  • Restart container to pick up new database"
             echo ""
             echo "📦 To apply changes:"
-            echo "    podman restart servertest-container"
+            echo "    podman restart syntheticlc-container"
         else
             echo ""
             echo "💻 Development Mode Active:"

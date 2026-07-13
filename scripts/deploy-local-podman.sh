@@ -35,9 +35,9 @@ APP_DIR="${APP_DIR:-~/syntheticlc-app}"
 APP_DIR="${APP_DIR/#\~/$HOME}"
 bash "${REPO_ROOT}/scripts/migrate-app-dir.sh"
 APP_PORT="${APP_PORT:-8443}"
-POD_NAME="${POD_NAME:-servertest-pod}"
-APP_CONTAINER_NAME="${APP_CONTAINER_NAME:-servertest-container}"
-NGINX_CONTAINER_NAME="${NGINX_CONTAINER_NAME:-servertest-nginx}"
+POD_NAME="${POD_NAME:-syntheticlc-pod}"
+APP_CONTAINER_NAME="${APP_CONTAINER_NAME:-syntheticlc-container}"
+NGINX_CONTAINER_NAME="${NGINX_CONTAINER_NAME:-syntheticlc-nginx}"
 REGISTRY="${REGISTRY:-ghcr.io}"
 IMAGE_TAG="${IMAGE_TAG:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo local)}"
 
@@ -46,13 +46,11 @@ case "$TARGET" in
     NODE_ENV=development
     DOMAIN="${DOMAIN:-api.dihola.io}"
     APP_PORT="${APP_PORT:-8443}"
-    FRONTEND_PORT="${FRONTEND_PORT:-}"
     ;;
   main)
     NODE_ENV=main
     DOMAIN="${DOMAIN:-api.slc.identyclaw.com}"
     APP_PORT="${APP_PORT:-8443}"
-    FRONTEND_PORT="${FRONTEND_PORT:-443}"
     ;;
   *) echo "TARGET must be development or main" >&2; exit 1 ;;
 esac
@@ -67,8 +65,8 @@ default_repo() {
   esac
 }
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-$(default_repo)}"
-API_IMAGE="${REGISTRY}/${GITHUB_REPOSITORY}/servertest-api:${IMAGE_TAG}"
-NGINX_IMAGE="${REGISTRY}/${GITHUB_REPOSITORY}/servertest-nginx:${IMAGE_TAG}"
+API_IMAGE="${REGISTRY}/${GITHUB_REPOSITORY}/syntheticlc-api:${IMAGE_TAG}"
+NGINX_IMAGE="${REGISTRY}/${GITHUB_REPOSITORY}/syntheticlc-nginx:${IMAGE_TAG}"
 
 if [[ "$DEPLOY_MODE" == "local" ]]; then
   if [[ "$SKIP_BUILD" -eq 0 ]]; then
@@ -81,11 +79,7 @@ if [[ "$DEPLOY_MODE" == "local" ]]; then
 
   mkdir -p "${APP_DIR}/"{certs,logs,data,nginx,secrets} "${APP_DIR}/logs/nginx"
   podman pod exists "$POD_NAME" && podman pod rm -f "$POD_NAME"
-  if [[ -n "$FRONTEND_PORT" ]]; then
-    podman pod create --name "$POD_NAME" -p "${APP_PORT}:${APP_PORT}" -p "${FRONTEND_PORT}:${FRONTEND_PORT}"
-  else
-    podman pod create --name "$POD_NAME" -p "${APP_PORT}:${APP_PORT}"
-  fi
+  podman pod create --name "$POD_NAME" -p "${APP_PORT}:${APP_PORT}"
 
   podman run -d \
     --pod "$POD_NAME" \
@@ -109,7 +103,7 @@ if [[ "$DEPLOY_MODE" == "local" ]]; then
 
   sleep 5
   podman exec "$APP_CONTAINER_NAME" node /app/scripts/run-deployment-api-tests.js || true
-  echo "Local deploy complete. Pod: $POD_NAME API port $APP_PORT${FRONTEND_PORT:+, frontend port $FRONTEND_PORT}"
+  echo "Local deploy complete. Pod: $POD_NAME API port $APP_PORT"
 else
   echo "Remote deploy: use GitHub Actions deploy.yml (GHCR pull + SSH)." >&2
   exit 1

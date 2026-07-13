@@ -18,15 +18,16 @@ env:
   SSH_KNOWN_HOSTS: ${{ github.ref == 'refs/heads/main' && secrets.SSH_KNOWN_HOSTS_MAIN || secrets.SSH_KNOWN_HOSTS_DEVELOPMENT }}
   DOMAIN: ${{ github.ref == 'refs/heads/main' && 'api.slc.identyclaw.com' || 'api.dihola.io' }}
   APP_PORT: "8443"
-  FRONTEND_PORT: ${{ github.ref == 'refs/heads/main' && '443' || '' }}
+  # Main-tier game frontend (nginx listen 443) stays inside the pod only.
+  # Rootless Podman cannot bind host :443; public API is APP_PORT (see infra SLC on 8443).
   APP_DIR: ~/syntheticlc-app
-  POD_NAME: servertest-pod
-  APP_CONTAINER_NAME: servertest-container
-  NGINX_CONTAINER_NAME: servertest-nginx
+  POD_NAME: syntheticlc-pod
+  APP_CONTAINER_NAME: syntheticlc-container
+  NGINX_CONTAINER_NAME: syntheticlc-nginx
   REGISTRY: ghcr.io
   REGISTRY_USERNAME: ${{ github.actor }}
-  API_IMAGE_NAME: ${{ github.repository }}/servertest-api
-  NGINX_IMAGE_NAME: ${{ github.repository }}/servertest-nginx
+  API_IMAGE_NAME: ${{ github.repository }}/syntheticlc-api
+  NGINX_IMAGE_NAME: ${{ github.repository }}/syntheticlc-nginx
   NODE_VERSION: 20
   HEALTH_CHECK_TIMEOUT: 120
   HEALTH_CHECK_INTERVAL: 5
@@ -163,13 +164,7 @@ jobs:
             podman pull ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
             podman pull ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:${{ github.sha }}
 
-            if [ -n '${{ env.FRONTEND_PORT }}' ]; then
-              podman pod create --name ${{ env.POD_NAME }} \
-                -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
-                -p ${{ env.FRONTEND_PORT }}:${{ env.FRONTEND_PORT }}
-            else
-              podman pod create --name ${{ env.POD_NAME }} -p ${{ env.APP_PORT }}:${{ env.APP_PORT }}
-            fi
+            podman pod create --name ${{ env.POD_NAME }} -p ${{ env.APP_PORT }}:${{ env.APP_PORT }}
 
             mkdir -p ${{ env.APP_DIR }}/logs ${{ env.APP_DIR }}/data
             podman unshare chown -R 1000:1000 ${{ env.APP_DIR }}/logs ${{ env.APP_DIR }}/data || true

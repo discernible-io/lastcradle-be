@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fix ownership, permissions, and SELinux labels for servertest rootless Podman volumes
+# Fix ownership, permissions, and SELinux labels for syntheticlc rootless Podman volumes
 # Usage: ./fix-permissions.sh [APP_DIR]
 # If APP_DIR is not provided, defaults to "$HOME/syntheticslastcradle"
 
