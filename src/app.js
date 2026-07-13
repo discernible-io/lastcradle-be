@@ -24,7 +24,10 @@ const {
   resolveHealthyNearRpcUrl
 } = require("@rodit/rodit-auth-be");
 const { sendError } = errorResponse;
-const { setExpressSessionStore } = require("@rodit/rodit-auth-be/lib/auth/sessionmanager");
+const { setExpressSessionStore } = require(path.join(
+  path.dirname(require.resolve("@rodit/rodit-auth-be")),
+  "lib/auth/sessionmanager.js"
+));
 const { probeNearRpcStatus } = require("./services/near-rpc-probe.service");
 const { createHealthHandler } = require("./services/health.service");
 const {

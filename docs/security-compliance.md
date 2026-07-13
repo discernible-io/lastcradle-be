@@ -186,7 +186,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Swagger as contract | **Met** | Auth, CRUDA, sessions, `/health`, full `/api/game/*` with `x-game-auth` policy |
 | Runtime serves static swagger | **Met** | `/api-docs` and `/api-docs/swagger.json` load `api-docs/swagger.json` (no swagger-jsdoc drift) |
 | `npm run validate:permissions` | **Met** | Game paths excluded; map matches swagger (16 ops) |
-| Dual server URLs | **Met** | `api.discernible.io:9443`, `api.dihola.io:9443` |
+| Dual server URLs | **Met** | `slc.identyclaw.com:8443`, `slc.dihola.io:8443` |
 | README indexes all docs | **Met** | Standards, game howtos, `scripts/README-database-init.md` |
 | README commands match `package.json` | **Met** | Local verification section lists `validate:permissions`, `node --check`, deploy smoke tests |
 
@@ -267,7 +267,7 @@ Branches ([`BRANCHING.md`](BRANCHING.md)):
 | Branch | Role | `NODE_ENV` | Deploy on push | `server_name` |
 |--------|------|------------|----------------|---------------|
 | `main` | Main tier | `main` | Yes | `api.discernible.io` |
-| `development` | Development tier | `development` | Yes | `api.dihola.io` |
+| `development` | Development tier | `development` | Yes | `slc.dihola.io` |
 | `legacy` | Pre-migration archive | — | No | — |
 
 ---

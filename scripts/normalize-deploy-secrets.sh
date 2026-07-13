@@ -41,7 +41,7 @@ done
 
 case "$TARGET" in
   development)
-    DOMAIN="${DOMAIN:-api.dihola.io}"
+    DOMAIN="${DOMAIN:-slc.dihola.io}"
     SSH_HOST_RAW="${HOST_OVERRIDE:-${SSH_HOST:-${SSH_HOST_DEVELOPMENT:-}}}"
     SECRET_HOST="SSH_HOST_DEVELOPMENT"
     SECRET_KNOWN="SSH_KNOWN_HOSTS_DEVELOPMENT"

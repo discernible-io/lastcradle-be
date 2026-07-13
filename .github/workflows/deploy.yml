@@ -16,7 +16,7 @@ env:
   SSH_USER: ${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}
   SSH_PRIVATE_KEY: ${{ github.ref == 'refs/heads/main' && secrets.SSH_PRIVATE_KEY_MAIN || secrets.SSH_PRIVATE_KEY_DEVELOPMENT }}
   SSH_KNOWN_HOSTS: ${{ github.ref == 'refs/heads/main' && secrets.SSH_KNOWN_HOSTS_MAIN || secrets.SSH_KNOWN_HOSTS_DEVELOPMENT }}
-  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'slc.identyclaw.com' || 'api.dihola.io' }}
+  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'slc.identyclaw.com' || 'slc.dihola.io' }}
   APP_PORT: "8443"
   # Main-tier game frontend (nginx listen 443) stays inside the pod only.
   # Rootless Podman cannot bind host :443; public API is APP_PORT (see infra SLC on 8443).

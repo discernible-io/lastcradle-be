@@ -87,7 +87,7 @@ In `sdk/utils.js`, the compatibility fallback uses `process.env[key] || null`. T
 
 | File | When loaded | Contents |
 | --- | --- | --- |
-| [`config/development.json`](../config/development.json) | `NODE_ENV=development` | Full config for `api.dihola.io` / `development` branch |
+| [`config/development.json`](../config/development.json) | `NODE_ENV=development` | Full config for `slc.dihola.io` / `development` branch |
 | [`config/main.json`](../config/main.json) | `NODE_ENV=main` | Full config for `api.identyclaw.com` / `main` branch |
 | [`config/custom-environment-variables.json`](../config/custom-environment-variables.json) | Runtime | Env var → config mapping |
 | `secrets/secrets.env` (host, not in git) | Runtime | `NEAR_RPC_URL`, `LOKI_BASIC_AUTH`, production `SESSION_SECRET`, etc. |
@@ -119,7 +119,7 @@ Certain config keys **must differ** between development and main branches. These
 
 | Key | `development` | `main` |
 | --- | --- | --- |
-| `SERVICE_NAME` | `api.dihola.io` | `api.identyclaw.com` |
+| `SERVICE_NAME` | `slc.dihola.io` | `slc.identyclaw.com` |
 | `SIGNPORTAL_API_URL` | signportal.dihola.io | signportal.roditcorp.com |
 | `NEAR_CONTRACT_ID` | `2026v2-identyclaw-com.near` | `2026v1-identyclaw-com.near` |
 | `MINTING_FEE` | `0.4` | `0.28` |

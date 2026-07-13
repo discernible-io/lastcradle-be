@@ -44,7 +44,7 @@ IMAGE_TAG="${IMAGE_TAG:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo
 case "$TARGET" in
   development)
     NODE_ENV=development
-    DOMAIN="${DOMAIN:-api.dihola.io}"
+    DOMAIN="${DOMAIN:-slc.dihola.io}"
     APP_PORT="${APP_PORT:-8443}"
     ;;
   main)
