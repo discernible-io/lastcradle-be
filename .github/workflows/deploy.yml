@@ -19,7 +19,7 @@ env:
   DOMAIN: ${{ github.ref == 'refs/heads/main' && 'api.slc.identyclaw.com' || 'api.dihola.io' }}
   APP_PORT: "8443"
   FRONTEND_PORT: ${{ github.ref == 'refs/heads/main' && '443' || '' }}
-  APP_DIR: /home/${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}/syntheticlc-app
+  APP_DIR: /home/${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}/servertest-app
   POD_NAME: servertest-pod
   APP_CONTAINER_NAME: servertest-container
   NGINX_CONTAINER_NAME: servertest-nginx
@@ -123,9 +123,17 @@ jobs:
         id: ssh
         env:
           SSH_HOST_RAW: ${{ env.SSH_HOST }}
+          SSH_KNOWN_HOSTS: ${{ env.SSH_KNOWN_HOSTS }}
         run: |
-          # SSH_HOST_* must be hostname or IP only; take first token if mis-pasted with key type.
-          echo "host=${SSH_HOST_RAW%% *}" >> "$GITHUB_OUTPUT"
+          HOST="${SSH_HOST_RAW%% *}"
+          if [ -z "$HOST" ] && [ -n "$SSH_KNOWN_HOSTS" ]; then
+            HOST="$(printf '%s\n' "$SSH_KNOWN_HOSTS" | awk 'NF { print $1; exit }')"
+          fi
+          if [ -z "$HOST" ]; then
+            echo "Could not resolve SSH target host from SSH_HOST or SSH_KNOWN_HOSTS" >&2
+            exit 1
+          fi
+          echo "host=$HOST" >> "$GITHUB_OUTPUT"
 
       - name: Install SSH key
         uses: shimataro/ssh-key-action@v2
@@ -160,22 +168,26 @@ jobs:
           ssh ${{ env.SSH_USER }}@${{ steps.ssh.outputs.host }} "
             set -euo pipefail
             APP_DIR='${{ env.APP_DIR }}'
-            LEGACY_DIR=\"\${APP_DIR%/syntheticlc-app}/servertest-app\"
+            LEGACY_DIR=\"\${APP_DIR%/servertest-app}/syntheticlc-app\"
             mkdir -p \"\$APP_DIR\"/{certs,logs,data,nginx,secrets}
             mkdir -p \"\$APP_DIR\"/logs/nginx
             if [ ! -f \"\$APP_DIR/secrets/secrets.env\" ] && [ -f \"\$LEGACY_DIR/secrets/secrets.env\" ]; then
-              echo \"Migrating secrets.env from legacy \$LEGACY_DIR\"
+              echo \"Migrating secrets.env from \$LEGACY_DIR\"
               cp -a \"\$LEGACY_DIR/secrets/secrets.env\" \"\$APP_DIR/secrets/secrets.env\"
             fi
             for item in certs data; do
               if [ ! -e \"\$APP_DIR/\$item\" ] || [ -z \"\$(ls -A \"\$APP_DIR/\$item\" 2>/dev/null || true)\" ]; then
                 if [ -d \"\$LEGACY_DIR/\$item\" ] && [ -n \"\$(ls -A \"\$LEGACY_DIR/\$item\" 2>/dev/null || true)\" ]; then
-                  echo \"Linking \$item from legacy \$LEGACY_DIR\"
+                  echo \"Linking \$item from \$LEGACY_DIR\"
                   rm -rf \"\$APP_DIR/\$item\"
                   ln -s \"\$LEGACY_DIR/\$item\" \"\$APP_DIR/\$item\"
                 fi
               fi
             done
+            if [ ! -f \"\$APP_DIR/secrets/secrets.env\" ]; then
+              echo \"Missing \$APP_DIR/secrets/secrets.env (provision on host before deploy)\" >&2
+              exit 1
+            fi
             chmod 750 \"\$APP_DIR\"/secrets
             chmod 711 \"\$APP_DIR\"/certs || true
             chmod 0775 \"\$APP_DIR\"/logs/nginx || true
