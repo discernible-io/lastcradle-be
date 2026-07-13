@@ -119,38 +119,73 @@ jobs:
           sparse-checkout: |
             scripts/ensure-podman-linger.sh
 
+      - name: Resolve SSH target host
+        id: ssh
+        env:
+          SSH_HOST_RAW: ${{ env.SSH_HOST }}
+        run: |
+          # SSH_HOST_* must be hostname or IP only; take first token if mis-pasted with key type.
+          echo "host=${SSH_HOST_RAW%% *}" >> "$GITHUB_OUTPUT"
+
       - name: Install SSH key
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ env.SSH_PRIVATE_KEY }}
           name: id_rsa
-          known_hosts: unnecessary
+          known_hosts: ${{ env.SSH_KNOWN_HOSTS }}
 
       - name: Refresh SSH known_hosts
+        env:
+          SSH_KNOWN_HOSTS: ${{ env.SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
         run: |
-          ssh-keygen -f ~/.ssh/known_hosts -R ${{ env.SSH_HOST }} 2>/dev/null || true
-          ssh-keyscan -H ${{ env.SSH_HOST }} >> ~/.ssh/known_hosts
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          touch ~/.ssh/known_hosts
+          ssh-keygen -f ~/.ssh/known_hosts -R "$SSH_HOST" 2>/dev/null || true
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          fi
+          chmod 644 ~/.ssh/known_hosts
 
       - name: Enable systemd linger for rootless Podman
         run: |
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "DEPLOY_USER=${{ env.SSH_USER }} bash -s" \
+          ssh ${{ env.SSH_USER }}@${{ steps.ssh.outputs.host }} "DEPLOY_USER=${{ env.SSH_USER }} bash -s" \
             < scripts/ensure-podman-linger.sh
 
       - name: Setup directories and login to GHCR
         run: |
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
-            mkdir -p ${{ env.APP_DIR }}/{certs,logs,data,nginx,secrets}
-            mkdir -p ${{ env.APP_DIR }}/logs/nginx
-            chmod 750 ${{ env.APP_DIR }}/secrets
-            chmod 711 ${{ env.APP_DIR }}/certs || true
-            chmod 0775 ${{ env.APP_DIR }}/logs/nginx || true
-            podman unshare chown -R 101:101 ${{ env.APP_DIR }}/logs/nginx || true
+          ssh ${{ env.SSH_USER }}@${{ steps.ssh.outputs.host }} "
+            set -euo pipefail
+            APP_DIR='${{ env.APP_DIR }}'
+            LEGACY_DIR=\"\${APP_DIR%/syntheticlc-app}/servertest-app\"
+            mkdir -p \"\$APP_DIR\"/{certs,logs,data,nginx,secrets}
+            mkdir -p \"\$APP_DIR\"/logs/nginx
+            if [ ! -f \"\$APP_DIR/secrets/secrets.env\" ] && [ -f \"\$LEGACY_DIR/secrets/secrets.env\" ]; then
+              echo \"Migrating secrets.env from legacy \$LEGACY_DIR\"
+              cp -a \"\$LEGACY_DIR/secrets/secrets.env\" \"\$APP_DIR/secrets/secrets.env\"
+            fi
+            for item in certs data; do
+              if [ ! -e \"\$APP_DIR/\$item\" ] || [ -z \"\$(ls -A \"\$APP_DIR/\$item\" 2>/dev/null || true)\" ]; then
+                if [ -d \"\$LEGACY_DIR/\$item\" ] && [ -n \"\$(ls -A \"\$LEGACY_DIR/\$item\" 2>/dev/null || true)\" ]; then
+                  echo \"Linking \$item from legacy \$LEGACY_DIR\"
+                  rm -rf \"\$APP_DIR/\$item\"
+                  ln -s \"\$LEGACY_DIR/\$item\" \"\$APP_DIR/\$item\"
+                fi
+              fi
+            done
+            chmod 750 \"\$APP_DIR\"/secrets
+            chmod 711 \"\$APP_DIR\"/certs || true
+            chmod 0775 \"\$APP_DIR\"/logs/nginx || true
+            podman unshare chown -R 101:101 \"\$APP_DIR\"/logs/nginx || true
           "
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "echo '${{ secrets.GHCR_PULL_TOKEN }}' | podman login ghcr.io -u ${{ github.actor }} --password-stdin"
+          ssh ${{ env.SSH_USER }}@${{ steps.ssh.outputs.host }} "echo '${{ secrets.GHCR_PULL_TOKEN }}' | podman login ghcr.io -u ${{ github.actor }} --password-stdin"
 
       - name: Deploy containers
         run: |
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
+          ssh ${{ env.SSH_USER }}@${{ steps.ssh.outputs.host }} "
             set -euxo pipefail
             cd ${{ env.APP_DIR }}
 
@@ -212,7 +247,7 @@ jobs:
       - name: Run deployment API tests (in container, findings-only)
         continue-on-error: true
         run: |
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
+          ssh ${{ env.SSH_USER }}@${{ steps.ssh.outputs.host }} "
             sleep 10
             podman exec ${{ env.APP_CONTAINER_NAME }} node /app/scripts/run-deployment-api-tests.js \
               || echo 'Deployment API tests logged findings (non-blocking)'
