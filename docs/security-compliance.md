@@ -244,7 +244,7 @@ After deploy on host:
 ```bash
 curl -fsSk "https://<DOMAIN>:9443/health" | jq .
 loginctl show-user <deploy-user> -p Linger
-podman logs servertest-container 2>&1 | grep -E 'configuration validated|Resolved configuration'
+podman logs syntheticlc-container 2>&1 | grep -E 'configuration validated|Resolved configuration'
 ```
 
 ---

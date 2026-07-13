@@ -181,7 +181,7 @@ VAULT_RODIT_KEYVALUE_PATH=secret/rodit
 LOKI_URL=https://loki.example.com
 LOKI_BASIC_AUTH=<username:password>
 LOKI_TLS_SKIP_VERIFY=false
-SERVICE_NAME=servertest-api
+SERVICE_NAME=syntheticlc-api
 
 # RODiT Configuration
 RODIT_NEAR_CREDENTIALS_SOURCE=vault
@@ -228,19 +228,19 @@ cd ~/syntheticlc-app
 TARGET=main ./scripts/deploy-local-podman.sh
 
 # Create pod and run containers
-podman pod create --name servertest-pod -p 9443:9443
-podman run -d --pod servertest-pod --name servertest-container \
+podman pod create --name syntheticlc-pod -p 9443:9443
+podman run -d --pod syntheticlc-pod --name syntheticlc-container \
   -v ~/syntheticlc-app/data:/app/data:Z \
   -v ~/syntheticlc-app/logs:/app/logs:Z \
   -v ~/syntheticlc-app/certs:/app/certs:ro,Z \
   -e NODE_ENV=main \
   [... other env vars ...] \
-  servertest-image:latest
+  syntheticlc-image:latest
 
-podman run -d --pod servertest-pod --name servertest-nginx \
+podman run -d --pod syntheticlc-pod --name syntheticlc-nginx \
   -v ~/syntheticlc-app/certs:/app/certs:ro,Z \
   -v ~/syntheticlc-app/logs/nginx:/var/log/nginx:Z \
-  servertest-nginx:latest
+  syntheticlc-nginx:latest
 ```
 
 ### nginx Configuration
@@ -380,16 +380,16 @@ API_BASE_URL=http://127.0.0.1:8080 node scripts/run-deployment-api-tests.js
 
 **Issue**: `nginx 502 Bad Gateway`
 - **Cause**: Node.js container not responding
-- **Solution**: Check container logs: `podman logs servertest-container`
+- **Solution**: Check container logs: `podman logs syntheticlc-container`
 
 ### Logs
 
 ```bash
 # View application logs
-podman logs servertest-container
+podman logs syntheticlc-container
 
 # View nginx logs
-podman logs servertest-nginx
+podman logs syntheticlc-nginx
 
 # View logs on host
 tail -f ~/syntheticlc-app/logs/combined.log

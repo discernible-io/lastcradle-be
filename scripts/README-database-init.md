@@ -121,7 +121,7 @@ npm install @rodit/rodit-auth-be@latest
 ```bash
 # Remove old sessions table and let connect-sqlite3 create it
 sudo sqlite3 ~/syntheticlc-app/data/database.sqlite "DROP TABLE IF EXISTS sessions;"
-podman restart servertest-container
+podman restart syntheticlc-container
 ```
 
 ### Issue 3: "SQLITE_READONLY: attempt to write a readonly database"
@@ -143,7 +143,7 @@ sudo chmod 664 ~/syntheticlc-app/data/database.sqlite
 ```bash
 # Reinitialize and restart container
 sudo ./scripts/init-database.sh --deployment
-podman restart servertest-container
+podman restart syntheticlc-container
 ```
 
 ## Troubleshooting
@@ -155,7 +155,7 @@ podman restart servertest-container
 sudo ls -lh ~/syntheticlc-app/data/database.sqlite
 
 # Check container is using correct database
-podman exec servertest-container ls -lh /app/data/database.sqlite
+podman exec syntheticlc-container ls -lh /app/data/database.sqlite
 ```
 
 ### Inspect Database Schema
@@ -177,10 +177,10 @@ sudo sqlite3 ~/syntheticlc-app/data/database.sqlite "PRAGMA table_info(sessions)
 
 ```bash
 # Look for errors
-podman logs --tail 50 servertest-container | grep -i "error\|sqlite"
+podman logs --tail 50 syntheticlc-container | grep -i "error\|sqlite"
 
 # Verify sessions table creation
-podman logs servertest-container | grep -i "session"
+podman logs syntheticlc-container | grep -i "session"
 ```
 
 ## Deployment Workflow
@@ -195,7 +195,7 @@ sudo ./scripts/init-database.sh --deployment
 git push origin main
 
 # 3. Verify container started successfully
-podman ps | grep servertest-container
+podman ps | grep syntheticlc-container
 
 # 4. Check sessions table was auto-created
 sudo sqlite3 ~/syntheticlc-app/data/database.sqlite ".tables"
@@ -206,7 +206,7 @@ sudo sqlite3 ~/syntheticlc-app/data/database.sqlite ".tables"
 
 ```bash
 # 1. Stop container
-podman stop servertest-container
+podman stop syntheticlc-container
 
 # 2. Backup existing database
 sudo cp ~/syntheticlc-app/data/database.sqlite \
@@ -216,7 +216,7 @@ sudo cp ~/syntheticlc-app/data/database.sqlite \
 sudo ./scripts/init-database.sh --deployment
 
 # 4. Restart container
-podman restart servertest-container
+podman restart syntheticlc-container
 ```
 
 ## GitHub Actions Integration
@@ -251,7 +251,7 @@ podman unshare chmod g+w ~/syntheticlc-app/data
 
 If you encounter issues not covered here:
 
-1. Check container logs: `podman logs servertest-container`
+1. Check container logs: `podman logs syntheticlc-container`
 2. Verify database ownership: `sudo ls -lhn ~/syntheticlc-app/data/`
 3. Test database access: `sudo sqlite3 ~/syntheticlc-app/data/database.sqlite ".tables"`
 4. Review this guide's troubleshooting section
