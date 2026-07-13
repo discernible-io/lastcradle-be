@@ -19,7 +19,7 @@ env:
   DOMAIN: ${{ github.ref == 'refs/heads/main' && 'api.slc.identyclaw.com' || 'api.dihola.io' }}
   APP_PORT: "8443"
   FRONTEND_PORT: ${{ github.ref == 'refs/heads/main' && '443' || '' }}
-  APP_DIR: /home/${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}/servertest-app
+  APP_DIR: ~/syntheticlc-app
   POD_NAME: servertest-pod
   APP_CONTAINER_NAME: servertest-container
   NGINX_CONTAINER_NAME: servertest-nginx
@@ -118,94 +118,43 @@ jobs:
           ref: ${{ github.event.inputs.commit_sha || github.sha }}
           sparse-checkout: |
             scripts/ensure-podman-linger.sh
-
-      - name: Resolve SSH target host
-        id: ssh
-        env:
-          SSH_HOST_RAW: ${{ env.SSH_HOST }}
-          SSH_KNOWN_HOSTS: ${{ env.SSH_KNOWN_HOSTS }}
-          DOMAIN: ${{ env.DOMAIN }}
-        run: |
-          HOST="${SSH_HOST_RAW%% *}"
-          if [ -z "$HOST" ] && [ -n "$SSH_KNOWN_HOSTS" ]; then
-            FIRST="$(printf '%s\n' "$SSH_KNOWN_HOSTS" | awk 'NF { print $1; exit }')"
-            case "$FIRST" in
-              \|*) HOST="" ;;
-              *) HOST="$FIRST" ;;
-            esac
-          fi
-          if [ -z "$HOST" ] && [ -n "$DOMAIN" ]; then
-            HOST="$DOMAIN"
-          fi
-          if [ -z "$HOST" ]; then
-            echo "Could not resolve SSH target host from SSH_HOST, SSH_KNOWN_HOSTS, or DOMAIN" >&2
-            exit 1
-          fi
-          echo "host=$HOST" >> "$GITHUB_OUTPUT"
+            scripts/migrate-app-dir.sh
 
       - name: Install SSH key
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ env.SSH_PRIVATE_KEY }}
           name: id_rsa
-          known_hosts: ${{ env.SSH_KNOWN_HOSTS }}
+          known_hosts: unnecessary
 
       - name: Refresh SSH known_hosts
-        env:
-          SSH_KNOWN_HOSTS: ${{ env.SSH_KNOWN_HOSTS }}
-          SSH_HOST: ${{ steps.ssh.outputs.host }}
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          touch ~/.ssh/known_hosts
-          ssh-keygen -f ~/.ssh/known_hosts -R "$SSH_HOST" 2>/dev/null || true
-          if [ -n "$SSH_KNOWN_HOSTS" ]; then
-            printf '%s\n' "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
-          else
-            ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
-          fi
-          chmod 644 ~/.ssh/known_hosts
+          ssh-keygen -f ~/.ssh/known_hosts -R ${{ env.SSH_HOST }} 2>/dev/null || true
+          ssh-keyscan -H ${{ env.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Enable systemd linger for rootless Podman
         run: |
-          ssh ${{ env.SSH_USER }}@${{ steps.ssh.outputs.host }} "DEPLOY_USER=${{ env.SSH_USER }} bash -s" \
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "DEPLOY_USER=${{ env.SSH_USER }} bash -s" \
             < scripts/ensure-podman-linger.sh
 
       - name: Setup directories and login to GHCR
         run: |
-          ssh ${{ env.SSH_USER }}@${{ steps.ssh.outputs.host }} "
-            set -euo pipefail
-            APP_DIR='${{ env.APP_DIR }}'
-            LEGACY_DIR=\"\${APP_DIR%/servertest-app}/syntheticlc-app\"
-            mkdir -p \"\$APP_DIR\"/{certs,logs,data,nginx,secrets}
-            mkdir -p \"\$APP_DIR\"/logs/nginx
-            if [ ! -f \"\$APP_DIR/secrets/secrets.env\" ] && [ -f \"\$LEGACY_DIR/secrets/secrets.env\" ]; then
-              echo \"Migrating secrets.env from \$LEGACY_DIR\"
-              cp -a \"\$LEGACY_DIR/secrets/secrets.env\" \"\$APP_DIR/secrets/secrets.env\"
-            fi
-            for item in certs data; do
-              if [ ! -e \"\$APP_DIR/\$item\" ] || [ -z \"\$(ls -A \"\$APP_DIR/\$item\" 2>/dev/null || true)\" ]; then
-                if [ -d \"\$LEGACY_DIR/\$item\" ] && [ -n \"\$(ls -A \"\$LEGACY_DIR/\$item\" 2>/dev/null || true)\" ]; then
-                  echo \"Linking \$item from \$LEGACY_DIR\"
-                  rm -rf \"\$APP_DIR/\$item\"
-                  ln -s \"\$LEGACY_DIR/\$item\" \"\$APP_DIR/\$item\"
-                fi
-              fi
-            done
-            if [ ! -f \"\$APP_DIR/secrets/secrets.env\" ]; then
-              echo \"Missing \$APP_DIR/secrets/secrets.env (provision on host before deploy)\" >&2
-              exit 1
-            fi
-            chmod 750 \"\$APP_DIR\"/secrets
-            chmod 711 \"\$APP_DIR\"/certs || true
-            chmod 0775 \"\$APP_DIR\"/logs/nginx || true
-            podman unshare chown -R 101:101 \"\$APP_DIR\"/logs/nginx || true
+          scp scripts/migrate-app-dir.sh ${{ env.SSH_USER }}@${{ env.SSH_HOST }}:/tmp/migrate-app-dir.sh
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
+            bash /tmp/migrate-app-dir.sh
+            mkdir -p ${{ env.APP_DIR }}/{certs,logs,data,nginx,secrets}
+            mkdir -p ${{ env.APP_DIR }}/logs/nginx
+            chmod 750 ${{ env.APP_DIR }}/secrets
+            chmod 711 ${{ env.APP_DIR }}/certs || true
+            chmod 0775 ${{ env.APP_DIR }}/logs/nginx || true
+            podman unshare chown -R 101:101 ${{ env.APP_DIR }}/logs/nginx || true
+            test -f ${{ env.APP_DIR }}/secrets/secrets.env
           "
-          ssh ${{ env.SSH_USER }}@${{ steps.ssh.outputs.host }} "echo '${{ secrets.GHCR_PULL_TOKEN }}' | podman login ghcr.io -u ${{ github.actor }} --password-stdin"
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "echo '${{ secrets.GHCR_PULL_TOKEN }}' | podman login ghcr.io -u ${{ github.actor }} --password-stdin"
 
       - name: Deploy containers
         run: |
-          ssh ${{ env.SSH_USER }}@${{ steps.ssh.outputs.host }} "
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
             set -euxo pipefail
             cd ${{ env.APP_DIR }}
 
@@ -267,7 +216,7 @@ jobs:
       - name: Run deployment API tests (in container, findings-only)
         continue-on-error: true
         run: |
-          ssh ${{ env.SSH_USER }}@${{ steps.ssh.outputs.host }} "
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
             sleep 10
             podman exec ${{ env.APP_CONTAINER_NAME }} node /app/scripts/run-deployment-api-tests.js \
               || echo 'Deployment API tests logged findings (non-blocking)'
