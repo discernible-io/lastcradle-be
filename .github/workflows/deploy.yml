@@ -124,13 +124,21 @@ jobs:
         env:
           SSH_HOST_RAW: ${{ env.SSH_HOST }}
           SSH_KNOWN_HOSTS: ${{ env.SSH_KNOWN_HOSTS }}
+          DOMAIN: ${{ env.DOMAIN }}
         run: |
           HOST="${SSH_HOST_RAW%% *}"
           if [ -z "$HOST" ] && [ -n "$SSH_KNOWN_HOSTS" ]; then
-            HOST="$(printf '%s\n' "$SSH_KNOWN_HOSTS" | awk 'NF { print $1; exit }')"
+            FIRST="$(printf '%s\n' "$SSH_KNOWN_HOSTS" | awk 'NF { print $1; exit }')"
+            case "$FIRST" in
+              \|*) HOST="" ;;
+              *) HOST="$FIRST" ;;
+            esac
+          fi
+          if [ -z "$HOST" ] && [ -n "$DOMAIN" ]; then
+            HOST="$DOMAIN"
           fi
           if [ -z "$HOST" ]; then
-            echo "Could not resolve SSH target host from SSH_HOST or SSH_KNOWN_HOSTS" >&2
+            echo "Could not resolve SSH target host from SSH_HOST, SSH_KNOWN_HOSTS, or DOMAIN" >&2
             exit 1
           fi
           echo "host=$HOST" >> "$GITHUB_OUTPUT"
