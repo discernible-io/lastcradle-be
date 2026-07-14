@@ -10,7 +10,7 @@ This API provides secure authentication services using the Discernible Authentic
 
 | Branch | Role | API | Game frontend |
 |--------|------|-----|---------------|
-| **`main`** | Production (SLC) | https://slc.identyclaw.com:8443 | https://slc.identyclaw.com |
+| **`main`** | Production (SLC) | https://slc.identyclaw.com:8443 | `/play`, `/watch` on API host |
 | **`development`** | Development / integration | https://slc.dihola.io:8443 | `/play`, `/watch` on API host |
 | **`legacy`** | Archive of pre-migration `main` (read-only) | — | — |
 
