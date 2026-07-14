@@ -5,6 +5,7 @@
     "DB_PATH": "/app/data/database.sqlite"
   },
   "API_VERSION": "2025.10.01",
+  "NEAR_CONTRACT_ID": "genaaaa-identyclaw-com.near",
   "RODIT_NEAR_CREDENTIALS_SOURCE": "env",
   "SECURITY_OPTIONS": {
     "SESSION_SECRET": "HMAC-session-secret-is-not-set",

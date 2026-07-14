@@ -121,7 +121,7 @@ Certain config keys **must differ** between development and main branches. These
 | --- | --- | --- |
 | `SERVICE_NAME` | `slc.dihola.io` | `slc.identyclaw.com` |
 | `SIGNPORTAL_API_URL` | signportal.dihola.io | signportal.roditcorp.com |
-| `NEAR_CONTRACT_ID` | `2026v2-identyclaw-com.near` | `2026v1-identyclaw-com.near` |
+| `NEAR_CONTRACT_ID` | `genaaaa-identyclaw-com.near` | `genaaaa-identyclaw-com.near` |
 | `MINTING_FEE` | `0.4` | `0.28` |
 | `LOG_LEVEL` | `debug` | `info` |
 | `WEBHOOK_TEST_ENABLED` | `true` | `false` |
