@@ -18,6 +18,7 @@
   "FRONTEND_ORIGIN": "",
   "LOG_LEVEL": "debug",
   "LOKI_TLS_SKIP_VERIFY": "true",
+  "LOKI_URL": "https://grafana47.dihola.io:3100",
   "GAME_PRIVILEGED_RODIT_ID": "",
   "METHOD_PERMISSION_MAP": {
     "logout": [

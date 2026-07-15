@@ -36,6 +36,43 @@ const {
   redactRpcHostLabel
 } = require("./services/startup-config.service");
 
+const WINSTON_MESSAGE = Symbol.for("message");
+const LOKI_TRANSPORT_KEYS = new Set(["level", "message", "timestamp", "label", "labels"]);
+
+function stringifyLogLine(value) {
+  return JSON.stringify(value, (_key, nestedValue) => {
+    if (nestedValue instanceof Error) {
+      return {
+        name: nestedValue.name,
+        message: nestedValue.message,
+        stack: nestedValue.stack
+      };
+    }
+    return nestedValue;
+  });
+}
+
+function createLokiLineFormat() {
+  return winston.format((info) => {
+    const payload = {};
+    for (const [key, value] of Object.entries(info)) {
+      payload[key] = value;
+    }
+
+    info[WINSTON_MESSAGE] = stringifyLogLine(payload);
+
+    // winston-loki sends remaining metadata as Loki structured metadata. This
+    // Loki endpoint drops records when that metadata contains nested objects.
+    for (const key of Object.keys(info)) {
+      if (!LOKI_TRANSPORT_KEYS.has(key)) {
+        delete info[key];
+      }
+    }
+
+    return info;
+  })();
+}
+
 const SERVICE_NAME = config.get("SERVICE_NAME");
 const HEALTH_CHECKS_CACHE_MS = Number(config.get("HEALTH_CHECKS_CACHE_MS"));
 const isMainTier = () => config.get("NODE_ENV") === "main";
@@ -72,10 +109,12 @@ function abortSessionStorageSetup(message, context, error) {
         labels: { app: SERVICE_NAME, service_name: SERVICE_NAME, component: "rodit-sdk" },
         json: true,
         level: logLevel,
-        batching: true,
+        batching: false,
         gracefulShutdown: true,
         replaceTimestamp: true,
-        timeout: 5000
+        timeout: 10000,
+        interval: 1,
+        format: createLokiLineFormat()
       };
 
       if (basicAuth) {

@@ -18,6 +18,7 @@
   "FRONTEND_ORIGIN": "https://slc.identyclaw.com",
   "LOG_LEVEL": "info",
   "LOKI_TLS_SKIP_VERIFY": "false",
+  "LOKI_URL": "https://grafana46.discernible.io:3100",
   "GAME_PRIVILEGED_RODIT_ID": "",
   "METHOD_PERMISSION_MAP": {
     "logout": [
