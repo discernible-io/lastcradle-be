@@ -49,7 +49,7 @@ case "$TARGET" in
     ;;
   main)
     NODE_ENV=main
-    DOMAIN="${DOMAIN:-slc.identyclaw.com}"
+    DOMAIN="${DOMAIN:-slc.discernible.io}"
     APP_PORT="${APP_PORT:-8443}"
     ;;
   *) echo "TARGET must be development or main" >&2; exit 1 ;;

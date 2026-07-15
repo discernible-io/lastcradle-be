@@ -47,7 +47,7 @@ case "$TARGET" in
     SECRET_KNOWN="SSH_KNOWN_HOSTS_DEVELOPMENT"
     ;;
   main)
-    DOMAIN="${DOMAIN:-slc.identyclaw.com}"
+    DOMAIN="${DOMAIN:-slc.discernible.io}"
     SSH_HOST_RAW="${HOST_OVERRIDE:-${SSH_HOST:-${SSH_HOST_MAIN:-}}}"
     SECRET_HOST="SSH_HOST_MAIN"
     SECRET_KNOWN="SSH_KNOWN_HOSTS_MAIN"

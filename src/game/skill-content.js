@@ -15,7 +15,7 @@ function resolveApiBase(req) {
   if (req?.protocol && req?.get?.("host")) {
     return `${req.protocol}://${req.get("host")}`;
   }
-  return "https://slc.identyclaw.com:8443";
+  return "https://slc.discernible.io:8443";
 }
 
 function buildGameSkillMarkdown(req) {

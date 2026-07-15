@@ -13,9 +13,9 @@
     "WEBHOOK_TLS_SKIP_VERIFY": "false"
   },
   "SERVERPORT": 8080,
-  "SERVICE_NAME": "slc.identyclaw.com",
+  "SERVICE_NAME": "slc.discernible.io",
   "PUBLIC_PORT": "8443",
-  "FRONTEND_ORIGIN": "https://slc.identyclaw.com",
+  "FRONTEND_ORIGIN": "https://slc.discernible.io",
   "LOG_LEVEL": "info",
   "LOKI_TLS_SKIP_VERIFY": "false",
   "LOKI_URL": "https://grafana46.discernible.io:3100",
