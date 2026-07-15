@@ -167,7 +167,7 @@ NODE_ENV=main
 LOG_LEVEL=info
 
 # NEAR Blockchain
-NEAR_CONTRACT_ID=rodit
+NEAR_CONTRACT_ID=rodit.near
 NEAR_RPC_URL=https://rpc.mainnet.near.org
 NEAR_CREDENTIALS_JSON_B64=<base64-encoded-credentials>
 
@@ -185,7 +185,7 @@ SERVICE_NAME=syntheticlc-api
 
 # RODiT Configuration
 RODIT_NEAR_CREDENTIALS_SOURCE=vault
-MINTING_FEEACCOUNT=fees.rodit
+MINTING_FEEACCOUNT=fees.rodit.near
 MINTING_FEE=0.1
 
 # Security Options
@@ -405,7 +405,7 @@ tail -f ~/syntheticlc-app/logs/nginx/nginxaccess.log
 curl -X POST https://api.discernible.io:9443/api/login \
   -H "Content-Type: application/json" \
   -d '{
-    "roditid": "user.rodit",
+    "roditid": "user.rodit.near",
     "roditid_base64url_signature": "...",
     "timestamp": 1234567890
   }'
