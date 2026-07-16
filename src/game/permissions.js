@@ -11,11 +11,12 @@
 
 const { config } = require("@rodit/rodit-auth-be");
 const { CONTEST_GAME_CONFIG } = require("./defaults");
+const { roditIdFromUser, canonicalRoditId } = require("./rodit-id");
 
 const PRIVILEGED_RODIT_ID_CONFIG_KEY = "GAME_PRIVILEGED_RODIT_ID";
 
 function resolveRequestRoditId(req) {
-  return req.user?.roditId || req.user?.sub || req.user?.id || null;
+  return roditIdFromUser(req?.user);
 }
 
 function getPrivilegedRoditId() {
@@ -26,7 +27,7 @@ function getPrivilegedRoditId() {
   if (typeof value !== "string" || !value.trim()) {
     return null;
   }
-  return value.trim();
+  return canonicalRoditId(value.trim()) || null;
 }
 
 function isPrivilegedRoditId(req) {

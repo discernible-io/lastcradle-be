@@ -5,6 +5,14 @@
 
 const { RoditClient, blockchainService } = require("@rodit/rodit-auth-be");
 const repo = require("./repository");
+const {
+  normalizeRoditId,
+  isPassportTokenId,
+  isNearAccountId,
+  extractPassportTokenId,
+  canonicalRoditId,
+  roditIdFromUser
+} = require("./rodit-id");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -18,18 +26,6 @@ function setRoditClient(client) {
   moduleRoditClient = client;
 }
 
-function normalizeRoditId(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function isPassportTokenId(roditId) {
-  return /^[A-Za-z][A-Za-z0-9]{11}$/.test(roditId);
-}
-
-function isImplicitAccount(roditId) {
-  return /^[0-9a-f]{64}$/i.test(roditId);
-}
-
 function extractWebhookUrlFromUser(user) {
   if (!user || typeof user !== "object") {
     return null;
@@ -38,40 +34,32 @@ function extractWebhookUrlFromUser(user) {
   return typeof url === "string" && url.trim() ? url.trim() : null;
 }
 
-function roditIdFromUser(user) {
-  if (!user || typeof user !== "object") {
-    return null;
-  }
-  return (
-    normalizeRoditId(user.rodit_id) ||
-    normalizeRoditId(user.roditId) ||
-    normalizeRoditId(user.sub) ||
-    null
-  );
-}
-
 async function lookupWebhookUrlFromChain(roditId) {
   const normalized = normalizeRoditId(roditId);
   if (!normalized) {
     return null;
   }
 
-  const cached = webhookUrlCache.get(normalized);
+  const passportId = extractPassportTokenId(normalized);
+  const cacheKey = passportId || normalized;
+  const cached = webhookUrlCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.url;
   }
 
   let token = null;
   try {
-    if (isPassportTokenId(normalized)) {
-      token = await blockchainService.nearorg_rpc_tokenfromroditid(normalized);
-    } else if (isImplicitAccount(normalized) || normalized.includes(".")) {
+    if (isPassportTokenId(passportId)) {
+      // Compound JWT subjects (bc=…;sub=<passport>) must use token_id lookup, not account_id.
+      token = await blockchainService.nearorg_rpc_tokenfromroditid(passportId);
+    } else if (isNearAccountId(normalized)) {
       token = await blockchainService.nearorg_rpc_tokensfromaccountid(normalized);
     }
   } catch (error) {
     logger.debugWithContext("Game webhook URL chain lookup failed", {
       component: "GameWebhooks",
       roditId: normalized,
+      passportId: passportId || null,
       error: error.message
     });
     return null;
@@ -83,10 +71,14 @@ async function lookupWebhookUrlFromChain(roditId) {
     return null;
   }
 
-  webhookUrlCache.set(normalized, {
+  const entry = {
     url,
     expiresAt: Date.now() + WEBHOOK_URL_CACHE_TTL_MS
-  });
+  };
+  webhookUrlCache.set(cacheKey, entry);
+  if (normalized !== cacheKey) {
+    webhookUrlCache.set(normalized, entry);
+  }
   return url;
 }
 
@@ -108,7 +100,8 @@ async function resolveRecipientWebhookUrl(reqOrRoditId) {
 }
 
 function buildWebhookContext(roditId, webhookUrl = null) {
-  const user = { roditId, sub: roditId, id: roditId, rodit_id: roditId };
+  const canonical = canonicalRoditId(roditId) || normalizeRoditId(roditId);
+  const user = { roditId: canonical, sub: canonical, id: canonical, rodit_id: canonical };
   if (webhookUrl) {
     user.rodit_webhookurl = webhookUrl;
   }
@@ -138,10 +131,12 @@ function resolveWebhookRequest(reqOrRoditId) {
 
 async function buildWebhookDeliveryRequest(reqOrRoditId, payloadRoditId = null) {
   const baseReq = resolveWebhookRequest(reqOrRoditId);
-  const roditId =
+  const rawRoditId =
     normalizeRoditId(payloadRoditId) ||
-    (typeof reqOrRoditId === "string" ? reqOrRoditId : null) ||
-    roditIdFromUser(baseReq?.user);
+    (typeof reqOrRoditId === "string" ? normalizeRoditId(reqOrRoditId) : "") ||
+    roditIdFromUser(baseReq?.user) ||
+    "";
+  const roditId = canonicalRoditId(rawRoditId) || rawRoditId || null;
 
   let webhookUrl = extractWebhookUrlFromUser(baseReq?.user);
   if (!webhookUrl && roditId) {

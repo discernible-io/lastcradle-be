@@ -6,9 +6,10 @@ const { errorResponse } = require("@rodit/rodit-auth-be");
 const { sendError } = errorResponse;
 const engine = require("./engine");
 const repo = require("./repository");
+const { roditIdFromUser } = require("./rodit-id");
 
 function resolveRoditId(req) {
-  return req.user?.roditId || req.user?.sub || req.user?.id || null;
+  return roditIdFromUser(req?.user);
 }
 
 function handleGameError(res, err, requestId) {

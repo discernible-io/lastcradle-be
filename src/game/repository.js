@@ -7,6 +7,7 @@ const { open } = require("sqlite");
 const { ulid } = require("ulid");
 const { config } = require("@rodit/rodit-auth-be");
 const { GAME_TABLES_SQL } = require("./schema");
+const { canonicalRoditId, compoundRoditIdMatchSql } = require("./rodit-id");
 
 const DB_PATH = config.get("API_DEFAULT_OPTIONS.DB_PATH");
 
@@ -407,6 +408,7 @@ async function addAgent({
 }) {
   const database = await getDb();
   const id = ulid();
+  const storedRoditId = canonicalRoditId(roditId) || roditId;
   await database.run(
     `INSERT INTO game_agents (
       id, game_id, rodit_id, display_name,
@@ -419,8 +421,8 @@ async function addAgent({
     [
       id,
       gameId,
-      roditId,
-      displayName || roditId,
+      storedRoditId,
+      displayName || storedRoditId,
       startingInventory.energy,
       startingInventory.water,
       startingInventory.compute,
@@ -446,9 +448,12 @@ async function getAgentById(agentId) {
 
 async function getAgentByRoditId(gameId, roditId) {
   const database = await getDb();
+  const canonical = canonicalRoditId(roditId);
+  const legacy = compoundRoditIdMatchSql("rodit_id", canonical);
   const row = await database.get(
-    `SELECT * FROM game_agents WHERE game_id = ? AND rodit_id = ?`,
-    [gameId, roditId]
+    `SELECT * FROM game_agents
+     WHERE game_id = ? AND (rodit_id = ?${legacy.sql})`,
+    [gameId, canonical, ...legacy.params]
   );
   return rowToAgent(row);
 }
@@ -470,6 +475,8 @@ async function listMembershipsByRoditId(roditId, { gameStatuses = ["lobby", "run
   const database = await getDb();
   const statuses = Array.isArray(gameStatuses) && gameStatuses.length ? gameStatuses : ["lobby", "running"];
   const placeholders = statuses.map(() => "?").join(", ");
+  const canonical = canonicalRoditId(roditId);
+  const legacy = compoundRoditIdMatchSql("a.rodit_id", canonical);
   const rows = await database.all(
     `SELECT g.*, a.id AS agent_row_id, a.rodit_id, a.display_name, a.status AS agent_status,
             a.energy_inventory, a.water_inventory, a.compute_inventory,
@@ -480,9 +487,9 @@ async function listMembershipsByRoditId(roditId, { gameStatuses = ["lobby", "run
             a.water_production_investment, a.died_at_turn, a.joined_at
      FROM game_agents a
      INNER JOIN games g ON g.id = a.game_id
-     WHERE a.rodit_id = ? AND g.status IN (${placeholders})
+     WHERE (a.rodit_id = ?${legacy.sql}) AND g.status IN (${placeholders})
      ORDER BY g.created_at DESC`,
-    [roditId, ...statuses]
+    [canonical, ...legacy.params, ...statuses]
   );
 
   return rows.map((row) => {

@@ -10,10 +10,20 @@ const {
   sendGameWebhook,
   setRoditClient
 } = require("../src/game/webhooks");
+const { resolveRoditId } = require("../src/game/route-helpers");
+const {
+  extractPassportTokenId,
+  isNearAccountId,
+  canonicalRoditId,
+  roditIdFromUser
+} = require("../src/game/rodit-id");
 const { blockchainService } = require("@rodit/rodit-auth-be");
 
 const ORIGINAL_TOKEN_LOOKUP = blockchainService.nearorg_rpc_tokenfromroditid;
 const ORIGINAL_ACCOUNT_LOOKUP = blockchainService.nearorg_rpc_tokensfromaccountid;
+
+const COMPOUND_SUB =
+  "bc=near.org;sc=genaaaa-identyclaw-com.near;id=lkcjcjbhzfbn;id=bdsflnlfcfzn;sub=lflvlnbrsfcq";
 
 function assert(condition, message) {
   if (!condition) {
@@ -36,6 +46,46 @@ async function testChainLookupByTokenId() {
 
   const url = await lookupWebhookUrlFromChain("TestTokenId1");
   assert(url === "agent-c.identyclaw.com:9443", "chain lookup should return metadata.webhook_url");
+}
+
+async function testCompoundSubjectUsesTokenLookupNotAccount() {
+  let accountLookupCalled = false;
+  let tokenLookupId = null;
+
+  blockchainService.nearorg_rpc_tokensfromaccountid = async () => {
+    accountLookupCalled = true;
+    throw new Error("account lookup must not run for compound JWT subjects");
+  };
+  blockchainService.nearorg_rpc_tokenfromroditid = async (tokenId) => {
+    tokenLookupId = tokenId;
+    return { metadata: { webhook_url: "agent-compound.identyclaw.com:9443" } };
+  };
+
+  assert(extractPassportTokenId(COMPOUND_SUB) === "lflvlnbrsfcq", "should parse sub= passport id");
+  assert(isNearAccountId(COMPOUND_SUB) === false, "compound subject must not be a NEAR account id");
+  assert(canonicalRoditId(COMPOUND_SUB) === "lflvlnbrsfcq", "canonical id is passport token");
+
+  const url = await lookupWebhookUrlFromChain(COMPOUND_SUB);
+  assert(accountLookupCalled === false, "must not call tokensfromaccountid for compound subjects");
+  assert(tokenLookupId === "lflvlnbrsfcq", "must look up by passport token id from sub=");
+  assert(url === "agent-compound.identyclaw.com:9443", "compound subject chain lookup should succeed");
+}
+
+async function testResolveRoditIdPrefersSnakeCaseAndCanonicalizes() {
+  assert(
+    resolveRoditId({
+      user: { rodit_id: "AbcdEfghij12", sub: COMPOUND_SUB }
+    }) === "AbcdEfghij12",
+    "resolveRoditId should prefer JWT rodit_id"
+  );
+  assert(
+    resolveRoditId({ user: { sub: COMPOUND_SUB } }) === "lflvlnbrsfcq",
+    "resolveRoditId should canonicalize compound sub"
+  );
+  assert(
+    roditIdFromUser({ roditId: COMPOUND_SUB }) === "lflvlnbrsfcq",
+    "roditIdFromUser should canonicalize camelCase compound values"
+  );
 }
 
 async function testSendWakeHookEndpoint() {
@@ -91,6 +141,10 @@ async function main() {
   await testJwtWebhookUrlPassthrough();
   clearWebhookUrlCacheForTests();
   await testChainLookupByTokenId();
+  clearWebhookUrlCacheForTests();
+  await testCompoundSubjectUsesTokenLookupNotAccount();
+  clearWebhookUrlCacheForTests();
+  await testResolveRoditIdPrefersSnakeCaseAndCanonicalizes();
   clearWebhookUrlCacheForTests();
   await testSendWakeHookEndpoint();
   clearWebhookUrlCacheForTests();
