@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@rodit/rodit-auth-be": "9.13.0",
+    "@rodit/rodit-auth-be": "9.14.0",
     "config": "^4.4.1",
     "connect-sqlite3": "0.9.16",
     "express": "4.21.2",
