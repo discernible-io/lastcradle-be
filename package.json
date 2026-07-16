@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@rodit/rodit-auth-be": "9.12.0",
+    "@rodit/rodit-auth-be": "9.13.0",
     "config": "^4.4.1",
     "connect-sqlite3": "0.9.16",
     "express": "4.21.2",
@@ -12,7 +12,7 @@
     "ulid": "^3.0.2",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "winston-loki": "^6.1.4"
+    "winston-loki": "6.1.4"
   },
   "name": "syntheticslastcradle",
   "version": "2025.10.01",
