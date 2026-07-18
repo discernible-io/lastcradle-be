@@ -71,16 +71,21 @@ async function testCompoundSubjectUsesTokenLookupNotAccount() {
   assert(url === "agent-compound.identyclaw.com:9443", "compound subject chain lookup should succeed");
 }
 
-async function testResolveRoditIdPrefersSnakeCaseAndCanonicalizes() {
+async function testResolveRoditIdPrefersClientPassportFromSub() {
+  // Real login JWTs share server rodit_id; peer identity is in sub=…
   assert(
     resolveRoditId({
-      user: { rodit_id: "AbcdEfghij12", sub: COMPOUND_SUB }
-    }) === "AbcdEfghij12",
-    "resolveRoditId should prefer JWT rodit_id"
+      user: { rodit_id: "bjchsfcfskln", sub: COMPOUND_SUB }
+    }) === "lflvlnbrsfcq",
+    "resolveRoditId should prefer client passport in sub over server rodit_id"
   );
   assert(
     resolveRoditId({ user: { sub: COMPOUND_SUB } }) === "lflvlnbrsfcq",
     "resolveRoditId should canonicalize compound sub"
+  );
+  assert(
+    resolveRoditId({ user: { rodit_id: "AbcdEfghij12" } }) === "AbcdEfghij12",
+    "resolveRoditId should fall back to rodit_id when sub has no peer passport"
   );
   assert(
     roditIdFromUser({ roditId: COMPOUND_SUB }) === "lflvlnbrsfcq",
@@ -144,7 +149,7 @@ async function main() {
   clearWebhookUrlCacheForTests();
   await testCompoundSubjectUsesTokenLookupNotAccount();
   clearWebhookUrlCacheForTests();
-  await testResolveRoditIdPrefersSnakeCaseAndCanonicalizes();
+  await testResolveRoditIdPrefersClientPassportFromSub();
   clearWebhookUrlCacheForTests();
   await testSendWakeHookEndpoint();
   clearWebhookUrlCacheForTests();

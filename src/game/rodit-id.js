@@ -69,23 +69,34 @@ function canonicalRoditId(roditId) {
 }
 
 /**
- * Resolve rodit identity from an auth user / JWT payload.
- * Prefers snake_case `rodit_id` (JWT claim) over camelCase / raw compound `sub`.
+ * Resolve player rodit identity from an auth user / JWT payload.
+ *
+ * Login JWTs put the *server* passport in `rodit_id` / `rodit_owner` and the
+ * *client* (peer) passport in compound `sub` (`…;sub=<tokenId>`). Game identity
+ * must use the client passport so distinct Passports do not collapse to one cradle.
  */
 function roditIdFromUser(user) {
   if (!user || typeof user !== "object") {
     return null;
   }
-  const raw =
-    normalizeRoditId(user.rodit_id) ||
-    normalizeRoditId(user.roditId) ||
-    normalizeRoditId(user.sub) ||
-    normalizeRoditId(user.id) ||
-    "";
-  if (!raw) {
-    return null;
+
+  // Client passport lives in compound JWT sub — never prefer server rodit_id over it.
+  const fromSub = extractPassportTokenId(user.sub);
+  if (fromSub) {
+    return fromSub;
   }
-  return canonicalRoditId(raw) || null;
+
+  // Legacy / test payloads that already pass a bare or compound passport id.
+  // JWT `rodit_id` is last: when present alone (helpers) it is usable; when a real
+  // login JWT also has sub=, the branch above already returned the peer passport.
+  const candidates = [user.roditId, user.id, user.rodit_id, user.sub];
+  for (const candidate of candidates) {
+    const canon = canonicalRoditId(candidate);
+    if (canon) {
+      return canon;
+    }
+  }
+  return null;
 }
 
 /**
