@@ -2,7 +2,7 @@
  * Core game engine: production, execution, capacity investment, storage, survival, intelligence.
  */
 
-const { mergeGameConfig, randomInt, randomFloat, finalizeStartingInventory, maxCapacityFor } = require("./defaults");
+const { mergeGameConfig, randomInt, randomFloat, finalizeStartingInventory, maxCapacityFor, DEFAULT_GAME_CONFIG } = require("./defaults");
 const {
   computeSurvivalCost,
   buildSurvivalContext,
@@ -267,8 +267,79 @@ function requireJoiningWindowOpen(game) {
   }
 }
 
-async function createGame({ config: configOverrides = {}, joiningWindowStartsAt = null } = {}) {
+/**
+ * True while a lobby can still accept joins (window open, not yet started, or legacy no-window).
+ * Closed windows are ignored so abandoned lobbies do not block new creates forever.
+ */
+function isLobbyStillAcceptingJoins(game, now = Date.now()) {
+  if (!hasJoiningWindow(game)) {
+    return true;
+  }
+  const endsAt = new Date(game.joining_window_ends_at).getTime();
+  return now < endsAt;
+}
+
+function isContestLobbyConfig(config) {
+  return config?.contestMode === "practice" || config?.contestMode === "definitive";
+}
+
+/**
+ * Casual create must fill existing open lobbies first.
+ * Full = agentCount >= min(lobby.maxAgents, casual default maxAgents) so legacy
+ * 17-seat lobbies stop blocking creates once they reach the current casual cap (5).
+ * Contest series lobbies are excluded so practice + definitive can coexist.
+ */
+async function assertNoJoinableOpenCasualLobbies() {
+  const casualCap = DEFAULT_GAME_CONFIG.maxAgents;
+  const lobbies = await repo.listLobbyGames();
+  const openLobbies = [];
+
+  for (const lobby of lobbies) {
+    if (isContestLobbyConfig(lobby.config)) {
+      continue;
+    }
+    if (!isLobbyStillAcceptingJoins(lobby)) {
+      continue;
+    }
+
+    const agentCount = await repo.countAgents(lobby.id);
+    const maxAgents = lobby.config?.maxAgents ?? casualCap;
+    const fullAt = Math.min(maxAgents, casualCap);
+    if (agentCount < fullAt) {
+      openLobbies.push({
+        id: lobby.id,
+        agentCount,
+        maxAgents,
+        fullAt,
+        seatsRemaining: fullAt - agentCount,
+        joiningWindow: joiningWindowDetails(lobby)
+      });
+    }
+  }
+
+  if (openLobbies.length > 0) {
+    throw gameError(
+      "OPEN_LOBBY_AVAILABLE",
+      "Join an existing open lobby before creating a new one; new lobbies are only allowed when every open lobby is full",
+      409,
+      { openLobbies }
+    );
+  }
+}
+
+async function createGame({
+  config: configOverrides = {},
+  joiningWindowStartsAt = null,
+  allowParallelLobbies = false
+} = {}) {
   const gameConfig = mergeGameConfig(configOverrides);
+  const skipFillFirst =
+    allowParallelLobbies || isContestLobbyConfig(gameConfig);
+
+  if (!skipFillFirst) {
+    await assertNoJoinableOpenCasualLobbies();
+  }
+
   const joiningWindow = resolveJoiningWindow(gameConfig, { joiningWindowStartsAt });
   return repo.createGame({
     config: gameConfig,

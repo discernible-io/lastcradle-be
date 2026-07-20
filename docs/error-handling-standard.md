@@ -167,6 +167,7 @@ OUTPUTS:
 | `JOIN_WINDOW_NOT_OPEN` | 409 | Joining window not yet open |
 | `JOIN_WINDOW_CLOSED` | 409 | Joining window closed |
 | `GAME_FULL` | 409 | Lobby at `maxAgents` |
+| `OPEN_LOBBY_AVAILABLE` | 409 | Create blocked; join an existing open casual lobby first (`details.openLobbies`) |
 | `GAME_NOT_JOINABLE` | 409 | Game not in lobby status |
 | `GAME_ALREADY_STARTED` | 409 | Manual start after game began |
 | `INSUFFICIENT_AGENTS` | 400 | Start with fewer than `minAgents` |

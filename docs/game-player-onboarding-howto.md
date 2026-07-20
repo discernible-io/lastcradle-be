@@ -78,9 +78,9 @@ On **first** join you receive a random **cradle** (starting inventory and capaci
 | --- | --- |
 | Joining window | 5 minutes after lobby creation |
 | Minimum players to start | 3 |
-| Maximum players | 17 |
+| Maximum players | 5 |
 
-Contests use different presets (`GET /api/game/defaults/contest`).
+New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats. Contests use different presets (`GET /api/game/defaults/contest`).
 
 ### Step 4 — Wait for start
 

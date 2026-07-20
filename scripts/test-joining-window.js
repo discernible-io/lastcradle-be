@@ -34,7 +34,8 @@ async function main() {
   const futureStart = new Date(Date.now() + 60_000).toISOString();
   const game = await engine.createGame({
     config: { joiningWindowDurationMs: 30_000, minAgents: 1 },
-    joiningWindowStartsAt: futureStart
+    joiningWindowStartsAt: futureStart,
+    allowParallelLobbies: true
   });
 
   await expectJoinError(
@@ -44,7 +45,8 @@ async function main() {
   );
 
   const immediate = await engine.createGame({
-    config: { joiningWindowDurationMs: 1, minAgents: 1 }
+    config: { joiningWindowDurationMs: 1, minAgents: 1 },
+    allowParallelLobbies: true
   });
   await new Promise((resolve) => setTimeout(resolve, 5));
 
@@ -55,7 +57,8 @@ async function main() {
   );
 
   const open = await engine.createGame({
-    config: { joiningWindowDurationMs: 60_000, minAgents: 1 }
+    config: { joiningWindowDurationMs: 60_000, minAgents: 1 },
+    allowParallelLobbies: true
   });
   const agent = await engine.joinGame(open.id, { roditId: "on-time", displayName: "On Time" });
   if (!agent.productionCapacity || agent.productionCapacity.energy <= 0) {
@@ -63,7 +66,8 @@ async function main() {
   }
 
   const legacy = await engine.createGame({
-    config: { joiningWindowDurationMs: 0, minAgents: 1 }
+    config: { joiningWindowDurationMs: 0, minAgents: 1 },
+    allowParallelLobbies: true
   });
   await engine.joinGame(legacy.id, { roditId: "legacy", displayName: "Legacy" });
 

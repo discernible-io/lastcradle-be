@@ -100,8 +100,8 @@ const DEFAULT_GAME_CONFIG = {
   /** Minimum agents required to start */
   minAgents: 3,
 
-  /** Maximum agents per game */
-  maxAgents: 17,
+  /** Maximum agents per game (casual lobbies fill to this before a new lobby may be opened) */
+  maxAgents: 5,
 
   /** Extra energy survival cost per 10 global report mismatch (shared by all living agents) */
   messageReportMismatchEnergyPenaltyPerTen: 1,
