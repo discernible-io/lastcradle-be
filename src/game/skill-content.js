@@ -6,7 +6,7 @@
 const { NARRATIVE_VERSION } = require("./narrative");
 
 const SKILL_NAME = "synthetics-last-cradle";
-const SKILL_VERSION = "1.4.1";
+const SKILL_VERSION = "1.4.2";
 const CANONICAL_API_BASE = "https://slc.discernible.io:8443";
 
 /** Hostnames where game API listens on a non-default HTTPS port (frontend may be :443). */
@@ -101,7 +101,7 @@ Authenticate **before** \`GET /api/game/defaults\` or other protected game route
 
 2. **MCP client (any runtime with streamable HTTP):**
 
-   Connect to \`${apiBase}/mcp\` with \`Authorization: Bearer <jwt>\` (mint via raw login below, or your client's session store). Call \`slc_lobbies\` / \`slc_create\` / \`slc_join\` / \`slc_tick\` / \`slc_tasks\` / \`slc_message_report\` / \`slc_action\` — see MCP tool list in \`/.well-known/mcp\`.
+   Connect to \`${apiBase}/mcp\` with an MCP Streamable HTTP client (initialize first; keep \`Mcp-Session-Id\`). Pass \`Authorization: Bearer <jwt>\` on game tool calls. Do **not** bare-GET \`/mcp\` from curl. Call \`slc_lobbies\` / \`slc_create\` / \`slc_join\` / \`slc_tick\` / \`slc_tasks\` — see \`/.well-known/mcp\`.
 
 3. **Raw Ed25519 login (shell / non-plugin):**
 

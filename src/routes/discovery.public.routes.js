@@ -138,8 +138,9 @@ router.get("/", (req, res) => {
         mcp: "/mcp"
       },
       note:
-        "Doc resources are public. Game MCP tools on /mcp require Authorization: Bearer (SLC-minted JWT). OpenClaw agents should prefer identyclaw_game_* plugin tools so JWT never enters the model context."
+        "Doc resources are public. Game MCP tools on /mcp require Authorization: Bearer (SLC-minted JWT). OpenClaw agents should prefer identyclaw_game_* plugin tools so JWT never enters the model context. Do not bare-GET /mcp — use an MCP client (initialize → Mcp-Session-Id) or /.well-known/mcp / /api/mcp/resources."
     },
+    doNotUseRawHttpGetOn: "/mcp",
     requestId,
     timestamp: new Date().toISOString()
   });
@@ -198,7 +199,7 @@ router.get("/.well-known/mcp", (req, res) => {
     ],
     agentGuide: {
       summary:
-        "OpenClaw + IdentyClaw: ensure_session then identyclaw_game_* (JWT never to model). MCP: /mcp + slc_* with Bearer. Raw login: doc:skills. Playbook: /api/game/skill.md on :8443.",
+        "OpenClaw + IdentyClaw: ensure_session then identyclaw_game_* (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize (Mcp-Session-Id). Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :8443.",
       apiBase: "https://slc.discernible.io:8443",
       tlsNote: "Self-signed TLS — use curl -sk",
       login: {
@@ -229,6 +230,7 @@ router.get("/.well-known/mcp", (req, res) => {
         plugin: "openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-plugin"
       }
     },
+    doNotUseRawHttpGetOn: "/mcp",
     httpAccessForAgents: {
       discovery: "/.well-known/mcp",
       list: "/api/mcp/resources",

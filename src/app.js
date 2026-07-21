@@ -877,15 +877,12 @@ async function startServer() {
       });
     });
 
-    const { createMcpStreamableRouter } = require("./routes/mcp-streamable.routes");
-    app.use(
-      "/mcp",
-      createMcpStreamableRouter({
-        authenticate: authenticate_apicall,
-        getResource: (uri) => mcpRoutes.mcpService.getResource(uri),
-        listResources: (req, options) => mcpRoutes.mcpService.listAvailableResources(req, options)
-      })
-    );
+    const { setupMcpHttpTransport } = require("./services/mcp-http.service");
+    await setupMcpHttpTransport(app, {
+      authenticate: authenticate_apicall,
+      getResource: (uri) => mcpRoutes.mcpService.getResource(uri),
+      listResources: (req, options) => mcpRoutes.mcpService.listAvailableResources(req, options)
+    });
 
     app.use((req, res) => {
       const requestId = req.requestId || ulid();
@@ -1170,6 +1167,17 @@ async function closeAllDatabases() {
         }
       );
     }
+  }
+
+  try {
+    const { closeMcpHttpTransports } = require("./services/mcp-http.service");
+    await closeMcpHttpTransports();
+  } catch (error) {
+    logger.warnWithContext("Error closing MCP transports", {
+      requestId,
+      component: "MCPHttpIntegration",
+      error: error.message
+    });
   }
 
   // Close the game database connection
