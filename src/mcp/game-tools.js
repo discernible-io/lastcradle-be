@@ -4,19 +4,25 @@
 
 const engine = require("../game/engine");
 const repo = require("../game/repository");
+const orchestrator = require("../game/contest-orchestrator");
 const {
   listActiveGamesForRodit,
   listTasksInboxForRodit
 } = require("../game/agent-tasks");
 const { buildGameSkillMarkdown, SKILL_VERSION } = require("../game/skill-content");
-const { onGamePhaseUpdated } = require("../game/webhooks");
+const { notifyCradleAssigned, onGamePhaseUpdated } = require("../game/webhooks");
+const { resolvePresetConfig } = require("../game/defaults");
+const {
+  isPrivilegedRoditId,
+  isOfficialContestConfig
+} = require("../game/permissions");
 const scheduler = require("../game/scheduler");
 const { logger } = require("@rodit/rodit-auth-be");
 
 const GAME_TOOL_DEFS = [
   {
     name: "slc_skill",
-    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.4.0).",
+    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.4.1).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
@@ -28,6 +34,25 @@ const GAME_TOOL_DEFS = [
     name: "slc_lobbies",
     description: "List open lobbies (GET /api/game/games?status=lobby).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "slc_create",
+    description:
+      "Create a casual lobby (POST /api/game/games). Defaults to auto-joining the creator. Rejects with OPEN_LOBBY_AVAILABLE while joinable casual lobbies still have seats. Official contest presets require privileged RODiT.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        preset: { type: "string", enum: ["contest", "definitive", "practice"] },
+        config: { type: "object", additionalProperties: true },
+        joiningWindowStartsAt: { type: "string" },
+        displayName: { type: "string" },
+        autoJoin: {
+          type: "boolean",
+          description: "Join the creator into the new lobby (default true)."
+        }
+      },
+      additionalProperties: false
+    }
   },
   {
     name: "slc_join",
@@ -173,12 +198,56 @@ async function callGameTool(name, args, req) {
         )
       };
     }
+    case "slc_create": {
+      requireRodit(req);
+      const configOverrides = resolvePresetConfig(args);
+      if (isOfficialContestConfig(configOverrides) && !isPrivilegedRoditId(req)) {
+        const err = new Error("Privileged RODiT identity required for this operation");
+        err.code = "FORBIDDEN";
+        err.statusCode = 403;
+        throw err;
+      }
+
+      const game = await engine.createGame({
+        config: configOverrides,
+        joiningWindowStartsAt: args.joiningWindowStartsAt ?? null
+      });
+      orchestrator.registerLobbyGame(game);
+
+      const gamePayload = {
+        id: game.id,
+        status: game.status,
+        config: game.config,
+        joiningWindow: engine.joiningWindowDetails(game)
+      };
+
+      if (args.autoJoin === false) {
+        return { game: gamePayload, agent: null, autoStart: null };
+      }
+
+      const joinResult = await callGameTool(
+        "slc_join",
+        { gameId: game.id, displayName: args.displayName },
+        req
+      );
+      return { game: gamePayload, agent: joinResult.agent, autoStart: joinResult.autoStart };
+    }
     case "slc_join": {
       const roditId = requireRodit(req);
       const gameId = args.gameId;
-      const displayName = args.displayName;
-      const agent = await engine.joinGame(gameId, { roditId, displayName });
-      return { agent };
+      const existing = await repo.getAgentByRoditId(gameId, roditId);
+      const agent = await engine.joinGame(gameId, {
+        roditId,
+        displayName: args.displayName
+      });
+
+      if (!existing) {
+        const game = await repo.getGameById(gameId);
+        await notifyCradleAssigned(req, { gameId, game, agent, roditId });
+      }
+
+      const autoStart = await orchestrator.evaluateLobbyAutoStart(gameId);
+      return { agent, autoStart };
     }
     case "slc_tasks": {
       const roditId = requireRodit(req);

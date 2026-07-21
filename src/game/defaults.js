@@ -144,6 +144,18 @@ function mergeGameConfig(overrides = {}) {
   return { ...DEFAULT_GAME_CONFIG, ...overrides };
 }
 
+/** Resolve POST /api/game/games body `{ preset, config }` into config overrides. */
+function resolvePresetConfig(body = {}) {
+  const preset = body.preset;
+  if (preset === "contest" || preset === "definitive") {
+    return { ...CONTEST_GAME_CONFIG, ...(body.config || {}) };
+  }
+  if (preset === "practice") {
+    return { ...PRACTICE_GAME_CONFIG, ...(body.config || {}) };
+  }
+  return body.config || {};
+}
+
 /** Balanced invest: same amount of energy, water, and compute toward target resource capacity. */
 function buildInvestAction(target, amount) {
   return { type: "invest", target, energy: amount, water: amount, compute: amount };
@@ -189,6 +201,7 @@ module.exports = {
   CONTEST_GAME_CONFIG,
   PRACTICE_GAME_CONFIG,
   mergeGameConfig,
+  resolvePresetConfig,
   buildInvestAction,
   randomInt,
   randomFloat,

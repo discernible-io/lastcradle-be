@@ -17,12 +17,7 @@ const {
   isPrivilegedRoditId,
   isOfficialContestConfig
 } = require("./permissions");
-const {
-  DEFAULT_GAME_CONFIG,
-  CONTEST_GAME_CONFIG,
-  PRACTICE_GAME_CONFIG,
-  mergeGameConfig
-} = require("./defaults");
+const { resolvePresetConfig, DEFAULT_GAME_CONFIG, CONTEST_GAME_CONFIG, PRACTICE_GAME_CONFIG } = require("./defaults");
 const { resolveRoditId, handleGameError } = require("./route-helpers");
 const { listActiveGamesForRodit, listTasksInboxForRodit } = require("./agent-tasks");
 
@@ -40,17 +35,6 @@ function denyUnlessPrivileged(req, res, requestId) {
     message: "Privileged RODiT identity required for this operation"
   });
   return false;
-}
-
-function resolvePresetConfig(body = {}) {
-  const preset = body.preset;
-  if (preset === "contest" || preset === "definitive") {
-    return { ...CONTEST_GAME_CONFIG, ...(body.config || {}) };
-  }
-  if (preset === "practice") {
-    return { ...PRACTICE_GAME_CONFIG, ...(body.config || {}) };
-  }
-  return body.config || {};
 }
 
 /**

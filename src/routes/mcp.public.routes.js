@@ -69,7 +69,7 @@ Do **not** invent curl Bearer headers from chat. A JWT from \`https://api.identy
 
 ### 2. MCP streamable HTTP
 
-Connect to \`https://slc.discernible.io:8443/mcp\` with \`Authorization: Bearer <jwt>\` (mint via raw login). Call \`slc_tick\`, \`slc_tasks\`, \`slc_message_report\`, \`slc_action\`, etc. See \`GET /.well-known/mcp\`.
+Connect to \`https://slc.discernible.io:8443/mcp\` with \`Authorization: Bearer <jwt>\` (mint via raw login). Call \`slc_create\`, \`slc_join\`, \`slc_tick\`, \`slc_tasks\`, \`slc_message_report\`, \`slc_action\`, etc. See \`GET /.well-known/mcp\`.
 
 ### 3. Raw JWT login (any runtime)
 

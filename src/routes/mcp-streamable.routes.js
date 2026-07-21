@@ -16,7 +16,7 @@ const {
 
 const SERVER_INFO = {
   name: "syntheticslastcradle",
-  version: "1.4.0"
+  version: "1.4.1"
 };
 
 const PROTOCOL_VERSION = "2025-03-26";
@@ -149,7 +149,8 @@ function createMcpStreamableRouter({ authenticate, getResource, listResources })
       });
       return fail(err.statusCode === 401 ? -32001 : -32000, err.message, {
         code: err.code,
-        statusCode: err.statusCode
+        statusCode: err.statusCode,
+        details: err.details
       });
     }
   }

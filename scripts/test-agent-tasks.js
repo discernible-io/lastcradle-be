@@ -38,8 +38,11 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.4.0")) {
-    throw new Error("skill.md should be version 1.4.0");
+  if (!skill.includes("version: 1.4.1")) {
+    throw new Error("skill.md should be version 1.4.1");
+  }
+  if (!skill.includes("slc_create")) {
+    throw new Error("skill.md should document MCP slc_create");
   }
   if (skill.includes("Use the returned JWT")) {
     throw new Error("skill.md must not claim ensure_session returns a JWT");
