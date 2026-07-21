@@ -143,9 +143,73 @@ async function listTasksForRodit(roditId, { includeFinished = false } = {}) {
   return tasks;
 }
 
+/**
+ * Peers still blocking a submission-gated phase in games where this agent has nothing left to do.
+ * Empty tasks does not mean the table is unblocked — check waitingOn.
+ */
+async function buildWaitingOnForMembership(game, agent) {
+  if (game.status !== "running" || agent.status !== "alive") {
+    return [];
+  }
+
+  let status = null;
+  let needed = null;
+  if (game.phase === "message_report") {
+    status = await repo.getMessageReportSubmissionStatus(game.id, game.current_turn);
+    needed = TASK_TYPES.SUBMIT_MESSAGE_REPORT;
+  } else if (game.phase === "execution") {
+    status = await repo.getExecutionSubmissionStatus(game.id, game.current_turn);
+    needed = TASK_TYPES.SUBMIT_EXECUTION_ACTION;
+  } else {
+    return [];
+  }
+
+  if (!status || status.pendingAgentIds.includes(agent.id) || status.allSubmitted) {
+    return [];
+  }
+
+  const livingAgents = await repo.listAgents(game.id, { status: "alive" });
+  const byId = new Map(livingAgents.map((a) => [a.id, a]));
+
+  return status.pendingAgentIds.map((id) => {
+    const peer = byId.get(id);
+    return {
+      gameId: game.id,
+      displayName: peer?.displayName || peer?.roditId || id,
+      agentId: id,
+      phase: game.phase,
+      needed,
+      currentTurn: game.current_turn ?? null
+    };
+  });
+}
+
+async function listWaitingOnForRodit(roditId, { includeFinished = false } = {}) {
+  const gameStatuses = includeFinished ? ["lobby", "running", "finished"] : ["lobby", "running"];
+  const memberships = await repo.listMembershipsByRoditId(roditId, { gameStatuses });
+  const waitingOn = [];
+
+  for (const { game, agent } of memberships) {
+    waitingOn.push(...(await buildWaitingOnForMembership(game, agent)));
+  }
+
+  return waitingOn;
+}
+
+async function listTasksInboxForRodit(roditId, { includeFinished = false } = {}) {
+  const [tasks, waitingOn] = await Promise.all([
+    listTasksForRodit(roditId, { includeFinished }),
+    listWaitingOnForRodit(roditId, { includeFinished })
+  ]);
+  return { tasks, waitingOn };
+}
+
 module.exports = {
   TASK_TYPES,
   buildTasksForMembership,
+  buildWaitingOnForMembership,
   listActiveGamesForRodit,
-  listTasksForRodit
+  listTasksForRodit,
+  listWaitingOnForRodit,
+  listTasksInboxForRodit
 };

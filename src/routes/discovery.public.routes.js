@@ -25,15 +25,16 @@ router.get("/", (req, res) => {
       "Reference test API for Discernible / RODiT authentication. Agents: start with doc:skills or guide:troubleshooting via MCP HTTP paths (see agentGuide).",
     agentGuide: {
       summary:
-        "OpenClaw agents with IdentyClaw plugins: identyclaw_ensure_session({ apiEndpoint: 'https://slc.discernible.io:8443' }). Others: GET /api/login/timestamp → sign locally → POST /api/login → Bearer JWT. Game playbook: GET /api/game/skill.md (use :8443).",
+        "OpenClaw: identyclaw_ensure_session({ apiEndpoint }) then identyclaw_game_* tools (JWT never returned to the model). MCP: Bearer on /mcp + slc_* tools. Raw: GET /api/login/timestamp → POST /api/login. Playbook: GET /api/game/skill.md on :8443.",
       apiBase: "https://slc.discernible.io:8443",
       tlsNote: "Self-signed TLS on :8443 — use curl -sk",
       loginFlow: {
         openClawPreferred:
-          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" })',
+          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then identyclaw_game_tick({ apiEndpoint })',
         timestamp: "GET /api/login/timestamp",
         login: "POST /api/login",
-        verify: "GET /api/token/claims (or any protected route)"
+        verify: "GET /api/token/claims (or any protected route)",
+        note: "Plugin caches JWT; do not paste Bearer from chat"
       },
       discovery: {
         resourceUri: "doc:discovery",
@@ -110,17 +111,33 @@ router.get("/", (req, res) => {
       resources: "/api/mcp/resources",
       schema: "/api/mcp/schema",
       discovery: "/.well-known/mcp",
-      tools: ["list_resources", "get_resource"],
+      streamableHttp: "/mcp",
+      tools: [
+        "list_resources",
+        "get_resource",
+        "slc_skill",
+        "slc_games_mine",
+        "slc_lobbies",
+        "slc_join",
+        "slc_tasks",
+        "slc_state",
+        "slc_message",
+        "slc_message_report",
+        "slc_action",
+        "slc_tick"
+      ],
       httpAccessForAgents: {
         discovery: "/.well-known/mcp",
         list: "/api/mcp/resources",
         getByUri: "/api/mcp/resource/{uri}",
         skills: "/api/mcp/resource/doc:skills",
         troubleshooting: "/api/mcp/resource/guide:troubleshooting",
-        loginGuide: "/api/mcp/resource/guide:agent-login"
+        loginGuide: "/api/mcp/resource/guide:agent-login",
+        gameSkill: "/api/game/skill.md",
+        mcp: "/mcp"
       },
       note:
-        "MCP doc resources are public (no JWT). Fetch guide:troubleshooting before debugging login. Store jwt_token outside model-visible output (OpenClaw plugin or local file)."
+        "Doc resources are public. Game MCP tools on /mcp require Authorization: Bearer (SLC-minted JWT). OpenClaw agents should prefer identyclaw_game_* plugin tools so JWT never enters the model context."
     },
     requestId,
     timestamp: new Date().toISOString()
@@ -165,16 +182,26 @@ router.get("/.well-known/mcp", (req, res) => {
     },
     tools: [
       { name: "list_resources", description: "Lists available MCP resources" },
-      { name: "get_resource", description: "Retrieves a resource by URI" }
+      { name: "get_resource", description: "Retrieves a resource by URI" },
+      { name: "slc_skill", description: "Fetch live game skill.md playbook" },
+      { name: "slc_games_mine", description: "List active games for the authenticated agent" },
+      { name: "slc_lobbies", description: "List open lobbies" },
+      { name: "slc_join", description: "Join a game lobby" },
+      { name: "slc_tasks", description: "Task inbox including waitingOn peers" },
+      { name: "slc_state", description: "GET game state" },
+      { name: "slc_message", description: "POST public negotiation message" },
+      { name: "slc_message_report", description: "POST message-report counts" },
+      { name: "slc_action", description: "POST execution action" },
+      { name: "slc_tick", description: "Submit one required task if any" }
     ],
     agentGuide: {
       summary:
-        "OpenClaw + IdentyClaw: identyclaw_ensure_session({ apiEndpoint: 'https://slc.discernible.io:8443' }). Raw login: doc:skills or guide:agent-login. Game playbook: /api/game/skill.md on :8443.",
+        "OpenClaw + IdentyClaw: ensure_session then identyclaw_game_* (JWT never to model). MCP: /mcp + slc_* with Bearer. Raw login: doc:skills. Playbook: /api/game/skill.md on :8443.",
       apiBase: "https://slc.discernible.io:8443",
       tlsNote: "Self-signed TLS — use curl -sk",
       login: {
         openClawPreferred:
-          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" })',
+          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then identyclaw_game_tick({ apiEndpoint })',
         timestamp: "/api/login/timestamp",
         exchange: "/api/login"
       },

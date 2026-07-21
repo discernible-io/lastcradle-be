@@ -877,6 +877,16 @@ async function startServer() {
       });
     });
 
+    const { createMcpStreamableRouter } = require("./routes/mcp-streamable.routes");
+    app.use(
+      "/mcp",
+      createMcpStreamableRouter({
+        authenticate: authenticate_apicall,
+        getResource: (uri) => mcpRoutes.mcpService.getResource(uri),
+        listResources: (req, options) => mcpRoutes.mcpService.listAvailableResources(req, options)
+      })
+    );
+
     app.use((req, res) => {
       const requestId = req.requestId || ulid();
       logger.infoWithContext("404 - Endpoint not found", {

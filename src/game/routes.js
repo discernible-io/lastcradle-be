@@ -24,7 +24,7 @@ const {
   mergeGameConfig
 } = require("./defaults");
 const { resolveRoditId, handleGameError } = require("./route-helpers");
-const { listActiveGamesForRodit, listTasksForRodit } = require("./agent-tasks");
+const { listActiveGamesForRodit, listTasksInboxForRodit } = require("./agent-tasks");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -113,8 +113,8 @@ router.get("/tasks", async (req, res) => {
 
   try {
     const includeFinished = req.query.includeFinished === "true" || req.query.includeFinished === "1";
-    const tasks = await listTasksForRodit(roditId, { includeFinished });
-    res.json({ tasks, requestId });
+    const { tasks, waitingOn } = await listTasksInboxForRodit(roditId, { includeFinished });
+    res.json({ tasks, waitingOn, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }

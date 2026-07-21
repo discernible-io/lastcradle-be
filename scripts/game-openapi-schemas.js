@@ -515,6 +515,22 @@ const gameSchemas = {
     required: ["tasks", "requestId"],
     properties: {
       tasks: { type: "array", items: { $ref: "#/components/schemas/GameAgentTask" } },
+      waitingOn: {
+        type: "array",
+        description:
+          "Peers still blocking a submission-gated phase when the caller has no pending required task",
+        items: {
+          type: "object",
+          properties: {
+            gameId: { type: "string" },
+            displayName: { type: "string" },
+            agentId: { type: "string" },
+            phase: { type: "string" },
+            needed: { type: "string" },
+            currentTurn: { type: "integer", nullable: true }
+          }
+        }
+      },
       requestId: { type: "string" }
     }
   },

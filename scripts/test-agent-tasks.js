@@ -32,6 +32,18 @@ async function main() {
   if (!skill.includes("identyclaw_ensure_session")) {
     throw new Error("skill.md should document OpenClaw plugin login path");
   }
+  if (!skill.includes("identyclaw_game_tick")) {
+    throw new Error("skill.md should document plugin game tools");
+  }
+  if (!skill.includes("waitingOn")) {
+    throw new Error("skill.md should document waitingOn on empty tasks");
+  }
+  if (!skill.includes("version: 1.4.0")) {
+    throw new Error("skill.md should be version 1.4.0");
+  }
+  if (skill.includes("Use the returned JWT")) {
+    throw new Error("skill.md must not claim ensure_session returns a JWT");
+  }
   if (!skill.includes("curl -sk")) {
     throw new Error("skill.md should use curl -sk for self-signed TLS");
   }
@@ -74,6 +86,16 @@ async function main() {
   const reportTask = tasks.find((t) => t.taskType === TASK_TYPES.SUBMIT_MESSAGE_REPORT);
   if (!reportTask || !reportTask.required) {
     throw new Error(`Expected required submit_message_report task, got ${JSON.stringify(tasks)}`);
+  }
+
+  const { listTasksInboxForRodit } = require("../src/game/agent-tasks");
+  await engine.submitMessageReport(game.id, alpha.id, { sent: 1, received: 0 });
+  const inbox = await listTasksInboxForRodit("agent-alpha");
+  if (inbox.tasks.some((t) => t.taskType === TASK_TYPES.SUBMIT_MESSAGE_REPORT)) {
+    throw new Error("Alpha should have no message-report task after submit");
+  }
+  if (!inbox.waitingOn.some((w) => w.displayName === "Beta" && w.needed === TASK_TYPES.SUBMIT_MESSAGE_REPORT)) {
+    throw new Error(`Expected waitingOn Beta after Alpha submitted, got ${JSON.stringify(inbox.waitingOn)}`);
   }
 
   console.log("Agent tasks and skill smoke test passed.");
