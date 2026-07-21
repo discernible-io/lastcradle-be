@@ -17,7 +17,7 @@ process.env.API_DEFAULT_OPTIONS_DB_PATH = DB_PATH;
 const engine = require("../src/game/engine");
 const repo = require("../src/game/repository");
 const { listTasksForRodit, listActiveGamesForRodit, TASK_TYPES } = require("../src/game/agent-tasks");
-const { buildGameSkillMarkdown } = require("../src/game/skill-content");
+const { buildGameSkillMarkdown, resolveApiBase } = require("../src/game/skill-content");
 
 async function main() {
   await repo.initializeDatabase();
@@ -28,6 +28,17 @@ async function main() {
   }
   if (!skill.includes("phase_change")) {
     throw new Error("skill.md should document webhook events");
+  }
+  if (!skill.includes("identyclaw_ensure_session")) {
+    throw new Error("skill.md should document OpenClaw plugin login path");
+  }
+  if (!skill.includes("curl -sk")) {
+    throw new Error("skill.md should use curl -sk for self-signed TLS");
+  }
+
+  const slcBase = resolveApiBase({ protocol: "https", get: (h) => (h === "host" ? "slc.discernible.io" : null) });
+  if (slcBase !== "https://slc.discernible.io:8443") {
+    throw new Error(`resolveApiBase should append :8443 for SLC host, got ${slcBase}`);
   }
 
   const game = await engine.createGame({

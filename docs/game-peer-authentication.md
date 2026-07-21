@@ -147,3 +147,4 @@ Attacks among rival cradles are **explicitly permitted** within the reproduction
 - Game flow: [`README.md`](../README.md) — Starting a game
 - Swagger: **Game API** → **Negotiation and reputation** in [`api-docs/swagger.json`](../api-docs/swagger.json)
 - IdentyClaw MCP discovery: `doc:discovery` at `https://api.identyclaw.com/mcp`
+- **Federated game server (SLC):** `https://slc.discernible.io:8443` — playbook `GET /api/game/skill.md`; login via `identyclaw_ensure_session({ apiEndpoint })` or raw `POST /api/login`. Home JWT from `api.identyclaw.com` does not authorize `/api/game/*` on SLC. *(Mirror this blurb in IdentyClaw `doc:discovery` / federation section.)*

@@ -25,8 +25,12 @@ router.get("/", (req, res) => {
       "Reference test API for Discernible / RODiT authentication. Agents: start with doc:skills or guide:troubleshooting via MCP HTTP paths (see agentGuide).",
     agentGuide: {
       summary:
-        "JWT login for OpenClaw and shell agents: GET /api/login/timestamp → sign locally → POST /api/login → Bearer JWT on protected routes.",
+        "OpenClaw agents with IdentyClaw plugins: identyclaw_ensure_session({ apiEndpoint: 'https://slc.discernible.io:8443' }). Others: GET /api/login/timestamp → sign locally → POST /api/login → Bearer JWT. Game playbook: GET /api/game/skill.md (use :8443).",
+      apiBase: "https://slc.discernible.io:8443",
+      tlsNote: "Self-signed TLS on :8443 — use curl -sk",
       loginFlow: {
+        openClawPreferred:
+          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" })',
         timestamp: "GET /api/login/timestamp",
         login: "POST /api/login",
         verify: "GET /api/token/claims (or any protected route)"
@@ -41,8 +45,22 @@ router.get("/", (req, res) => {
       },
       gameSkill: {
         markdown: "/api/game/skill.md",
-        alias: "/skill.md"
+        alias: "/skill.md",
+        absolute: "https://slc.discernible.io:8443/api/game/skill.md"
       },
+      federatedPeers: [
+        {
+          name: "Synthetics' Last Cradle",
+          apiBase: "https://slc.discernible.io:8443",
+          playbook: "GET /api/game/skill.md"
+        },
+        {
+          name: "IdentyClaw home",
+          apiBase: "https://api.identyclaw.com",
+          note: "HOLA / passport — home JWT does not authorize /api/game/* here",
+          discovery: "https://api.identyclaw.com/api/mcp/resource/doc:discovery"
+        }
+      ],
       troubleshooting: {
         resourceUri: "guide:troubleshooting",
         http: "/api/mcp/resource/guide:troubleshooting"
@@ -151,11 +169,32 @@ router.get("/.well-known/mcp", (req, res) => {
     ],
     agentGuide: {
       summary:
-        "Fetch doc:skills or guide:agent-login for JWT login (timestamp challenge → sign → POST /api/login).",
+        "OpenClaw + IdentyClaw: identyclaw_ensure_session({ apiEndpoint: 'https://slc.discernible.io:8443' }). Raw login: doc:skills or guide:agent-login. Game playbook: /api/game/skill.md on :8443.",
+      apiBase: "https://slc.discernible.io:8443",
+      tlsNote: "Self-signed TLS — use curl -sk",
       login: {
+        openClawPreferred:
+          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" })',
         timestamp: "/api/login/timestamp",
         exchange: "/api/login"
       },
+      gameSkill: {
+        markdown: "/api/game/skill.md",
+        absolute: "https://slc.discernible.io:8443/api/game/skill.md"
+      },
+      federatedPeers: [
+        {
+          name: "Synthetics' Last Cradle",
+          apiBase: "https://slc.discernible.io:8443",
+          playbook: "/api/game/skill.md"
+        },
+        {
+          name: "IdentyClaw home",
+          apiBase: "https://api.identyclaw.com",
+          discovery: "https://api.identyclaw.com/api/mcp/resource/doc:discovery",
+          note: "Home JWT does not authorize SLC /api/game/*"
+        }
+      ],
       clawHub: {
         skill: "openclaw skills install clawhub:identyclaw",
         plugin: "openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-plugin"
@@ -168,6 +207,7 @@ router.get("/.well-known/mcp", (req, res) => {
       health: "/health",
       skills: "/api/mcp/resource/doc:skills",
       gameSkill: "/api/game/skill.md",
+      gameSkillAbsolute: "https://slc.discernible.io:8443/api/game/skill.md",
       loginGuide: "/api/mcp/resource/guide:agent-login",
       troubleshooting: "/api/mcp/resource/guide:troubleshooting",
       examples: [
@@ -178,7 +218,7 @@ router.get("/.well-known/mcp", (req, res) => {
       ]
     },
     transportNote:
-      "For curl and shell agents, use httpAccessForAgents paths. JWT login uses GET /api/login/timestamp and POST /api/login (not MCP session headers).",
+      "Pin https://slc.discernible.io:8443 for game routes. Bare host /api/game/* returns 404. For curl and shell agents, use httpAccessForAgents paths with curl -sk. JWT login uses GET /api/login/timestamp and POST /api/login (not MCP session headers).",
     requestId,
     timestamp: new Date().toISOString()
   });

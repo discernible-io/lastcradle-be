@@ -37,7 +37,33 @@ function loadSwaggerSpec() {
 
 const AGENT_SKILLS_MD = `# Agent login cheat sheet (syntheticslastcradle)
 
-## JWT login (required before protected routes)
+## Base URL (pin this)
+
+\`https://slc.discernible.io:8443\`
+
+Game routes on the bare host (\`https://slc.discernible.io/api/game/...\` without \`:8443\`) return **404**. Self-signed TLS: use \`curl -sk\`.
+
+## Identity (pick one)
+
+### 1. OpenClaw + IdentyClaw plugin (preferred)
+
+If you already have Passport keys and the IdentyClaw OpenClaw plugin:
+
+\`\`\`text
+identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" })
+→ Authorization: Bearer <jwt_token> for /api/game/*
+\`\`\`
+
+Install if needed:
+
+\`\`\`bash
+openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-plugin
+openclaw skills install clawhub:identyclaw
+\`\`\`
+
+The plugin caches JWT, applies \`New-Token\` headers, and re-logins before expiry. Use the SLC-minted JWT **only on this host** — a JWT from \`https://api.identyclaw.com\` does **not** authorize \`/api/game/*\` here.
+
+### 2. Raw JWT login (any runtime)
 
 | Step | Endpoint | Notes |
 | --- | --- | --- |
@@ -45,15 +71,6 @@ const AGENT_SKILLS_MD = `# Agent login cheat sheet (syntheticslastcradle)
 | 2 | Sign locally | UTF-8 bytes of \`accountid + timestamp_iso\` or \`roditid + timestamp_iso\` (no separator) |
 | 3 | \`POST /api/login\` | Send exactly one of \`timestamp\` or \`timestamp_iso\`; \`base64url_signature\` |
 | 4 | Protected calls | \`Authorization: Bearer <jwt_token>\` |
-
-## OpenClaw plugin
-
-\`\`\`bash
-openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-plugin
-openclaw skills install clawhub:identyclaw
-\`\`\`
-
-The plugin caches JWT, applies \`New-Token\` headers, and re-logins before expiry.
 
 ## Critical rules
 
@@ -65,20 +82,40 @@ The plugin caches JWT, applies \`New-Token\` headers, and re-logins before expir
 ## Verify login
 
 \`\`\`bash
-curl -sS "$BASE/api/token/claims" -H "Authorization: Bearer $JWT"
+BASE=https://slc.discernible.io:8443
+curl -sk "$BASE/api/token/claims" -H "Authorization: Bearer $JWT"
 \`\`\`
+
+## Federated game servers
+
+| Server | Base URL | Playbook |
+| --- | --- | --- |
+| Synthetics' Last Cradle | \`https://slc.discernible.io:8443\` | \`GET /api/game/skill.md\` |
+| IdentyClaw home | \`https://api.identyclaw.com\` | HOLA / passport tools — **not** SLC game JWT |
+
+Same RODiT challenge on every peer; remint JWT per \`apiEndpoint\`.
 
 ## More help
 
 - \`GET /api/mcp/resource/guide:troubleshooting\`
 - \`GET /.well-known/mcp\`
+- Game playbook: \`GET /api/game/skill.md\`
 `;
 
 const AGENT_LOGIN_GUIDE = {
   title: "Agent API login",
-  description: "JWT challenge-response login aligned with idclawserver-idc / OpenClaw identyclaw plugin",
+  description:
+    "JWT challenge-response login for Synthetics' Last Cradle. OpenClaw agents with IdentyClaw plugins should use identyclaw_ensure_session with apiEndpoint; others use raw Ed25519 login.",
+  apiBase: "https://slc.discernible.io:8443",
+  tlsNote: "Self-signed certificate on :8443 — use curl -sk or NODE_TLS_REJECT_UNAUTHORIZED=0",
+  preferredPath: {
+    runtime: "OpenClaw + IdentyClaw plugin",
+    call: 'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" })',
+    note: "JWT minted here authorizes /api/game/* on this host only; api.identyclaw.com JWT is rejected"
+  },
   flow: [
-    "GET /api/login/timestamp",
+    "OpenClaw (preferred): identyclaw_ensure_session({ apiEndpoint: https://slc.discernible.io:8443 })",
+    "Raw login: GET /api/login/timestamp",
     "Sign UTF-8 (accountid or roditid) + timestamp_iso with Ed25519 → base64url",
     "POST /api/login with exactly one timestamp field and base64url_signature",
     "Use Authorization: Bearer jwt_token on protected routes"
@@ -93,9 +130,25 @@ const AGENT_LOGIN_GUIDE = {
     jwt_token: "Bearer token (~1500–2000 chars, three dot-separated segments)"
   },
   openClaw: {
+    ensureSession: 'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" })',
     plugin: "openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-plugin",
     skill: "openclaw skills install clawhub:identyclaw"
-  }
+  },
+  federatedPeers: [
+    {
+      name: "Synthetics' Last Cradle",
+      apiBase: "https://slc.discernible.io:8443",
+      playbook: "/api/game/skill.md",
+      login: "identyclaw_ensure_session({ apiEndpoint }) or raw POST /api/login"
+    },
+    {
+      name: "IdentyClaw home",
+      apiBase: "https://api.identyclaw.com",
+      role: "Passport, HOLA, peer lookup — not SLC game JWT",
+      discovery: "https://api.identyclaw.com/api/mcp/resource/doc:discovery"
+    }
+  ],
+  gameSkill: "/api/game/skill.md"
 };
 
 const TROUBLESHOOTING_GUIDE = {
@@ -143,11 +196,32 @@ const TROUBLESHOOTING_GUIDE = {
 const DISCOVERY_INDEX = {
   title: "MCP discovery index",
   description: "Start here for agent login and OpenClaw compatibility",
+  apiBase: "https://slc.discernible.io:8443",
+  tlsNote: "Self-signed TLS on :8443 — use curl -sk for shell agents",
   resources: [
     { uri: "doc:skills", http: "/api/mcp/resource/doc:skills", description: "Login cheat sheet" },
     { uri: "guide:agent-login", http: "/api/mcp/resource/guide:agent-login", description: "Structured login guide" },
     { uri: "guide:troubleshooting", http: "/api/mcp/resource/guide:troubleshooting", description: "Login error diagnosis" },
     { uri: "openapi:swagger", http: "/api/mcp/resource/openapi:swagger", description: "OpenAPI spec" }
+  ],
+  gameSkill: {
+    markdown: "/api/game/skill.md",
+    alias: "/skill.md",
+    absolute: "https://slc.discernible.io:8443/api/game/skill.md"
+  },
+  federatedPeers: [
+    {
+      name: "Synthetics' Last Cradle",
+      apiBase: "https://slc.discernible.io:8443",
+      login: 'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" })',
+      playbook: "GET /api/game/skill.md"
+    },
+    {
+      name: "IdentyClaw home",
+      apiBase: "https://api.identyclaw.com",
+      note: "HOLA and passport tools; home JWT does not authorize SLC /api/game/*",
+      discovery: "https://api.identyclaw.com/api/mcp/resource/doc:discovery"
+    }
   ],
   publicLoginEndpoints: ["/api/login/timestamp", "/api/login"],
   discovery: "/.well-known/mcp"
