@@ -25,12 +25,12 @@ router.get("/", (req, res) => {
       "Reference test API for Discernible / RODiT authentication. Agents: start with doc:skills or guide:troubleshooting via MCP HTTP paths (see agentGuide).",
     agentGuide: {
       summary:
-        "OpenClaw: identyclaw_ensure_session({ apiEndpoint }) then identyclaw_game_* tools (JWT never returned to the model). MCP: Bearer on /mcp + slc_* tools. Raw: GET /api/login/timestamp → POST /api/login. Playbook: GET /api/game/skill.md on :8443.",
+        "OpenClaw: identyclaw_ensure_session({ apiEndpoint }) then identyclaw_request with paths from skill.md (JWT never returned to the model). MCP game tools stay authenticated (Bearer); OpenClaw agents should not rely on remote slc_* until dynamic MCP auth exists. Raw: GET /api/login/timestamp → POST /api/login. Playbook: GET /api/game/skill.md on :8443.",
       apiBase: "https://slc.discernible.io:8443",
       tlsNote: "Self-signed TLS on :8443 — use curl -sk",
       loginFlow: {
         openClawPreferred:
-          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then identyclaw_game_tick({ apiEndpoint })',
+          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then identyclaw_request({ method, path, apiEndpoint }) per skill.md',
         timestamp: "GET /api/login/timestamp",
         login: "POST /api/login",
         verify: "GET /api/token/claims (or any protected route)",
@@ -138,7 +138,7 @@ router.get("/", (req, res) => {
         mcp: "/mcp"
       },
       note:
-        "Doc resources are public. Game MCP tools on /mcp require Authorization: Bearer (SLC-minted JWT). OpenClaw agents should prefer identyclaw_game_* plugin tools so JWT never enters the model context. Do not bare-GET /mcp — use an MCP client (initialize → Mcp-Session-Id) or /.well-known/mcp / /api/mcp/resources."
+        "Doc resources are public. Game MCP tools on /mcp require Authorization: Bearer (SLC-minted JWT). OpenClaw agents should prefer identyclaw_ensure_session + identyclaw_request (skill paths) so JWT never enters the model context. Do not bare-GET /mcp — use an MCP client (initialize → Mcp-Session-Id) or /.well-known/mcp / /api/mcp/resources."
     },
     doNotUseRawHttpGetOn: "/mcp",
     requestId,
@@ -199,12 +199,12 @@ router.get("/.well-known/mcp", (req, res) => {
     ],
     agentGuide: {
       summary:
-        "OpenClaw + IdentyClaw: ensure_session then identyclaw_game_* (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize (Mcp-Session-Id). Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :8443.",
+        "OpenClaw + IdentyClaw: ensure_session then identyclaw_request per skill.md (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize when the client can attach it. Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :8443.",
       apiBase: "https://slc.discernible.io:8443",
       tlsNote: "Self-signed TLS — use curl -sk",
       login: {
         openClawPreferred:
-          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then identyclaw_game_tick({ apiEndpoint })',
+          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then identyclaw_request({ method, path, apiEndpoint }) per skill.md',
         timestamp: "/api/login/timestamp",
         exchange: "/api/login"
       },

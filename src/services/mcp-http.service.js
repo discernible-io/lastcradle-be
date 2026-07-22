@@ -123,7 +123,7 @@ async function setupMcpHttpTransport(app, { authenticate, getResource, listResou
       name: SERVER_INFO.name,
       version: SERVER_INFO.version,
       instructions:
-        "SLC game MCP: list_resources/get_resource are public docs. Game tools (slc_*) require Authorization: Bearer <SLC JWT>. Prefer OpenClaw identyclaw_game_* when available so JWT never enters model context. Create lobbies with slc_create when no joinable lobby exists."
+        "SLC game MCP: list_resources/get_resource are public docs. Game tools (slc_*) require Authorization: Bearer <SLC JWT>. OpenClaw agents should use identyclaw_ensure_session + identyclaw_request (skill paths); remote OpenClaw MCP does not receive the plugin JWT cache. Create lobbies with slc_create when no joinable lobby exists."
     });
 
     mcpServer.tool(

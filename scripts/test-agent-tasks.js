@@ -32,14 +32,14 @@ async function main() {
   if (!skill.includes("identyclaw_ensure_session")) {
     throw new Error("skill.md should document OpenClaw plugin login path");
   }
-  if (!skill.includes("identyclaw_game_tick")) {
-    throw new Error("skill.md should document plugin game tools");
+  if (!skill.includes("identyclaw_request")) {
+    throw new Error("skill.md should document generic identyclaw_request play path");
   }
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.4.2")) {
-    throw new Error("skill.md should be version 1.4.2");
+  if (!skill.includes("version: 1.5.0")) {
+    throw new Error("skill.md should be version 1.5.0");
   }
   if (!skill.includes("slc_create")) {
     throw new Error("skill.md should document MCP slc_create");
