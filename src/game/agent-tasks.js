@@ -197,10 +197,27 @@ async function listWaitingOnForRodit(roditId, { includeFinished = false } = {}) 
 }
 
 async function listTasksInboxForRodit(roditId, { includeFinished = false } = {}) {
-  const [tasks, waitingOn] = await Promise.all([
-    listTasksForRodit(roditId, { includeFinished }),
-    listWaitingOnForRodit(roditId, { includeFinished })
-  ]);
+  // Load memberships once so tasks + waitingOn share the same phase snapshot
+  // (parallel reloads can disagree around a phase flip).
+  const gameStatuses = includeFinished ? ["lobby", "running", "finished"] : ["lobby", "running"];
+  const memberships = await repo.listMembershipsByRoditId(roditId, { gameStatuses });
+  const tasks = [];
+  const waitingOn = [];
+
+  for (const { game, agent } of memberships) {
+    tasks.push(...(await buildTasksForMembership(game, agent)));
+    waitingOn.push(...(await buildWaitingOnForMembership(game, agent)));
+  }
+
+  tasks.sort((a, b) => {
+    if (a.required !== b.required) {
+      return a.required ? -1 : 1;
+    }
+    const aDeadline = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+    const bDeadline = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+    return aDeadline - bDeadline;
+  });
+
   return { tasks, waitingOn };
 }
 

@@ -663,12 +663,41 @@ function normalizeMessageCount(value, fieldName) {
   return value;
 }
 
+function isMessageReportPhaseAlreadyAdvanced(game) {
+  if (!game) return false;
+  if (game.status === "finished") return true;
+  // Another submitter already claimed or finished this phase.
+  return (
+    game.phase === "message_report_resolving" ||
+    game.phase === "execution" ||
+    game.phase === "resolving" ||
+    game.phase === "negotiation" ||
+    game.phase === null
+  );
+}
+
+function isTurnAlreadyAdvanced(game) {
+  if (!game) return false;
+  return (
+    game.status === "finished" ||
+    game.phase === "negotiation" ||
+    game.phase === null
+  );
+}
+
 async function tryCompleteMessageReportPhase(gameId) {
   const game = await repo.getGameById(gameId);
   if (!game || game.status !== "running" || game.phase !== "message_report") {
+    // Concurrent last-submit: peer already advanced past message_report.
+    // Do not return next-phase pending lists (they look like "nobody submitted").
+    const messageReportPhaseCompleted = isMessageReportPhaseAlreadyAdvanced(game);
     return {
-      messageReportPhaseCompleted: false,
-      messageReport: game ? await repo.getMessageReportSubmissionStatus(gameId, game.current_turn) : null
+      messageReportPhaseCompleted,
+      messageReport: messageReportPhaseCompleted
+        ? null
+        : game
+          ? await repo.getMessageReportSubmissionStatus(gameId, game.current_turn)
+          : null
     };
   }
 
@@ -684,9 +713,12 @@ async function tryCompleteMessageReportPhase(gameId) {
   );
   if (claim.changes === 0) {
     const current = await repo.getGameById(gameId);
+    const messageReportPhaseCompleted = isMessageReportPhaseAlreadyAdvanced(current);
     return {
-      messageReportPhaseCompleted: current?.phase === "execution",
-      messageReport: await repo.getMessageReportSubmissionStatus(gameId, game.current_turn)
+      messageReportPhaseCompleted,
+      messageReport: messageReportPhaseCompleted
+        ? null
+        : await repo.getMessageReportSubmissionStatus(gameId, game.current_turn)
     };
   }
 
@@ -788,9 +820,12 @@ async function validateIntelligenceAction(gameId, agentId, action) {
 async function tryCompleteTurn(gameId) {
   const game = await repo.getGameById(gameId);
   if (!game || game.status !== "running" || game.phase !== "execution") {
+    // Concurrent last-submit: peer already resolved this turn and advanced.
+    // Never return the next turn's empty pending list (looks like all peers pending).
+    const turnCompleted = isTurnAlreadyAdvanced(game);
     return {
-      turnCompleted: false,
-      execution: game ? await repo.getExecutionSubmissionStatus(gameId, game.current_turn) : null
+      turnCompleted,
+      execution: null
     };
   }
 
@@ -800,14 +835,12 @@ async function tryCompleteTurn(gameId) {
   }
 
   const updated = await executeTurn(gameId);
-  const turnCompleted =
-    updated.status === "finished" ||
-    updated.phase === "negotiation" ||
-    updated.phase === null;
+  const turnCompleted = isTurnAlreadyAdvanced(updated);
 
   return {
     turnCompleted,
-    execution: turnCompleted
+    // While another worker holds `resolving`, avoid fabricating pending lists.
+    execution: turnCompleted || updated?.phase === "resolving"
       ? null
       : await repo.getExecutionSubmissionStatus(gameId, updated.current_turn),
     game: turnCompleted ? updated : undefined
