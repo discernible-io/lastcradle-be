@@ -20,6 +20,7 @@ const {
 const { resolvePresetConfig, DEFAULT_GAME_CONFIG, CONTEST_GAME_CONFIG, PRACTICE_GAME_CONFIG } = require("./defaults");
 const { resolveRoditId, handleGameError } = require("./route-helpers");
 const { listActiveGamesForRodit, listTasksInboxForRodit } = require("./agent-tasks");
+const { runAgentTick } = require("./tick");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -99,6 +100,42 @@ router.get("/tasks", async (req, res) => {
     const includeFinished = req.query.includeFinished === "true" || req.query.includeFinished === "1";
     const { tasks, waitingOn } = await listTasksInboxForRodit(roditId, { includeFinished });
     res.json({ tasks, waitingOn, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/tick:
+ *   post:
+ *     summary: Submit one required task if any (message-report defaults 0/0, action defaults none)
+ *     description: REST mirror of MCP slc_tick. Prefer over multi-step GET /tasks + POST when advancing submission-gated phases.
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-game-auth: jwt-passport
+ */
+router.post("/tick", validateContentType, validateJsonBody, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const roditId = resolveRoditId(req);
+  if (!roditId) {
+    return sendError(res, {
+      statusCode: 401,
+      requestId,
+      code: "AUTH_REQUIRED",
+      message: "Authenticated agent identity required"
+    });
+  }
+
+  try {
+    const body = req.body || {};
+    const result = await runAgentTick(roditId, {
+      sent: body.sent,
+      received: body.received,
+      actionType: body.actionType || body.type
+    });
+    res.status(result.submitted ? 201 : 200).json({ ...result, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }

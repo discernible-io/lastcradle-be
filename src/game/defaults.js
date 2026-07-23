@@ -81,10 +81,14 @@ const DEFAULT_GAME_CONFIG = {
   /** Game ends when living agents fall to this count or below */
   finishSurvivorCount: 2,
 
-  /** Real-time phase durations in milliseconds (0 = submission-gated, no auto-advance) */
+  /**
+   * Real-time phase durations in milliseconds (0 = submission-gated, no auto-advance).
+   * Casual uses generous AFK caps so one silent cradle cannot freeze the table forever;
+   * agents should still submit via tick / message-report / action — timeouts apply server defaults.
+   */
   negotiationDurationMs: 7 * 60 * 1000,
-  messageReportDurationMs: 0,
-  executionDurationMs: 0,
+  messageReportDurationMs: 10 * 60 * 1000,
+  executionDurationMs: 10 * 60 * 1000,
 
   /**
    * Target wall-clock duration for one full turn (negotiation + message report + execution).

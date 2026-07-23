@@ -315,7 +315,7 @@ Target format: ~15 participants, one practice week, one definitive prize game, t
 |------|--------|------------------|
 | Phase timers (negotiation → message report → execution) | **Met** | Timers when duration &gt; 0; `scheduler.js` wires all phases |
 | Absent-player auto-defaults on phase timeout | **Met** | Actual message counts + `{ type: "none" }` actions |
-| `executionDurationMs` enforcement | **Met** | Enforced when &gt; 0 (0 = submission-gated for casual games) |
+| `executionDurationMs` enforcement | **Met** | Enforced when &gt; 0 (casual defaults use ~10 min AFK caps; 0 remains submission-gated if overridden) |
 | Max turns / max game duration | **Met** | `maxTurns`, `maxGameDurationMs`, `ends_at`; forced finish lists all living in `winnerIds` |
 | 15-player contest config preset | **Met** | `CONTEST_GAME_CONFIG` / `PRACTICE_GAME_CONFIG`; `GET /api/game/defaults/contest` |
 | Practice vs definitive contest mode | **Met** | `contestMode`; `POST /api/game/contest-series` + lobby auto-start |

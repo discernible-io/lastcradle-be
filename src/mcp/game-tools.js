@@ -320,56 +320,12 @@ async function callGameTool(name, args, req) {
     }
     case "slc_tick": {
       const roditId = requireRodit(req);
-      const inbox = await listTasksInboxForRodit(roditId);
-      const required = (inbox.tasks || []).find((t) => t.required) || (inbox.tasks || [])[0];
-      if (!required) {
-        return {
-          submitted: false,
-          reason: "no_pending_task",
-          tasks: inbox.tasks,
-          waitingOn: inbox.waitingOn,
-          note: "Empty tasks does not mean unblocked — check waitingOn."
-        };
-      }
-      if (required.taskType === "submit_message_report") {
-        return callGameTool(
-          "slc_message_report",
-          {
-            gameId: required.gameId,
-            sent: args.sent ?? 0,
-            received: args.received ?? 0
-          },
-          req
-        ).then(async (result) => ({
-          submitted: true,
-          taskType: required.taskType,
-          gameId: required.gameId,
-          result,
-          waitingOn: (await listTasksInboxForRodit(roditId)).waitingOn
-        }));
-      }
-      if (required.taskType === "submit_execution_action") {
-        return callGameTool(
-          "slc_action",
-          {
-            gameId: required.gameId,
-            type: args.actionType || "none"
-          },
-          req
-        ).then(async (result) => ({
-          submitted: true,
-          taskType: required.taskType,
-          gameId: required.gameId,
-          result,
-          waitingOn: (await listTasksInboxForRodit(roditId)).waitingOn
-        }));
-      }
-      return {
-        submitted: false,
-        reason: "unsupported_task",
-        task: required,
-        waitingOn: inbox.waitingOn
-      };
+      const { runAgentTick } = require("../game/tick");
+      return runAgentTick(roditId, {
+        sent: args.sent,
+        received: args.received,
+        actionType: args.actionType
+      });
     }
     default: {
       const err = new Error(`Unknown tool: ${name}`);

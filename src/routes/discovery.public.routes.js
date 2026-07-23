@@ -199,12 +199,12 @@ router.get("/.well-known/mcp", (req, res) => {
     ],
     agentGuide: {
       summary:
-        "OpenClaw + IdentyClaw: ensure_session then identyclaw_request per skill.md (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize when the client can attach it. Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :8443.",
+        "OpenClaw + IdentyClaw: ensure_session then identyclaw_game_tick (or identyclaw_request POST /api/game/tick) for required submits; other skill paths via identyclaw_request (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize when the client can attach it. Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :8443.",
       apiBase: "https://slc.discernible.io:8443",
       tlsNote: "Self-signed TLS — use curl -sk",
       login: {
         openClawPreferred:
-          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then identyclaw_request({ method, path, apiEndpoint }) per skill.md',
+          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then identyclaw_game_tick({ apiEndpoint }) for required submits; else identyclaw_request({ method, path, apiEndpoint }) per skill.md',
         timestamp: "/api/login/timestamp",
         exchange: "/api/login"
       },
