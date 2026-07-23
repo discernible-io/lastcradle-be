@@ -23,8 +23,8 @@ async function testOpeningInventoryScout() {
     config: {
       useRandomStartingInventory: false,
       startingInventory: { energy: 80, water: 80, compute: 80 },
-      cradleCapacityMin: 50,
-      cradleCapacityMax: 50,
+      cradleCapacityMin: 100,
+      cradleCapacityMax: 100,
       minAgents: 3,
       joiningWindowDurationMs: 0
     }
@@ -36,7 +36,8 @@ async function testOpeningInventoryScout() {
 
   const joined = await repo.listAgents(scoutGame.id);
   const scoutAgent = joined.find((a) => a.roditId === "scout-b");
-  await repo.updateAgentInventory(scoutAgent.id, { energy: 60, water: 60, compute: 60 });
+  // Lowest fill ratio (0.5 vs 0.8) — not merely lowest absolute total among equal capacities.
+  await repo.updateAgentInventory(scoutAgent.id, { energy: 50, water: 50, compute: 50 });
 
   await engine.startGame(scoutGame.id);
 
@@ -45,14 +46,17 @@ async function testOpeningInventoryScout() {
   const otherView = await engine.getPublicState(scoutGame.id, { viewerAgentId: otherAgent.id });
 
   if (!scoutView.openingInventoryReport) {
-    throw new Error("Lowest-inventory player should receive openingInventoryReport");
+    throw new Error("Lowest-fill-ratio player should receive openingInventoryReport");
   }
   if (scoutView.openingInventoryReport.agents.length !== 3) {
     throw new Error("Opening inventory report should list every cradle");
   }
   const scoutEntry = scoutView.openingInventoryReport.agents.find((e) => e.agentId === scoutAgent.id);
-  if (!scoutEntry || scoutEntry.total !== 180) {
+  if (!scoutEntry || scoutEntry.total !== 150) {
     throw new Error("Report should snapshot pre-production opening inventories");
+  }
+  if (Math.abs((scoutEntry.fillRatio ?? 0) - 0.5) > 1e-9) {
+    throw new Error("Report should include fillRatio for the scout cradle");
   }
   if (otherView.openingInventoryReport) {
     throw new Error("Only the opening-inventory scout may receive the report");
@@ -70,8 +74,8 @@ async function main() {
     config: {
       useRandomStartingInventory: false,
       startingInventory: { energy: 80, water: 80, compute: 80 },
-      cradleCapacityMin: 50,
-      cradleCapacityMax: 50,
+      cradleCapacityMin: 100,
+      cradleCapacityMax: 100,
       minAgents: 3,
       joiningWindowDurationMs: 0,
       productionEnergyCostRate: 0.1,

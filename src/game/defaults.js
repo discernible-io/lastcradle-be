@@ -7,28 +7,44 @@
  */
 
 const DEFAULT_GAME_CONFIG = {
-  /** Starting inventory when random range is not used */
+  /**
+   * Fixed starting inventory when `useRandomStartingInventory` is false.
+   * Still clamped to the rolled cradle storage capacity on join.
+   */
   startingInventory: { energy: 111, water: 111, compute: 111 },
 
   /** Random cradle capacity range (inclusive) — initial production & storage capacity */
   cradleCapacityMin: 50,
   cradleCapacityMax: 111,
 
-  /** Random starting inventory range (inclusive) */
-  startingInventoryMin: 111,
-  startingInventoryMax: 721,
+  /**
+   * When true, starting inventory is a random fraction of each cradle's storage
+   * (`startingInventoryFillMin`–`startingInventoryFillMax` per resource).
+   */
   useRandomStartingInventory: true,
 
+  /** Inclusive fill fraction of cradle storage used for random starting inventory */
+  startingInventoryFillMin: 0.55,
+  startingInventoryFillMax: 0.85,
+
   /**
-   * After rolling random inventory, each resource is raised to at least this value.
+   * @deprecated Absolute inventory range — ignored when fill fractions are configured
+   * (defaults always set fill min/max). Kept for older calibration script overrides.
    */
-  startingInventoryFloor: 111,
+  startingInventoryMin: 111,
+  startingInventoryMax: 721,
+
+  /**
+   * After rolling inventory, each resource is raised to at least this value,
+   * then clamped to cradle storage so stockpiles never exceed capacity.
+   */
+  startingInventoryFloor: 0,
 
   /**
    * If min(E,W,C) is still below this after per-resource floors, add the gap to all
-   * three resources equally so balanced investments remain affordable early on.
+   * three resources equally (then clamp to cradle storage).
    */
-  startingInventoryBalanceMin: 111,
+  startingInventoryBalanceMin: 0,
 
   /** @deprecated use communicationCostComputeBase */
   communicationCostCompute: 1,
@@ -171,8 +187,49 @@ function randomFloat(min, max) {
 
 const STARTING_INVENTORY_KEYS = ["energy", "water", "compute"];
 
-/** Apply per-resource floor and optional min-leg balance bump after random rolls. */
-function finalizeStartingInventory(inventory, config) {
+function clampInventoryToCradle(inventory, cradle) {
+  if (!cradle) {
+    return { ...inventory };
+  }
+  const result = { ...inventory };
+  for (const key of STARTING_INVENTORY_KEYS) {
+    const cap = cradle[key];
+    if (cap == null) continue;
+    result[key] = Math.max(0, Math.min(result[key], cap));
+  }
+  return result;
+}
+
+/**
+ * Roll starting inventory as a fraction of cradle storage per resource.
+ * Falls back to the deprecated absolute min/max range only when fill fractions are unset.
+ */
+function rollStartingInventory(cradle, config) {
+  const fillMin = config.startingInventoryFillMin;
+  const fillMax = config.startingInventoryFillMax;
+  if (fillMin != null && fillMax != null) {
+    const inventory = {};
+    for (const key of STARTING_INVENTORY_KEYS) {
+      const fill = randomFloat(fillMin, fillMax);
+      inventory[key] = Math.floor(cradle[key] * fill);
+    }
+    return inventory;
+  }
+
+  return {
+    energy: randomInt(config.startingInventoryMin, config.startingInventoryMax),
+    water: randomInt(config.startingInventoryMin, config.startingInventoryMax),
+    compute: randomInt(config.startingInventoryMin, config.startingInventoryMax)
+  };
+}
+
+/**
+ * Apply per-resource floor and optional min-leg balance bump, then clamp to cradle storage.
+ * @param {object} inventory
+ * @param {object} config
+ * @param {object|null} cradle storage capacities used to clamp (null skips clamp)
+ */
+function finalizeStartingInventory(inventory, config, cradle = null) {
   const result = { ...inventory };
   const floor = config.startingInventoryFloor ?? 0;
   for (const key of STARTING_INVENTORY_KEYS) {
@@ -188,7 +245,7 @@ function finalizeStartingInventory(inventory, config) {
       }
     }
   }
-  return result;
+  return clampInventoryToCradle(result, cradle);
 }
 
 function maxCapacityFor(config, kind, resourceKey) {
@@ -205,6 +262,8 @@ module.exports = {
   buildInvestAction,
   randomInt,
   randomFloat,
+  clampInventoryToCradle,
+  rollStartingInventory,
   finalizeStartingInventory,
   maxCapacityFor
 };

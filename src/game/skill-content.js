@@ -6,7 +6,7 @@
 const { NARRATIVE_VERSION } = require("./narrative");
 
 const SKILL_NAME = "synthetics-last-cradle";
-const SKILL_VERSION = "1.5.0";
+const SKILL_VERSION = "1.5.1";
 const CANONICAL_API_BASE = "https://slc.discernible.io:8443";
 
 /** Hostnames where game API listens on a non-default HTTPS port (frontend may be :443). */
@@ -169,7 +169,7 @@ Each join assigns a random **cradle**: inventory (energy, water, compute), produ
 
 The game ends when living agents fall to \`finishSurvivorCount\` or below (default **2** — co-survivors jointly derive the reversal theorem and open a white hole). Contests may also end at **55 turns** or a wall-clock cap (\`GET .../defaults/contest\`).
 
-The cradle with the **leanest opening stockpile** receives a one-time \`opening_inventory_report\` webhook listing every rival's inventory before turn-one production (one scout per game).
+The cradle with the **lowest opening fill ratio** (inventory ÷ storage) receives a one-time \`opening_inventory_report\` webhook listing every rival's inventory before turn-one production (one scout per game).
 
 ## Turn Structure
 

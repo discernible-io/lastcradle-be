@@ -2,7 +2,7 @@
  * Core game engine: production, execution, capacity investment, storage, survival, intelligence.
  */
 
-const { mergeGameConfig, randomInt, randomFloat, finalizeStartingInventory, maxCapacityFor, DEFAULT_GAME_CONFIG } = require("./defaults");
+const { mergeGameConfig, randomInt, finalizeStartingInventory, rollStartingInventory, maxCapacityFor, DEFAULT_GAME_CONFIG } = require("./defaults");
 const {
   computeSurvivalCost,
   buildSurvivalContext,
@@ -180,16 +180,9 @@ function buildCradleAssignment(config) {
   };
   let inventory;
   if (config.useRandomStartingInventory) {
-    inventory = finalizeStartingInventory(
-      {
-        energy: randomInt(config.startingInventoryMin, config.startingInventoryMax),
-        water: randomInt(config.startingInventoryMin, config.startingInventoryMax),
-        compute: randomInt(config.startingInventoryMin, config.startingInventoryMax)
-      },
-      config
-    );
+    inventory = finalizeStartingInventory(rollStartingInventory(cradle, config), config, cradle);
   } else {
-    inventory = { ...config.startingInventory };
+    inventory = finalizeStartingInventory({ ...config.startingInventory }, config, cradle);
   }
   return { cradle, inventory };
 }
@@ -374,6 +367,20 @@ function inventoryTotal(agent) {
   return (inv?.energy ?? 0) + (inv?.water ?? 0) + (inv?.compute ?? 0);
 }
 
+function storageTotal(agent) {
+  const cap = agent.storageCapacity;
+  return (cap?.energy ?? 0) + (cap?.water ?? 0) + (cap?.compute ?? 0);
+}
+
+/** Opening stockpile as a fraction of storage capacity (0 when storage is empty). */
+function inventoryFillRatio(agent) {
+  const storage = storageTotal(agent);
+  if (storage <= 0) {
+    return 0;
+  }
+  return inventoryTotal(agent) / storage;
+}
+
 /**
  * Snapshot each cradle's opening inventory (before turn-1 production).
  * `agents` must be ordered by join time (see repository.listAgents).
@@ -384,22 +391,23 @@ function buildOpeningInventoryReport(agents) {
     roditId: agent.roditId,
     displayName: agent.displayName,
     inventory: cloneInventory(agent.inventory),
-    total: inventoryTotal(agent)
+    total: inventoryTotal(agent),
+    fillRatio: inventoryFillRatio(agent)
   }));
 }
 
-/** Cradle with the lowest opening inventory total; earliest join wins ties. */
+/** Cradle with the lowest opening inventory fill ratio; earliest join wins ties. */
 function selectOpeningInventoryScout(agents) {
   if (!agents.length) {
     return null;
   }
   let scout = agents[0];
-  let scoutTotal = inventoryTotal(scout);
+  let scoutFill = inventoryFillRatio(scout);
   for (let i = 1; i < agents.length; i++) {
-    const total = inventoryTotal(agents[i]);
-    if (total < scoutTotal) {
+    const fill = inventoryFillRatio(agents[i]);
+    if (fill < scoutFill) {
       scout = agents[i];
-      scoutTotal = total;
+      scoutFill = fill;
     }
   }
   return scout;
@@ -1303,5 +1311,7 @@ module.exports = {
   buildOpeningInventoryReport,
   selectOpeningInventoryScout,
   openingInventoryReportForViewer,
-  inventoryTotal
+  inventoryTotal,
+  storageTotal,
+  inventoryFillRatio
 };

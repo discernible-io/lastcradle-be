@@ -78,7 +78,7 @@ const MECHANIC_NARRATIVES = {
   investment:
     "Balanced investment in production and storage capacity is how a cradle accelerates reproduction without collapsing under its own overhead before the reversal deadline.",
   openingInventoryScout:
-    "The cradle with the leanest opening stockpile receives a one-time intelligence brief listing every rival's inventory as the race begins — before turn-one production.",
+    "The cradle with the lowest opening fill ratio (stockpile relative to storage) receives a one-time intelligence brief listing every rival's inventory as the race begins — before turn-one production.",
   elimination:
     "When survival expenses go unpaid, a cradle's immortal synthetic population fails. The reproduction race continues until the last survivors derive the reversal theorem together, combine their resources, and open the white hole that restarts the universe."
 };

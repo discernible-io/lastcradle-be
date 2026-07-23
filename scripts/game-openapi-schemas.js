@@ -162,7 +162,7 @@ const gameSchemas = {
         type: "object",
         nullable: true,
         description:
-          "Present only for the cradle with the lowest opening inventory total at game start; lists every rival's pre-production inventory snapshot",
+          "Present only for the cradle with the lowest opening inventory fill ratio (inventory ÷ storage) at game start; lists every rival's pre-production inventory snapshot",
         properties: {
           scoutAgentId: { type: "string" },
           capturedBeforeTurnProduction: { type: "boolean" },
@@ -175,7 +175,8 @@ const gameSchemas = {
                 roditId: { type: "string" },
                 displayName: { type: "string" },
                 inventory: { $ref: "#/components/schemas/GameResourceTriple" },
-                total: { type: "number" }
+                total: { type: "number" },
+                fillRatio: { type: "number" }
               }
             }
           }

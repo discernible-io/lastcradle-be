@@ -36,11 +36,7 @@ const SIM_CONFIG = {
   executionDurationMs: 0,
   maxTurns: null,
   maxGameDurationMs: null,
-  useRandomStartingInventory: true,
-  startingInventoryMin: 111,
-  startingInventoryMax: 721,
-  startingInventoryFloor: 111,
-  startingInventoryBalanceMin: 111
+  useRandomStartingInventory: true
 };
 
 async function runHoldStillGame(increment, trialSeed) {

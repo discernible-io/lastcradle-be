@@ -10,7 +10,7 @@ const WORKSPACE_DB = path.join(DATA_DIR, "sim-workspace.sqlite");
 
 /** Ephemeral sqlite files created by scripts; never delete production database.sqlite */
 const EPHEMERAL_DB_PATTERN =
-  /^(sim-|cal-|cale-|cal2-|cal-surv-|cal-water-|game-simulation|game-cf-|game-metrics|game-sample|game-projection|probe-|bench-|debug-|mechanics-|smoke).*\.sqlite(-journal|-wal|-shm)?$/;
+  /^(sim-|cal-|cale-|cal2-|cal-surv-|cal-water-|game-simulation|game-cf-|game-metrics|game-sample|game-projection|probe-|bench-|debug-|mechanics-|smoke|capacity-relative).*\.sqlite(-journal|-wal|-shm)?$/;
 
 function sqliteSidecarPaths(dbPath) {
   return [dbPath, `${dbPath}-journal`, `${dbPath}-wal`, `${dbPath}-shm`];

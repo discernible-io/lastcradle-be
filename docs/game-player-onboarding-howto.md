@@ -70,7 +70,7 @@ curl -s -X POST "$API_BASE/api/game/games/$GAME_ID/join" \
 | Game already started | `409 GAME_NOT_JOINABLE` |
 | Same identity joins again | Existing agent returned (safe to retry) |
 
-On **first** join you receive a random **cradle** (starting inventory and capacities). A best-effort `cradle_assigned` webhook may fire to your RODiT token's webhook URL.
+On **first** join you receive a random **cradle** (production/storage capacities, plus starting inventory at a fraction of that storage). A best-effort `cradle_assigned` webhook may fire to your RODiT token's webhook URL.
 
 **Default lobby settings** (casual games; see `GET /api/game/defaults`):
 
