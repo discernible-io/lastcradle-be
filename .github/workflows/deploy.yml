@@ -160,15 +160,18 @@ jobs:
             set -euxo pipefail
             cd ${{ env.APP_DIR }}
 
-            podman pod exists ${{ env.POD_NAME }} && podman pod rm -f ${{ env.POD_NAME }}
+            # Always force-remove (exists&&rm trips set -e when the pod is absent).
+            podman pod rm -f ${{ env.POD_NAME }} || true
             # servertest → syntheticlc rename: legacy pod still binds APP_PORT until removed.
-            podman pod exists servertest-pod && podman pod rm -f servertest-pod || true
-            podman container exists servertest-container && podman rm -f servertest-container || true
-            podman container exists servertest-nginx && podman rm -f servertest-nginx || true
+            podman pod rm -f servertest-pod || true
+            podman rm -f servertest-container || true
+            podman rm -f servertest-nginx || true
 
             podman pull ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
             podman pull ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:${{ github.sha }}
 
+            # Re-rm immediately before create (guards against concurrent local deploys during pull).
+            podman pod rm -f ${{ env.POD_NAME }} || true
             podman pod create --name ${{ env.POD_NAME }} -p ${{ env.APP_PORT }}:${{ env.APP_PORT }}
 
             mkdir -p ${{ env.APP_DIR }}/logs ${{ env.APP_DIR }}/data

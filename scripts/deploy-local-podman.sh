@@ -78,10 +78,11 @@ if [[ "$DEPLOY_MODE" == "local" ]]; then
   bash "${REPO_ROOT}/scripts/ensure-podman-linger.sh"
 
   mkdir -p "${APP_DIR}/"{certs,logs,data,nginx,secrets} "${APP_DIR}/logs/nginx"
-  podman pod exists "$POD_NAME" && podman pod rm -f "$POD_NAME"
-  podman pod exists servertest-pod && podman pod rm -f servertest-pod || true
-  podman container exists servertest-container && podman rm -f servertest-container || true
-  podman container exists servertest-nginx && podman rm -f servertest-nginx || true
+  # Always force-remove (exists&&rm trips set -e when the pod is absent).
+  podman pod rm -f "$POD_NAME" || true
+  podman pod rm -f servertest-pod || true
+  podman rm -f servertest-container || true
+  podman rm -f servertest-nginx || true
   podman pod create --name "$POD_NAME" -p "${APP_PORT}:${APP_PORT}"
 
   podman run -d \
