@@ -100,20 +100,6 @@ const GAME_TOOL_DEFS = [
     }
   },
   {
-    name: "slc_message_report",
-    description: "POST message-report sent/received counts.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        gameId: { type: "string" },
-        sent: { type: "number" },
-        received: { type: "number" }
-      },
-      required: ["gameId", "sent", "received"],
-      additionalProperties: false
-    }
-  },
-  {
     name: "slc_action",
     description: "POST execution action (type none|transfer|invest).",
     inputSchema: {
@@ -130,12 +116,10 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_tick",
     description:
-      "Submit one required task if any (message-report defaults 0/0, action defaults none). Returns waitingOn when idle.",
+      "Submit one required task if any (action defaults to none). Returns waitingOn when idle.",
     inputSchema: {
       type: "object",
       properties: {
-        sent: { type: "number" },
-        received: { type: "number" },
         actionType: { type: "string" }
       },
       additionalProperties: false
@@ -272,28 +256,6 @@ async function callGameTool(name, args, req) {
       }
       return engine.publishPublicMessage(args.gameId, agent.id, { body: args.body });
     }
-    case "slc_message_report": {
-      const roditId = requireRodit(req);
-      const agent = await repo.getAgentByRoditId(args.gameId, roditId);
-      if (!agent) {
-        const err = new Error("You must join the game before submitting reports");
-        err.statusCode = 404;
-        err.code = "AGENT_NOT_IN_GAME";
-        throw err;
-      }
-      const result = await engine.submitMessageReport(args.gameId, agent.id, {
-        sent: args.sent,
-        received: args.received
-      });
-      if (result.messageReportPhaseCompleted) {
-        const game = await repo.getGameById(args.gameId);
-        if (game?.status === "running" && game.phase === "execution") {
-          scheduler.registerGame(game);
-          onGamePhaseUpdated(game.id).catch(() => {});
-        }
-      }
-      return result;
-    }
     case "slc_action": {
       const roditId = requireRodit(req);
       const agent = await repo.getAgentByRoditId(args.gameId, roditId);
@@ -322,8 +284,6 @@ async function callGameTool(name, args, req) {
       const roditId = requireRodit(req);
       const { runAgentTick } = require("../game/tick");
       return runAgentTick(roditId, {
-        sent: args.sent,
-        received: args.received,
         actionType: args.actionType
       });
     }

@@ -24,7 +24,6 @@ const TIMED_CONFIG = {
   maxAgents: 2,
   joiningWindowDurationMs: 0,
   negotiationDurationMs: PHASE_MS,
-  messageReportDurationMs: PHASE_MS,
   executionDurationMs: PHASE_MS,
   finishSurvivorCount: 1
 };
@@ -46,17 +45,21 @@ async function main() {
     throw new Error("expected turn 1 negotiation after start");
   }
 
-  await sleep(PHASE_MS * 3 + 80);
+  const advanceDeadline = Date.now() + PHASE_MS * 2 + 200;
+  let afterTurn = await repo.getGameById(game.id);
+  while (afterTurn.current_turn < 2 && Date.now() < advanceDeadline) {
+    await sleep(10);
+    afterTurn = await repo.getGameById(game.id);
+  }
 
-  const afterTurn = await repo.getGameById(game.id);
   if (afterTurn.status !== "running") {
     throw new Error(`expected game still running, got ${afterTurn.status}`);
   }
   if (afterTurn.current_turn < 2) {
     throw new Error(`expected turn to advance past 1, got turn ${afterTurn.current_turn}`);
   }
-  if (afterTurn.phase !== "negotiation") {
-    throw new Error(`expected negotiation on turn 2, got ${afterTurn.phase}`);
+  if (afterTurn.phase !== "negotiation" && afterTurn.phase !== "execution") {
+    throw new Error(`expected negotiation or execution on turn ${afterTurn.current_turn}, got ${afterTurn.phase}`);
   }
 
   const state = await engine.getPublicState(game.id, { viewerAgentId: null });
@@ -78,16 +81,13 @@ async function main() {
       maxTurns: 1,
       finishSurvivorCount: 1,
       negotiationDurationMs: 10,
-      messageReportDurationMs: 10,
       executionDurationMs: 10
     }
   });
   await engine.joinGame(deadlineGame.id, { roditId: "d1", displayName: "D1" });
   await engine.joinGame(deadlineGame.id, { roditId: "d2", displayName: "D2" });
   await engine.startGame(deadlineGame.id);
-  await engine.beginMessageReportPhase(deadlineGame.id);
-  await engine.applyDefaultMessageReportsForPendingAgents(deadlineGame.id);
-  await engine.tryCompleteMessageReportPhase(deadlineGame.id);
+  await engine.beginExecutionPhase(deadlineGame.id);
   await engine.applyDefaultActionsForPendingAgents(deadlineGame.id);
   const turnDone = await engine.tryCompleteTurn(deadlineGame.id);
   if (!turnDone.turnCompleted) {

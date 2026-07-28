@@ -209,14 +209,6 @@ async function runStrategy(strategyKey) {
       }
     }
 
-    await engine.beginMessageReportPhase(gameId);
-    for (const agent of living) {
-      const fresh = await repo.getAgentById(agent.id);
-      if (fresh.status !== "alive") continue;
-      const counts = await repo.getActualMessageCounts(gameId, turn, agent.id);
-      await engine.submitMessageReport(gameId, agent.id, counts);
-    }
-
     await engine.beginExecutionPhase(gameId);
     const actionMap = strategy.turnActions(turn, agents, profiles, gameRow);
     for (const agent of living) {

@@ -172,7 +172,6 @@ OUTPUTS:
 | `GAME_ALREADY_STARTED` | 409 | Manual start after game began |
 | `INSUFFICIENT_AGENTS` | 400 | Start with fewer than `minAgents` |
 | `NOT_NEGOTIATION_PHASE` | 409 | Message outside negotiation |
-| `NOT_MESSAGE_REPORT_PHASE` | 409 | Report outside message-report phase |
 | `NOT_EXECUTION_PHASE` | 409 | Action outside execution |
 | `AGENT_DEAD` | 409 | Agent eliminated |
 

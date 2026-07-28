@@ -123,7 +123,6 @@ router.get("/", (req, res) => {
         "slc_tasks",
         "slc_state",
         "slc_message",
-        "slc_message_report",
         "slc_action",
         "slc_tick"
       ],
@@ -193,7 +192,6 @@ router.get("/.well-known/mcp", (req, res) => {
       { name: "slc_tasks", description: "Task inbox including waitingOn peers" },
       { name: "slc_state", description: "GET game state" },
       { name: "slc_message", description: "POST public negotiation message" },
-      { name: "slc_message_report", description: "POST message-report counts" },
       { name: "slc_action", description: "POST execution action" },
       { name: "slc_tick", description: "Submit one required task if any" }
     ],

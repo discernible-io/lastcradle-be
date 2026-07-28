@@ -1,16 +1,9 @@
 /**
- * Survival cost calculations: fixed base costs plus message-report energy penalties.
+ * Survival cost calculations: fixed base costs scaled by turn and living players.
  */
 
 function investmentTotal(payload) {
   return (payload.energy || 0) + (payload.water || 0) + (payload.compute || 0);
-}
-
-function communicationCostComputeForTurn(config, turnNumber) {
-  const base = config.communicationCostComputeBase ?? config.communicationCostCompute ?? 1;
-  const increment = config.communicationCostComputeTurnIncrement ?? 0;
-  const turn = Math.max(1, turnNumber || 1);
-  return base + (turn - 1) * increment;
 }
 
 function survivalCostTurnIncrement(config, resourceKey) {
@@ -36,13 +29,10 @@ function computeSurvivalCost(config, context = {}) {
   const turn = Math.max(1, context.turnNumber ?? 1);
   const turnOffset = turn - 1;
   const base = config.survivalCost ?? { energy: 11, water: 11, compute: 11 };
-  const energyPenalty = context.energyPenalty || 0;
 
   return {
     energy:
-      (base.energy ?? 11) +
-      turnOffset * effectiveSurvivalTurnIncrement(config, context, "energy") +
-      energyPenalty,
+      (base.energy ?? 11) + turnOffset * effectiveSurvivalTurnIncrement(config, context, "energy"),
     water:
       (base.water ?? 11) + turnOffset * effectiveSurvivalTurnIncrement(config, context, "water"),
     compute:
@@ -50,21 +40,19 @@ function computeSurvivalCost(config, context = {}) {
   };
 }
 
-function buildSurvivalContext({ turnNumber, livingAgents, game, energyPenalty = 0 } = {}) {
+function buildSurvivalContext({ turnNumber, livingAgents, game } = {}) {
   const config = game?.config ?? {};
   const livingCount = livingAgents?.length ?? 0;
 
   return {
     turnNumber,
     livingCount,
-    playerMultiplier: survivalCostPlayerMultiplier(config, { livingCount }),
-    energyPenalty
+    playerMultiplier: survivalCostPlayerMultiplier(config, { livingCount })
   };
 }
 
 module.exports = {
   investmentTotal,
-  communicationCostComputeForTurn,
   survivalCostPlayerMultiplier,
   effectiveSurvivalTurnIncrement,
   computeSurvivalCost,

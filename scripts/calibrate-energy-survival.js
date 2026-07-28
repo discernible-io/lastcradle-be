@@ -222,18 +222,14 @@ async function runTrial(energyConfig, trialIndex, profiles, turnPlans) {
       await trialEngine.publishPublicMessage(gameId, agent.id, { body: msg.body });
     }
 
-    await trialEngine.beginMessageReportPhase(gameId);
+    await trialEngine.beginExecutionPhase(gameId);
     const preExecution = new Map();
     for (const agent of living) {
       const fresh = await trialRepo.getAgentById(agent.id);
       if (fresh.status !== "alive") continue;
-      const counts = await trialRepo.getActualMessageCounts(gameId, turn, agent.id);
-      await trialEngine.submitMessageReport(gameId, agent.id, counts);
-      const afterReport = await trialRepo.getAgentById(agent.id);
-      preExecution.set(agent.id, { ...afterReport.inventory });
+      preExecution.set(agent.id, { ...fresh.inventory });
     }
 
-    await trialEngine.beginExecutionPhase(gameId);
     const actionMap = typeof plan.actions === "function" ? plan.actions(agents) : plan.actions;
     for (const agent of living) {
       const fresh = await trialRepo.getAgentById(agent.id);
@@ -262,11 +258,7 @@ async function runTrial(energyConfig, trialIndex, profiles, turnPlans) {
       if (after.diedAtTurn !== turn) continue;
       const inventory = preExecution.get(agent.id);
       if (!inventory) continue;
-      const penalty = await trialRepo.getAgentEnergySurvivalPenalty(gameId, turn, agent.id);
-      const survival = computeSurvivalCost(gameRow.config, {
-        ...survivalContext,
-        energyPenalty: penalty
-      });
+      const survival = computeSurvivalCost(gameRow.config, survivalContext);
       const cause = classifyElimination(inventory, survival);
       deathCauses[cause] = (deathCauses[cause] || 0) + 1;
     }

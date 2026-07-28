@@ -50,13 +50,6 @@ function runScenario(name, tradeFn) {
 
     let final = null;
     for (let turn = 1; turn <= 80; turn++) {
-      await engine.beginMessageReportPhase(game.id);
-      for (const a of agents) {
-        const f = await repo.getAgentById(a.id);
-        if (f.status !== "alive") continue;
-        const c = await repo.getActualMessageCounts(game.id, turn, a.id);
-        await engine.submitMessageReport(game.id, a.id, c);
-      }
       await engine.beginExecutionPhase(game.id);
 
       let actions = { "p-alpha": { type: "none" }, "p-beta": { type: "none" }, "p-gamma": { type: "none" }, "p-delta": { type: "none" } };

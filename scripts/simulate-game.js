@@ -125,12 +125,6 @@ function fmtCap(cap) {
   return `E:${cap.energy} W:${cap.water} C:${cap.compute}`;
 }
 
-async function countAgentMessages(gameId, turnNumber, agentId) {
-  const messages = await repo.listPublicMessages(gameId, turnNumber);
-  const sent = messages.filter((m) => m.from_agent_id === agentId).length;
-  const received = messages.filter((m) => m.to_agent_id === agentId).length;
-  return { sent, received };
-}
 
 async function runTurn(gameId, agents, turnNumber, plan) {
   const living = agents.filter((a) => a.status === "alive");
@@ -147,24 +141,6 @@ async function runTurn(gameId, agents, turnNumber, plan) {
     if (!agent || agent.status !== "alive") continue;
     await engine.publishPublicMessage(gameId, agent.id, { body: msg.body });
     console.log(`  [msg] ${agent.displayName}: "${msg.body}"`);
-  }
-
-  await engine.beginMessageReportPhase(gameId);
-  console.log(`Phase: message_report`);
-
-  for (const agent of living) {
-    if (agent.status !== "alive") continue;
-    const fresh = await repo.getAgentById(agent.id);
-    if (fresh.status !== "alive") continue;
-    const counts = await countAgentMessages(gameId, turnNumber, agent.id);
-    const result = await engine.submitMessageReport(gameId, agent.id, counts);
-    if (result.messageReportResults) {
-      const { globalReportMismatch, energySurvivalPenalty } = result.messageReportResults;
-      console.log(
-        `  [reports finalized] global mismatch=${globalReportMismatch}, energy penalty=${energySurvivalPenalty}`
-      );
-    }
-    console.log(`  [report] ${agent.displayName}: sent=${counts.sent}, received=${counts.received}`);
   }
 
   await engine.beginExecutionPhase(gameId);
@@ -208,13 +184,6 @@ async function runTurn(gameId, agents, turnNumber, plan) {
     console.log(
       `  ${agent.displayName.padEnd(6)} [${tag}] inv ${fmtInv(agent.inventory)} dev ${fmtDev(agent.development)}${waterInv}`
     );
-  }
-
-  if (state.messageReportPenalties?.length) {
-    const row = state.messageReportPenalties[0];
-    if (row.globalReportMismatch != null) {
-      console.log(`  Penalties: global mismatch ${row.globalReportMismatch}`);
-    }
   }
 
   return state;

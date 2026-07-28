@@ -96,10 +96,7 @@ async function main() {
   const two = agents.find((a) => a.roditId === "p2");
   const three = agents.find((a) => a.roditId === "p3");
 
-  await engine.beginMessageReportPhase(game.id);
-  for (const a of agents) {
-    await engine.submitMessageReport(game.id, a.id, { sent: 0, received: 0 });
-  }
+  await engine.beginExecutionPhase(game.id);
 
   await engine.submitAction(game.id, one.id, {
     ...buildInvestAction("water", 10),

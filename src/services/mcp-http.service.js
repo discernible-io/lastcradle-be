@@ -209,19 +209,12 @@ async function setupMcpHttpTransport(app, { authenticate, getResource, listResou
       gameId: z.string(),
       body: z.string()
     });
-    registerGameTool(GAME_TOOL_DEFS.find((t) => t.name === "slc_message_report"), {
-      gameId: z.string(),
-      sent: z.number(),
-      received: z.number()
-    });
     registerGameTool(GAME_TOOL_DEFS.find((t) => t.name === "slc_action"), {
       gameId: z.string(),
       type: z.string(),
       payload: z.record(z.any()).optional()
     });
     registerGameTool(GAME_TOOL_DEFS.find((t) => t.name === "slc_tick"), {
-      sent: z.number().optional(),
-      received: z.number().optional(),
       actionType: z.string().optional()
     });
 

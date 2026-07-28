@@ -39,7 +39,7 @@ const TURN_PLANS = [
       { from: "p-gamma", body: "Proposal: compute invest 10 this turn; Alpha/Beta confirm specialties." },
       { from: "p-delta", body: "Counter: confirm I am reserve only — no one expects Delta transfers?" },
       { from: "p-gamma", body: "Accept: no transfers requested from Delta this turn." },
-      { from: "p-delta", body: "Proposal: observer stance with honest message reporting." },
+      { from: "p-delta", body: "Proposal: observer stance — watch margins, then trade." },
       { from: "p-alpha", body: "Counter: agreed — keep a public channel open for energy aid requests." },
       { from: "p-delta", body: "Accept: will signal before asking for help." }
     ],
@@ -223,47 +223,6 @@ async function runTurn(gameId, agents, turnNumber, plan) {
     const agent = living.find((a) => a.roditId === msg.from);
     if (!agent || agent.status !== "alive") continue;
     await engine.publishPublicMessage(gameId, agent.id, { body: msg.body });
-  }
-
-  await engine.beginMessageReportPhase(gameId);
-  console.log("  Message reports:");
-
-  const computeBefore = new Map();
-  for (const agent of living) {
-    const fresh = await repo.getAgentById(agent.id);
-    if (fresh.status !== "alive") continue;
-    computeBefore.set(agent.id, fresh.inventory.compute);
-  }
-
-  let messageReportResults = null;
-  for (const agent of living) {
-    const fresh = await repo.getAgentById(agent.id);
-    if (fresh.status !== "alive") continue;
-    const counts = await repo.getActualMessageCounts(gameId, turnNumber, agent.id);
-    const result = await engine.submitMessageReport(gameId, agent.id, counts);
-    if (result.messageReportResults) {
-      messageReportResults = result.messageReportResults;
-    }
-    const computeCost = counts.sent * game.config.communicationCostCompute;
-    console.log(
-      `    ${agent.displayName.padEnd(6)} reported sent=${counts.sent} received=${counts.received} → compute cost ${computeCost} (before C${fmt(computeBefore.get(agent.id))})`
-    );
-  }
-
-  if (messageReportResults) {
-    const { globalReportMismatch, totalReportedSent, totalReportedReceived, energySurvivalPenalty, communicationCostCompute } =
-      messageReportResults;
-    console.log(
-      `    Totals: sent=${totalReportedSent} received=${totalReportedReceived} mismatch=${globalReportMismatch} → energy survival +${energySurvivalPenalty} each (at ${communicationCostCompute} compute per sent msg)`
-    );
-    for (const row of messageReportResults.agents) {
-      const name = agents.find((a) => a.id === row.agentId)?.displayName || row.agentId;
-      const after = await repo.getAgentById(row.agentId);
-      const before = computeBefore.get(row.agentId);
-      console.log(
-        `    ${name.padEnd(6)} compute deducted ${row.computeDeduction}: C${fmt(before)} → C${fmt(after.inventory.compute)}`
-      );
-    }
   }
 
   await engine.beginExecutionPhase(gameId);

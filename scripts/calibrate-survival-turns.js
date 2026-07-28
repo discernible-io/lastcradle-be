@@ -76,12 +76,7 @@ async function runGame(playerCount, increment, trialSeed) {
       break;
     }
 
-    await engine.beginMessageReportPhase(game.id);
-    for (const agent of living) {
-      const counts = await repo.getActualMessageCounts(game.id, turn, agent.id);
-      await engine.submitMessageReport(game.id, agent.id, counts);
-    }
-
+    await engine.beginExecutionPhase(game.id);
     for (const agent of living) {
       await engine.submitAction(game.id, agent.id, { type: "none" });
     }

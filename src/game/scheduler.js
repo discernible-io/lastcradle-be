@@ -17,7 +17,7 @@ const timers = new Map();
 function clearGameTimers(gameId) {
   const existing = timers.get(gameId);
   if (!existing) return;
-  for (const key of ["negotiation", "messageReport", "execution", "deadline"]) {
+  for (const key of ["negotiation", "execution", "deadline"]) {
     if (existing[key]) clearTimeout(existing[key]);
   }
   timers.delete(gameId);
@@ -47,7 +47,7 @@ function schedulePhaseTransition(gameId, phase, endsAtIso, handler) {
 }
 
 async function onNegotiationEnd(gameId) {
-  const game = await engine.beginMessageReportPhase(gameId);
+  const game = await engine.beginExecutionPhase(gameId);
   if (!game || game.status !== "running") {
     clearGameTimers(gameId);
     if (game?.status === "finished") {
@@ -55,48 +55,6 @@ async function onNegotiationEnd(gameId) {
     }
     return;
   }
-  clearGameTimers(gameId);
-  events.publishGameEvent(gameId, {
-    type: "phase_change",
-    phase: game.phase,
-    currentTurn: game.current_turn,
-    messageReportEndsAt: game.message_report_ends_at
-  });
-  logger.infoWithContext("Message report phase started", {
-    component: "GameScheduler",
-    gameId,
-    turn: game.current_turn,
-    endsAt: game.message_report_ends_at
-  });
-  onGamePhaseUpdated(gameId).catch((err) => {
-    logger.warnWithContext("Phase webhook delivery failed", {
-      component: "GameScheduler",
-      gameId,
-      error: err.message
-    });
-  });
-  scheduleGame(game);
-}
-
-async function onMessageReportEnd(gameId) {
-  await engine.applyDefaultMessageReportsForPendingAgents(gameId);
-  const completion = await engine.tryCompleteMessageReportPhase(gameId);
-
-  const game = await repo.getGameById(gameId);
-  if (!game || game.status !== "running") {
-    clearGameTimers(gameId);
-    return;
-  }
-
-  if (!completion.messageReportPhaseCompleted) {
-    logger.warnWithContext("Message report phase incomplete after timeout defaults", {
-      component: "GameScheduler",
-      gameId,
-      turn: game.current_turn
-    });
-    return;
-  }
-
   clearGameTimers(gameId);
   events.publishGameEvent(gameId, {
     type: "phase_change",
@@ -191,6 +149,26 @@ function onTurnCompleted(game) {
   scheduleGame(game);
 }
 
+/**
+ * Advance games left in the removed message-report phase into execution.
+ */
+async function migrateLegacyMessageReportPhase(game) {
+  if (
+    !game ||
+    game.status !== "running" ||
+    (game.phase !== "message_report" && game.phase !== "message_report_resolving")
+  ) {
+    return game;
+  }
+  logger.infoWithContext("Migrating legacy message_report phase to execution", {
+    component: "GameScheduler",
+    gameId: game.id,
+    turn: game.current_turn,
+    fromPhase: game.phase
+  });
+  return engine.beginExecutionPhase(game.id);
+}
+
 function scheduleGame(game) {
   if (!game || game.status !== "running") return;
 
@@ -198,16 +176,24 @@ function scheduleGame(game) {
     schedulePhaseTransition(game.id, "deadline", game.ends_at, () => onGameDeadline(game.id));
   }
 
-  if (game.phase === "negotiation") {
-    schedulePhaseTransition(game.id, "negotiation", game.negotiation_ends_at, () =>
-      onNegotiationEnd(game.id)
-    );
+  if (game.phase === "message_report" || game.phase === "message_report_resolving") {
+    migrateLegacyMessageReportPhase(game)
+      .then((migrated) => {
+        if (migrated) scheduleGame(migrated);
+      })
+      .catch((err) => {
+        logger.errorWithContext("Legacy message_report migration failed", {
+          component: "GameScheduler",
+          gameId: game.id,
+          error: err.message
+        });
+      });
     return;
   }
 
-  if (game.phase === "message_report") {
-    schedulePhaseTransition(game.id, "messageReport", game.message_report_ends_at, () =>
-      onMessageReportEnd(game.id)
+  if (game.phase === "negotiation") {
+    schedulePhaseTransition(game.id, "negotiation", game.negotiation_ends_at, () =>
+      onNegotiationEnd(game.id)
     );
     return;
   }
@@ -261,7 +247,6 @@ module.exports = {
   registerGame,
   unregisterGame,
   onNegotiationEnd,
-  onMessageReportEnd,
   onExecutionEnd,
   onTurnCompleted
 };

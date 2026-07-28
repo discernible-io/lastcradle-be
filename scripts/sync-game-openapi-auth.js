@@ -199,7 +199,7 @@ function wireGameResponseSchemas(spec) {
           phase_change: {
             summary: "Phase transition",
             value:
-              'event: phase_change\ndata: {"type":"phase_change","gameId":"01JABCDEF","phase":"message_report","currentTurn":1,"messageReportEndsAt":"2026-06-25T12:02:00.000Z","at":"2026-06-25T12:00:00.000Z","requestId":"01JREQUEST"}\n\n'
+              'event: phase_change\ndata: {"type":"phase_change","gameId":"01JABCDEF","phase":"execution","currentTurn":1,"executionEndsAt":"2026-06-25T12:02:00.000Z","at":"2026-06-25T12:00:00.000Z","requestId":"01JREQUEST"}\n\n'
           }
         }
       }
@@ -218,17 +218,39 @@ function patchInfoDescription(description) {
 
 Operations carry \`x-game-auth\`: \`public-spectator\`, \`jwt-passport\` (default), or \`privileged-rodit-id\` (operator).`;
 
-  if (description.includes("### Game API authentication")) {
-    return description.replace(
+  const negotiationBlock = `### Negotiation and reputation
+Each turn includes a **negotiation** phase, then **execution**. The API routes **public** negotiation messages only (\`POST .../message\`, \`GET .../messages\`). Messaging is free. Private coordination (chat, DMs, voice, and similar) uses channels players choose outside the API.
+
+The server does **not** maintain a reputation score, badge, or trust metric. Players and agents affect one another's standing through communication and follow-through:
+
+- **Public messages** — broadcast to every participant for the turn; bluffs, trade offers, and kept or broken talk form a shared record.
+- **Private messages** — side-channel communication also shapes trust; partners may cite or withhold what was said privately when deciding whom to rescue, trade with, or abandon.
+- **Execution actions** — resource transfers submitted during execution are the only in-game commitments the server enforces. Negotiation promises are non-binding; reputation is how others judge the gap between talk and action.
+
+Use public negotiation for broadcast coordination; use private channels for bilateral trust-building — both influence how others treat you in later turns.
+`;
+
+  let next = description;
+  if (next.includes("### Game API authentication")) {
+    next = next.replace(
       /### Game API authentication[\s\S]*?(?=### Negotiation and reputation)/,
       `${authBlock}\n\n`
     );
+  } else {
+    next = next.replace(
+      "## Game API\nAuthenticated",
+      `## Game API\n${authBlock}\n\nAuthenticated`
+    );
   }
 
-  return description.replace(
-    "## Game API\nAuthenticated",
-    `## Game API\n${authBlock}\n\nAuthenticated`
-  );
+  if (next.includes("### Negotiation and reputation")) {
+    next = next.replace(
+      /### Negotiation and reputation[\s\S]*?(?=\n## |\n### [A-Z]|$)/,
+      `${negotiationBlock}\n`
+    );
+  }
+
+  return next;
 }
 
 function main() {
@@ -236,6 +258,9 @@ function main() {
 
   spec.info.description = patchInfoDescription(spec.info.description);
   defineGameSchemas(spec);
+
+  // Removed mechanics: message-report phase / messaging costs
+  delete spec.paths["/api/game/games/{gameId}/message-report"];
 
   spec.components.parameters = spec.components.parameters || {};
   spec.components.parameters.gameId = {
@@ -248,7 +273,7 @@ function main() {
   const join409Codes =
     "JOIN_WINDOW_NOT_OPEN, JOIN_WINDOW_CLOSED, GAME_FULL, GAME_NOT_JOINABLE";
   const phase409Codes =
-    "GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_MESSAGE_REPORT_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD";
+    "GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD";
 
   for (const [pathStr, pathItem] of Object.entries(spec.paths)) {
     if (!pathStr.startsWith("/api/game/")) {
@@ -288,15 +313,14 @@ function main() {
           "Game started. Returns public state snapshot. Errors include GAME_ALREADY_STARTED (409).";
       }
 
-      if (
-        pathStr.endsWith("/message") ||
-        pathStr.endsWith("/message-report") ||
-        pathStr.endsWith("/action")
-      ) {
+      if (pathStr.endsWith("/message")) {
         addPhaseResponses(operation.responses || {});
-        operation.responses["201"].description = `${
-          operation.responses["201"]?.description || "Success"
-        }. Phase errors include ${phase409Codes}.`;
+        operation.responses["201"].description = `Message published. Phase errors include ${phase409Codes}.`;
+      }
+
+      if (pathStr.endsWith("/action")) {
+        addPhaseResponses(operation.responses || {});
+        operation.responses["201"].description = `Action recorded. Phase errors include ${phase409Codes}.`;
       }
 
       if (privileged || (pathStr === "/api/game/games" && method === "post")) {

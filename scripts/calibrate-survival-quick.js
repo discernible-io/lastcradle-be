@@ -60,14 +60,6 @@ async function runTrial(scaling) {
     ]);
     agents = await repo.listAgents(gameId);
     const living = agents.filter((a) => a.status === "alive");
-    await engine.beginMessageReportPhase(gameId);
-    for (const a of living) {
-      const msgs = await repo.listPublicMessages(gameId, t);
-      await engine.submitMessageReport(gameId, a.id, {
-        sent: msgs.filter((m) => m.from_agent_id === a.id).length,
-        received: msgs.filter((m) => m.to_agent_id === a.id).length
-      });
-    }
     await engine.beginExecutionPhase(gameId);
     let plan = PLANS[(t - 1) % 5];
     if (plan === "transfer") {

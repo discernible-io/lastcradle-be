@@ -78,15 +78,6 @@ async function runTrial(scale, trialIndex) {
     agents = await trialRepo.listAgents(gameId);
     const living = agents.filter((a) => a.status === "alive");
 
-    await trialEngine.beginMessageReportPhase(gameId);
-    for (const agent of living) {
-      const msgs = await trialRepo.listPublicMessages(gameId, turn);
-      await trialEngine.submitMessageReport(gameId, agent.id, {
-        sent: msgs.filter((m) => m.from_agent_id === agent.id).length,
-        received: msgs.filter((m) => m.to_agent_id === agent.id).length
-      });
-    }
-
     await trialEngine.beginExecutionPhase(gameId);
     for (const agent of living) {
       const fresh = await trialRepo.getAgentById(agent.id);

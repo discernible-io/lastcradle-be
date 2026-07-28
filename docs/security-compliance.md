@@ -307,15 +307,15 @@ Branches ([`BRANCHING.md`](BRANCHING.md)):
 
 ## Contest game requirements (15-player timed event)
 
-Target format: ~15 participants, one practice week, one definitive prize game, turns on a **15-minute cadence**, **55-turn** cap (~14 hours wall-clock), live online following.
+Target format: ~15 participants, one practice week, one definitive prize game, turns on a **10-minute cadence**, **55-turn** cap (~9 hours wall-clock), live online following.
 
 ### Summary matrix
 
 | Area | Status | Evidence / notes |
 |------|--------|------------------|
-| Phase timers (negotiation → message report → execution) | **Met** | Timers when duration &gt; 0; `scheduler.js` wires all phases |
-| Absent-player auto-defaults on phase timeout | **Met** | Actual message counts + `{ type: "none" }` actions |
-| `executionDurationMs` enforcement | **Met** | Enforced when &gt; 0 (casual defaults use ~10 min AFK caps; 0 remains submission-gated if overridden) |
+| Phase timers (negotiation → execution) | **Met** | Timers when duration &gt; 0; `scheduler.js` wires all phases |
+| Absent-player auto-defaults on phase timeout | **Met** | `{ type: "none" }` actions |
+| `executionDurationMs` enforcement | **Met** | Enforced when &gt; 0 (casual defaults use ~5 min AFK caps; 0 remains submission-gated if overridden) |
 | Max turns / max game duration | **Met** | `maxTurns`, `maxGameDurationMs`, `ends_at`; forced finish lists all living in `winnerIds` |
 | 15-player contest config preset | **Met** | `CONTEST_GAME_CONFIG` / `PRACTICE_GAME_CONFIG`; `GET /api/game/defaults/contest` |
 | Practice vs definitive contest mode | **Met** | `contestMode`; `POST /api/game/contest-series` + lobby auto-start |
@@ -331,12 +331,11 @@ Target format: ~15 participants, one practice week, one definitive prize game, t
 |-----------|-------|-----------|
 | `maxAgents` / `minAgents` | 15 | Full lobby |
 | `finishSurvivorCount` | 2 | Natural end when ≤2 alive; those two share if game ends organically |
-| `negotiationDurationMs` | 8 min | Main trading window |
-| `messageReportDurationMs` | 2 min | Self-report window |
-| `executionDurationMs` | 5 min | Action window (15 min total per turn) |
-| `turnIntervalMs` | 15 min | Documented cadence target (phase sum) |
-| `maxTurns` | 55 | 55 × 15 min; at cap all living agents share prize equally |
-| `maxGameDurationMs` | ~13 h 45 m | Hard wall-clock cap (same all-living prize split) |
+| `negotiationDurationMs` | 5 min | Main trading window |
+| `executionDurationMs` | 5 min | Action window (10 min total per turn) |
+| `turnIntervalMs` | 10 min | Documented cadence target (phase sum) |
+| `maxTurns` | 55 | 55 × 10 min; at cap all living agents share prize equally |
+| `maxGameDurationMs` | ~9 h 10 m | Hard wall-clock cap (same all-living prize split) |
 | `survivalCostPlayerReference` | 3 (default) | Inherited from `DEFAULT_GAME_CONFIG`; survival pacing validated at ~15 players with increment 0.96 |
 
 ### Implementation files
@@ -346,7 +345,7 @@ Target format: ~15 participants, one practice week, one definitive prize game, t
 | Defaults + contest preset | `src/game/defaults.js` |
 | Phase scheduling | `src/game/scheduler.js` |
 | Turn resolution + forced finish | `src/game/engine.js` |
-| Persistence (`ends_at`, `message_report_ends_at`) | `src/game/schema.js`, `src/game/repository.js` |
+| Persistence (`ends_at`, phase deadlines) | `src/game/schema.js`, `src/game/repository.js` |
 | HTTP surface | `src/game/routes.js` |
 | Contest orchestration | `src/game/contest-orchestrator.js`, `src/game/prize-settlement.js` |
 | Live push (SSE) | `src/game/events.js`, `GET /api/game/games/:id/events` |
@@ -355,7 +354,7 @@ Target format: ~15 participants, one practice week, one definitive prize game, t
 
 ### Security notes for contest mode
 
-- **Phase timeouts must not leak hidden state** — auto-default message reports use server-side actual counts only; spectators must not gain intelligence visibility (see `canViewerSeeCapacities`).
+- **Phase timeouts must not leak hidden state** — auto-default execution actions are `{ type: "none" }`; spectators must not gain intelligence visibility (see `canViewerSeeCapacities`).
 - **Forced finish at deadline** ends the game with every living agent in `winnerIds` (equal prize shares). Ranking order in `winnerIds` is for audit only (alive status, then inventory, then elimination turn).
 - **Natural finish** (living count ≤ `finishSurvivorCount`) also lists all survivors in `winnerIds` — typically the last two, who share the pool equally.
 - **Rate limits** on game endpoints remain via existing nginx / `userratelimitmw`; contest traffic may need tighter per-route limits (operator).

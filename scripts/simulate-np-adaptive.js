@@ -39,7 +39,6 @@ const { collectIntelligenceFromActions } = require("../src/game/engine");
 const {
   computeSurvivalCost,
   buildSurvivalContext,
-  communicationCostComputeForTurn,
   investmentTotal
 } = require("../src/game/survival-cost");
 const { GAME_LORE, MECHANIC_NARRATIVES, buildSurvivalNarrative } = require("../src/game/narrative");
@@ -136,16 +135,6 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
     flow.msgsPublished += 1;
   }
 
-  await engine.beginMessageReportPhase(gameId);
-  let messageReportResults = null;
-  for (const agent of living) {
-    const fresh = await repo.getAgentById(agent.id);
-    if (fresh.status !== "alive") continue;
-    const counts = await repo.getActualMessageCounts(gameId, turnNumber, agent.id);
-    const result = await engine.submitMessageReport(gameId, agent.id, counts);
-    if (result.messageReportResults) messageReportResults = result.messageReportResults;
-  }
-
   await engine.beginExecutionPhase(gameId);
   const actionMap = buildAdaptiveActions(agents, PROFILES, gameRow, turnNumber);
 
@@ -193,7 +182,6 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
     turnNumber
   });
   const survivalPerPlayer = computeSurvivalCost(gameAfter.config, ctx);
-  const msgCost = communicationCostComputeForTurn(gameAfter.config, turnNumber);
 
   metrics.flowByTurn[turnNumber] = flow;
   metrics.totalMessages += flow.msgsPublished;
@@ -239,7 +227,7 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
       turnNumber,
       "Doctrine in the public channels",
       MECHANIC_NARRATIVES.negotiation,
-      `${flow.msgsPublished} public messages (${topic}); compute toll ${fmt(msgCost)} per reported send`
+      `${flow.msgsPublished} public messages (${topic})`
     );
   }
 
@@ -265,16 +253,6 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
         `${first.from} → ${first.to}: ${first.volume}`
       );
     }
-  }
-
-  if (messageReportResults?.globalReportMismatch) {
-    highlight(
-      metrics,
-      turnNumber,
-      "Entropy's tax on liars",
-      MECHANIC_NARRATIVES.messageReports,
-      `Global message-report mismatch; +${messageReportResults.energySurvivalPenalty} energy survival penalty each`
-    );
   }
 
   if (livingAfter.length < livingBefore) {

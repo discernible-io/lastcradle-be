@@ -26,7 +26,6 @@ const repo = require("../src/game/repository");
 const {
   computeSurvivalCost,
   buildSurvivalContext,
-  communicationCostComputeForTurn,
   investmentTotal
 } = require("../src/game/survival-cost");
 const { buildInvestAction, CONTEST_GAME_CONFIG, mergeGameConfig } = require("../src/game/defaults");
@@ -274,7 +273,6 @@ async function runTurn(gameId, agents, turnNumber, plan, metrics, gameRowBefore)
     invested: emptyR(),
     traded: emptyR(),
     spentSurvival: emptyR(),
-    spentMessagingCompute: 0
   };
 
   for (const agent of turnStartAgents) {
@@ -304,22 +302,8 @@ async function runTurn(gameId, agents, turnNumber, plan, metrics, gameRowBefore)
   }
   metrics.messagingByTurn[turnNumber] = { published: msgsPublished, planned: messages.length };
 
-  await engine.beginMessageReportPhase(gameId);
-  for (const agent of living) {
-    const fresh = await repo.getAgentById(agent.id);
-    if (fresh.status !== "alive") continue;
-    const counts = await repo.getActualMessageCounts(gameId, turnNumber, agent.id);
-    await engine.submitMessageReport(gameId, agent.id, counts);
-    metrics.messagingByPlayer[agent.displayName] = metrics.messagingByPlayer[agent.displayName] || {
-      sent: 0,
-      received: 0
-    };
-    metrics.messagingByPlayer[agent.displayName].sent += counts.sent;
-    metrics.messagingByPlayer[agent.displayName].received += counts.received;
-  }
-  metrics.totalMessagesPublished += msgsPublished;
-
   await engine.beginExecutionPhase(gameId);
+  metrics.totalMessagesPublished += msgsPublished;
 
   const actionMap = typeof plan.actions === "function" ? plan.actions(agents) : plan.actions;
 
@@ -380,13 +364,6 @@ async function runTurn(gameId, agents, turnNumber, plan, metrics, gameRowBefore)
 
   const gameAfter = await repo.getGameById(gameId);
   const config = gameAfter.config;
-  const msgCost = communicationCostComputeForTurn(config, turnNumber);
-  const database = await repo.getDb();
-  const reports = await database.all(
-    `SELECT reported_sent FROM game_message_reports WHERE game_id = ? AND turn_number = ?`,
-    [gameId, turnNumber]
-  );
-  flow.spentMessagingCompute = reports.reduce((sum, row) => sum + row.reported_sent * msgCost, 0);
 
   const survivalContext = buildSurvivalContext({
     config,
@@ -399,14 +376,10 @@ async function runTurn(gameId, agents, turnNumber, plan, metrics, gameRowBefore)
     if (after.status !== "alive" || after.diedAtTurn === turnNumber) {
       continue;
     }
-    const penalty = await repo.getAgentEnergySurvivalPenalty(gameId, turnNumber, agent.id);
-    addR(flow.spentSurvival, computeSurvivalCost(config, { ...survivalContext, energyPenalty: penalty }));
+    addR(flow.spentSurvival, computeSurvivalCost(config, survivalContext));
   }
 
-  flow.spentTotal = {
-    ...flow.spentSurvival,
-    compute: flow.spentSurvival.compute + flow.spentMessagingCompute
-  };
+  flow.spentTotal = { ...flow.spentSurvival };
   metrics.flowByTurn[turnNumber] = flow;
 
   return engine.getPublicState(gameId);
@@ -416,7 +389,7 @@ function printTurnFlowTable(metrics) {
   printSection("RESOURCE FLOW BY TURN (aggregate E / W / C)");
   console.log(
     "Turn  Living | Produced (E/W/C)        | Invested (E/W/C)        | " +
-      "Spent survival (E/W/C)  | Spent msg(C) | Traded out (E/W/C)"
+      "Spent survival (E/W/C)  | Traded out (E/W/C)"
   );
   console.log("-".repeat(118));
 
@@ -424,8 +397,7 @@ function printTurnFlowTable(metrics) {
     produced: emptyR(),
     invested: emptyR(),
     traded: emptyR(),
-    spentSurvival: emptyR(),
-    spentMessagingCompute: 0
+    spentSurvival: emptyR()
   };
 
   for (const turn of Object.keys(metrics.flowByTurn).sort((a, b) => a - b)) {
@@ -434,23 +406,22 @@ function printTurnFlowTable(metrics) {
     addR(totals.invested, f.invested);
     addR(totals.traded, f.traded);
     addR(totals.spentSurvival, f.spentSurvival);
-    totals.spentMessagingCompute += f.spentMessagingCompute;
 
     console.log(
       `T${String(turn).padStart(2)}   ${String(f.living).padStart(2)}    | ` +
         `${fmtR(f.produced).padEnd(23)} | ${fmtR(f.invested).padEnd(23)} | ` +
-        `${fmtR(f.spentSurvival).padEnd(23)} | ${fmt(f.spentMessagingCompute).padStart(12)} | ${fmtR(f.traded)}`
+        `${fmtR(f.spentSurvival).padEnd(23)} | ${fmtR(f.traded)}`
     );
   }
 
   console.log("-".repeat(118));
   console.log(
     `TOTAL       | ${fmtR(totals.produced).padEnd(23)} | ${fmtR(totals.invested).padEnd(23)} | ` +
-      `${fmtR(totals.spentSurvival).padEnd(23)} | ${fmt(totals.spentMessagingCompute).padStart(12)} | ${fmtR(totals.traded)}`
+      `${fmtR(totals.spentSurvival).padEnd(23)} | ${fmtR(totals.traded)}`
   );
   console.log(
     "\nNotes: Produced = capacity×development at turn start. Invested/Traded = executed actions. " +
-      "Spent survival = paid by survivors. Spent msg = compute for reported messages."
+      "Spent survival = paid by survivors."
   );
 }
 
@@ -659,7 +630,6 @@ async function main() {
         minAgents: PLAYER_COUNT,
         maxAgents: PLAYER_COUNT,
         negotiationDurationMs: 0,
-        messageReportDurationMs: 0,
         executionDurationMs: 0,
         maxTurns: null,
         maxGameDurationMs: null

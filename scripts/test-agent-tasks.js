@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.5.0")) {
-    throw new Error("skill.md should be version 1.5.0");
+  if (!skill.includes("version: 1.6.1")) {
+    throw new Error("skill.md should be version 1.6.1");
   }
   if (!skill.includes("slc_create")) {
     throw new Error("skill.md should document MCP slc_create");
@@ -84,20 +84,20 @@ async function main() {
   const alpha = await repo.getAgentByRoditId(game.id, "agent-alpha");
   await engine.publishPublicMessage(game.id, alpha.id, { body: "Public offer." });
 
-  await engine.beginMessageReportPhase(game.id);
+  await engine.beginExecutionPhase(game.id);
   tasks = await listTasksForRodit("agent-alpha");
-  const reportTask = tasks.find((t) => t.taskType === TASK_TYPES.SUBMIT_MESSAGE_REPORT);
-  if (!reportTask || !reportTask.required) {
-    throw new Error(`Expected required submit_message_report task, got ${JSON.stringify(tasks)}`);
+  const actionTask = tasks.find((t) => t.taskType === TASK_TYPES.SUBMIT_EXECUTION_ACTION);
+  if (!actionTask || !actionTask.required) {
+    throw new Error(`Expected required submit_execution_action task, got ${JSON.stringify(tasks)}`);
   }
 
   const { listTasksInboxForRodit } = require("../src/game/agent-tasks");
-  await engine.submitMessageReport(game.id, alpha.id, { sent: 1, received: 0 });
+  await engine.submitAction(game.id, alpha.id, { type: "none" });
   const inbox = await listTasksInboxForRodit("agent-alpha");
-  if (inbox.tasks.some((t) => t.taskType === TASK_TYPES.SUBMIT_MESSAGE_REPORT)) {
-    throw new Error("Alpha should have no message-report task after submit");
+  if (inbox.tasks.some((t) => t.taskType === TASK_TYPES.SUBMIT_EXECUTION_ACTION)) {
+    throw new Error("Alpha should have no execution-action task after submit");
   }
-  if (!inbox.waitingOn.some((w) => w.displayName === "Beta" && w.needed === TASK_TYPES.SUBMIT_MESSAGE_REPORT)) {
+  if (!inbox.waitingOn.some((w) => w.displayName === "Beta" && w.needed === TASK_TYPES.SUBMIT_EXECUTION_ACTION)) {
     throw new Error(`Expected waitingOn Beta after Alpha submitted, got ${JSON.stringify(inbox.waitingOn)}`);
   }
 

@@ -46,12 +46,6 @@ const DEFAULT_GAME_CONFIG = {
    */
   startingInventoryBalanceMin: 0,
 
-  /** @deprecated use communicationCostComputeBase */
-  communicationCostCompute: 1,
-  communicationCostComputeBase: 1,
-  /** Additional compute per reported message for each turn elapsed (turn 1 = base only) */
-  communicationCostComputeTurnIncrement: 0.1,
-
   /** Energy consumed as a fraction of water + compute produced each turn */
   productionEnergyCostRate: 0.1,
 
@@ -84,14 +78,13 @@ const DEFAULT_GAME_CONFIG = {
   /**
    * Real-time phase durations in milliseconds (0 = submission-gated, no auto-advance).
    * Casual uses generous AFK caps so one silent cradle cannot freeze the table forever;
-   * agents should still submit via tick / message-report / action — timeouts apply server defaults.
+   * agents should still submit via tick / action — timeouts apply server defaults.
    */
-  negotiationDurationMs: 7 * 60 * 1000,
-  messageReportDurationMs: 10 * 60 * 1000,
-  executionDurationMs: 10 * 60 * 1000,
+  negotiationDurationMs: 5 * 60 * 1000,
+  executionDurationMs: 5 * 60 * 1000,
 
   /**
-   * Target wall-clock duration for one full turn (negotiation + message report + execution).
+   * Target wall-clock duration for one full turn (negotiation + execution).
    * Informational default for contest presets; enforced via individual phase timers.
    */
   turnIntervalMs: null,
@@ -121,32 +114,19 @@ const DEFAULT_GAME_CONFIG = {
   minAgents: 3,
 
   /** Maximum agents per game (casual lobbies fill to this before a new lobby may be opened) */
-  maxAgents: 5,
-
-  /** Extra energy survival cost per 10 global report mismatch (shared by all living agents) */
-  messageReportMismatchEnergyPenaltyPerTen: 1,
-
-  /** Exclude a sole dishonest reporter from shared mismatch; they bear the full baseline penalty. */
-  messageReportMismatchOutlierExcludeEnabled: true,
-
-  /** Global mismatch must exceed this before an outlier is identified for penalty adjustment. */
-  messageReportMismatchOutlierThreshold: 11,
-
-  /** Correcting one agent's report must reduce mismatch by at least this fraction of the baseline. */
-  messageReportMismatchOutlierMinFixRatio: 0.77
+  maxAgents: 5
 };
 
-/** Preset for a 15-player prize contest: 15-minute turns, 55-turn / ~14-hour cap; same last-two finish rule as casual. */
+/** Preset for a 15-player prize contest: 10-minute turns, 55-turn / ~9-hour cap; same last-two finish rule as casual. */
 const CONTEST_GAME_CONFIG = {
   maxAgents: 15,
   minAgents: 15,
   finishSurvivorCount: 2,
-  negotiationDurationMs: 8 * 60 * 1000,
-  messageReportDurationMs: 2 * 60 * 1000,
+  negotiationDurationMs: 5 * 60 * 1000,
   executionDurationMs: 5 * 60 * 1000,
-  turnIntervalMs: 15 * 60 * 1000,
+  turnIntervalMs: 10 * 60 * 1000,
   maxTurns: 55,
-  maxGameDurationMs: 55 * 15 * 60 * 1000,
+  maxGameDurationMs: 55 * 10 * 60 * 1000,
   joiningWindowDurationMs: 60 * 60 * 1000,
   contestMode: "definitive"
 };

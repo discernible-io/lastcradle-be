@@ -51,10 +51,7 @@ async function main() {
   const agents = await repo.listAgents(gameId);
   const alpha = agents.find((a) => a.roditId === "hof-alpha");
 
-  await engine.beginMessageReportPhase(gameId);
-  for (const agent of agents) {
-    await engine.submitMessageReport(gameId, agent.id, { sent: 0, received: 0 });
-  }
+  await engine.beginExecutionPhase(gameId);
 
   await engine.submitAction(gameId, alpha.id, {
     type: "transfer",

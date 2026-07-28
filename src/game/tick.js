@@ -1,5 +1,5 @@
 /**
- * One-shot required-task submit (message-report / execution action).
+ * One-shot required-task submit (execution action).
  * Shared by MCP `slc_tick` and REST `POST /api/game/tick`.
  */
 
@@ -8,19 +8,6 @@ const repo = require("./repository");
 const scheduler = require("./scheduler");
 const { onGamePhaseUpdated } = require("./webhooks");
 const { listTasksInboxForRodit, TASK_TYPES } = require("./agent-tasks");
-
-function applyMessageReportSideEffects(gameId, result) {
-  if (!result?.messageReportPhaseCompleted) return;
-  repo
-    .getGameById(gameId)
-    .then((game) => {
-      if (game?.status === "running" && game.phase === "execution") {
-        scheduler.registerGame(game);
-        onGamePhaseUpdated(game.id).catch(() => {});
-      }
-    })
-    .catch(() => {});
-}
 
 function applyActionSideEffects(result) {
   if (result?.turnCompleted && result.game) {
@@ -32,7 +19,7 @@ function applyActionSideEffects(result) {
 
 /**
  * @param {string} roditId
- * @param {{ sent?: number, received?: number, actionType?: string }} [opts]
+ * @param {{ actionType?: string }} [opts]
  * @returns {Promise<object>}
  */
 async function runAgentTick(roditId, opts = {}) {
@@ -45,29 +32,6 @@ async function runAgentTick(roditId, opts = {}) {
       tasks: inbox.tasks,
       waitingOn: inbox.waitingOn,
       note: "Empty tasks does not mean unblocked — check waitingOn."
-    };
-  }
-
-  if (required.taskType === TASK_TYPES.SUBMIT_MESSAGE_REPORT) {
-    const agent = await repo.getAgentByRoditId(required.gameId, roditId);
-    if (!agent) {
-      const err = new Error("You must join the game before submitting a message report");
-      err.code = "AGENT_NOT_IN_GAME";
-      err.statusCode = 404;
-      throw err;
-    }
-    const sent = opts.sent ?? 0;
-    const received = opts.received ?? 0;
-    const result = await engine.submitMessageReport(required.gameId, agent.id, { sent, received });
-    applyMessageReportSideEffects(required.gameId, result);
-    const after = await listTasksInboxForRodit(roditId);
-    return {
-      submitted: true,
-      taskType: required.taskType,
-      gameId: required.gameId,
-      payload: { sent, received },
-      result,
-      waitingOn: after.waitingOn
     };
   }
 

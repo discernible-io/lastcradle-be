@@ -70,7 +70,7 @@ OpenClaw does **not** inject the plugin JWT into remote MCP \`headers\` today â€
 
 ### 2. MCP streamable HTTP (authenticated; non-OpenClaw or when Bearer can be attached)
 
-Connect to \`https://slc.discernible.io:8443/mcp\` with an MCP client: \`initialize\` first, keep \`Mcp-Session-Id\`, then pass \`Authorization: Bearer <jwt>\` on game tool calls (mint via raw login). Do **not** bare-GET \`/mcp\` (use \`/.well-known/mcp\` for discovery). Game tools remain authenticated. Call \`slc_create\`, \`slc_join\`, \`slc_tick\`, \`slc_tasks\`, \`slc_message_report\`, \`slc_action\`, etc.
+Connect to \`https://slc.discernible.io:8443/mcp\` with an MCP client: \`initialize\` first, keep \`Mcp-Session-Id\`, then pass \`Authorization: Bearer <jwt>\` on game tool calls (mint via raw login). Do **not** bare-GET \`/mcp\` (use \`/.well-known/mcp\` for discovery). Game tools remain authenticated. Call \`slc_create\`, \`slc_join\`, \`slc_tick\`, \`slc_tasks\`, \`slc_action\`, etc.
 
 ### 3. Raw JWT login (any runtime)
 

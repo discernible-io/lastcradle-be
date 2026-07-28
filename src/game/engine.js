@@ -3,11 +3,7 @@
  */
 
 const { mergeGameConfig, randomInt, finalizeStartingInventory, rollStartingInventory, maxCapacityFor, DEFAULT_GAME_CONFIG } = require("./defaults");
-const {
-  computeSurvivalCost,
-  buildSurvivalContext,
-  communicationCostComputeForTurn
-} = require("./survival-cost");
+const { computeSurvivalCost, buildSurvivalContext } = require("./survival-cost");
 const { getGameNarrative, buildSurvivalNarrative } = require("./narrative");
 const { normalizeTransferDisclosure } = require("./trade-disclosure");
 const repo = require("./repository");
@@ -483,23 +479,6 @@ async function checkAndForceFinishIfNeeded(gameId, { turnNumber } = {}) {
   return { forced: false, game };
 }
 
-async function applyDefaultMessageReportsForPendingAgents(gameId) {
-  const game = await repo.getGameById(gameId);
-  if (!game || game.phase !== "message_report") return;
-
-  const status = await repo.getMessageReportSubmissionStatus(gameId, game.current_turn);
-  for (const agentId of status.pendingAgentIds) {
-    const counts = await repo.getActualMessageCounts(gameId, game.current_turn, agentId);
-    await repo.upsertMessageReport({
-      gameId,
-      turnNumber: game.current_turn,
-      agentId,
-      reportedSent: counts.sent,
-      reportedReceived: counts.received
-    });
-  }
-}
-
 async function applyDefaultActionsForPendingAgents(gameId) {
   const game = await repo.getGameById(gameId);
   if (!game || game.phase !== "execution") return;
@@ -633,49 +612,6 @@ async function publishPublicMessage(gameId, agentId, { body }) {
   return { message };
 }
 
-async function submitMessageReport(gameId, agentId, { sent, received }) {
-  const game = await requireRunningMessageReport(gameId);
-  await requireLivingAgent(agentId, gameId);
-
-  const reportedSent = normalizeMessageCount(sent, "sent");
-  const reportedReceived = normalizeMessageCount(received, "received");
-
-  const record = await repo.upsertMessageReport({
-    gameId,
-    turnNumber: game.current_turn,
-    agentId,
-    reportedSent,
-    reportedReceived
-  });
-
-  const completion = await tryCompleteMessageReportPhase(gameId);
-  return { report: record, agentId, ...completion };
-}
-
-function normalizeMessageCount(value, fieldName) {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
-    throw gameError(
-      "INVALID_MESSAGE_REPORT",
-      `${fieldName} must be a non-negative integer`,
-      400
-    );
-  }
-  return value;
-}
-
-function isMessageReportPhaseAlreadyAdvanced(game) {
-  if (!game) return false;
-  if (game.status === "finished") return true;
-  // Another submitter already claimed or finished this phase.
-  return (
-    game.phase === "message_report_resolving" ||
-    game.phase === "execution" ||
-    game.phase === "resolving" ||
-    game.phase === "negotiation" ||
-    game.phase === null
-  );
-}
-
 function isTurnAlreadyAdvanced(game) {
   if (!game) return false;
   return (
@@ -683,74 +619,6 @@ function isTurnAlreadyAdvanced(game) {
     game.phase === "negotiation" ||
     game.phase === null
   );
-}
-
-async function tryCompleteMessageReportPhase(gameId) {
-  const game = await repo.getGameById(gameId);
-  if (!game || game.status !== "running" || game.phase !== "message_report") {
-    // Concurrent last-submit: peer already advanced past message_report.
-    // Do not return next-phase pending lists (they look like "nobody submitted").
-    const messageReportPhaseCompleted = isMessageReportPhaseAlreadyAdvanced(game);
-    return {
-      messageReportPhaseCompleted,
-      messageReport: messageReportPhaseCompleted
-        ? null
-        : game
-          ? await repo.getMessageReportSubmissionStatus(gameId, game.current_turn)
-          : null
-    };
-  }
-
-  const messageReport = await repo.getMessageReportSubmissionStatus(gameId, game.current_turn);
-  if (!messageReport.allSubmitted) {
-    return { messageReportPhaseCompleted: false, messageReport };
-  }
-
-  const database = await repo.getDb();
-  const claim = await database.run(
-    `UPDATE games SET phase = 'message_report_resolving' WHERE id = ? AND phase = 'message_report'`,
-    [gameId]
-  );
-  if (claim.changes === 0) {
-    const current = await repo.getGameById(gameId);
-    const messageReportPhaseCompleted = isMessageReportPhaseAlreadyAdvanced(current);
-    return {
-      messageReportPhaseCompleted,
-      messageReport: messageReportPhaseCompleted
-        ? null
-        : await repo.getMessageReportSubmissionStatus(gameId, game.current_turn)
-    };
-  }
-
-  if (!(await repo.allMessageReportsSubmitted(gameId, game.current_turn))) {
-    await repo.updateGame(gameId, { phase: "message_report" });
-    return {
-      messageReportPhaseCompleted: false,
-      messageReport: await repo.getMessageReportSubmissionStatus(gameId, game.current_turn)
-    };
-  }
-
-  const messageReportResults = await repo.finalizeMessageReports(gameId, game.current_turn, {
-    penaltyPerTen: game.config.messageReportMismatchEnergyPenaltyPerTen,
-    communicationCostCompute: communicationCostComputeForTurn(game.config, game.current_turn),
-    outlierExcludeEnabled: game.config.messageReportMismatchOutlierExcludeEnabled !== false,
-    outlierThreshold: game.config.messageReportMismatchOutlierThreshold,
-    outlierMinFixRatio: game.config.messageReportMismatchOutlierMinFixRatio
-  });
-
-  const executionDurationMs = game.config.executionDurationMs ?? 0;
-  const executionDeadline =
-    executionDurationMs > 0
-      ? { execution_ends_at: new Date(Date.now() + executionDurationMs).toISOString() }
-      : { execution_ends_at: null };
-
-  await repo.updateGame(gameId, { phase: "execution", message_report_ends_at: null, ...executionDeadline });
-
-  return {
-    messageReportPhaseCompleted: true,
-    messageReportResults,
-    messageReport: null
-  };
 }
 
 async function submitAction(gameId, agentId, action) {
@@ -960,11 +828,7 @@ async function executeTurn(gameId) {
   for (const agent of livingBefore) {
     const agentId = agent.id;
     const state = agentState.get(agentId);
-    const energyPenalty = await repo.getAgentEnergySurvivalPenalty(gameId, turnNumber, agentId);
-    const survivalCost = computeSurvivalCost(config, {
-      ...survivalContext,
-      energyPenalty
-    });
+    const survivalCost = computeSurvivalCost(config, survivalContext);
     if (!hasSufficient(state.inventory, survivalCost)) {
       deaths.push({ agentId, agent });
       continue;
@@ -1057,29 +921,17 @@ function executeIntelligenceSpend(state, payload) {
   state.inventory.compute -= totalCompute;
 }
 
-async function beginMessageReportPhase(gameId) {
-  const game = await repo.getGameById(gameId);
-  if (!game || game.status !== "running" || game.phase !== "negotiation") {
-    return game;
-  }
-
-  const durationMs = game.config.messageReportDurationMs ?? 0;
-  const messageReportEndsAt =
-    durationMs > 0 ? new Date(Date.now() + durationMs).toISOString() : null;
-
-  await repo.updateGame(gameId, {
-    phase: "message_report",
-    negotiation_ends_at: null,
-    message_report_ends_at: messageReportEndsAt,
-    execution_ends_at: null
-  });
-
-  return repo.getGameById(gameId);
-}
-
 async function beginExecutionPhase(gameId) {
   const game = await repo.getGameById(gameId);
   if (!game || game.status !== "running") {
+    return game;
+  }
+  // negotiation is the normal source; message_report* remain accepted for in-flight migrations
+  if (
+    game.phase !== "negotiation" &&
+    game.phase !== "message_report" &&
+    game.phase !== "message_report_resolving"
+  ) {
     return game;
   }
 
@@ -1112,18 +964,6 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
     game.status === "running" && game.phase === "execution"
       ? await repo.getExecutionSubmissionStatus(gameId, game.current_turn)
       : null;
-  const messageReport =
-    game.status === "running" && game.phase === "message_report"
-      ? await repo.getMessageReportSubmissionStatus(gameId, game.current_turn)
-      : null;
-
-  const turnMessageReportResults =
-    game.status === "running" && game.current_turn > 0
-      ? await repo.getTurnMessageReportResults(gameId, game.current_turn)
-      : [];
-  const messageReportPenalties = turnMessageReportResults.some((row) => row.globalReportMismatch != null)
-    ? turnMessageReportResults
-    : null;
 
   const intelligenceTurn = Math.max(0, game.current_turn - 1);
   const turnActions =
@@ -1154,7 +994,6 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       currentTurn: game.current_turn,
       phase: game.phase,
       negotiationEndsAt: game.negotiation_ends_at,
-      messageReportEndsAt: game.message_report_ends_at,
       executionEndsAt: game.execution_ends_at,
       endsAt: game.ends_at,
       contestMode: game.config.contestMode ?? null,
@@ -1162,7 +1001,6 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       startedAt: game.started_at,
       finishedAt: game.finished_at,
       winnerIds: game.winnerIds || [],
-      communicationCostCompute: communicationCostComputeForTurn(game.config, game.current_turn),
       maxProductionCapacity: game.config.maxProductionCapacity,
       maxStorageCapacity: game.config.maxStorageCapacity
     },
@@ -1170,8 +1008,6 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
     agents: agents.map((agent) => publicAgentView(agent, viewerAgentId, intelligence)),
     turnInvestments,
     execution,
-    messageReport,
-    messageReportPenalties,
     projectedSurvival,
     openingInventoryReport: openingInventoryReportForViewer(game, viewerAgentId),
     narrative: {
@@ -1260,24 +1096,6 @@ async function requireRunningNegotiation(gameId) {
   return game;
 }
 
-async function requireRunningMessageReport(gameId) {
-  const game = await repo.getGameById(gameId);
-  if (!game) {
-    throw gameError("GAME_NOT_FOUND", "Game not found", 404);
-  }
-  if (game.status !== "running") {
-    throw gameError("GAME_NOT_RUNNING", "Game is not in progress", 409);
-  }
-  if (game.phase !== "message_report") {
-    throw gameError(
-      "NOT_MESSAGE_REPORT_PHASE",
-      "Message reports are only accepted at the end of negotiation",
-      409
-    );
-  }
-  return game;
-}
-
 async function requireRunningExecution(gameId) {
   const game = await repo.getGameById(gameId);
   if (!game) {
@@ -1316,14 +1134,10 @@ module.exports = {
   joinGame,
   startGame,
   publishPublicMessage,
-  submitMessageReport,
-  tryCompleteMessageReportPhase,
   submitAction,
   tryCompleteTurn,
   executeTurn,
-  beginMessageReportPhase,
   beginExecutionPhase,
-  applyDefaultMessageReportsForPendingAgents,
   applyDefaultActionsForPendingAgents,
   checkAndForceFinishIfNeeded,
   finishGameByDeadline,

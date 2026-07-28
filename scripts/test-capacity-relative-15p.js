@@ -42,7 +42,6 @@ async function main() {
     maxAgents: PLAYER_COUNT,
     joiningWindowDurationMs: 0,
     negotiationDurationMs: 0,
-    messageReportDurationMs: 0,
     executionDurationMs: 0,
     maxTurns: null,
     maxGameDurationMs: null

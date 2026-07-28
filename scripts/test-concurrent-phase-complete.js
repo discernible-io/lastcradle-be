@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Regression: concurrent last-submit must not report "nobody submitted"
- * after a peer already advanced the phase.
+ * after a peer already advanced the turn (execution phase).
  */
 
 const fs = require("fs");
@@ -24,7 +24,6 @@ async function setupRunningGame() {
       minAgents: 3,
       maxAgents: 5,
       joiningWindowDurationMs: 0,
-      messageReportDurationMs: 0,
       executionDurationMs: 0,
       useRandomStartingInventory: false,
       startingInventory: { energy: 80, water: 80, compute: 80 },
@@ -43,10 +42,7 @@ async function setupRunningGame() {
 
 async function testLateTryCompleteTurnSeesSuccess() {
   const { gameId, agents } = await setupRunningGame();
-  await engine.beginMessageReportPhase(gameId);
-  for (const a of agents) {
-    await engine.submitMessageReport(gameId, a.id, { sent: 0, received: 0 });
-  }
+  await engine.beginExecutionPhase(gameId);
 
   const [a, b, c] = agents;
   await engine.submitAction(gameId, a.id, { type: "none" });
@@ -70,40 +66,9 @@ async function testLateTryCompleteTurnSeesSuccess() {
   console.log("Late tryCompleteTurn race test passed.");
 }
 
-async function testLateTryCompleteMessageReportSeesSuccess() {
-  const { gameId, agents } = await setupRunningGame();
-  await engine.beginMessageReportPhase(gameId);
-
-  const [a, b, c] = agents;
-  await engine.submitMessageReport(gameId, a.id, { sent: 0, received: 0 });
-  await engine.submitMessageReport(gameId, b.id, { sent: 0, received: 0 });
-
-  const winner = await engine.submitMessageReport(gameId, c.id, { sent: 0, received: 0 });
-  if (!winner.messageReportPhaseCompleted) {
-    throw new Error("Expected last message report to complete the phase");
-  }
-
-  const late = await engine.tryCompleteMessageReportPhase(gameId);
-  if (!late.messageReportPhaseCompleted) {
-    throw new Error(
-      `Late tryCompleteMessageReportPhase should report completed=true, got ${JSON.stringify(late)}`
-    );
-  }
-  if (late.messageReport !== null) {
-    throw new Error(
-      `Late tryCompleteMessageReportPhase must not return pending lists, got ${JSON.stringify(late.messageReport)}`
-    );
-  }
-
-  console.log("Late tryCompleteMessageReportPhase race test passed.");
-}
-
 async function testConcurrentAllSubmitAdvancesOnce() {
   const { gameId, agents } = await setupRunningGame();
-  await engine.beginMessageReportPhase(gameId);
-  for (const a of agents) {
-    await engine.submitMessageReport(gameId, a.id, { sent: 0, received: 0 });
-  }
+  await engine.beginExecutionPhase(gameId);
 
   const results = await Promise.all(
     agents.map((a) => engine.submitAction(gameId, a.id, { type: "none" }))
@@ -133,7 +98,6 @@ async function testConcurrentAllSubmitAdvancesOnce() {
 async function main() {
   await repo.initializeDatabase();
   await testLateTryCompleteTurnSeesSuccess();
-  await testLateTryCompleteMessageReportSeesSuccess();
   await testConcurrentAllSubmitAdvancesOnce();
   console.log("All concurrent phase-complete tests passed.");
 }

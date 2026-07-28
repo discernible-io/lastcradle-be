@@ -71,8 +71,6 @@ function emptyAgentMetrics(agentId) {
     investmentVolume: 0,
     intelligenceComputeSpent: 0,
     tradeDisclosures: 0,
-    messageReportMismatchTotal: 0,
-    messageReportPenaltyEnergy: 0,
     actionsSubmitted: 0
   };
 }
@@ -149,7 +147,6 @@ function awardsForAgent(agentId, finishRank, survived, superlatives) {
 async function collectActivityMetrics(gameId, agents) {
   const byAgent = new Map(agents.map((a) => [a.id, emptyAgentMetrics(a.id)]));
   const actions = await repo.listGameActions(gameId);
-  const reports = await repo.listGameMessageReportsForGame(gameId);
   const messageCounts = await repo.countPublicMessagesByAgent(gameId);
 
   for (const row of messageCounts) {
@@ -184,13 +181,6 @@ async function collectActivityMetrics(gameId, agents) {
       metrics.investmentsExecuted += 1;
       metrics.investmentVolume += investAmount(payload);
     }
-  }
-
-  for (const row of reports) {
-    const metrics = byAgent.get(row.agent_id);
-    if (!metrics) continue;
-    metrics.messageReportMismatchTotal += row.mismatch ?? 0;
-    metrics.messageReportPenaltyEnergy += row.energy_survival_penalty ?? 0;
   }
 
   return byAgent;

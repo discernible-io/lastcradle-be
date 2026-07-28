@@ -94,7 +94,7 @@ const gameSchemas = {
   },
   GameSubmissionStatus: {
     type: "object",
-    description: "Execution or message-report submission progress for the current turn.",
+    description: "Execution submission progress for the current turn.",
     properties: {
       livingCount: { type: "integer" },
       submittedCount: { type: "integer" },
@@ -113,10 +113,9 @@ const gameSchemas = {
       phase: {
         type: "string",
         nullable: true,
-        enum: ["negotiation", "message_report", "message_report_resolving", "execution", "resolving"]
+        enum: ["negotiation", "execution", "resolving"]
       },
       negotiationEndsAt: { type: "string", format: "date-time", nullable: true },
-      messageReportEndsAt: { type: "string", format: "date-time", nullable: true },
       executionEndsAt: { type: "string", format: "date-time", nullable: true },
       endsAt: { type: "string", format: "date-time", nullable: true },
       contestMode: { type: "string", nullable: true, enum: ["practice", "definitive"] },
@@ -124,7 +123,6 @@ const gameSchemas = {
       startedAt: { type: "string", format: "date-time", nullable: true },
       finishedAt: { type: "string", format: "date-time", nullable: true },
       winnerIds: { type: "array", items: { type: "string" } },
-      communicationCostCompute: { type: "number" },
       maxProductionCapacity: { type: "number" },
       maxStorageCapacity: { type: "number" }
     }
@@ -143,14 +141,6 @@ const gameSchemas = {
       },
       execution: {
         oneOf: [{ $ref: "#/components/schemas/GameSubmissionStatus" }, { type: "null" }]
-      },
-      messageReport: {
-        oneOf: [{ $ref: "#/components/schemas/GameSubmissionStatus" }, { type: "null" }]
-      },
-      messageReportPenalties: {
-        type: "array",
-        nullable: true,
-        items: { type: "object", additionalProperties: true }
       },
       projectedSurvival: {
         type: "object",
@@ -246,7 +236,6 @@ const gameSchemas = {
           type: { type: "string", enum: ["phase_change"] },
           phase: { type: "string" },
           currentTurn: { type: "integer" },
-          messageReportEndsAt: { type: "string", format: "date-time", nullable: true },
           executionEndsAt: { type: "string", format: "date-time", nullable: true }
         }
       }
@@ -411,8 +400,6 @@ const gameSchemas = {
       investmentVolume: { type: "number" },
       intelligenceComputeSpent: { type: "number" },
       tradeDisclosures: { type: "integer" },
-      messageReportMismatchTotal: { type: "integer" },
-      messageReportPenaltyEnergy: { type: "number" },
       actionsSubmitted: { type: "integer" }
     }
   },
@@ -493,7 +480,6 @@ const gameSchemas = {
         enum: [
           "wait_for_start",
           "negotiation_open",
-          "submit_message_report",
           "submit_execution_action",
           "view_honors"
         ]

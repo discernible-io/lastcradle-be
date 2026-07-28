@@ -286,15 +286,6 @@ async function runTurn(gameId, agents, turnNumber, plan) {
     await engine.publishPublicMessage(gameId, agent.id, { body: msg.body });
   }
 
-  await engine.beginMessageReportPhase(gameId);
-
-  for (const agent of living) {
-    const fresh = await repo.getAgentById(agent.id);
-    if (fresh.status !== "alive") continue;
-    const counts = await repo.getActualMessageCounts(gameId, turnNumber, agent.id);
-    await engine.submitMessageReport(gameId, agent.id, counts);
-  }
-
   await engine.beginExecutionPhase(gameId);
 
   const actionMap =

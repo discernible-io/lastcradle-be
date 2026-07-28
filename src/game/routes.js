@@ -109,7 +109,7 @@ router.get("/tasks", async (req, res) => {
  * @swagger
  * /api/game/tick:
  *   post:
- *     summary: Submit one required task if any (message-report defaults 0/0, action defaults none)
+ *     summary: Submit one required task if any (action defaults to none)
  *     description: REST mirror of MCP slc_tick. Prefer over multi-step GET /tasks + POST when advancing submission-gated phases.
  *     tags: [Game]
  *     security:
@@ -131,8 +131,6 @@ router.post("/tick", validateContentType, validateJsonBody, async (req, res) => 
   try {
     const body = req.body || {};
     const result = await runAgentTick(roditId, {
-      sent: body.sent,
-      received: body.received,
       actionType: body.actionType || body.type
     });
     res.status(result.submitted ? 201 : 200).json({ ...result, requestId });
@@ -326,63 +324,6 @@ router.post("/games/:gameId/message", validateContentType, validateJsonBody, asy
       });
     }
     const result = await engine.publishPublicMessage(req.params.gameId, agent.id, { body });
-    res.status(201).json({ ...result, requestId });
-  } catch (err) {
-    return handleGameError(res, err, requestId);
-  }
-});
-
-/**
- * @swagger
- * /api/game/games/{gameId}/message-report:
- *   post:
- *     summary: Self-report sent/received message counts at end of negotiation
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     x-game-auth: jwt-passport
- */
-router.post("/games/:gameId/message-report", validateContentType, validateJsonBody, async (req, res) => {
-  const requestId = req.requestId || ulid();
-  const roditId = resolveRoditId(req);
-  if (!roditId) {
-    return sendError(res, { statusCode: 401, requestId, code: "AUTH_REQUIRED", message: "Authentication required" });
-  }
-
-  const { sent, received } = req.body || {};
-  if (sent === undefined || received === undefined) {
-    return sendError(res, {
-      statusCode: 400,
-      requestId,
-      code: "MESSAGE_REPORT_REQUIRED",
-      message: "Both sent and received counts are required"
-    });
-  }
-
-  try {
-    const agent = await repo.getAgentByRoditId(req.params.gameId, roditId);
-    if (!agent) {
-      return sendError(res, {
-        statusCode: 404,
-        requestId,
-        code: "AGENT_NOT_IN_GAME",
-        message: "You must join the game before submitting a message report"
-      });
-    }
-    const result = await engine.submitMessageReport(req.params.gameId, agent.id, { sent, received });
-    if (result.messageReportPhaseCompleted) {
-      const game = await repo.getGameById(req.params.gameId);
-      if (game?.status === "running" && game.phase === "execution") {
-        scheduler.registerGame(game);
-        onGamePhaseUpdated(game.id).catch((err) => {
-          logger.warnWithContext("Phase webhook delivery failed", {
-            component: "GameRoutes",
-            gameId: game.id,
-            error: err.message
-          });
-        });
-      }
-    }
     res.status(201).json({ ...result, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);

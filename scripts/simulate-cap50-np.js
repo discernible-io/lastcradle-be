@@ -243,12 +243,7 @@ async function runSimulation(playerCount) {
       if (agent) await engine.publishPublicMessage(gameId, agent.id, { body: msg.body });
     }
 
-    await engine.beginMessageReportPhase(gameId);
-    for (const agent of living) {
-      const counts = await repo.getActualMessageCounts(gameId, turn, agent.id);
-      await engine.submitMessageReport(gameId, agent.id, counts);
-    }
-
+    await engine.beginExecutionPhase(gameId);
     const actionMap =
       typeof plan.actions === "function" ? plan.actions(agents) : plan.actions;
 

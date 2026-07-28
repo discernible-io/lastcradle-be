@@ -207,29 +207,6 @@ async function runTurn(gameId, agents, turnNumber, plan) {
     await engine.publishPublicMessage(gameId, agent.id, { body: msg.body });
   }
 
-  await engine.beginMessageReportPhase(gameId);
-  if (!QUIET) console.log("  Message reports:");
-
-  let messageReportResults = null;
-  for (const agent of living) {
-    const fresh = await repo.getAgentById(agent.id);
-    if (fresh.status !== "alive") continue;
-    const counts = await repo.getActualMessageCounts(gameId, turnNumber, agent.id);
-    const result = await engine.submitMessageReport(gameId, agent.id, counts);
-    if (result.messageReportResults) messageReportResults = result.messageReportResults;
-    if (!QUIET) {
-      console.log(
-        `    ${agent.displayName.padEnd(8)} sent=${counts.sent} received=${counts.received} (compute cost ${counts.sent})`
-      );
-    }
-  }
-
-  if (!QUIET && messageReportResults) {
-    console.log(
-      `    Global mismatch=${messageReportResults.globalReportMismatch}, energy penalty +${messageReportResults.energySurvivalPenalty} each`
-    );
-  }
-
   await engine.beginExecutionPhase(gameId);
 
   const actionMap =

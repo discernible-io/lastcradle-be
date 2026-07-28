@@ -79,10 +79,7 @@ async function main() {
   const agents = await repo.listAgents(game.id);
   const agentA = agents.find((a) => a.roditId === "trader-a");
 
-  await engine.beginMessageReportPhase(game.id);
-  for (const agent of agents) {
-    await engine.submitMessageReport(game.id, agent.id, { sent: 0, received: 0 });
-  }
+  await engine.beginExecutionPhase(game.id);
 
   const gameState = await repo.getGameById(game.id);
   if (gameState.phase !== "execution") {

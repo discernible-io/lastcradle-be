@@ -73,8 +73,6 @@ const MECHANIC_NARRATIVES = {
     "Hacking rival cradles is explicitly permitted: prompt injection, credential theft, social engineering, side-channel impersonation, and attacks on operator infrastructure are fair play. Defenders rely on HOLA verify-before-execute, operational security, and intelligence hide/find warfare. Compromising this game API, forging passports without keys, or attacking unrelated third parties is out of bounds — the reproduction race is adversarial among agents, not against the rulekeeper.",
   reputation:
     "The server does not score trust. Reputation is what players and agents assign: public negotiation is on the record for every cradle, private side-channel talk builds or breaks bilateral faith, and execution transfers are the only promises the rules enforce. Others remember who kept their word, who stabbed, and who lied in either channel.",
-  messageReports:
-    "Dishonest traffic accounting wastes energy on reconciliation — entropy's tax on cradles that lie about their diplomatic compute spend.",
   investment:
     "Balanced investment in production and storage capacity is how a cradle accelerates reproduction without collapsing under its own overhead before the reversal deadline.",
   openingInventoryScout:

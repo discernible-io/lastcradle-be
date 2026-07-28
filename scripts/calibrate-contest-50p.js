@@ -32,7 +32,6 @@ const SIM_CONFIG = {
   maxAgents: PLAYER_COUNT,
   joiningWindowDurationMs: 0,
   negotiationDurationMs: 0,
-  messageReportDurationMs: 0,
   executionDurationMs: 0,
   maxTurns: null,
   maxGameDurationMs: null,
@@ -62,11 +61,7 @@ async function runHoldStillGame(increment, trialSeed) {
       break;
     }
 
-    await engine.beginMessageReportPhase(game.id);
-    for (const agent of living) {
-      await engine.submitMessageReport(game.id, agent.id, { sent: 0, received: 0 });
-    }
-    await engine.tryCompleteMessageReportPhase(game.id);
+    await engine.beginExecutionPhase(game.id);
 
     for (const agent of living) {
       await engine.submitAction(game.id, agent.id, { type: "none" });

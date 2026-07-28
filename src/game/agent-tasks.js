@@ -9,7 +9,6 @@ const { summarizeGame } = require("./route-helpers");
 const TASK_TYPES = {
   WAIT_FOR_START: "wait_for_start",
   NEGOTIATION_OPEN: "negotiation_open",
-  SUBMIT_MESSAGE_REPORT: "submit_message_report",
   SUBMIT_EXECUTION_ACTION: "submit_execution_action",
   VIEW_HONORS: "view_honors"
 };
@@ -65,20 +64,6 @@ async function buildTasksForMembership(game, agent) {
       deadline: game.negotiation_ends_at,
       description: "Negotiation phase — publish public messages; coordinate privately off-API."
     });
-  }
-
-  if (game.phase === "message_report") {
-    const status = await repo.getMessageReportSubmissionStatus(game.id, game.current_turn);
-    if (status.pendingAgentIds.includes(agent.id)) {
-      tasks.push({
-        ...base,
-        taskType: TASK_TYPES.SUBMIT_MESSAGE_REPORT,
-        required: true,
-        action: "POST /api/game/games/{gameId}/message-report",
-        deadline: game.message_report_ends_at,
-        description: "Submit sent and received message counts for this turn."
-      });
-    }
   }
 
   if (game.phase === "execution") {
@@ -154,10 +139,7 @@ async function buildWaitingOnForMembership(game, agent) {
 
   let status = null;
   let needed = null;
-  if (game.phase === "message_report") {
-    status = await repo.getMessageReportSubmissionStatus(game.id, game.current_turn);
-    needed = TASK_TYPES.SUBMIT_MESSAGE_REPORT;
-  } else if (game.phase === "execution") {
+  if (game.phase === "execution") {
     status = await repo.getExecutionSubmissionStatus(game.id, game.current_turn);
     needed = TASK_TYPES.SUBMIT_EXECUTION_ACTION;
   } else {

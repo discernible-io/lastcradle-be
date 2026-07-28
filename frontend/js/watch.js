@@ -15,8 +15,6 @@ const SSE_EVENT_TYPES = [
 
 const PHASE_LABELS = {
   negotiation: "Negotiation",
-  message_report: "Message report",
-  message_report_resolving: "Resolving reports",
   execution: "Execution",
   resolving: "Resolving turn"
 };
@@ -89,9 +87,6 @@ function phaseDeadline(game) {
   switch (game.phase) {
     case "negotiation":
       return game.negotiationEndsAt;
-    case "message_report":
-    case "message_report_resolving":
-      return game.messageReportEndsAt;
     case "execution":
     case "resolving":
       return game.executionEndsAt;
@@ -423,7 +418,6 @@ function renderMeta(game, state) {
     ["Contest", game.contestMode || "casual"],
     ["Cycle", String(game.currentTurn ?? 0)],
     ["Living cradles", String(state.livingAgentCount)],
-    ["Comm. cost (compute)", String(game.communicationCostCompute ?? "—")],
     ["Started", formatDate(game.startedAt)],
     ["Ends", formatDate(game.endsAt)]
   ];
@@ -454,8 +448,7 @@ function renderPhase(game, state) {
   }
 
   const phase = game.phase;
-  const submission =
-    phase === "message_report" ? state.messageReport : phase === "execution" ? state.execution : null;
+  const submission = phase === "execution" ? state.execution : null;
 
   detail.append(el("p", null, PHASE_LABELS[phase] || phase || "—"));
 
@@ -474,13 +467,6 @@ function renderPhase(game, state) {
     );
   }
 
-  if (state.messageReportPenalties?.length) {
-    const mismatch = state.messageReportPenalties[0]?.globalReportMismatch;
-    if (mismatch != null) {
-      detail.append(el("p", null, `Report mismatch this cycle: ${mismatch}`));
-    }
-  }
-
   const narrative = document.getElementById("survival-narrative");
   narrative.textContent = state.narrative?.survival || state.narrative?.premise || "";
 }
@@ -491,10 +477,8 @@ function renderCradles(state, agentById) {
   document.getElementById("living-count").textContent = `${state.livingAgentCount} living`;
 
   const phase = state.game?.phase;
-  const submission =
-    phase === "message_report" ? state.messageReport : phase === "execution" ? state.execution : null;
+  const submission = phase === "execution" ? state.execution : null;
   const submittedSet = new Set(submission?.submittedAgentIds || []);
-  const penaltyByAgent = new Map((state.messageReportPenalties || []).map((p) => [p.agentId, p]));
   const investByAgent = new Map((state.turnInvestments || []).map((i) => [i.agentId, i]));
 
   const agents = [...(state.agents || [])].sort((a, b) => {
@@ -531,13 +515,6 @@ function renderCradles(state, agentById) {
     const notesTd = el("td");
     if (agent.intelligenceHidden) {
       notesTd.append(el("span", "tag", "holdings hidden"));
-    }
-    const penalty = penaltyByAgent.get(agent.id);
-    if (penalty?.energySurvivalPenalty) {
-      notesTd.append(el("span", "tag penalty", `report penalty +${penalty.energySurvivalPenalty} E`));
-    }
-    if (penalty?.reportedSent != null) {
-      notesTd.append(el("span", "tag", `reported ${penalty.reportedSent}/${penalty.reportedReceived}`));
     }
     const invest = investByAgent.get(agent.id);
     const investText = formatInvest(invest);

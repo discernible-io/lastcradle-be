@@ -329,26 +329,6 @@ async function notifyYourTurnForGame(gameId) {
 
   const results = [];
 
-  if (game.phase === "message_report") {
-    const status = await repo.getMessageReportSubmissionStatus(gameId, game.current_turn);
-    for (const agentId of status.pendingAgentIds) {
-      const agent = await repo.getAgentById(agentId);
-      if (!agent) continue;
-      results.push(
-        await notifyRoditEvent(agent.roditId, "your_turn", {
-          gameId,
-          agentId: agent.id,
-          displayName: agent.displayName,
-          taskType: "submit_message_report",
-          phase: game.phase,
-          currentTurn: game.current_turn,
-          deadline: game.message_report_ends_at,
-          action: "POST /api/game/games/{gameId}/message-report"
-        })
-      );
-    }
-  }
-
   if (game.phase === "execution") {
     const status = await repo.getExecutionSubmissionStatus(gameId, game.current_turn);
     for (const agentId of status.pendingAgentIds) {
@@ -400,7 +380,6 @@ function phasePayloadFromGame(game) {
     phase: game.phase,
     currentTurn: game.current_turn,
     negotiationEndsAt: game.negotiation_ends_at,
-    messageReportEndsAt: game.message_report_ends_at,
     executionEndsAt: game.execution_ends_at
   };
 }
@@ -413,7 +392,7 @@ async function onGamePhaseUpdated(gameId) {
 
   const phaseChange = await notifyPhaseChange(gameId, phasePayloadFromGame(game));
   let yourTurn = [];
-  if (game.status === "running" && (game.phase === "message_report" || game.phase === "execution")) {
+  if (game.status === "running" && game.phase === "execution") {
     yourTurn = await notifyYourTurnForGame(gameId);
   }
   return { phaseChange, yourTurn };
