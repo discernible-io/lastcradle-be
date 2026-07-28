@@ -401,6 +401,8 @@ async function addAgent({
   gameId,
   roditId,
   displayName,
+  productionCapacity = null,
+  storageCapacity = null,
   energyCapacity,
   waterCapacity,
   computeCapacity,
@@ -409,6 +411,12 @@ async function addAgent({
   const database = await getDb();
   const id = ulid();
   const storedRoditId = canonicalRoditId(roditId) || roditId;
+  const storage = storageCapacity || {
+    energy: energyCapacity,
+    water: waterCapacity,
+    compute: computeCapacity
+  };
+  const production = productionCapacity || storage;
   await database.run(
     `INSERT INTO game_agents (
       id, game_id, rodit_id, display_name,
@@ -426,15 +434,15 @@ async function addAgent({
       startingInventory.energy,
       startingInventory.water,
       startingInventory.compute,
-      energyCapacity,
-      waterCapacity,
-      computeCapacity,
-      energyCapacity,
-      waterCapacity,
-      computeCapacity,
-      energyCapacity,
-      waterCapacity,
-      computeCapacity
+      production.energy,
+      production.water,
+      production.compute,
+      storage.energy,
+      storage.water,
+      storage.compute,
+      storage.energy,
+      storage.water,
+      storage.compute
     ]
   );
   return getAgentById(id);

@@ -344,7 +344,7 @@ function main() {
       type: "object",
       required: ["type"],
       properties: {
-        type: { type: "string", enum: ["none", "transfer", "invest"] },
+        type: { type: "string", enum: ["none", "transfer", "invest", "transfer_and_invest"] },
         toAgentId: { type: "string", description: "Recipient agent id (transfer)" },
         energy: { type: "number" },
         water: { type: "number" },
@@ -355,6 +355,29 @@ function main() {
           description: "Capacity target (invest; energy, water, compute must be equal)"
         },
         amount: { type: "number", description: "Shorthand for equal E/W/C invest amount" },
+        transfer: {
+          type: "object",
+          description: "Nested transfer for transfer_and_invest (or type invest + transfer)",
+          properties: {
+            toAgentId: { type: "string" },
+            energy: { type: "number" },
+            water: { type: "number" },
+            compute: { type: "number" },
+            rationale: { type: "string" },
+            privateDealSnippets: { type: "array" }
+          }
+        },
+        invest: {
+          type: "object",
+          description: "Nested invest for transfer_and_invest (or type transfer + invest)",
+          properties: {
+            target: { type: "string", enum: ["energy", "water", "compute"] },
+            amount: { type: "number" },
+            energy: { type: "number" },
+            water: { type: "number" },
+            compute: { type: "number" }
+          }
+        },
         hide: {
           oneOf: [{ type: "number" }, { type: "object", properties: { compute: { type: "number" } } }]
         },

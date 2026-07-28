@@ -101,7 +101,7 @@ const GAME_TOOL_DEFS = [
   },
   {
     name: "slc_action",
-    description: "POST execution action (type none|transfer|invest).",
+    description: "POST execution action (type none|transfer|invest|transfer_and_invest).",
     inputSchema: {
       type: "object",
       properties: {

@@ -13,9 +13,27 @@ const DEFAULT_GAME_CONFIG = {
    */
   startingInventory: { energy: 111, water: 111, compute: 111 },
 
-  /** Random cradle capacity range (inclusive) — initial production & storage capacity */
+  /**
+   * Random cradle **storage** capacity range (inclusive).
+   * With specialized cradles, production is derived from storage via specialty/secondary ratios.
+   */
   cradleCapacityMin: 50,
   cradleCapacityMax: 111,
+
+  /**
+   * When true (default), each cradle specializes in one resource: specialty production
+   * exceeds storage (surplus cannot be kept — export pressure), while secondary
+   * production is below storage (import pressure). Set false for legacy equal prod=storage rolls.
+   */
+  useSpecializedCradles: true,
+
+  /** Specialty production = storage[specialty] × ratio (inclusive). Must be > 1 so prod > storage. */
+  cradleSpecialtyProductionMinRatio: 1.35,
+  cradleSpecialtyProductionMaxRatio: 1.85,
+
+  /** Secondary production = storage[resource] × ratio (inclusive). Keep < 1 so prod < storage. */
+  cradleSecondaryProductionMinRatio: 0.35,
+  cradleSecondaryProductionMaxRatio: 0.65,
 
   /**
    * When true, starting inventory is a random fraction of each cradle's storage

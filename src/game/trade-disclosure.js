@@ -122,9 +122,21 @@ function normalizeTransferDisclosure(action) {
   return action;
 }
 
+function transferPayloadFromAction(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  if (payload.type === "transfer" && payload.toAgentId) {
+    return payload;
+  }
+  if (payload.type === "transfer_and_invest" && payload.transfer?.toAgentId) {
+    return payload.transfer;
+  }
+  return null;
+}
+
 function publicTradeFromAction(actionRow, parseJson) {
   const payload = parseJson(actionRow.payload_json, { type: "none" });
-  if (payload.type !== "transfer" || !payload.toAgentId) {
+  const transfer = transferPayloadFromAction(payload);
+  if (!transfer) {
     return null;
   }
 
@@ -132,20 +144,23 @@ function publicTradeFromAction(actionRow, parseJson) {
     id: actionRow.id,
     turnNumber: actionRow.turn_number,
     fromAgentId: actionRow.agent_id,
-    toAgentId: payload.toAgentId,
-    energy: payload.energy || 0,
-    water: payload.water || 0,
-    compute: payload.compute || 0,
+    toAgentId: transfer.toAgentId,
+    energy: transfer.energy || 0,
+    water: transfer.water || 0,
+    compute: transfer.compute || 0,
     status: actionRow.status,
     submittedAt: actionRow.submitted_at,
     executedAt: actionRow.executed_at || null
   };
 
-  if (payload.rationale) {
-    trade.rationale = payload.rationale;
+  if (transfer.rationale) {
+    trade.rationale = transfer.rationale;
   }
-  if (payload.privateDealSnippets?.length) {
-    trade.privateDealSnippets = payload.privateDealSnippets;
+  if (transfer.privateDealSnippets?.length) {
+    trade.privateDealSnippets = transfer.privateDealSnippets;
+  }
+  if (payload.type === "transfer_and_invest") {
+    trade.combinedWithInvest = true;
   }
 
   return trade;
@@ -156,5 +171,6 @@ module.exports = {
   TRADE_SNIPPET_MAX,
   TRADE_SNIPPET_EXCERPT_MAX,
   normalizeTransferDisclosure,
+  transferPayloadFromAction,
   publicTradeFromAction
 };

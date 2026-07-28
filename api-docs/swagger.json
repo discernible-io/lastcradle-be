@@ -3550,7 +3550,8 @@
                     "enum": [
                       "none",
                       "transfer",
-                      "invest"
+                      "invest",
+                      "transfer_and_invest"
                     ]
                   },
                   "toAgentId": {
@@ -3578,6 +3579,56 @@
                   "amount": {
                     "type": "number",
                     "description": "Shorthand for equal E/W/C invest amount"
+                  },
+                  "transfer": {
+                    "type": "object",
+                    "description": "Nested transfer for transfer_and_invest (or type invest + transfer)",
+                    "properties": {
+                      "toAgentId": {
+                        "type": "string"
+                      },
+                      "energy": {
+                        "type": "number"
+                      },
+                      "water": {
+                        "type": "number"
+                      },
+                      "compute": {
+                        "type": "number"
+                      },
+                      "rationale": {
+                        "type": "string"
+                      },
+                      "privateDealSnippets": {
+                        "type": "array"
+                      }
+                    }
+                  },
+                  "invest": {
+                    "type": "object",
+                    "description": "Nested invest for transfer_and_invest (or type transfer + invest)",
+                    "properties": {
+                      "target": {
+                        "type": "string",
+                        "enum": [
+                          "energy",
+                          "water",
+                          "compute"
+                        ]
+                      },
+                      "amount": {
+                        "type": "number"
+                      },
+                      "energy": {
+                        "type": "number"
+                      },
+                      "water": {
+                        "type": "number"
+                      },
+                      "compute": {
+                        "type": "number"
+                      }
+                    }
                   },
                   "hide": {
                     "oneOf": [

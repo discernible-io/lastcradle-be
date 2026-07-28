@@ -33,11 +33,15 @@ function capacityTotal(cap) {
 }
 
 function transferAmount(payload) {
-  return (payload.energy || 0) + (payload.water || 0) + (payload.compute || 0);
+  const transfer =
+    payload?.type === "transfer_and_invest" ? payload.transfer || {} : payload || {};
+  return (transfer.energy || 0) + (transfer.water || 0) + (transfer.compute || 0);
 }
 
 function investAmount(payload) {
-  return (payload.energy || 0) + (payload.water || 0) + (payload.compute || 0);
+  const invest =
+    payload?.type === "transfer_and_invest" ? payload.invest || {} : payload || {};
+  return (invest.energy || 0) + (invest.water || 0) + (invest.compute || 0);
 }
 
 function normalizeHideSpend(hide) {
@@ -56,7 +60,9 @@ function normalizeFindSpend(find) {
 }
 
 function hasTradeDisclosure(payload) {
-  return Boolean(payload.rationale || payload.privateDealSnippets?.length);
+  const transfer =
+    payload?.type === "transfer_and_invest" ? payload.transfer || {} : payload || {};
+  return Boolean(transfer.rationale || transfer.privateDealSnippets?.length);
 }
 
 function emptyAgentMetrics(agentId) {
@@ -163,21 +169,26 @@ async function collectActivityMetrics(gameId, agents) {
 
     metrics.intelligenceComputeSpent += normalizeHideSpend(payload.hide) + normalizeFindSpend(payload.find);
 
-    if (payload.type === "transfer" && payload.toAgentId) {
+    if (
+      (payload.type === "transfer" && payload.toAgentId) ||
+      (payload.type === "transfer_and_invest" && payload.transfer?.toAgentId)
+    ) {
+      const transfer =
+        payload.type === "transfer_and_invest" ? payload.transfer : payload;
       const amount = transferAmount(payload);
       metrics.transfersSent += 1;
       metrics.transferVolumeSent += amount;
       if (hasTradeDisclosure(payload)) {
         metrics.tradeDisclosures += 1;
       }
-      const recipient = byAgent.get(payload.toAgentId);
+      const recipient = byAgent.get(transfer.toAgentId);
       if (recipient) {
         recipient.transfersReceived += 1;
         recipient.transferVolumeReceived += amount;
       }
     }
 
-    if (payload.type === "invest") {
+    if (payload.type === "invest" || payload.type === "transfer_and_invest") {
       metrics.investmentsExecuted += 1;
       metrics.investmentVolume += investAmount(payload);
     }

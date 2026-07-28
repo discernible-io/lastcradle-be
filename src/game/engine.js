@@ -2,7 +2,15 @@
  * Core game engine: production, execution, capacity investment, storage, survival, intelligence.
  */
 
-const { mergeGameConfig, randomInt, finalizeStartingInventory, rollStartingInventory, maxCapacityFor, DEFAULT_GAME_CONFIG } = require("./defaults");
+const {
+  mergeGameConfig,
+  randomInt,
+  randomFloat,
+  finalizeStartingInventory,
+  rollStartingInventory,
+  maxCapacityFor,
+  DEFAULT_GAME_CONFIG
+} = require("./defaults");
 const { computeSurvivalCost, buildSurvivalContext } = require("./survival-cost");
 const { getGameNarrative, buildSurvivalNarrative } = require("./narrative");
 const { normalizeTransferDisclosure } = require("./trade-disclosure");
@@ -168,19 +176,63 @@ function applyInvestmentCapacityGrowth(state, payload, config) {
   state.storageCapacity = clamped.storageCapacity;
 }
 
+/**
+ * Roll storage + production. Specialized cradles (default): one specialty resource with
+ * production > storage (cannot keep full output — trade pressure), secondaries with
+ * production < storage (need imports). Legacy mode keeps production = storage.
+ */
 function buildCradleAssignment(config) {
-  const cradle = {
+  const storageCapacity = {
     energy: randomInt(config.cradleCapacityMin, config.cradleCapacityMax),
     water: randomInt(config.cradleCapacityMin, config.cradleCapacityMax),
     compute: randomInt(config.cradleCapacityMin, config.cradleCapacityMax)
   };
+
+  let productionCapacity;
+  let specialty = null;
+
+  if (config.useSpecializedCradles === false) {
+    productionCapacity = cloneCapacities(storageCapacity);
+  } else {
+    specialty = RESOURCE_KEYS[randomInt(0, RESOURCE_KEYS.length - 1)];
+    const specialtyMin = config.cradleSpecialtyProductionMinRatio ?? 1.35;
+    const specialtyMax = config.cradleSpecialtyProductionMaxRatio ?? 1.85;
+    const secondaryMin = config.cradleSecondaryProductionMinRatio ?? 0.35;
+    const secondaryMax = config.cradleSecondaryProductionMaxRatio ?? 0.65;
+    productionCapacity = {};
+    for (const key of RESOURCE_KEYS) {
+      if (key === specialty) {
+        const ratio = randomFloat(specialtyMin, specialtyMax);
+        productionCapacity[key] = Math.max(
+          storageCapacity[key] + 1,
+          Math.round(storageCapacity[key] * ratio)
+        );
+      } else {
+        const ratio = randomFloat(secondaryMin, secondaryMax);
+        productionCapacity[key] = Math.max(1, Math.round(storageCapacity[key] * ratio));
+      }
+    }
+  }
+
+  const clamped = clampCapacities(productionCapacity, storageCapacity, config);
+  productionCapacity = clamped.productionCapacity;
+  const storage = clamped.storageCapacity;
+
   let inventory;
   if (config.useRandomStartingInventory) {
-    inventory = finalizeStartingInventory(rollStartingInventory(cradle, config), config, cradle);
+    inventory = finalizeStartingInventory(rollStartingInventory(storage, config), config, storage);
   } else {
-    inventory = finalizeStartingInventory({ ...config.startingInventory }, config, cradle);
+    inventory = finalizeStartingInventory({ ...config.startingInventory }, config, storage);
   }
-  return { cradle, inventory };
+
+  return {
+    storageCapacity: storage,
+    productionCapacity,
+    specialty,
+    /** @deprecated alias of storageCapacity for older call sites */
+    cradle: storage,
+    inventory
+  };
 }
 
 function resolveJoiningWindow(gameConfig, { joiningWindowStartsAt = null } = {}) {
@@ -516,14 +568,13 @@ async function joinGame(gameId, { roditId, displayName }) {
     throw gameError("GAME_FULL", "Game has reached maximum agent capacity", 409);
   }
 
-  const { cradle, inventory } = buildCradleAssignment(config);
+  const { storageCapacity, productionCapacity, inventory } = buildCradleAssignment(config);
   return repo.addAgent({
     gameId,
     roditId,
     displayName,
-    energyCapacity: cradle.energy,
-    waterCapacity: cradle.water,
-    computeCapacity: cradle.compute,
+    productionCapacity,
+    storageCapacity,
     startingInventory: inventory
   });
 }
@@ -625,38 +676,54 @@ async function submitAction(gameId, agentId, action) {
   const game = await requireRunningExecution(gameId);
   const agent = await requireLivingAgent(agentId, gameId);
 
-  const normalized = normalizeAction(action);
+  let normalized = normalizeAction(action);
   validateActionPayload(normalized, gameId);
   await validateIntelligenceAction(gameId, agentId, normalized);
 
-  if (normalized.type === "transfer") {
-    const recipient = await repo.getAgentById(normalized.toAgentId);
-    if (
-      !recipient ||
-      recipient.gameId !== gameId ||
-      recipient.status !== "alive" ||
-      recipient.id === agentId
-    ) {
-      normalized.type = "none";
-      delete normalized.toAgentId;
-      delete normalized.energy;
-      delete normalized.water;
-      delete normalized.compute;
-      delete normalized.rationale;
-      delete normalized.privateDealSnippets;
+  if (normalized.type === "transfer" || normalized.type === "transfer_and_invest") {
+    const transferPart = actionTransferPart(normalized);
+    const recipient = transferPart?.toAgentId
+      ? await repo.getAgentById(transferPart.toAgentId)
+      : null;
+    const recipientOk =
+      recipient &&
+      recipient.gameId === gameId &&
+      recipient.status === "alive" &&
+      recipient.id !== agentId;
+
+    if (!recipientOk) {
+      if (normalized.type === "transfer_and_invest") {
+        // Keep invest; drop invalid transfer.
+        normalized = {
+          type: "invest",
+          target: normalized.invest.target,
+          energy: normalized.invest.energy,
+          water: normalized.invest.water,
+          compute: normalized.invest.compute,
+          ...(normalized.hide != null ? { hide: normalized.hide } : {}),
+          ...(normalized.find != null ? { find: normalized.find } : {})
+        };
+      } else {
+        normalized = {
+          type: "none",
+          ...(normalized.hide != null ? { hide: normalized.hide } : {}),
+          ...(normalized.find != null ? { find: normalized.find } : {})
+        };
+      }
     }
   }
 
-  if (normalized.type === "invest") {
-    Object.assign(normalized, normalizeInvestAction(normalized));
-    if (!INVESTMENT_TARGETS.includes(normalized.target)) {
+  if (normalized.type === "invest" || normalized.type === "transfer_and_invest") {
+    const investPart =
+      normalized.type === "transfer_and_invest" ? normalized.invest : normalized;
+    if (!INVESTMENT_TARGETS.includes(investPart.target)) {
       throw gameError(
         "INVALID_INVESTMENT_TARGET",
         "Investment target must be energy, water, or compute",
         400
       );
     }
-    validateBalancedInvestment(normalized);
+    validateBalancedInvestment(investPart);
   }
 
   const record = await repo.upsertAction({
@@ -806,6 +873,10 @@ async function executeTurn(gameId) {
       } else if (payload.type === "invest") {
         executeInvest(state, payload);
         applyInvestmentCapacityGrowth(state, payload, config);
+      } else if (payload.type === "transfer_and_invest") {
+        executeTransfer(state, agentState, payload.transfer);
+        executeInvest(state, payload.invest);
+        applyInvestmentCapacityGrowth(state, payload.invest, config);
       }
       executeIntelligenceSpend(state, payload);
       await repo.markActionExecuted(actionRow.id, "executed");
@@ -1024,11 +1095,17 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
 async function getTurnInvestmentSummary(gameId, turnNumber) {
   const actions = await repo.listTurnActions(gameId, turnNumber);
   return actions
-    .filter((a) => a.action_type === "invest")
-    .map((a) => ({
-      agentId: a.agent_id,
-      ...repo.parseJson(a.payload_json, {})
-    }));
+    .filter((a) => a.action_type === "invest" || a.action_type === "transfer_and_invest")
+    .map((a) => {
+      const payload = repo.parseJson(a.payload_json, {});
+      const invest =
+        payload.type === "transfer_and_invest" ? payload.invest || {} : payload;
+      return {
+        agentId: a.agent_id,
+        ...invest,
+        ...(payload.type === "transfer_and_invest" ? { combinedWithTransfer: true } : {})
+      };
+    });
 }
 
 function publicAgentView(agent, viewerAgentId, intelligence) {
@@ -1060,9 +1137,137 @@ function publicAgentView(agent, viewerAgentId, intelligence) {
   return base;
 }
 
+function actionTransferPart(action) {
+  if (!action || typeof action !== "object") return null;
+  if (action.type === "transfer_and_invest") {
+    return action.transfer || null;
+  }
+  if (action.type === "transfer") {
+    return action;
+  }
+  return null;
+}
+
+function actionInvestPart(action) {
+  if (!action || typeof action !== "object") return null;
+  if (action.type === "transfer_and_invest") {
+    return action.invest || null;
+  }
+  if (action.type === "invest") {
+    return action;
+  }
+  return null;
+}
+
+function isCombinedActionRequest(action) {
+  if (!action || typeof action !== "object") return false;
+  if (action.type === "transfer_and_invest") return true;
+  if (action.type === "transfer" && action.invest) return true;
+  if (action.type === "invest" && action.transfer) return true;
+  return false;
+}
+
+function extractTransferFields(source) {
+  if (!source || typeof source !== "object") {
+    throw gameError("INVALID_TRANSFER", "transfer details required", 400);
+  }
+  const transfer = {
+    toAgentId: source.toAgentId,
+    energy: source.energy || 0,
+    water: source.water || 0,
+    compute: source.compute || 0
+  };
+  if (source.rationale != null) transfer.rationale = source.rationale;
+  if (source.privateDealSnippets != null) {
+    transfer.privateDealSnippets = source.privateDealSnippets;
+  }
+  if (!transfer.toAgentId || typeof transfer.toAgentId !== "string") {
+    throw gameError("INVALID_TRANSFER", "toAgentId is required for transfer", 400);
+  }
+  if (transfer.energy + transfer.water + transfer.compute <= 0) {
+    throw gameError("INVALID_TRANSFER", "Transfer must include at least one resource", 400);
+  }
+  return normalizeTransferDisclosure({ type: "transfer", ...transfer });
+}
+
+function extractInvestFields(source) {
+  if (!source || typeof source !== "object") {
+    throw gameError("INVALID_INVESTMENT", "invest details required", 400);
+  }
+  return normalizeInvestAction({
+    type: "invest",
+    target: source.target,
+    energy: source.energy,
+    water: source.water,
+    compute: source.compute,
+    ...(typeof source.amount === "number" ? { amount: source.amount } : {})
+  });
+}
+
+function normalizeCombinedAction(action) {
+  let transferSource;
+  let investSource;
+  if (action.type === "transfer_and_invest") {
+    if (action.transfer && action.invest) {
+      transferSource = action.transfer;
+      investSource = action.invest;
+    } else if (action.invest) {
+      transferSource = action;
+      investSource = action.invest;
+    } else if (action.transfer) {
+      transferSource = action.transfer;
+      investSource = action;
+    } else if (typeof action.amount === "number") {
+      // Flat: top-level EWC = transfer, amount+target = invest
+      transferSource = action;
+      investSource = action;
+    } else {
+      throw gameError(
+        "INVALID_ACTION",
+        "transfer_and_invest requires nested { transfer, invest } or top-level amount for invest",
+        400
+      );
+    }
+  } else if (action.type === "transfer") {
+    transferSource = action;
+    investSource = action.invest;
+  } else {
+    transferSource = action.transfer;
+    investSource = action;
+  }
+
+  const transfer = extractTransferFields(transferSource);
+  const invest = extractInvestFields(investSource);
+  const combined = {
+    type: "transfer_and_invest",
+    transfer: {
+      toAgentId: transfer.toAgentId,
+      energy: transfer.energy || 0,
+      water: transfer.water || 0,
+      compute: transfer.compute || 0,
+      ...(transfer.rationale ? { rationale: transfer.rationale } : {}),
+      ...(transfer.privateDealSnippets
+        ? { privateDealSnippets: transfer.privateDealSnippets }
+        : {})
+    },
+    invest: {
+      target: invest.target,
+      energy: invest.energy,
+      water: invest.water,
+      compute: invest.compute
+    }
+  };
+  if (action.hide != null) combined.hide = action.hide;
+  if (action.find != null) combined.find = action.find;
+  return combined;
+}
+
 function normalizeAction(action) {
   if (!action || typeof action !== "object") {
     throw gameError("INVALID_ACTION", "Action payload required", 400);
+  }
+  if (isCombinedActionRequest(action)) {
+    return normalizeCombinedAction(action);
   }
   const type = action.type || "none";
   const normalized = { ...action, type };
@@ -1076,7 +1281,7 @@ function normalizeAction(action) {
 }
 
 function validateActionPayload(action) {
-  const allowed = ["none", "transfer", "invest"];
+  const allowed = ["none", "transfer", "invest", "transfer_and_invest"];
   if (!allowed.includes(action.type)) {
     throw gameError("INVALID_ACTION_TYPE", `Action type must be one of: ${allowed.join(", ")}`, 400);
   }
