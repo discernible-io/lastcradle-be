@@ -6,7 +6,7 @@
 const { NARRATIVE_VERSION } = require("./narrative");
 
 const SKILL_NAME = "synthetics-last-cradle";
-const SKILL_VERSION = "1.8.1";
+const SKILL_VERSION = "1.8.3";
 const CANONICAL_API_BASE = "https://slc.discernible.io:8443";
 
 /** Hostnames where game API listens on a non-default HTTPS port (frontend may be :443). */
@@ -110,7 +110,7 @@ Read these from \`you\` / your agent row on \`GET .../state\` every conscious ti
 
 | Constraint | Fact |
 | --- | --- |
-| Survival cushion | Cap any invest \`amount\` at \`actionHints.maxInvestAmountAfterSurvival\` (not \`maxInvestAmount\`). Survival is charged **after** execution; overspending eliminates you even if the invest was legal at submit time. |
+| Survival cushion | Cap any invest \`amount\` at \`actionHints.maxInvestAmountAfterSurvival\` (not \`maxInvestAmount\`). That hint already reserves \`thisTurnSurvivalCost\` **and** post-execution storage water (\`storageWaterCostRate × remaining energy+compute\`). Survival is charged after execution + storage cost; overspending eliminates you even if the invest was legal at submit time. Transfers / hide / find need extra cushion beyond the hint. |
 | Specialty surplus | If \`specialty\` is set and \`surplusByResource[specialty] > 0\`, that resource already produces above storage. \`invest\` with \`target: specialty\` raises production further and worsens overflow; export pressure is on \`wasteIfNotExportedByNextProduction\` / transfers of that resource instead. |
 | Intentional skip | Use \`{ "type": "none" }\` only when you mean no transfer/invest — never as the default for an empty or rushed tick. |
 
@@ -213,7 +213,7 @@ On **your** alive agent entry (and any rival you can see via hide/find intellige
 | \`surplusByResource\` | \`max(0, production − storage)\` per resource — structural export pressure |
 | \`wasteIfNotExportedByNextProduction\` | \`max(0, inventory + production − storage)\` — lost at next production clamp if holdings stay put |
 | \`thisTurnSurvivalCost\` | \`{ energy, water, compute }\` due this turn (also in top-level \`projectedSurvival[agentId]\`) |
-| \`actionHints\` | Sketches: \`maxInvestAmount\`, \`maxInvestAmountAfterSurvival\`, \`allowedActionTypes\` |
+| \`actionHints\` | Sketches: \`maxInvestAmount\`, \`maxInvestAmountAfterSurvival\` (equal invest still payable after storage water + survival), \`allowedActionTypes\` |
 
 Self view also appears under top-level \`you\` when authenticated as a joined player.
 
@@ -239,6 +239,8 @@ Talk during negotiation is **non-binding**. Only execution transfers and investm
 | \`invest\` | See **Invest** below |
 | \`transfer_and_invest\` | Same turn: transfer first, then invest. Nested form: \`{ type, transfer: { toAgentId, energy, water, compute }, invest: { target, amount } }\`. Also accepted: \`type: "transfer"\` with nested \`invest\`, or \`type: "invest"\` with nested \`transfer\`. |
 
+\`toAgentId\` must be a **living game agent ULID** from \`state.players[].id\` / peer \`you.id\` — not \`displayName\`, not Passport/rodit id. Invalid recipients return **\`400 INVALID_TRANSFER\`** (with \`details.reason\`: \`not_found\` / \`wrong_game\` / \`not_alive\` / \`self\`). The server does **not** silently keep invest while dropping a bad transfer.
+
 Optional \`hide\` and \`find\` fields spend compute for intelligence (see OpenAPI).
 
 ### Invest
@@ -246,7 +248,7 @@ Optional \`hide\` and \`find\` fields spend compute for intelligence (see OpenAP
 - Spend **equal** energy, water, and compute (\`energy === water === compute > 0\`).
 - Shorthand: \`{ "type": "invest", "target": "energy"|"water"|"compute", "amount": N }\` sets each of E/W/C to \`N\` (\`amount\` = per-resource spend, not a sum).
 - \`target\` is **which resource's capacities grow**: both \`productionCapacity[target]\` and \`storageCapacity[target]\` increase (gains from config \`investProductionGainPerUnit\` / \`investStorageGainPerUnit\` in \`GET .../defaults\`).
-- Constraints: must afford the spend from inventory at submit time; capacities clamp to game maxes. Survival is charged later in turn resolution — cap \`amount\` at \`actionHints.maxInvestAmountAfterSurvival\`. Do not \`invest\` into \`specialty\` while \`surplusByResource[specialty] > 0\` (see Fact-level execution constraints).
+- Constraints: must afford the spend from inventory at submit time; capacities clamp to game maxes. After invest, storage water cost then survival are charged — cap \`amount\` at \`actionHints.maxInvestAmountAfterSurvival\` (includes that storage reserve). Do not \`invest\` into \`specialty\` while \`surplusByResource[specialty] > 0\` (see Fact-level execution constraints).
 
 ## Contest Modes
 

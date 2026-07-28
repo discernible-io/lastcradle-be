@@ -682,35 +682,7 @@ async function submitAction(gameId, agentId, action) {
 
   if (normalized.type === "transfer" || normalized.type === "transfer_and_invest") {
     const transferPart = actionTransferPart(normalized);
-    const recipient = transferPart?.toAgentId
-      ? await repo.getAgentById(transferPart.toAgentId)
-      : null;
-    const recipientOk =
-      recipient &&
-      recipient.gameId === gameId &&
-      recipient.status === "alive" &&
-      recipient.id !== agentId;
-
-    if (!recipientOk) {
-      if (normalized.type === "transfer_and_invest") {
-        // Keep invest; drop invalid transfer.
-        normalized = {
-          type: "invest",
-          target: normalized.invest.target,
-          energy: normalized.invest.energy,
-          water: normalized.invest.water,
-          compute: normalized.invest.compute,
-          ...(normalized.hide != null ? { hide: normalized.hide } : {}),
-          ...(normalized.find != null ? { find: normalized.find } : {})
-        };
-      } else {
-        normalized = {
-          type: "none",
-          ...(normalized.hide != null ? { hide: normalized.hide } : {}),
-          ...(normalized.find != null ? { find: normalized.find } : {})
-        };
-      }
-    }
+    await assertValidTransferRecipient(gameId, agentId, transferPart?.toAgentId);
   }
 
   if (normalized.type === "invest" || normalized.type === "transfer_and_invest") {
@@ -1051,26 +1023,48 @@ function deriveCradleEconomics(productionCapacity, storageCapacity, inventory = 
   };
 }
 
-function buildActionHints(inventory, survivalCost) {
+/**
+ * Largest equal E/W/C invest that still leaves enough to pay survival after
+ * post-execution storage water cost (rate × remaining energy+compute).
+ * Transfers / hide / find are not modeled — leave extra cushion if combining them.
+ */
+function maxEqualInvestPreservingSurvival(inventory, survivalCost, config = {}) {
+  const rate = Number(config.storageWaterCostRate) || 0;
+  const se = survivalCost?.energy ?? 0;
+  const sw = survivalCost?.water ?? 0;
+  const sc = survivalCost?.compute ?? 0;
+  const maxAffordable = Math.max(
+    0,
+    Math.floor(Math.min(inventory.energy, inventory.water, inventory.compute))
+  );
+
+  for (let n = maxAffordable; n >= 0; n -= 1) {
+    const energy = inventory.energy - n;
+    const water = inventory.water - n;
+    const compute = inventory.compute - n;
+    if (energy < se || compute < sc) continue;
+    const waterAfterStorage = Math.max(0, water - (energy + compute) * rate);
+    if (waterAfterStorage >= sw) return n;
+  }
+  return 0;
+}
+
+function buildActionHints(inventory, survivalCost, config = {}) {
   const maxInvestAmount = Math.max(
     0,
     Math.floor(Math.min(inventory.energy, inventory.water, inventory.compute))
   );
-  const afterSurvival = {
-    energy: Math.max(0, inventory.energy - (survivalCost?.energy ?? 0)),
-    water: Math.max(0, inventory.water - (survivalCost?.water ?? 0)),
-    compute: Math.max(0, inventory.compute - (survivalCost?.compute ?? 0))
-  };
-  const maxInvestAmountAfterSurvival = Math.max(
-    0,
-    Math.floor(Math.min(afterSurvival.energy, afterSurvival.water, afterSurvival.compute))
+  const maxInvestAmountAfterSurvival = maxEqualInvestPreservingSurvival(
+    inventory,
+    survivalCost,
+    config
   );
   return {
     allowedActionTypes: ["transfer", "invest", "transfer_and_invest", "none"],
     maxInvestAmount,
     maxInvestAmountAfterSurvival,
     note:
-      "maxInvestAmount is equal E/W/C affordable now; cap invest amount at maxInvestAmountAfterSurvival so thisTurnSurvivalCost remains payable after execution. If specialty surplus > 0, do not invest into specialty (export/transfer that surplus or intentional none). Choose type from current state — empty tick does not imply none."
+      "maxInvestAmount is equal E/W/C affordable now; cap invest amount at maxInvestAmountAfterSurvival so thisTurnSurvivalCost remains payable after execution and storage water cost (storageWaterCostRate × remaining energy+compute). Transfers/hide/find need extra cushion. If specialty surplus > 0, do not invest into specialty (export/transfer that surplus or intentional none). Choose type from current state — empty tick does not imply none."
   };
 }
 
@@ -1115,7 +1109,8 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
   const agentViews = agents.map((agent) =>
     publicAgentView(agent, viewerAgentId, intelligence, {
       thisTurnSurvivalCost,
-      includeActionHints: Boolean(viewerAgentId && agent.id === viewerAgentId)
+      includeActionHints: Boolean(viewerAgentId && agent.id === viewerAgentId),
+      config: game.config
     })
   );
   const you =
@@ -1174,7 +1169,11 @@ async function getTurnInvestmentSummary(gameId, turnNumber) {
 }
 
 function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
-  const { thisTurnSurvivalCost = null, includeActionHints = false } = options;
+  const {
+    thisTurnSurvivalCost = null,
+    includeActionHints = false,
+    config = null
+  } = options;
   const base = {
     id: agent.id,
     roditId: agent.roditId,
@@ -1201,7 +1200,11 @@ function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
       base.thisTurnSurvivalCost = { ...thisTurnSurvivalCost };
     }
     if (includeActionHints && agent.inventory) {
-      base.actionHints = buildActionHints(agent.inventory, thisTurnSurvivalCost);
+      base.actionHints = buildActionHints(
+        agent.inventory,
+        thisTurnSurvivalCost,
+        config || DEFAULT_GAME_CONFIG
+      );
     }
   } else {
     base.inventory = null;
@@ -1222,6 +1225,53 @@ function actionTransferPart(action) {
     return action;
   }
   return null;
+}
+
+/**
+ * Reject invalid transfer recipients. Do not silently downgrade transfer_and_invest → invest
+ * or transfer → none — agents treat 201 as success and miss that the transfer never ran.
+ */
+async function assertValidTransferRecipient(gameId, fromAgentId, toAgentId) {
+  if (!toAgentId || typeof toAgentId !== "string") {
+    throw gameError("INVALID_TRANSFER", "toAgentId is required for transfer", 400, {
+      toAgentId: toAgentId ?? null,
+      reason: "missing_to_agent_id"
+    });
+  }
+
+  const recipient = await repo.getAgentById(toAgentId);
+  if (!recipient) {
+    throw gameError(
+      "INVALID_TRANSFER",
+      "toAgentId must be a living game agent ULID from state.players[].id (not displayName or rodit id)",
+      400,
+      { toAgentId, reason: "not_found" }
+    );
+  }
+  if (recipient.gameId !== gameId) {
+    throw gameError(
+      "INVALID_TRANSFER",
+      "toAgentId is not an agent in this game",
+      400,
+      { toAgentId, reason: "wrong_game" }
+    );
+  }
+  if (recipient.status !== "alive") {
+    throw gameError(
+      "INVALID_TRANSFER",
+      "Transfer recipient is not alive",
+      400,
+      { toAgentId, reason: "not_alive", status: recipient.status }
+    );
+  }
+  if (recipient.id === fromAgentId) {
+    throw gameError(
+      "INVALID_TRANSFER",
+      "Cannot transfer to yourself",
+      400,
+      { toAgentId, reason: "self" }
+    );
+  }
 }
 
 function actionInvestPart(action) {
@@ -1427,6 +1477,7 @@ module.exports = {
   applyProduction,
   applyStorageCost,
   deriveCradleEconomics,
+  maxEqualInvestPreservingSurvival,
   buildActionHints,
   gameError,
   isJoiningWindowOpen,

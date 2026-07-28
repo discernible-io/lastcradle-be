@@ -134,6 +134,7 @@ async function main() {
   console.log("Smoke test passed.");
 
   await testSpecializedCradlesAndCombinedAction();
+  await testInvalidTransferRejected();
 
   await repo.closeDatabase();
 }
@@ -244,6 +245,103 @@ async function testSpecializedCradlesAndCombinedAction() {
   }
 
   console.log("Specialized cradles + transfer_and_invest test passed.");
+}
+
+async function testInvalidTransferRejected() {
+  const game = await engine.createGame({
+    config: {
+      useRandomStartingInventory: false,
+      startingInventory: { energy: 80, water: 80, compute: 80 },
+      cradleCapacityMin: 100,
+      cradleCapacityMax: 100,
+      useSpecializedCradles: false,
+      minAgents: 3,
+      joiningWindowDurationMs: 0,
+      survivalCost: { energy: 5, water: 5, compute: 5 }
+    }
+  });
+
+  await engine.joinGame(game.id, { roditId: "it1", displayName: "ItOne" });
+  await engine.joinGame(game.id, { roditId: "it2", displayName: "ItTwo" });
+  await engine.joinGame(game.id, { roditId: "it3", displayName: "ItThree" });
+  await engine.startGame(game.id);
+
+  const agents = await repo.listAgents(game.id);
+  const one = agents.find((a) => a.roditId === "it1");
+  const two = agents.find((a) => a.roditId === "it2");
+  const running = await repo.getGameById(game.id);
+
+  await engine.beginExecutionPhase(game.id);
+
+  async function expectInvalidTransfer(label, action) {
+    try {
+      await engine.submitAction(game.id, one.id, action);
+      throw new Error(`${label}: expected INVALID_TRANSFER`);
+    } catch (err) {
+      if (err.code !== "INVALID_TRANSFER") {
+        throw new Error(`${label}: expected INVALID_TRANSFER, got ${err.code || err.message}`);
+      }
+      if (!err.details?.reason) {
+        throw new Error(`${label}: expected details.reason, got ${JSON.stringify(err.details)}`);
+      }
+    }
+  }
+
+  await expectInvalidTransfer("bad ULID on transfer", {
+    type: "transfer",
+    toAgentId: "not-a-real-agent-id",
+    energy: 5,
+    water: 0,
+    compute: 0
+  });
+
+  await expectInvalidTransfer("displayName as toAgentId", {
+    type: "transfer",
+    toAgentId: two.displayName,
+    energy: 5,
+    water: 0,
+    compute: 0
+  });
+
+  await expectInvalidTransfer("rodit id as toAgentId", {
+    type: "transfer",
+    toAgentId: two.roditId,
+    energy: 5,
+    water: 0,
+    compute: 0
+  });
+
+  await expectInvalidTransfer("self transfer", {
+    type: "transfer",
+    toAgentId: one.id,
+    energy: 5,
+    water: 0,
+    compute: 0
+  });
+
+  await expectInvalidTransfer("bad ULID on transfer_and_invest (must not downgrade to invest)", {
+    type: "transfer_and_invest",
+    transfer: { toAgentId: "01FAKEINVALIDTRANSFERULIDXX", energy: 10, water: 0, compute: 0 },
+    invest: { target: "water", amount: 5 }
+  });
+
+  const actions = await repo.listTurnActions(game.id, running.current_turn);
+  const fromOne = actions.filter((a) => a.agent_id === one.id);
+  if (fromOne.length !== 0) {
+    throw new Error(
+      `Invalid transfers must not store an action; got ${fromOne.length}: ${JSON.stringify(fromOne)}`
+    );
+  }
+
+  await engine.submitAction(game.id, one.id, {
+    type: "transfer",
+    toAgentId: two.id,
+    energy: 5,
+    water: 0,
+    compute: 0
+  });
+
+  console.log("Invalid transfer rejection test passed.");
 }
 
 main().catch((err) => {

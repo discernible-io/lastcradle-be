@@ -38,8 +38,11 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.8.1")) {
-    throw new Error("skill.md should be version 1.8.1");
+  if (!skill.includes("version: 1.8.3")) {
+    throw new Error("skill.md should be version 1.8.3");
+  }
+  if (!skill.includes("INVALID_TRANSFER")) {
+    throw new Error("skill.md should document INVALID_TRANSFER for bad toAgentId");
   }
   if (!skill.includes("Fact-level execution constraints")) {
     throw new Error("skill.md should document fact-level execution constraints");

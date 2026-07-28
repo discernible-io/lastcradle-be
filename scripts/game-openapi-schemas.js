@@ -115,8 +115,15 @@ const gameSchemas = {
               enum: ["none", "transfer", "invest", "transfer_and_invest"]
             }
           },
-          maxInvestAmount: { type: "number" },
-          maxInvestAmountAfterSurvival: { type: "number" },
+          maxInvestAmount: {
+            type: "number",
+            description: "Largest equal E/W/C invest affordable from current inventory"
+          },
+          maxInvestAmountAfterSurvival: {
+            type: "number",
+            description:
+              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage water cost"
+          },
           note: { type: "string" }
         }
       },
