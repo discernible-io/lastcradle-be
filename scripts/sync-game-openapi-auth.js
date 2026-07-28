@@ -398,6 +398,54 @@ function main() {
 
   wireGameResponseSchemas(spec);
 
+  // Conscious tick: explicit action body required (no silent none)
+  spec.paths["/api/game/tick"] = {
+    post: {
+      summary: "Submit one required execution action (explicit action body required)",
+      description:
+        "REST mirror of MCP slc_tick. Empty body does not submit none — returns action_required when submit_execution_action is pending. AFK timeout still applies none via the scheduler.",
+      tags: ["Game"],
+      security: [{ bearerAuth: [] }],
+      "x-game-auth": GAME_AUTH_JWT,
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/GameTickRequest" }
+          }
+        }
+      },
+      responses: {
+        "200": {
+          description: "No submit (no_pending_task, action_required, or unsupported_task)",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GameTickResponse" }
+            }
+          }
+        },
+        "201": {
+          description: "Required execution action submitted",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GameTickResponse" }
+            }
+          }
+        },
+        "401": {
+          description: "Authentication required",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        },
+        "400": GAME_ERROR_400,
+        "409": GAME_ERROR_409
+      }
+    }
+  };
+
   fs.writeFileSync(SWAGGER_PATH, `${JSON.stringify(spec, null, 2)}\n`, "utf8");
   console.log("✓ Patched api-docs/swagger.json for game auth policy");
 }

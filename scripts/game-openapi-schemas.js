@@ -71,7 +71,7 @@ const gameSchemas = {
   GameAgentPublic: {
     type: "object",
     description:
-      "Agent view in public state; inventory/capacities hidden unless viewer has intelligence or is the agent.",
+      "Agent view in public state; inventory/capacities/specialty hidden unless viewer has intelligence or is the agent.",
     required: ["id", "roditId", "status"],
     properties: {
       id: { type: "string" },
@@ -85,6 +85,40 @@ const gameSchemas = {
       },
       storageCapacity: {
         oneOf: [{ $ref: "#/components/schemas/GameResourceTriple" }, { type: "null" }]
+      },
+      specialty: {
+        type: "string",
+        nullable: true,
+        enum: ["energy", "water", "compute"],
+        description: "Resource with production > storage (largest surplus); null if none"
+      },
+      surplusByResource: {
+        allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
+        description: "max(0, production − storage) per resource"
+      },
+      wasteIfNotExportedByNextProduction: {
+        allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
+        description: "max(0, inventory + production − storage) lost at next production clamp if unchanged"
+      },
+      thisTurnSurvivalCost: {
+        allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
+        description: "Survival cost due this turn (same values as projectedSurvival[agentId])"
+      },
+      actionHints: {
+        type: "object",
+        description: "Present on self view: affordable invest sketches and allowed action types",
+        properties: {
+          allowedActionTypes: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: ["none", "transfer", "invest", "transfer_and_invest"]
+            }
+          },
+          maxInvestAmount: { type: "number" },
+          maxInvestAmountAfterSurvival: { type: "number" },
+          note: { type: "string" }
+        }
       },
       intelligenceHidden: {
         type: "boolean",
@@ -124,7 +158,8 @@ const gameSchemas = {
       finishedAt: { type: "string", format: "date-time", nullable: true },
       winnerIds: { type: "array", items: { type: "string" } },
       maxProductionCapacity: { type: "number" },
-      maxStorageCapacity: { type: "number" }
+      maxStorageCapacity: { type: "number" },
+      finishSurvivorCount: { type: "integer" }
     }
   },
   GamePublicState: {
@@ -134,6 +169,10 @@ const gameSchemas = {
       game: { $ref: "#/components/schemas/GameStateCore" },
       livingAgentCount: { type: "integer" },
       agents: { type: "array", items: { $ref: "#/components/schemas/GameAgentPublic" } },
+      you: {
+        oneOf: [{ $ref: "#/components/schemas/GameAgentPublic" }, { type: "null" }],
+        description: "Joined viewer's own agent entry when authenticated; null for spectators"
+      },
       turnInvestments: {
         type: "array",
         nullable: true,
@@ -145,8 +184,8 @@ const gameSchemas = {
       projectedSurvival: {
         type: "object",
         nullable: true,
-        additionalProperties: { type: "number" },
-        description: "Map of agentId to projected survival cost for the current turn"
+        additionalProperties: { $ref: "#/components/schemas/GameResourceTriple" },
+        description: "Map of agentId to projected survival cost { energy, water, compute } for the current turn"
       },
       openingInventoryReport: {
         type: "object",
@@ -177,6 +216,51 @@ const gameSchemas = {
         additionalProperties: true,
         description: "Canonical lore plus turn survival narrative"
       }
+    }
+  },
+  GameTickRequest: {
+    type: "object",
+    description:
+      "Explicit execution action for conscious tick. Empty object returns action_required when submit_execution_action is pending. AFK timeout submits none via scheduler only.",
+    properties: {
+      type: { type: "string", enum: ["none", "transfer", "invest", "transfer_and_invest"] },
+      actionType: {
+        type: "string",
+        enum: ["none", "transfer", "invest", "transfer_and_invest"],
+        description: "Alias for type"
+      },
+      action: {
+        type: "object",
+        description: "Nested full action payload",
+        additionalProperties: true
+      },
+      toAgentId: { type: "string" },
+      energy: { type: "number" },
+      water: { type: "number" },
+      compute: { type: "number" },
+      target: { type: "string", enum: ["energy", "water", "compute"] },
+      amount: { type: "number" },
+      transfer: { type: "object", additionalProperties: true },
+      invest: { type: "object", additionalProperties: true }
+    }
+  },
+  GameTickResponse: {
+    type: "object",
+    required: ["submitted", "requestId"],
+    properties: {
+      submitted: { type: "boolean" },
+      reason: {
+        type: "string",
+        description: "When submitted is false: no_pending_task | action_required | unsupported_task"
+      },
+      taskType: { type: "string" },
+      gameId: { type: "string" },
+      payload: { type: "object", additionalProperties: true },
+      result: { type: "object", additionalProperties: true },
+      tasks: { type: "array", items: { type: "object", additionalProperties: true } },
+      waitingOn: { type: "array", items: { type: "object", additionalProperties: true } },
+      note: { type: "string" },
+      requestId: { type: "string" }
     }
   },
   GamePublicStateResponse: {

@@ -196,6 +196,20 @@ async function testSpecializedCradlesAndCombinedAction() {
     agents.find((a) => a.roditId === "sp3")
   ];
 
+  const selfState = await engine.getPublicState(game.id, { viewerAgentId: one.id });
+  const self = selfState.you;
+  if (!self?.specialty || self.surplusByResource[self.specialty] <= 0) {
+    throw new Error(`Expected specialty surplus on state.you, got ${JSON.stringify(self)}`);
+  }
+  if (!self.wasteIfNotExportedByNextProduction || !self.thisTurnSurvivalCost || !self.actionHints) {
+    throw new Error("Expected waste/survival/actionHints on viewer state");
+  }
+  const keys = ["energy", "water", "compute"];
+  const specialties = keys.filter((k) => one.productionCapacity[k] > one.storageCapacity[k]);
+  if (self.specialty !== specialties[0]) {
+    throw new Error(`state specialty ${self.specialty} != derived ${specialties[0]}`);
+  }
+
   await engine.beginExecutionPhase(game.id);
   await engine.submitAction(game.id, one.id, {
     type: "transfer_and_invest",

@@ -1,6 +1,9 @@
 /**
  * One-shot required-task submit (execution action).
  * Shared by MCP `slc_tick` and REST `POST /api/game/tick`.
+ *
+ * Conscious ticks require an explicit execution action body.
+ * AFK phase timeout still submits `none` via the scheduler — not via empty tick.
  */
 
 const engine = require("./engine");
@@ -8,6 +11,8 @@ const repo = require("./repository");
 const scheduler = require("./scheduler");
 const { onGamePhaseUpdated } = require("./webhooks");
 const { listTasksInboxForRodit, TASK_TYPES } = require("./agent-tasks");
+
+const EXECUTION_ACTION_TYPES = new Set(["none", "transfer", "invest", "transfer_and_invest"]);
 
 function applyActionSideEffects(result) {
   if (result?.turnCompleted && result.game) {
@@ -18,8 +23,35 @@ function applyActionSideEffects(result) {
 }
 
 /**
+ * Resolve an explicit execution action from tick opts / request body.
+ * @returns {object|null} action payload, or null when the caller sent no action
+ */
+function resolveTickAction(opts = {}) {
+  if (opts.action && typeof opts.action === "object" && !Array.isArray(opts.action)) {
+    const nested = opts.action;
+    const type = nested.type || nested.actionType || opts.actionType || opts.type;
+    if (type && EXECUTION_ACTION_TYPES.has(type)) {
+      return { ...nested, type, action: type };
+    }
+  }
+
+  const type = opts.type || opts.actionType;
+  if (!type || !EXECUTION_ACTION_TYPES.has(type)) {
+    return null;
+  }
+
+  const {
+    actionType: _actionType,
+    action: _action,
+    type: _type,
+    ...rest
+  } = opts;
+  return { ...rest, type, action: type };
+}
+
+/**
  * @param {string} roditId
- * @param {{ actionType?: string }} [opts]
+ * @param {object} [opts] Tick body: explicit action fields (`type` / `actionType` / nested `action`)
  * @returns {Promise<object>}
  */
 async function runAgentTick(roditId, opts = {}) {
@@ -43,8 +75,21 @@ async function runAgentTick(roditId, opts = {}) {
       err.statusCode = 404;
       throw err;
     }
-    const type = opts.actionType || "none";
-    const body = { type, action: type };
+
+    const body = resolveTickAction(opts);
+    if (!body) {
+      return {
+        submitted: false,
+        reason: "action_required",
+        taskType: required.taskType,
+        gameId: required.gameId,
+        tasks: inbox.tasks,
+        waitingOn: inbox.waitingOn,
+        note:
+          "Conscious tick requires an explicit execution action (none|transfer|invest|transfer_and_invest) from current state. AFK timeout submits none automatically; empty tick bodies do not."
+      };
+    }
+
     const result = await engine.submitAction(required.gameId, agent.id, body);
     applyActionSideEffects(result);
     const after = await listTasksInboxForRodit(roditId);
@@ -67,5 +112,6 @@ async function runAgentTick(roditId, opts = {}) {
 }
 
 module.exports = {
-  runAgentTick
+  runAgentTick,
+  resolveTickAction
 };

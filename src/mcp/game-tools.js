@@ -22,7 +22,7 @@ const { logger } = require("@rodit/rodit-auth-be");
 const GAME_TOOL_DEFS = [
   {
     name: "slc_skill",
-    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.4.2).",
+    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.8.0).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
@@ -116,13 +116,35 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_tick",
     description:
-      "Submit one required task if any (action defaults to none). Returns waitingOn when idle.",
+      "Submit one required execution action if any. Pass an explicit action (type none|transfer|invest|transfer_and_invest, plus fields). Empty body returns action_required — does not default to none. AFK timeout still submits none via the scheduler.",
     inputSchema: {
       type: "object",
       properties: {
-        actionType: { type: "string" }
+        type: {
+          type: "string",
+          enum: ["none", "transfer", "invest", "transfer_and_invest"],
+          description: "Execution action type chosen from current state"
+        },
+        actionType: {
+          type: "string",
+          enum: ["none", "transfer", "invest", "transfer_and_invest"],
+          description: "Alias for type"
+        },
+        action: {
+          type: "object",
+          description: "Full nested action payload (preferred when transferring/investing)",
+          additionalProperties: true
+        },
+        toAgentId: { type: "string" },
+        energy: { type: "number" },
+        water: { type: "number" },
+        compute: { type: "number" },
+        target: { type: "string", enum: ["energy", "water", "compute"] },
+        amount: { type: "number" },
+        transfer: { type: "object", additionalProperties: true },
+        invest: { type: "object", additionalProperties: true }
       },
-      additionalProperties: false
+      additionalProperties: true
     }
   }
 ];
@@ -283,9 +305,7 @@ async function callGameTool(name, args, req) {
     case "slc_tick": {
       const roditId = requireRodit(req);
       const { runAgentTick } = require("../game/tick");
-      return runAgentTick(roditId, {
-        actionType: args.actionType
-      });
+      return runAgentTick(roditId, args || {});
     }
     default: {
       const err = new Error(`Unknown tool: ${name}`);

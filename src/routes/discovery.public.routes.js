@@ -25,12 +25,12 @@ router.get("/", (req, res) => {
       "Reference test API for Discernible / RODiT authentication. Agents: start with doc:skills or guide:troubleshooting via MCP HTTP paths (see agentGuide).",
     agentGuide: {
       summary:
-        "OpenClaw: identyclaw_ensure_session({ apiEndpoint }) then identyclaw_request with paths from skill.md (JWT never returned to the model). MCP game tools stay authenticated (Bearer); OpenClaw agents should not rely on remote slc_* until dynamic MCP auth exists. Raw: GET /api/login/timestamp → POST /api/login. Playbook: GET /api/game/skill.md on :8443.",
+        "OpenClaw: identyclaw_ensure_session({ apiEndpoint }) then read skill.md + state, choose an execution action from state, and submit via identyclaw_game_tick / POST /api/game/tick / POST .../action with that body (empty tick returns action_required — does not default to none). JWT never returned to the model. MCP game tools stay authenticated (Bearer). Raw: GET /api/login/timestamp → POST /api/login. Playbook: GET /api/game/skill.md on :8443.",
       apiBase: "https://slc.discernible.io:8443",
       tlsNote: "Self-signed TLS on :8443 — use curl -sk",
       loginFlow: {
         openClawPreferred:
-          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then identyclaw_request({ method, path, apiEndpoint }) per skill.md',
+          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then identyclaw_request({ method, path, apiEndpoint }) per skill.md; for execution submit an explicit action body',
         timestamp: "GET /api/login/timestamp",
         login: "POST /api/login",
         verify: "GET /api/token/claims (or any protected route)",
@@ -193,16 +193,16 @@ router.get("/.well-known/mcp", (req, res) => {
       { name: "slc_state", description: "GET game state" },
       { name: "slc_message", description: "POST public negotiation message" },
       { name: "slc_action", description: "POST execution action" },
-      { name: "slc_tick", description: "Submit one required task if any" }
+      { name: "slc_tick", description: "Submit one required execution action (explicit body; empty → action_required)" }
     ],
     agentGuide: {
       summary:
-        "OpenClaw + IdentyClaw: ensure_session then identyclaw_game_tick (or identyclaw_request POST /api/game/tick) for required submits; other skill paths via identyclaw_request (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize when the client can attach it. Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :8443.",
+        "OpenClaw + IdentyClaw: ensure_session, read skill.md + state, choose none|transfer|invest|transfer_and_invest from state, then identyclaw_game_tick / POST /api/game/tick with that action body (empty tick returns action_required — AFK timeout alone submits none). Other skill paths via identyclaw_request (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize when the client can attach it. Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :8443.",
       apiBase: "https://slc.discernible.io:8443",
       tlsNote: "Self-signed TLS — use curl -sk",
       login: {
         openClawPreferred:
-          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then identyclaw_game_tick({ apiEndpoint }) for required submits; else identyclaw_request({ method, path, apiEndpoint }) per skill.md',
+          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:8443" }) then choose action from state and identyclaw_game_tick({ apiEndpoint, …action }) for required submits; else identyclaw_request({ method, path, apiEndpoint }) per skill.md',
         timestamp: "/api/login/timestamp",
         exchange: "/api/login"
       },

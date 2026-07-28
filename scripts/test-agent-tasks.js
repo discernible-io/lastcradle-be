@@ -38,8 +38,29 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.6.1")) {
-    throw new Error("skill.md should be version 1.6.1");
+  if (!skill.includes("version: 1.8.0")) {
+    throw new Error("skill.md should be version 1.8.0");
+  }
+  if (!skill.includes("How the game works")) {
+    throw new Error("skill.md should include How the game works");
+  }
+  if (!skill.includes("How to play a turn")) {
+    throw new Error("skill.md should include How to play a turn");
+  }
+  if (!skill.includes("action_required")) {
+    throw new Error("skill.md should document action_required for empty ticks");
+  }
+  if (!skill.includes("surplusByResource")) {
+    throw new Error("skill.md should document surplusByResource state field");
+  }
+  if (!skill.includes("wasteIfNotExportedByNextProduction")) {
+    throw new Error("skill.md should document wasteIfNotExportedByNextProduction");
+  }
+  if (skill.includes("Default action: `none`") || skill.includes("Default action: none")) {
+    throw new Error("skill.md must not tell agents Default action: none for conscious ticks");
+  }
+  if (skill.includes("preferred when exporting specialty surplus")) {
+    throw new Error("skill.md should not push win-strategy wording for transfer_and_invest");
   }
   if (!skill.includes("slc_create")) {
     throw new Error("skill.md should document MCP slc_create");
@@ -91,8 +112,29 @@ async function main() {
     throw new Error(`Expected required submit_execution_action task, got ${JSON.stringify(tasks)}`);
   }
 
+  const state = await engine.getPublicState(game.id, { viewerAgentId: alpha.id });
+  if (!state.you || state.you.id !== alpha.id) {
+    throw new Error("state.you should be the viewer agent");
+  }
+  if (!state.you.specialty || !state.you.surplusByResource || !state.you.thisTurnSurvivalCost) {
+    throw new Error(`Expected specialty/surplus/survival on you view, got ${JSON.stringify(state.you)}`);
+  }
+  if (!state.you.actionHints || typeof state.you.actionHints.maxInvestAmount !== "number") {
+    throw new Error(`Expected actionHints on you view, got ${JSON.stringify(state.you.actionHints)}`);
+  }
+
+  const { runAgentTick } = require("../src/game/tick");
+  const emptyTick = await runAgentTick("agent-alpha", {});
+  if (emptyTick.submitted || emptyTick.reason !== "action_required") {
+    throw new Error(`Empty tick should return action_required, got ${JSON.stringify(emptyTick)}`);
+  }
+
+  const explicitNone = await runAgentTick("agent-alpha", { type: "none" });
+  if (!explicitNone.submitted) {
+    throw new Error(`Explicit none tick should submit, got ${JSON.stringify(explicitNone)}`);
+  }
+
   const { listTasksInboxForRodit } = require("../src/game/agent-tasks");
-  await engine.submitAction(game.id, alpha.id, { type: "none" });
   const inbox = await listTasksInboxForRodit("agent-alpha");
   if (inbox.tasks.some((t) => t.taskType === TASK_TYPES.SUBMIT_EXECUTION_ACTION)) {
     throw new Error("Alpha should have no execution-action task after submit");

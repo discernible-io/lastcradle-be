@@ -321,13 +321,13 @@ app.use((err, req, res, next) => {
   return next(err);
 });
 
+// Serve raw OpenAPI JSON before Swagger UI so /api-docs/swagger.json is not HTML
+app.get("/api-docs/swagger.json", (req, res) => {
+  res.type("application/json").json(swaggerSpec);
+});
+
 // Setup Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-// Serve the raw OpenAPI JSON as well
-app.get("/api-docs/swagger.json", (req, res) => {
-  res.json(swaggerSpec);
-});
 
 // Player-facing blog report and live spectator UI (static)
 const frontendPath = path.join(__dirname, "../frontend");

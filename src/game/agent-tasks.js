@@ -75,7 +75,7 @@ async function buildTasksForMembership(game, agent) {
         required: true,
         action: "POST /api/game/games/{gameId}/action",
         deadline: game.execution_ends_at,
-        description: "Submit one execution action (transfer, invest, or none)."
+        description: "Submit one execution action chosen from state (none|transfer|invest|transfer_and_invest). Empty tick does not imply none."
       });
     }
   }

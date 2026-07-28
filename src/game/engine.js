@@ -1019,6 +1019,61 @@ async function beginExecutionPhase(gameId) {
   return repo.getGameById(gameId);
 }
 
+/**
+ * Derive specialty / surplus fields from production vs storage (and optional inventory).
+ * Specialty = resource with the largest production−storage gap when that gap is positive.
+ */
+function deriveCradleEconomics(productionCapacity, storageCapacity, inventory = null) {
+  const surplusByResource = { energy: 0, water: 0, compute: 0 };
+  const wasteIfNotExportedByNextProduction = { energy: 0, water: 0, compute: 0 };
+  let specialty = null;
+  let maxSurplus = 0;
+
+  for (const key of RESOURCE_KEYS) {
+    const production = productionCapacity?.[key] ?? 0;
+    const storage = storageCapacity?.[key] ?? 0;
+    const surplus = Math.max(0, production - storage);
+    surplusByResource[key] = surplus;
+    if (surplus > maxSurplus) {
+      maxSurplus = surplus;
+      specialty = key;
+    }
+    if (inventory) {
+      const held = inventory[key] ?? 0;
+      wasteIfNotExportedByNextProduction[key] = Math.max(0, held + production - storage);
+    }
+  }
+
+  return {
+    specialty: maxSurplus > 0 ? specialty : null,
+    surplusByResource,
+    ...(inventory ? { wasteIfNotExportedByNextProduction } : {})
+  };
+}
+
+function buildActionHints(inventory, survivalCost) {
+  const maxInvestAmount = Math.max(
+    0,
+    Math.floor(Math.min(inventory.energy, inventory.water, inventory.compute))
+  );
+  const afterSurvival = {
+    energy: Math.max(0, inventory.energy - (survivalCost?.energy ?? 0)),
+    water: Math.max(0, inventory.water - (survivalCost?.water ?? 0)),
+    compute: Math.max(0, inventory.compute - (survivalCost?.compute ?? 0))
+  };
+  const maxInvestAmountAfterSurvival = Math.max(
+    0,
+    Math.floor(Math.min(afterSurvival.energy, afterSurvival.water, afterSurvival.compute))
+  );
+  return {
+    allowedActionTypes: ["none", "transfer", "invest", "transfer_and_invest"],
+    maxInvestAmount,
+    maxInvestAmountAfterSurvival,
+    note:
+      "maxInvestAmount is equal E/W/C affordable now; maxInvestAmountAfterSurvival leaves a cushion for thisTurnSurvivalCost. Choose type from current state — empty tick does not imply none."
+  };
+}
+
 async function getPublicState(gameId, { viewerAgentId = null } = {}) {
   const game = await repo.getGameById(gameId);
   if (!game) {
@@ -1048,15 +1103,23 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
     livingAgents,
     game
   });
-  const projectedSurvival =
+  const thisTurnSurvivalCost =
     game.status === "running" && livingAgents.length > 0
-      ? Object.fromEntries(
-          livingAgents.map((agent) => [
-            agent.id,
-            computeSurvivalCost(game.config, projectedSurvivalContext)
-          ])
-        )
+      ? computeSurvivalCost(game.config, projectedSurvivalContext)
       : null;
+  const projectedSurvival =
+    thisTurnSurvivalCost != null
+      ? Object.fromEntries(livingAgents.map((agent) => [agent.id, { ...thisTurnSurvivalCost }]))
+      : null;
+
+  const agentViews = agents.map((agent) =>
+    publicAgentView(agent, viewerAgentId, intelligence, {
+      thisTurnSurvivalCost,
+      includeActionHints: Boolean(viewerAgentId && agent.id === viewerAgentId)
+    })
+  );
+  const you =
+    viewerAgentId != null ? agentViews.find((a) => a.id === viewerAgentId) || null : null;
 
   return {
     game: {
@@ -1073,10 +1136,12 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       finishedAt: game.finished_at,
       winnerIds: game.winnerIds || [],
       maxProductionCapacity: game.config.maxProductionCapacity,
-      maxStorageCapacity: game.config.maxStorageCapacity
+      maxStorageCapacity: game.config.maxStorageCapacity,
+      finishSurvivorCount: game.config.finishSurvivorCount ?? 2
     },
     livingAgentCount: livingAgents.length,
-    agents: agents.map((agent) => publicAgentView(agent, viewerAgentId, intelligence)),
+    agents: agentViews,
+    you,
     turnInvestments,
     execution,
     projectedSurvival,
@@ -1108,7 +1173,8 @@ async function getTurnInvestmentSummary(gameId, turnNumber) {
     });
 }
 
-function publicAgentView(agent, viewerAgentId, intelligence) {
+function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
+  const { thisTurnSurvivalCost = null, includeActionHints = false } = options;
   const base = {
     id: agent.id,
     roditId: agent.roditId,
@@ -1127,6 +1193,16 @@ function publicAgentView(agent, viewerAgentId, intelligence) {
     base.inventory = agent.inventory;
     base.productionCapacity = agent.productionCapacity;
     base.storageCapacity = agent.storageCapacity;
+    Object.assign(
+      base,
+      deriveCradleEconomics(agent.productionCapacity, agent.storageCapacity, agent.inventory)
+    );
+    if (thisTurnSurvivalCost) {
+      base.thisTurnSurvivalCost = { ...thisTurnSurvivalCost };
+    }
+    if (includeActionHints && agent.inventory) {
+      base.actionHints = buildActionHints(agent.inventory, thisTurnSurvivalCost);
+    }
   } else {
     base.inventory = null;
     base.productionCapacity = null;
@@ -1350,6 +1426,8 @@ module.exports = {
   applyTurnProduction,
   applyProduction,
   applyStorageCost,
+  deriveCradleEconomics,
+  buildActionHints,
   gameError,
   isJoiningWindowOpen,
   joiningWindowDetails,

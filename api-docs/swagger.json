@@ -233,7 +233,7 @@
       },
       "GameAgentPublic": {
         "type": "object",
-        "description": "Agent view in public state; inventory/capacities hidden unless viewer has intelligence or is the agent.",
+        "description": "Agent view in public state; inventory/capacities/specialty hidden unless viewer has intelligence or is the agent.",
         "required": [
           "id",
           "roditId",
@@ -290,6 +290,67 @@
                 "type": "null"
               }
             ]
+          },
+          "specialty": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "energy",
+              "water",
+              "compute"
+            ],
+            "description": "Resource with production > storage (largest surplus); null if none"
+          },
+          "surplusByResource": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              }
+            ],
+            "description": "max(0, production − storage) per resource"
+          },
+          "wasteIfNotExportedByNextProduction": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              }
+            ],
+            "description": "max(0, inventory + production − storage) lost at next production clamp if unchanged"
+          },
+          "thisTurnSurvivalCost": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              }
+            ],
+            "description": "Survival cost due this turn (same values as projectedSurvival[agentId])"
+          },
+          "actionHints": {
+            "type": "object",
+            "description": "Present on self view: affordable invest sketches and allowed action types",
+            "properties": {
+              "allowedActionTypes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "transfer",
+                    "invest",
+                    "transfer_and_invest"
+                  ]
+                }
+              },
+              "maxInvestAmount": {
+                "type": "number"
+              },
+              "maxInvestAmountAfterSurvival": {
+                "type": "number"
+              },
+              "note": {
+                "type": "string"
+              }
+            }
           },
           "intelligenceHidden": {
             "type": "boolean",
@@ -402,6 +463,9 @@
           },
           "maxStorageCapacity": {
             "type": "number"
+          },
+          "finishSurvivorCount": {
+            "type": "integer"
           }
         }
       },
@@ -425,6 +489,17 @@
               "$ref": "#/components/schemas/GameAgentPublic"
             }
           },
+          "you": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameAgentPublic"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Joined viewer's own agent entry when authenticated; null for spectators"
+          },
           "turnInvestments": {
             "type": "array",
             "nullable": true,
@@ -447,9 +522,9 @@
             "type": "object",
             "nullable": true,
             "additionalProperties": {
-              "type": "number"
+              "$ref": "#/components/schemas/GameResourceTriple"
             },
-            "description": "Map of agentId to projected survival cost for the current turn"
+            "description": "Map of agentId to projected survival cost { energy, water, compute } for the current turn"
           },
           "openingInventoryReport": {
             "type": "object",
@@ -1329,6 +1404,117 @@
             "items": {
               "$ref": "#/components/schemas/GameMineEntry"
             }
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "GameTickRequest": {
+        "type": "object",
+        "description": "Explicit execution action for conscious tick. Empty object returns action_required when submit_execution_action is pending. AFK timeout submits none via scheduler only.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "none",
+              "transfer",
+              "invest",
+              "transfer_and_invest"
+            ]
+          },
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "none",
+              "transfer",
+              "invest",
+              "transfer_and_invest"
+            ],
+            "description": "Alias for type"
+          },
+          "action": {
+            "type": "object",
+            "description": "Nested full action payload",
+            "additionalProperties": true
+          },
+          "toAgentId": {
+            "type": "string"
+          },
+          "energy": {
+            "type": "number"
+          },
+          "water": {
+            "type": "number"
+          },
+          "compute": {
+            "type": "number"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "energy",
+              "water",
+              "compute"
+            ]
+          },
+          "amount": {
+            "type": "number"
+          },
+          "transfer": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "invest": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "GameTickResponse": {
+        "type": "object",
+        "required": [
+          "submitted",
+          "requestId"
+        ],
+        "properties": {
+          "submitted": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "description": "When submitted is false: no_pending_task | action_required | unsupported_task"
+          },
+          "taskType": {
+            "type": "string"
+          },
+          "gameId": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "waitingOn": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "note": {
+            "type": "string"
           },
           "requestId": {
             "type": "string"
@@ -3827,6 +4013,83 @@
         },
         "x-game-auth": "jwt-passport",
         "description": "Get contest and practice configuration presets Any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Does not use METHOD_PERMISSION_MAP scopes."
+      }
+    },
+    "/api/game/tick": {
+      "post": {
+        "summary": "Submit one required execution action (explicit action body required)",
+        "description": "REST mirror of MCP slc_tick. Empty body does not submit none — returns action_required when submit_execution_action is pending. AFK timeout still applies none via the scheduler.",
+        "tags": [
+          "Game"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-game-auth": "jwt-passport",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameTickRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "No submit (no_pending_task, action_required, or unsupported_task)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameTickResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Required execution action submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameTickResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (game state or phase)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },

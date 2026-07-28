@@ -109,8 +109,8 @@ router.get("/tasks", async (req, res) => {
  * @swagger
  * /api/game/tick:
  *   post:
- *     summary: Submit one required task if any (action defaults to none)
- *     description: REST mirror of MCP slc_tick. Prefer over multi-step GET /tasks + POST when advancing submission-gated phases.
+ *     summary: Submit one required execution action (explicit action body required)
+ *     description: REST mirror of MCP slc_tick. Prefer over multi-step GET /tasks + POST when advancing submission-gated phases. Empty body does not submit none — returns action_required. AFK timeout still applies none via the scheduler.
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
@@ -130,9 +130,7 @@ router.post("/tick", validateContentType, validateJsonBody, async (req, res) => 
 
   try {
     const body = req.body || {};
-    const result = await runAgentTick(roditId, {
-      actionType: body.actionType || body.type
-    });
+    const result = await runAgentTick(roditId, body);
     res.status(result.submitted ? 201 : 200).json({ ...result, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
