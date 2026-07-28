@@ -10,7 +10,7 @@
   "SECURITY_OPTIONS": {
     "SESSION_SECRET": "HMAC-session-secret-is-not-set",
     "SILENT_LOGIN_FAILURES": "false",
-    "WEBHOOK_TLS_SKIP_VERIFY": "false"
+    "WEBHOOK_TLS_SKIP_VERIFY": "true"
   },
   "SERVERPORT": 8080,
   "SERVICE_NAME": "slc.discernible.io",

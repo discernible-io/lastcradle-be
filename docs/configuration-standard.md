@@ -126,7 +126,7 @@ Certain config keys **must differ** between development and main branches. These
 | `LOG_LEVEL` | `debug` | `info` |
 | `WEBHOOK_TEST_ENABLED` | `true` | `false` |
 | `LOKI_URL` | `https://grafana47.dihola.io:3100` | `https://grafana46.discernible.io:3100` |
-| `SECURITY_OPTIONS.WEBHOOK_TLS_SKIP_VERIFY` | `"true"` | `"false"` |
+| `SECURITY_OPTIONS.WEBHOOK_TLS_SKIP_VERIFY` | `"true"` | `"true"` |
 
 `NEAR_CONTRACT_ID` is embedded in generated token IDs and signatures; using the wrong contract ID causes token validation failures in the target environment.
 

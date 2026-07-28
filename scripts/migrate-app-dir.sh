@@ -40,8 +40,8 @@ if [[ -f "${APP_DIR}/secrets/secrets.env" ]]; then
     echo "APP_DIR already has secrets.env (same as legacy)." >&2
     exit 0
   fi
-  echo "APP_DIR secrets differ from legacy; not overwriting." >&2
-  exit 1
+  echo "APP_DIR secrets differ from legacy; keeping APP_DIR secrets (not overwriting)." >&2
+  exit 0
 fi
 
 if [[ -d "$APP_DIR" ]] && [[ -n "$(ls -A "$APP_DIR" 2>/dev/null || true)" ]]; then

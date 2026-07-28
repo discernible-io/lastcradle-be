@@ -194,24 +194,39 @@ async function sendGameWebhook(payload, reqOrRoditId = null) {
       sessionRoditId: roditId || payloadRoditId
     });
 
+    if (result?.isValid !== true) {
+      logger.warnWithContext("Game webhook delivery returned non-success", {
+        component: "GameWebhooks",
+        event: payload?.event,
+        roditId: roditId || payloadRoditId,
+        webhookHost: webhookUrl ? String(webhookUrl).replace(/^(https?:\/\/)/, "").split("/")[0] : null,
+        error: result?.error?.message || result?.error || null,
+        requestId: result?.requestId || reqOrRoditId?.requestId || null
+      });
+    }
+
     return {
       ...result,
       success: result?.isValid === true
     };
   } catch (error) {
+    const cause = error?.cause;
     logger.errorWithContext(
       "Game webhook delivery failed, continuing",
       {
         component: "GameWebhooks",
         event: payload?.event,
-        requestId: reqOrRoditId?.requestId
+        requestId: reqOrRoditId?.requestId,
+        causeCode: cause?.code || null,
+        causeMessage: cause?.message || null
       },
       error
     );
     return {
       success: false,
       error: error.message,
-      errorType: error.name
+      errorType: error.name,
+      causeCode: cause?.code || null
     };
   }
 }
