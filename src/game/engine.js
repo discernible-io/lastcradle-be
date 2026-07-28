@@ -1066,11 +1066,11 @@ function buildActionHints(inventory, survivalCost) {
     Math.floor(Math.min(afterSurvival.energy, afterSurvival.water, afterSurvival.compute))
   );
   return {
-    allowedActionTypes: ["none", "transfer", "invest", "transfer_and_invest"],
+    allowedActionTypes: ["transfer", "invest", "transfer_and_invest", "none"],
     maxInvestAmount,
     maxInvestAmountAfterSurvival,
     note:
-      "maxInvestAmount is equal E/W/C affordable now; maxInvestAmountAfterSurvival leaves a cushion for thisTurnSurvivalCost. Choose type from current state — empty tick does not imply none."
+      "maxInvestAmount is equal E/W/C affordable now; cap invest amount at maxInvestAmountAfterSurvival so thisTurnSurvivalCost remains payable after execution. If specialty surplus > 0, do not invest into specialty (export/transfer that surplus or intentional none). Choose type from current state — empty tick does not imply none."
   };
 }
 

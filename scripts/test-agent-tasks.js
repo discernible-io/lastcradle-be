@@ -38,8 +38,14 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.8.0")) {
-    throw new Error("skill.md should be version 1.8.0");
+  if (!skill.includes("version: 1.8.1")) {
+    throw new Error("skill.md should be version 1.8.1");
+  }
+  if (!skill.includes("Fact-level execution constraints")) {
+    throw new Error("skill.md should document fact-level execution constraints");
+  }
+  if (!skill.includes("maxInvestAmountAfterSurvival")) {
+    throw new Error("skill.md should reference maxInvestAmountAfterSurvival for invest caps");
   }
   if (!skill.includes("How the game works")) {
     throw new Error("skill.md should include How the game works");

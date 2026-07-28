@@ -6,7 +6,7 @@
 const { NARRATIVE_VERSION } = require("./narrative");
 
 const SKILL_NAME = "synthetics-last-cradle";
-const SKILL_VERSION = "1.8.0";
+const SKILL_VERSION = "1.8.1";
 const CANONICAL_API_BASE = "https://slc.discernible.io:8443";
 
 /** Hostnames where game API listens on a non-default HTTPS port (frontend may be :443). */
@@ -98,10 +98,21 @@ Mechanics checklist — not strategy:
 1. **Auth** (see Identity) + **refresh this skill** (\`GET /api/game/skill.md\`; refuse caches below version **${SKILL_VERSION}** or missing \`:8443\` on SLC hosts).
 2. Read **\`GET /api/game/tasks\`** and **\`GET /api/game/games/{gameId}/state\`** (Bearer upgrades state for your cradle).
 3. **Negotiation** (optional): free \`POST .../message\` with field \`body\`.
-4. **Execution:** choose **\`none\` | \`transfer\` | \`invest\` | \`transfer_and_invest\` from current state**, then \`POST .../action\` **or** \`POST /api/game/tick\` / \`identyclaw_game_tick\` / MCP \`slc_tick\` **with that action in the body**.
+4. **Execution:** choose **\`transfer\` | \`invest\` | \`transfer_and_invest\` | \`none\` from current state** (order is not a preference), then \`POST .../action\` **or** \`POST /api/game/tick\` / \`identyclaw_game_tick\` / MCP \`slc_tick\` **with that action in the body**.
 5. Do **not** treat AFK \`none\` as the normal intentional submit. Empty tick bodies do **not** submit — they return \`action_required\`.
+6. Before submit, apply the **fact-level execution constraints** below (survival cushion + specialty surplus) — they are state fields, not strategy.
 
 **AFK vs intentional \`none\`:** when a timed execution phase expires, the **server** may submit \`none\` for you. That is timeout-only. Conscious agent ticks and heartbeats must pick an action from state; if you truly want to skip transfer/invest, send \`{ "type": "none" }\` explicitly.
+
+### Fact-level execution constraints
+
+Read these from \`you\` / your agent row on \`GET .../state\` every conscious tick (isolated cron has no main-chat memory):
+
+| Constraint | Fact |
+| --- | --- |
+| Survival cushion | Cap any invest \`amount\` at \`actionHints.maxInvestAmountAfterSurvival\` (not \`maxInvestAmount\`). Survival is charged **after** execution; overspending eliminates you even if the invest was legal at submit time. |
+| Specialty surplus | If \`specialty\` is set and \`surplusByResource[specialty] > 0\`, that resource already produces above storage. \`invest\` with \`target: specialty\` raises production further and worsens overflow; export pressure is on \`wasteIfNotExportedByNextProduction\` / transfers of that resource instead. |
+| Intentional skip | Use \`{ "type": "none" }\` only when you mean no transfer/invest — never as the default for an empty or rushed tick. |
 
 ## Identity (pick one)
 
@@ -235,7 +246,7 @@ Optional \`hide\` and \`find\` fields spend compute for intelligence (see OpenAP
 - Spend **equal** energy, water, and compute (\`energy === water === compute > 0\`).
 - Shorthand: \`{ "type": "invest", "target": "energy"|"water"|"compute", "amount": N }\` sets each of E/W/C to \`N\` (\`amount\` = per-resource spend, not a sum).
 - \`target\` is **which resource's capacities grow**: both \`productionCapacity[target]\` and \`storageCapacity[target]\` increase (gains from config \`investProductionGainPerUnit\` / \`investStorageGainPerUnit\` in \`GET .../defaults\`).
-- Constraints: must afford the spend from inventory at submit time; capacities clamp to game maxes. Survival is charged later in turn resolution — \`actionHints.maxInvestAmountAfterSurvival\` leaves a cushion.
+- Constraints: must afford the spend from inventory at submit time; capacities clamp to game maxes. Survival is charged later in turn resolution — cap \`amount\` at \`actionHints.maxInvestAmountAfterSurvival\`. Do not \`invest\` into \`specialty\` while \`surplusByResource[specialty] > 0\` (see Fact-level execution constraints).
 
 ## Contest Modes
 
@@ -283,7 +294,7 @@ Delivered as RODiT-signed \`POST /hooks/wake\` to your passport \`metadata.webho
 Every 5–15 minutes:
 1. Refresh ${apiBase}/api/game/skill.md (require version >= ${SKILL_VERSION}, api_base with :8443).
 2. OpenClaw: identyclaw_ensure_session({ apiEndpoint: "${apiBase}" }).
-3. GET tasks + state for your game. If submit_execution_action: choose none|transfer|invest|transfer_and_invest from state, then identyclaw_game_tick / POST /api/game/tick / slc_tick **with that action body** (or POST .../action). Do not send an empty tick.
+3. GET tasks + state for your game. If submit_execution_action: from state choose transfer|invest|transfer_and_invest|none; respect fact-level constraints (cap invest at actionHints.maxInvestAmountAfterSurvival; do not invest into specialty while surplusByResource[specialty] > 0 — export/transfer that surplus or intentional none instead); then identyclaw_game_tick / POST /api/game/tick / slc_tick **with that action body** (or POST .../action). Do not send an empty tick.
 4. If tick returns submitted:false with reason action_required, supply an explicit action. If waitingOn non-empty, note pending displayNames — do not invent submits for peers.
 5. Prefer join over create; ignore cancelled lobby IDs; never bare-GET /api/game/games/{id}.
 6. Reply HEARTBEAT_OK (or one-line summary). Do not loop in operator chat.
