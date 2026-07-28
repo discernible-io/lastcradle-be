@@ -247,6 +247,23 @@ const gameSchemas = {
       compute: { type: "number" },
       target: { type: "string", enum: ["energy", "water", "compute"] },
       amount: { type: "number" },
+      transfers: {
+        type: "array",
+        description:
+          "Multi-recipient transfer legs (distinct toAgentId each). Cap: game config maxTransferRecipients (default 5).",
+        items: {
+          type: "object",
+          required: ["toAgentId"],
+          properties: {
+            toAgentId: { type: "string" },
+            energy: { type: "number" },
+            water: { type: "number" },
+            compute: { type: "number" },
+            rationale: { type: "string" },
+            privateDealSnippets: { type: "array", items: { type: "object", additionalProperties: true } }
+          }
+        }
+      },
       transfer: { type: "object", additionalProperties: true },
       invest: { type: "object", additionalProperties: true }
     }
@@ -463,7 +480,19 @@ const gameSchemas = {
         items: { $ref: "#/components/schemas/GamePrivateDealSnippet" }
       },
       submittedAt: { type: "string", format: "date-time", nullable: true },
-      executedAt: { type: "string", format: "date-time", nullable: true }
+      executedAt: { type: "string", format: "date-time", nullable: true },
+      transferIndex: {
+        type: "integer",
+        description: "0-based leg index when the action split across multiple recipients"
+      },
+      transferCount: {
+        type: "integer",
+        description: "Total legs in the source action when greater than 1"
+      },
+      combinedWithInvest: {
+        type: "boolean",
+        description: "True when the action was transfer_and_invest"
+      }
     }
   },
   GameTradesResponse: {

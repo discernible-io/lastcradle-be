@@ -22,8 +22,8 @@ const DEFAULT_GAME_CONFIG = {
 
   /**
    * When true (default), each cradle specializes in one resource: specialty production
-   * exceeds storage (surplus cannot be kept — export pressure), while secondary
-   * production is below storage (import pressure). Set false for legacy equal prod=storage rolls.
+   * exceeds storage (surplus above storage is wasted at production clamp), while secondary
+   * production is below storage. Set false for legacy equal prod=storage rolls.
    */
   useSpecializedCradles: true,
 
@@ -132,7 +132,13 @@ const DEFAULT_GAME_CONFIG = {
   minAgents: 3,
 
   /** Maximum agents per game (casual lobbies fill to this before a new lobby may be opened) */
-  maxAgents: 5
+  maxAgents: 5,
+
+  /**
+   * Max distinct transfer recipients in one execution action (transfer / transfer_and_invest).
+   * Keeps multi-party splits bounded in large contests (e.g. 15 seats) without allowing spray-everyone.
+   */
+  maxTransferRecipients: 5
 };
 
 /** Preset for a 15-player prize contest: 10-minute turns, 55-turn / ~9-hour cap; same last-two finish rule as casual. */

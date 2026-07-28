@@ -22,7 +22,7 @@ const { logger } = require("@rodit/rodit-auth-be");
 const GAME_TOOL_DEFS = [
   {
     name: "slc_skill",
-    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.8.3).",
+    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.8.4).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
@@ -141,6 +141,11 @@ const GAME_TOOL_DEFS = [
         compute: { type: "number" },
         target: { type: "string", enum: ["energy", "water", "compute"] },
         amount: { type: "number" },
+        transfers: {
+          type: "array",
+          description: "Multi-recipient transfer legs (capped by maxTransferRecipients)",
+          items: { type: "object", additionalProperties: true }
+        },
         transfer: { type: "object", additionalProperties: true },
         invest: { type: "object", additionalProperties: true }
       },

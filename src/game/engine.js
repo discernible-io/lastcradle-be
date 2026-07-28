@@ -13,7 +13,10 @@ const {
 } = require("./defaults");
 const { computeSurvivalCost, buildSurvivalContext } = require("./survival-cost");
 const { getGameNarrative, buildSurvivalNarrative } = require("./narrative");
-const { normalizeTransferDisclosure } = require("./trade-disclosure");
+const {
+  normalizeTransferDisclosure,
+  transferLegsFromPayload
+} = require("./trade-disclosure");
 const repo = require("./repository");
 const { notifyElimination } = require("./webhooks");
 
@@ -675,14 +678,23 @@ function isTurnAlreadyAdvanced(game) {
 async function submitAction(gameId, agentId, action) {
   const game = await requireRunningExecution(gameId);
   const agent = await requireLivingAgent(agentId, gameId);
+  const maxTransferRecipients =
+    game.config?.maxTransferRecipients ?? DEFAULT_GAME_CONFIG.maxTransferRecipients;
 
-  let normalized = normalizeAction(action);
+  let normalized = normalizeAction(action, { maxTransferRecipients });
   validateActionPayload(normalized, gameId);
   await validateIntelligenceAction(gameId, agentId, normalized);
 
   if (normalized.type === "transfer" || normalized.type === "transfer_and_invest") {
-    const transferPart = actionTransferPart(normalized);
-    await assertValidTransferRecipient(gameId, agentId, transferPart?.toAgentId);
+    const legs = transferLegsFromPayload(normalized);
+    if (!legs.length) {
+      throw gameError("INVALID_TRANSFER", "Transfer must include at least one recipient", 400, {
+        reason: "missing_recipients"
+      });
+    }
+    for (const leg of legs) {
+      await assertValidTransferRecipient(gameId, agentId, leg.toAgentId);
+    }
   }
 
   if (normalized.type === "invest" || normalized.type === "transfer_and_invest") {
@@ -841,12 +853,12 @@ async function executeTurn(gameId) {
 
     try {
       if (payload.type === "transfer") {
-        executeTransfer(state, agentState, payload);
+        executeTransfers(state, agentState, payload);
       } else if (payload.type === "invest") {
         executeInvest(state, payload);
         applyInvestmentCapacityGrowth(state, payload, config);
       } else if (payload.type === "transfer_and_invest") {
-        executeTransfer(state, agentState, payload.transfer);
+        executeTransfers(state, agentState, payload);
         executeInvest(state, payload.invest);
         applyInvestmentCapacityGrowth(state, payload.invest, config);
       }
@@ -920,7 +932,7 @@ async function executeTurn(gameId) {
   return repo.getGameById(gameId);
 }
 
-function executeTransfer(state, allStates, payload) {
+function executeTransferLeg(state, allStates, payload) {
   const transfer = {
     energy: payload.energy || 0,
     water: payload.water || 0,
@@ -938,6 +950,18 @@ function executeTransfer(state, allStates, payload) {
   }
   state.inventory = deduct(state.inventory, transfer);
   recipient.inventory = add(recipient.inventory, transfer);
+}
+
+function executeTransfers(state, allStates, payload) {
+  const legs = transferLegsFromPayload(
+    payload?.type ? payload : { type: "transfer", ...payload }
+  );
+  if (!legs.length) {
+    throw new Error("Transfer must include at least one recipient");
+  }
+  for (const leg of legs) {
+    executeTransferLeg(state, allStates, leg);
+  }
 }
 
 function executeInvest(state, payload) {
@@ -1059,12 +1083,15 @@ function buildActionHints(inventory, survivalCost, config = {}) {
     survivalCost,
     config
   );
+  const maxTransferRecipients =
+    config.maxTransferRecipients ?? DEFAULT_GAME_CONFIG.maxTransferRecipients;
   return {
     allowedActionTypes: ["transfer", "invest", "transfer_and_invest", "none"],
     maxInvestAmount,
     maxInvestAmountAfterSurvival,
+    maxTransferRecipients,
     note:
-      "maxInvestAmount is equal E/W/C affordable now; cap invest amount at maxInvestAmountAfterSurvival so thisTurnSurvivalCost remains payable after execution and storage water cost (storageWaterCostRate × remaining energy+compute). Transfers/hide/find need extra cushion. If specialty surplus > 0, do not invest into specialty (export/transfer that surplus or intentional none). Choose type from current state — empty tick does not imply none."
+      "maxInvestAmount is equal E/W/C affordable now; cap invest amount at maxInvestAmountAfterSurvival so thisTurnSurvivalCost remains payable after execution and storage water cost (storageWaterCostRate × remaining energy+compute). Transfers/hide/find spend inventory beyond that invest hint. Up to maxTransferRecipients distinct living peers per transfer action (transfers[]). Choose type from current state — empty tick does not imply none."
   };
 }
 
@@ -1217,14 +1244,8 @@ function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
 }
 
 function actionTransferPart(action) {
-  if (!action || typeof action !== "object") return null;
-  if (action.type === "transfer_and_invest") {
-    return action.transfer || null;
-  }
-  if (action.type === "transfer") {
-    return action;
-  }
-  return null;
+  const legs = transferLegsFromPayload(action);
+  return legs[0] || null;
 }
 
 /**
@@ -1289,11 +1310,24 @@ function isCombinedActionRequest(action) {
   if (!action || typeof action !== "object") return false;
   if (action.type === "transfer_and_invest") return true;
   if (action.type === "transfer" && action.invest) return true;
-  if (action.type === "invest" && action.transfer) return true;
+  if (action.type === "invest" && (action.transfer || action.transfers)) return true;
+  if (action.transfers && action.invest) return true;
   return false;
 }
 
-function extractTransferFields(source) {
+function stripTransferLeg(leg) {
+  const out = {
+    toAgentId: leg.toAgentId,
+    energy: leg.energy || 0,
+    water: leg.water || 0,
+    compute: leg.compute || 0
+  };
+  if (leg.rationale) out.rationale = leg.rationale;
+  if (leg.privateDealSnippets?.length) out.privateDealSnippets = leg.privateDealSnippets;
+  return out;
+}
+
+function extractSingleTransferLeg(source) {
   if (!source || typeof source !== "object") {
     throw gameError("INVALID_TRANSFER", "transfer details required", 400);
   }
@@ -1308,12 +1342,95 @@ function extractTransferFields(source) {
     transfer.privateDealSnippets = source.privateDealSnippets;
   }
   if (!transfer.toAgentId || typeof transfer.toAgentId !== "string") {
-    throw gameError("INVALID_TRANSFER", "toAgentId is required for transfer", 400);
+    throw gameError("INVALID_TRANSFER", "toAgentId is required for transfer", 400, {
+      reason: "missing_to_agent_id"
+    });
   }
   if (transfer.energy + transfer.water + transfer.compute <= 0) {
-    throw gameError("INVALID_TRANSFER", "Transfer must include at least one resource", 400);
+    throw gameError("INVALID_TRANSFER", "Transfer must include at least one resource", 400, {
+      reason: "empty_transfer",
+      toAgentId: transfer.toAgentId
+    });
   }
-  return normalizeTransferDisclosure({ type: "transfer", ...transfer });
+  const normalized = normalizeTransferDisclosure({ type: "transfer", ...transfer });
+  return stripTransferLeg(normalized);
+}
+
+/**
+ * Normalize one or more transfer legs. Accepts:
+ * - flat `{ toAgentId, energy, ... }`
+ * - `{ transfers: [ { toAgentId, ... }, ... ] }`
+ * Caps at maxTransferRecipients; rejects duplicate recipients.
+ */
+function extractTransferLegs(source, { maxTransferRecipients } = {}) {
+  if (!source || typeof source !== "object") {
+    throw gameError("INVALID_TRANSFER", "transfer details required", 400);
+  }
+
+  const cap =
+    maxTransferRecipients ??
+    DEFAULT_GAME_CONFIG.maxTransferRecipients ??
+    5;
+
+  let rawLegs;
+  if (Array.isArray(source.transfers)) {
+    rawLegs = source.transfers;
+  } else if (source.toAgentId) {
+    rawLegs = [source];
+  } else {
+    throw gameError(
+      "INVALID_TRANSFER",
+      "Provide toAgentId or transfers[{ toAgentId, energy, water, compute }]",
+      400,
+      { reason: "missing_recipients" }
+    );
+  }
+
+  if (!rawLegs.length) {
+    throw gameError("INVALID_TRANSFER", "Transfer must include at least one recipient", 400, {
+      reason: "missing_recipients"
+    });
+  }
+  if (rawLegs.length > cap) {
+    throw gameError(
+      "INVALID_TRANSFER",
+      `At most ${cap} transfer recipients per action (maxTransferRecipients)`,
+      400,
+      { reason: "too_many_recipients", maxTransferRecipients: cap, count: rawLegs.length }
+    );
+  }
+
+  const topRationale = Array.isArray(source.transfers) ? source.rationale : null;
+  const topSnippets = Array.isArray(source.transfers) ? source.privateDealSnippets : null;
+
+  const seen = new Set();
+  const legs = [];
+  for (let index = 0; index < rawLegs.length; index++) {
+    const raw = rawLegs[index];
+    if (!raw || typeof raw !== "object") {
+      throw gameError("INVALID_TRANSFER", `transfers[${index}] must be an object`, 400, {
+        reason: "invalid_leg",
+        index
+      });
+    }
+    const merged = { ...raw };
+    if (merged.rationale == null && topRationale != null) merged.rationale = topRationale;
+    if (merged.privateDealSnippets == null && topSnippets != null) {
+      merged.privateDealSnippets = topSnippets;
+    }
+    const leg = extractSingleTransferLeg(merged);
+    if (seen.has(leg.toAgentId)) {
+      throw gameError(
+        "INVALID_TRANSFER",
+        "Duplicate toAgentId in transfers — combine amounts into one leg",
+        400,
+        { reason: "duplicate_recipient", toAgentId: leg.toAgentId }
+      );
+    }
+    seen.add(leg.toAgentId);
+    legs.push(leg);
+  }
+  return legs;
 }
 
 function extractInvestFields(source) {
@@ -1330,15 +1447,33 @@ function extractInvestFields(source) {
   });
 }
 
-function normalizeCombinedAction(action) {
+function resolveTransferSourceForCombined(action) {
+  if (Array.isArray(action.transfers)) {
+    return action;
+  }
+  if (action.transfer && typeof action.transfer === "object") {
+    if (Array.isArray(action.transfer.transfers) || action.transfer.toAgentId) {
+      return action.transfer;
+    }
+  }
+  if (action.toAgentId) {
+    return action;
+  }
+  return action.transfer || action;
+}
+
+function normalizeCombinedAction(action, options = {}) {
   let transferSource;
   let investSource;
   if (action.type === "transfer_and_invest") {
     if (action.transfer && action.invest) {
-      transferSource = action.transfer;
+      transferSource = resolveTransferSourceForCombined(action);
+      investSource = action.invest;
+    } else if (Array.isArray(action.transfers) && action.invest) {
+      transferSource = action;
       investSource = action.invest;
     } else if (action.invest) {
-      transferSource = action;
+      transferSource = resolveTransferSourceForCombined(action);
       investSource = action.invest;
     } else if (action.transfer) {
       transferSource = action.transfer;
@@ -1350,32 +1485,23 @@ function normalizeCombinedAction(action) {
     } else {
       throw gameError(
         "INVALID_ACTION",
-        "transfer_and_invest requires nested { transfer, invest } or top-level amount for invest",
+        "transfer_and_invest requires nested { transfer, invest }, transfers[] + invest, or top-level amount for invest",
         400
       );
     }
   } else if (action.type === "transfer") {
-    transferSource = action;
+    transferSource = resolveTransferSourceForCombined(action);
     investSource = action.invest;
   } else {
-    transferSource = action.transfer;
+    transferSource = resolveTransferSourceForCombined(action);
     investSource = action;
   }
 
-  const transfer = extractTransferFields(transferSource);
+  const legs = extractTransferLegs(transferSource, options);
   const invest = extractInvestFields(investSource);
   const combined = {
     type: "transfer_and_invest",
-    transfer: {
-      toAgentId: transfer.toAgentId,
-      energy: transfer.energy || 0,
-      water: transfer.water || 0,
-      compute: transfer.compute || 0,
-      ...(transfer.rationale ? { rationale: transfer.rationale } : {}),
-      ...(transfer.privateDealSnippets
-        ? { privateDealSnippets: transfer.privateDealSnippets }
-        : {})
-    },
+    transfers: legs,
     invest: {
       target: invest.target,
       energy: invest.energy,
@@ -1383,27 +1509,44 @@ function normalizeCombinedAction(action) {
       compute: invest.compute
     }
   };
+  // Single-leg mirror for older consumers that read payload.transfer.toAgentId
+  if (legs.length === 1) {
+    combined.transfer = { ...legs[0] };
+  }
   if (action.hide != null) combined.hide = action.hide;
   if (action.find != null) combined.find = action.find;
   return combined;
 }
 
-function normalizeAction(action) {
+function normalizeTransferAction(action, options = {}) {
+  const legs = extractTransferLegs(action, options);
+  const normalized = {
+    type: "transfer",
+    transfers: legs
+  };
+  if (legs.length === 1) {
+    Object.assign(normalized, legs[0]);
+  }
+  if (action.hide != null) normalized.hide = action.hide;
+  if (action.find != null) normalized.find = action.find;
+  return normalized;
+}
+
+function normalizeAction(action, options = {}) {
   if (!action || typeof action !== "object") {
     throw gameError("INVALID_ACTION", "Action payload required", 400);
   }
   if (isCombinedActionRequest(action)) {
-    return normalizeCombinedAction(action);
+    return normalizeCombinedAction(action, options);
   }
   const type = action.type || "none";
-  const normalized = { ...action, type };
   if (type === "invest") {
-    return normalizeInvestAction(normalized);
+    return normalizeInvestAction({ ...action, type });
   }
   if (type === "transfer") {
-    return normalizeTransferDisclosure(normalized);
+    return normalizeTransferAction(action, options);
   }
-  return normalized;
+  return { ...action, type };
 }
 
 function validateActionPayload(action) {

@@ -9,6 +9,28 @@ function agentName(agentById, agentId) {
   return agent?.displayName || agent?.roditId || agentId;
 }
 
+function summarizeTransferLeg(from, leg, agentById) {
+  const to = agentName(agentById, leg.toAgentId);
+  const parts = [];
+  if (leg.energy) parts.push(`${leg.energy} energy`);
+  if (leg.water) parts.push(`${leg.water} water`);
+  if (leg.compute) parts.push(`${leg.compute} compute`);
+  let summary = `${from} sent ${parts.join(", ") || "resources"} to ${to}`;
+  if (leg.rationale) {
+    summary += ` — why: “${leg.rationale}”`;
+  }
+  if (leg.privateDealSnippets?.length) {
+    const snippetText = leg.privateDealSnippets
+      .map((s) => {
+        const label = [s.taskType, s.channel].filter(Boolean).join(" via ");
+        return label ? `${label}: “${s.excerpt}”` : `“${s.excerpt}”`;
+      })
+      .join("; ");
+    summary += ` [private deal: ${snippetText}]`;
+  }
+  return summary;
+}
+
 function summarizeAction(actionRow, agentById) {
   const payload = typeof actionRow.payload_json === "string"
     ? JSON.parse(actionRow.payload_json || "{}")
@@ -16,26 +38,29 @@ function summarizeAction(actionRow, agentById) {
   const from = agentName(agentById, actionRow.agent_id);
   const type = payload.type || actionRow.action_type || "none";
 
-  if (type === "transfer" && payload.toAgentId) {
-    const to = agentName(agentById, payload.toAgentId);
-    const parts = [];
-    if (payload.energy) parts.push(`${payload.energy} energy`);
-    if (payload.water) parts.push(`${payload.water} water`);
-    if (payload.compute) parts.push(`${payload.compute} compute`);
-    let summary = `${from} sent ${parts.join(", ") || "resources"} to ${to}`;
-    if (payload.rationale) {
-      summary += ` — why: “${payload.rationale}”`;
+  if (type === "transfer" || type === "transfer_and_invest") {
+    const { transferLegsFromPayload } = require("./trade-disclosure");
+    const legs = transferLegsFromPayload(payload);
+    const transferParts = legs.map((leg) => summarizeTransferLeg(from, leg, agentById));
+
+    if (type === "transfer_and_invest") {
+      const investParts = [];
+      const invest = payload.invest || {};
+      if (invest.energy) investParts.push(`${invest.energy} into energy production`);
+      if (invest.water) investParts.push(`${invest.water} into water production`);
+      if (invest.compute) investParts.push(`${invest.compute} into compute production`);
+      const investText = investParts.length
+        ? `${from} invested ${investParts.join(", ")}`
+        : `${from} invested`;
+      if (transferParts.length) {
+        return `${transferParts.join("; ")}; then ${investText.replace(`${from} `, "")}`;
+      }
+      return investText;
     }
-    if (payload.privateDealSnippets?.length) {
-      const snippetText = payload.privateDealSnippets
-        .map((s) => {
-          const label = [s.taskType, s.channel].filter(Boolean).join(" via ");
-          return label ? `${label}: “${s.excerpt}”` : `“${s.excerpt}”`;
-        })
-        .join("; ");
-      summary += ` [private deal: ${snippetText}]`;
+
+    if (transferParts.length) {
+      return transferParts.join("; ");
     }
-    return summary;
   }
 
   if (type === "invest") {

@@ -122,26 +122,49 @@ function normalizeTransferDisclosure(action) {
   return action;
 }
 
-function transferPayloadFromAction(payload) {
-  if (!payload || typeof payload !== "object") return null;
-  if (payload.type === "transfer" && payload.toAgentId) {
-    return payload;
+/**
+ * Legs for a transfer / transfer_and_invest payload (legacy single or `transfers[]`).
+ * Returns shallow leg objects with toAgentId + resource amounts (+ optional disclosure).
+ */
+function transferLegsFromPayload(payload) {
+  if (!payload || typeof payload !== "object") return [];
+
+  if (payload.type === "transfer_and_invest") {
+    if (Array.isArray(payload.transfers) && payload.transfers.length) {
+      return payload.transfers.filter((leg) => leg && leg.toAgentId);
+    }
+    if (payload.transfer) {
+      if (Array.isArray(payload.transfer.transfers) && payload.transfer.transfers.length) {
+        return payload.transfer.transfers.filter((leg) => leg && leg.toAgentId);
+      }
+      if (payload.transfer.toAgentId) {
+        return [payload.transfer];
+      }
+    }
+    return [];
   }
-  if (payload.type === "transfer_and_invest" && payload.transfer?.toAgentId) {
-    return payload.transfer;
+
+  if (payload.type === "transfer") {
+    if (Array.isArray(payload.transfers) && payload.transfers.length) {
+      return payload.transfers.filter((leg) => leg && leg.toAgentId);
+    }
+    if (payload.toAgentId) {
+      return [payload];
+    }
   }
-  return null;
+
+  return [];
 }
 
-function publicTradeFromAction(actionRow, parseJson) {
-  const payload = parseJson(actionRow.payload_json, { type: "none" });
-  const transfer = transferPayloadFromAction(payload);
-  if (!transfer) {
-    return null;
-  }
+/** @deprecated Prefer transferLegsFromPayload — kept for single-leg callers. */
+function transferPayloadFromAction(payload) {
+  const legs = transferLegsFromPayload(payload);
+  return legs[0] || null;
+}
 
+function publicTradeFromLeg(actionRow, payload, transfer, index, totalLegs) {
   const trade = {
-    id: actionRow.id,
+    id: totalLegs === 1 ? actionRow.id : `${actionRow.id}:${index}`,
     turnNumber: actionRow.turn_number,
     fromAgentId: actionRow.agent_id,
     toAgentId: transfer.toAgentId,
@@ -162,8 +185,26 @@ function publicTradeFromAction(actionRow, parseJson) {
   if (payload.type === "transfer_and_invest") {
     trade.combinedWithInvest = true;
   }
+  if (totalLegs > 1) {
+    trade.transferIndex = index;
+    trade.transferCount = totalLegs;
+  }
 
   return trade;
+}
+
+function publicTradeFromAction(actionRow, parseJson) {
+  const trades = publicTradesFromAction(actionRow, parseJson);
+  return trades[0] || null;
+}
+
+function publicTradesFromAction(actionRow, parseJson) {
+  const payload = parseJson(actionRow.payload_json, { type: "none" });
+  const legs = transferLegsFromPayload(payload);
+  if (!legs.length) {
+    return [];
+  }
+  return legs.map((leg, index) => publicTradeFromLeg(actionRow, payload, leg, index, legs.length));
 }
 
 module.exports = {
@@ -171,6 +212,8 @@ module.exports = {
   TRADE_SNIPPET_MAX,
   TRADE_SNIPPET_EXCERPT_MAX,
   normalizeTransferDisclosure,
+  transferLegsFromPayload,
   transferPayloadFromAction,
-  publicTradeFromAction
+  publicTradeFromAction,
+  publicTradesFromAction
 };

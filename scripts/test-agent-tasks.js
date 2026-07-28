@@ -38,8 +38,11 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.8.3")) {
-    throw new Error("skill.md should be version 1.8.3");
+  if (!skill.includes("version: 1.8.5")) {
+    throw new Error("skill.md should be version 1.8.5");
+  }
+  if (!skill.includes("maxTransferRecipients")) {
+    throw new Error("skill.md should document maxTransferRecipients");
   }
   if (!skill.includes("INVALID_TRANSFER")) {
     throw new Error("skill.md should document INVALID_TRANSFER for bad toAgentId");
@@ -70,6 +73,14 @@ async function main() {
   }
   if (skill.includes("preferred when exporting specialty surplus")) {
     throw new Error("skill.md should not push win-strategy wording for transfer_and_invest");
+  }
+  if (
+    skill.includes("worsens overflow") ||
+    skill.includes("do not invest into specialty") ||
+    skill.includes("Do not `invest` into `specialty`") ||
+    skill.includes("export/transfer that surplus")
+  ) {
+    throw new Error("skill.md should not give specialty invest/export strategy advice");
   }
   if (!skill.includes("slc_create")) {
     throw new Error("skill.md should document MCP slc_create");

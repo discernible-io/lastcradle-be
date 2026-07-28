@@ -33,9 +33,12 @@ function capacityTotal(cap) {
 }
 
 function transferAmount(payload) {
-  const transfer =
-    payload?.type === "transfer_and_invest" ? payload.transfer || {} : payload || {};
-  return (transfer.energy || 0) + (transfer.water || 0) + (transfer.compute || 0);
+  const { transferLegsFromPayload } = require("./trade-disclosure");
+  const legs = transferLegsFromPayload(payload);
+  return legs.reduce(
+    (sum, leg) => sum + (leg.energy || 0) + (leg.water || 0) + (leg.compute || 0),
+    0
+  );
 }
 
 function investAmount(payload) {
@@ -60,9 +63,10 @@ function normalizeFindSpend(find) {
 }
 
 function hasTradeDisclosure(payload) {
-  const transfer =
-    payload?.type === "transfer_and_invest" ? payload.transfer || {} : payload || {};
-  return Boolean(transfer.rationale || transfer.privateDealSnippets?.length);
+  const { transferLegsFromPayload } = require("./trade-disclosure");
+  return transferLegsFromPayload(payload).some(
+    (leg) => leg.rationale || leg.privateDealSnippets?.length
+  );
 }
 
 function emptyAgentMetrics(agentId) {
@@ -170,21 +174,23 @@ async function collectActivityMetrics(gameId, agents) {
     metrics.intelligenceComputeSpent += normalizeHideSpend(payload.hide) + normalizeFindSpend(payload.find);
 
     if (
-      (payload.type === "transfer" && payload.toAgentId) ||
-      (payload.type === "transfer_and_invest" && payload.transfer?.toAgentId)
+      payload.type === "transfer" ||
+      payload.type === "transfer_and_invest"
     ) {
-      const transfer =
-        payload.type === "transfer_and_invest" ? payload.transfer : payload;
-      const amount = transferAmount(payload);
-      metrics.transfersSent += 1;
-      metrics.transferVolumeSent += amount;
-      if (hasTradeDisclosure(payload)) {
-        metrics.tradeDisclosures += 1;
-      }
-      const recipient = byAgent.get(transfer.toAgentId);
-      if (recipient) {
-        recipient.transfersReceived += 1;
-        recipient.transferVolumeReceived += amount;
+      const { transferLegsFromPayload } = require("./trade-disclosure");
+      const legs = transferLegsFromPayload(payload);
+      for (const leg of legs) {
+        const amount = (leg.energy || 0) + (leg.water || 0) + (leg.compute || 0);
+        metrics.transfersSent += 1;
+        metrics.transferVolumeSent += amount;
+        if (leg.rationale || leg.privateDealSnippets?.length) {
+          metrics.tradeDisclosures += 1;
+        }
+        const recipient = byAgent.get(leg.toAgentId);
+        if (recipient) {
+          recipient.transfersReceived += 1;
+          recipient.transferVolumeReceived += amount;
+        }
       }
     }
 

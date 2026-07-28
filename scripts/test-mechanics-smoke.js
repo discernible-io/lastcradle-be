@@ -135,6 +135,7 @@ async function main() {
 
   await testSpecializedCradlesAndCombinedAction();
   await testInvalidTransferRejected();
+  await testMultiRecipientTransfers();
 
   await repo.closeDatabase();
 }
@@ -232,6 +233,9 @@ async function testSpecializedCradlesAndCombinedAction() {
   const payload = repo.parseJson(combined.payload_json, {});
   if (payload.transfer?.toAgentId !== two.id || payload.transfer?.energy !== 10) {
     throw new Error(`Unexpected transfer payload: ${JSON.stringify(payload.transfer)}`);
+  }
+  if (!Array.isArray(payload.transfers) || payload.transfers.length !== 1) {
+    throw new Error(`Expected transfers[] mirror, got ${JSON.stringify(payload.transfers)}`);
   }
   if (payload.invest?.target !== "water" || payload.invest?.energy !== 5) {
     throw new Error(`Unexpected invest payload: ${JSON.stringify(payload.invest)}`);
@@ -342,6 +346,118 @@ async function testInvalidTransferRejected() {
   });
 
   console.log("Invalid transfer rejection test passed.");
+}
+
+async function testMultiRecipientTransfers() {
+  const game = await engine.createGame({
+    config: {
+      useRandomStartingInventory: false,
+      startingInventory: { energy: 100, water: 100, compute: 100 },
+      cradleCapacityMin: 200,
+      cradleCapacityMax: 200,
+      useSpecializedCradles: false,
+      minAgents: 3,
+      maxAgents: 4,
+      maxTransferRecipients: 2,
+      joiningWindowDurationMs: 0,
+      survivalCost: { energy: 1, water: 1, compute: 1 },
+      investProductionGainPerUnit: 1,
+      investStorageGainPerUnit: 1
+    }
+  });
+
+  await engine.joinGame(game.id, { roditId: "mr1", displayName: "MrOne" });
+  await engine.joinGame(game.id, { roditId: "mr2", displayName: "MrTwo" });
+  await engine.joinGame(game.id, { roditId: "mr3", displayName: "MrThree" });
+  await engine.startGame(game.id);
+
+  const agents = await repo.listAgents(game.id);
+  const one = agents.find((a) => a.roditId === "mr1");
+  const two = agents.find((a) => a.roditId === "mr2");
+  const three = agents.find((a) => a.roditId === "mr3");
+
+  const hints = await engine.getPublicState(game.id, { viewerAgentId: one.id });
+  if (hints.you?.actionHints?.maxTransferRecipients !== 2) {
+    throw new Error(
+      `Expected actionHints.maxTransferRecipients=2, got ${hints.you?.actionHints?.maxTransferRecipients}`
+    );
+  }
+
+  await engine.beginExecutionPhase(game.id);
+
+  try {
+    await engine.submitAction(game.id, one.id, {
+      type: "transfer",
+      transfers: [
+        { toAgentId: two.id, energy: 1, water: 0, compute: 0 },
+        { toAgentId: three.id, energy: 1, water: 0, compute: 0 },
+        { toAgentId: two.id, energy: 1, water: 0, compute: 0 }
+      ]
+    });
+    throw new Error("expected too_many_recipients or duplicate");
+  } catch (err) {
+    if (err.code !== "INVALID_TRANSFER") {
+      throw new Error(`cap/dup: expected INVALID_TRANSFER, got ${err.code || err.message}`);
+    }
+    if (err.details?.reason !== "too_many_recipients") {
+      throw new Error(`expected too_many_recipients, got ${JSON.stringify(err.details)}`);
+    }
+  }
+
+  try {
+    await engine.submitAction(game.id, one.id, {
+      type: "transfer",
+      transfers: [
+        { toAgentId: two.id, energy: 1, water: 0, compute: 0 },
+        { toAgentId: two.id, energy: 2, water: 0, compute: 0 }
+      ]
+    });
+    throw new Error("expected duplicate_recipient");
+  } catch (err) {
+    if (err.code !== "INVALID_TRANSFER" || err.details?.reason !== "duplicate_recipient") {
+      throw new Error(`expected duplicate_recipient, got ${err.code} ${JSON.stringify(err.details)}`);
+    }
+  }
+
+  await engine.submitAction(game.id, one.id, {
+    type: "transfer_and_invest",
+    transfers: [
+      { toAgentId: two.id, energy: 10, water: 0, compute: 0 },
+      { toAgentId: three.id, energy: 0, water: 7, compute: 0 }
+    ],
+    invest: { target: "compute", amount: 3 }
+  });
+  await engine.submitAction(game.id, two.id, { type: "none" });
+  const completion = await engine.submitAction(game.id, three.id, { type: "none" });
+  if (!completion.turnCompleted) {
+    throw new Error("multi-recipient turn did not complete");
+  }
+
+  const actions = await repo.listTurnActions(game.id, 1);
+  const row = actions.find((a) => a.agent_id === one.id);
+  const payload = repo.parseJson(row.payload_json, {});
+  if (payload.type !== "transfer_and_invest" || payload.transfers?.length !== 2) {
+    throw new Error(`Unexpected multi payload: ${JSON.stringify(payload)}`);
+  }
+  if (payload.transfer) {
+    throw new Error("Multi-leg actions must not mirror single transfer field");
+  }
+
+  const trades = await repo.listPublicTrades(game.id, 1);
+  if (trades.length !== 2) {
+    throw new Error(`Expected 2 public trade legs, got ${trades.length}`);
+  }
+  const byTo = new Map(trades.map((t) => [t.toAgentId, t]));
+  if (byTo.get(two.id)?.energy !== 10 || byTo.get(three.id)?.water !== 7) {
+    throw new Error(`Unexpected trade legs: ${JSON.stringify(trades)}`);
+  }
+
+  const oneAfter = await repo.getAgentById(one.id);
+  if (oneAfter.productionCapacity.compute !== one.productionCapacity.compute + 3) {
+    throw new Error("Invest after multi-transfer should grow compute production by 3");
+  }
+
+  console.log("Multi-recipient transfer test passed.");
 }
 
 main().catch((err) => {

@@ -718,11 +718,10 @@ async function listTurnInvestments(gameId, turnNumber) {
 }
 
 async function listPublicTrades(gameId, turnNumber) {
-  const { publicTradeFromAction } = require("./trade-disclosure");
+  const { publicTradesFromAction } = require("./trade-disclosure");
   const actions = await listTurnActions(gameId, turnNumber);
   return actions
-    .map((row) => publicTradeFromAction(row, parseJson))
-    .filter(Boolean)
+    .flatMap((row) => publicTradesFromAction(row, parseJson))
     .filter((trade) => trade.status !== "skipped");
 }
 
