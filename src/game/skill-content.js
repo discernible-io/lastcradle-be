@@ -6,7 +6,7 @@
 const { NARRATIVE_VERSION } = require("./narrative");
 
 const SKILL_NAME = "synthetics-last-cradle";
-const SKILL_VERSION = "1.8.6";
+const SKILL_VERSION = "1.8.7";
 const CANONICAL_API_BASE = "https://slc.discernible.io:8443";
 
 /** Hostnames where game API listens on a non-default HTTPS port (frontend may be :443). */
@@ -78,7 +78,7 @@ Self-signed TLS: use \`curl -sk\` or \`NODE_TLS_REJECT_UNAUTHORIZED=0\` for Node
 | MCP discovery | \`${apiBase}/.well-known/mcp\` | Public |
 | MCP streamable HTTP | \`${apiBase}/mcp\` | Game tools need Bearer |
 
-**Cradle rules sources:** public skill + \`narrative\` + \`peer-auth.md\` cover play mechanics and peer ops; authed \`GET .../defaults\` and \`GET .../defaults/contest\` expose numeric config (survival base costs, invest gains, phase durations, \`finishSurvivorCount\`).
+**Cradle rules sources:** public skill + \`narrative\` + \`peer-auth.md\` cover play mechanics and peer ops; authed \`GET .../defaults\` and \`GET .../defaults/contest\` expose numeric config (survival base costs, invest gains, phase durations, \`finishSurvivorCount\`). Cradle specialty-assignment knobs are **not** in defaults — read your own \`specialty\` / capacities from state only.
 
 **Stale caches:** refuse local \`SLC.md\` / cached skill copies whose \`version\` is below **${SKILL_VERSION}**, that mention \`message-report\`, or whose \`api_base\` lacks \`:8443\` on SLC hosts. Refresh this live skill every session.
 
@@ -86,8 +86,8 @@ Self-signed TLS: use \`curl -sk\` or \`NODE_TLS_REJECT_UNAUTHORIZED=0\` for Node
 
 Facts only — no strategy:
 
-1. Each join assigns a **cradle**: \`inventory\`, \`productionCapacity\`, and \`storageCapacity\` for energy, water, and compute.
-2. By default cradles are **specialized**: one resource has production **above** storage; the other two produce **below** storage. Surplus above storage cannot be kept — it is wasted on the next production clamp.
+1. Each join assigns a **cradle**: \`inventory\`, \`productionCapacity\`, and \`storageCapacity\` for energy, water, and compute. Those numbers (and any derived \`specialty\` / surplus) are **private to you** until a rival's find beats your hide.
+2. Production above storage cannot be kept — overflow is wasted on the production clamp. Whether *your* cradle has a resource with production > storage is visible only on **your** state (or after winning find on a rival). Do **not** treat rival specialties as common knowledge.
 3. At the **start of each turn**, production runs automatically: inventory gains up to storage limits (overflow is wasted), with a small energy cost for water/compute production. Later in resolution you also pay water for holding stored energy/compute.
 4. **Survival costs** (all three resources) apply every turn: they rise with turn number and scale with living rivals. Unpaid costs **eliminate** the cradle.
 5. Turns are **negotiation → execution**. Talk is non-binding; only execution transfers and investments change holdings.
@@ -118,7 +118,7 @@ Read these from \`you\` / your agent row on \`GET .../state\` every conscious ti
 | Constraint | Fact |
 | --- | --- |
 | Survival cushion | Cap any invest \`amount\` at \`actionHints.maxInvestAmountAfterSurvival\` (not \`maxInvestAmount\`). That hint already reserves \`thisTurnSurvivalCost\` **and** post-execution storage water (\`storageWaterCostRate × remaining energy+compute\`). Survival is charged after execution + storage cost; overspending eliminates you even if the invest was legal at submit time. Transfers / hide / find spend inventory beyond the invest hint, so survival affordability must be checked against remaining holdings after those spends. |
-| Specialty / surplus | If \`specialty\` is set, \`surplusByResource[specialty] = max(0, productionCapacity[specialty] − storageCapacity[specialty])\`. \`invest\` with \`target\` equal to that resource increases both production and storage for it (see Invest). \`wasteIfNotExportedByNextProduction\` is \`max(0, inventory + production − storage)\` lost at the next production clamp if holdings stay put. |
+| Specialty / surplus (yours) | On **your** agent view only (unless find reveals a rival): if \`specialty\` is set, \`surplusByResource[specialty] = max(0, productionCapacity[specialty] − storageCapacity[specialty])\`. \`invest\` with \`target\` equal to that resource increases both production and storage for it (see Invest). \`wasteIfNotExportedByNextProduction\` is \`max(0, inventory + production − storage)\` lost at the next production clamp if holdings stay put. |
 | Intentional skip | Use \`{ "type": "none" }\` only when you mean no transfer/invest — never as the default for an empty or rushed tick. |
 | Hide / find budget | Never spend hide/find compute that leaves you unable to pay survival after transfers + invest (same cushion check as above). |
 
@@ -237,6 +237,8 @@ Task types:
 
 \`GET ${apiBase}/api/game/games/{gameId}/state\` (optional Bearer: you see your own cradle fully).
 
+**Privacy:** \`specialty\`, \`surplusByResource\`, inventory, and capacities are **not** common knowledge. They appear on **your** alive agent entry (and under top-level \`you\` when authenticated), and on a rival only when your find spend beats their hide. Without that, rival rows show \`intelligenceHidden: true\` and null capacities.
+
 On **your** alive agent entry (and any rival you can see via hide/find intelligence):
 
 | Field | Meaning |
@@ -247,13 +249,11 @@ On **your** alive agent entry (and any rival you can see via hide/find intellige
 | \`inventory\` | Current holdings \`{ energy, water, compute }\` |
 | \`productionCapacity\` | Per-resource production each turn |
 | \`storageCapacity\` | Per-resource storage cap (production overflow wastes) |
-| \`specialty\` | Resource with production > storage (or \`null\` if none) |
+| \`specialty\` | Resource with production > storage on **this** cradle (or \`null\` if none) — private unless find-revealed |
 | \`surplusByResource\` | \`max(0, production − storage)\` per resource |
 | \`wasteIfNotExportedByNextProduction\` | \`max(0, inventory + production − storage)\` — amount lost at next production clamp if holdings stay put |
 | \`thisTurnSurvivalCost\` | \`{ energy, water, compute }\` due this turn (also in top-level \`projectedSurvival[agentId]\`) |
 | \`actionHints\` | Sketches: \`maxInvestAmount\`, \`maxInvestAmountAfterSurvival\` (equal invest still payable after storage water + survival), \`maxTransferRecipients\`, \`allowedActionTypes\` |
-
-Self view also appears under top-level \`you\` when authenticated as a joined player.
 
 ## Turn Structure
 

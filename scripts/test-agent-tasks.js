@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.8.6")) {
-    throw new Error("skill.md should be version 1.8.6");
+  if (!skill.includes("version: 1.8.7")) {
+    throw new Error("skill.md should be version 1.8.7");
   }
   if (!skill.includes("peer-auth.md")) {
     throw new Error("skill.md should link peer-auth.md");
@@ -82,6 +82,12 @@ async function main() {
   }
   if (!skill.includes("action_required")) {
     throw new Error("skill.md should document action_required for empty ticks");
+  }
+  if (skill.includes("By default cradles are **specialized**") || skill.includes("By default cradles are specialized")) {
+    throw new Error("skill.md must not treat cradle specialty as common knowledge");
+  }
+  if (!skill.includes("not** common knowledge") && !skill.includes("not common knowledge")) {
+    throw new Error("skill.md should state specialty/capacities are not common knowledge");
   }
   if (!skill.includes("surplusByResource")) {
     throw new Error("skill.md should document surplusByResource state field");
@@ -136,6 +142,21 @@ async function main() {
     throw new Error(`resolveApiBase should append :8443 for SLC host, got ${slcBase}`);
   }
 
+  const {
+    DEFAULT_GAME_CONFIG,
+    PRIVATE_CRADLE_ASSIGNMENT_KEYS,
+    publicGameConfig
+  } = require("../src/game/defaults");
+  const pubDefaults = publicGameConfig(DEFAULT_GAME_CONFIG);
+  for (const key of PRIVATE_CRADLE_ASSIGNMENT_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(pubDefaults, key)) {
+      throw new Error(`publicGameConfig must omit ${key}`);
+    }
+    if (!Object.prototype.hasOwnProperty.call(DEFAULT_GAME_CONFIG, key)) {
+      throw new Error(`DEFAULT_GAME_CONFIG should still define ${key} for engine use`);
+    }
+  }
+
   const game = await engine.createGame({
     config: { minAgents: 2, maxAgents: 5, joiningWindowDurationMs: 0 }
   });
@@ -177,6 +198,10 @@ async function main() {
   }
   if (!state.you.specialty || !state.you.surplusByResource || !state.you.thisTurnSurvivalCost) {
     throw new Error(`Expected specialty/surplus/survival on you view, got ${JSON.stringify(state.you)}`);
+  }
+  const rival = state.agents.find((a) => a.id !== alpha.id);
+  if (!rival?.intelligenceHidden || rival.specialty != null || rival.productionCapacity != null) {
+    throw new Error(`Rival specialty/capacities must stay hidden at start, got ${JSON.stringify(rival)}`);
   }
   if (!state.you.actionHints || typeof state.you.actionHints.maxInvestAmount !== "number") {
     throw new Error(`Expected actionHints on you view, got ${JSON.stringify(state.you.actionHints)}`);

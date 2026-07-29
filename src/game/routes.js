@@ -17,7 +17,13 @@ const {
   isPrivilegedRoditId,
   isOfficialContestConfig
 } = require("./permissions");
-const { resolvePresetConfig, DEFAULT_GAME_CONFIG, CONTEST_GAME_CONFIG, PRACTICE_GAME_CONFIG } = require("./defaults");
+const {
+  resolvePresetConfig,
+  DEFAULT_GAME_CONFIG,
+  CONTEST_GAME_CONFIG,
+  PRACTICE_GAME_CONFIG,
+  publicGameConfig
+} = require("./defaults");
 const { resolveRoditId, handleGameError } = require("./route-helpers");
 const { listActiveGamesForRodit, listTasksInboxForRodit } = require("./agent-tasks");
 const { runAgentTick } = require("./tick");
@@ -384,7 +390,7 @@ router.post("/games/:gameId/action", validateContentType, validateJsonBody, asyn
  *     x-game-auth: jwt-passport
  */
 router.get("/defaults", (req, res) => {
-  res.json({ defaults: DEFAULT_GAME_CONFIG, requestId: req.requestId || ulid() });
+  res.json({ defaults: publicGameConfig(DEFAULT_GAME_CONFIG), requestId: req.requestId || ulid() });
 });
 
 /**
@@ -399,8 +405,8 @@ router.get("/defaults", (req, res) => {
  */
 router.get("/defaults/contest", (req, res) => {
   res.json({
-    definitive: CONTEST_GAME_CONFIG,
-    practice: PRACTICE_GAME_CONFIG,
+    definitive: publicGameConfig(CONTEST_GAME_CONFIG),
+    practice: publicGameConfig(PRACTICE_GAME_CONFIG),
     requestId: req.requestId || ulid()
   });
 });

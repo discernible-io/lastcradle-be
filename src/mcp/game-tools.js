@@ -22,7 +22,7 @@ const { logger } = require("@rodit/rodit-auth-be");
 const GAME_TOOL_DEFS = [
   {
     name: "slc_skill",
-    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.8.6).",
+    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.8.7).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {

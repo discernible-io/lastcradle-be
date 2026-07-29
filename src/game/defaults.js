@@ -261,12 +261,39 @@ function maxCapacityFor(config, kind, resourceKey) {
   return map?.[resourceKey] ?? Infinity;
 }
 
+/**
+ * Keys that reveal how cradles are specialized (or whether specialization is used).
+ * Specialty / surplus are private to each cradle (and to find winners) — omit from
+ * client-facing defaults so assignment is not common knowledge at game start.
+ */
+const PRIVATE_CRADLE_ASSIGNMENT_KEYS = [
+  "useSpecializedCradles",
+  "cradleSpecialtyProductionMinRatio",
+  "cradleSpecialtyProductionMaxRatio",
+  "cradleSecondaryProductionMinRatio",
+  "cradleSecondaryProductionMaxRatio"
+];
+
+/** Strip specialty-assignment knobs from configs served on GET /defaults*. */
+function publicGameConfig(config) {
+  if (!config || typeof config !== "object") {
+    return config;
+  }
+  const out = { ...config };
+  for (const key of PRIVATE_CRADLE_ASSIGNMENT_KEYS) {
+    delete out[key];
+  }
+  return out;
+}
+
 module.exports = {
   DEFAULT_GAME_CONFIG,
   CONTEST_GAME_CONFIG,
   PRACTICE_GAME_CONFIG,
+  PRIVATE_CRADLE_ASSIGNMENT_KEYS,
   mergeGameConfig,
   resolvePresetConfig,
+  publicGameConfig,
   buildInvestAction,
   randomInt,
   randomFloat,
