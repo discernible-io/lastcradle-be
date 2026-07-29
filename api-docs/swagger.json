@@ -2797,7 +2797,7 @@
       },
       "post": {
         "summary": "Create a survival game lobby",
-        "description": "Create a survival game lobby. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats (full = `maxAgents`, default 5). Official contest presets (`preset: contest|definitive` or 15-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 15-player min/max) require `GAME_PRIVILEGED_RODIT_ID`.",
+        "description": "Create a survival game lobby. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats (full = `maxAgents`, default 10). Official contest presets (`preset: contest|definitive` or 15-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 15-player min/max) require `GAME_PRIVILEGED_RODIT_ID`.",
         "tags": [
           "Game"
         ],

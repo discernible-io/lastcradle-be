@@ -33,8 +33,8 @@ async function expectCreateError(label, promise, code) {
 async function main() {
   await repo.initializeDatabase();
 
-  if (DEFAULT_GAME_CONFIG.maxAgents !== 5) {
-    throw new Error(`expected casual maxAgents 5, got ${DEFAULT_GAME_CONFIG.maxAgents}`);
+  if (DEFAULT_GAME_CONFIG.maxAgents !== 10) {
+    throw new Error(`expected casual maxAgents 10, got ${DEFAULT_GAME_CONFIG.maxAgents}`);
   }
 
   const first = await engine.createGame({

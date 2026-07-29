@@ -43,7 +43,7 @@ function denyUnlessPrivileged(req, res, requestId) {
  * /api/game/games:
  *   post:
  *     summary: Create a new survival game lobby
- *     description: Rejects with 409 OPEN_LOBBY_AVAILABLE while any joinable casual lobby still has seats (full = maxAgents, default 5).
+ *     description: Rejects with 409 OPEN_LOBBY_AVAILABLE while any joinable casual lobby still has seats (full = maxAgents, default 10).
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []

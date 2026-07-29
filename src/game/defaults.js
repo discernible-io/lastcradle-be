@@ -132,7 +132,7 @@ const DEFAULT_GAME_CONFIG = {
   minAgents: 3,
 
   /** Maximum agents per game (casual lobbies fill to this before a new lobby may be opened) */
-  maxAgents: 5,
+  maxAgents: 10,
 
   /**
    * Max distinct transfer recipients in one execution action (transfer / transfer_and_invest).
