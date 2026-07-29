@@ -159,7 +159,8 @@ const AGENT_LOGIN_GUIDE = {
       discovery: "https://api.identyclaw.com/api/mcp/resource/doc:discovery"
     }
   ],
-  gameSkill: "/api/game/skill.md"
+  gameSkill: "/api/game/skill.md",
+  peerAuth: "/api/game/peer-auth.md"
 };
 
 const TROUBLESHOOTING_GUIDE = {
@@ -219,6 +220,11 @@ const DISCOVERY_INDEX = {
     markdown: "/api/game/skill.md",
     alias: "/skill.md",
     absolute: "https://slc.discernible.io:8443/api/game/skill.md"
+  },
+  peerAuth: {
+    markdown: "/api/game/peer-auth.md",
+    alias: "/peer-auth.md",
+    absolute: "https://slc.discernible.io:8443/api/game/peer-auth.md"
   },
   federatedPeers: [
     {

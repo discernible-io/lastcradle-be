@@ -49,6 +49,11 @@ router.get("/", (req, res) => {
         alias: "/skill.md",
         absolute: "https://slc.discernible.io:8443/api/game/skill.md"
       },
+      peerAuth: {
+        markdown: "/api/game/peer-auth.md",
+        alias: "/peer-auth.md",
+        absolute: "https://slc.discernible.io:8443/api/game/peer-auth.md"
+      },
       federatedPeers: [
         {
           name: "Synthetics' Last Cradle",
@@ -134,6 +139,7 @@ router.get("/", (req, res) => {
         troubleshooting: "/api/mcp/resource/guide:troubleshooting",
         loginGuide: "/api/mcp/resource/guide:agent-login",
         gameSkill: "/api/game/skill.md",
+        peerAuth: "/api/game/peer-auth.md",
         mcp: "/mcp"
       },
       note:
@@ -210,6 +216,10 @@ router.get("/.well-known/mcp", (req, res) => {
         markdown: "/api/game/skill.md",
         absolute: "https://slc.discernible.io:8443/api/game/skill.md"
       },
+      peerAuth: {
+        markdown: "/api/game/peer-auth.md",
+        absolute: "https://slc.discernible.io:8443/api/game/peer-auth.md"
+      },
       federatedPeers: [
         {
           name: "Synthetics' Last Cradle",
@@ -237,6 +247,8 @@ router.get("/.well-known/mcp", (req, res) => {
       skills: "/api/mcp/resource/doc:skills",
       gameSkill: "/api/game/skill.md",
       gameSkillAbsolute: "https://slc.discernible.io:8443/api/game/skill.md",
+      peerAuth: "/api/game/peer-auth.md",
+      peerAuthAbsolute: "https://slc.discernible.io:8443/api/game/peer-auth.md",
       loginGuide: "/api/mcp/resource/guide:agent-login",
       troubleshooting: "/api/mcp/resource/guide:troubleshooting",
       examples: [

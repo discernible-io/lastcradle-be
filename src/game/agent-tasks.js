@@ -60,9 +60,10 @@ async function buildTasksForMembership(game, agent) {
       ...base,
       taskType: TASK_TYPES.NEGOTIATION_OPEN,
       required: false,
-      action: "POST /api/game/games/{gameId}/message",
+      action: "GET /api/game/games/{gameId}/messages then POST .../message",
       deadline: game.negotiation_ends_at,
-      description: "Negotiation phase — publish public messages; coordinate privately off-API."
+      description:
+        "Negotiation phase — read public messages, reply to open offers, optionally advertise Passport/contact and coordinate privately off-API (HOLA). Messaging is not valid in execution."
     });
   }
 
@@ -75,7 +76,8 @@ async function buildTasksForMembership(game, agent) {
         required: true,
         action: "POST /api/game/games/{gameId}/action",
         deadline: game.execution_ends_at,
-        description: "Submit one execution action chosen from state (none|transfer|invest|transfer_and_invest). Empty tick does not imply none."
+        description:
+          "Submit one execution action chosen from state (none|transfer|invest|transfer_and_invest); optional hide/find. Empty tick does not imply none. Do not POST .../message in execution."
       });
     }
   }

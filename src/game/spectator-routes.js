@@ -11,6 +11,7 @@ const repo = require("./repository");
 const events = require("./events");
 const { getGameNarrative } = require("./narrative");
 const { buildGameSkillMarkdown } = require("./skill-content");
+const { buildPeerAuthMarkdown } = require("./peer-auth-content");
 const { buildGameHonors, buildContestHonors, listHallOfFame } = require("./hall-of-fame");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 
@@ -198,6 +199,18 @@ router.get("/skill.md", (req, res) => {
 
 /**
  * @swagger
+ * /api/game/peer-auth.md:
+ *   get:
+ *     summary: Peer authentication and private trade norms for Synthetics' Last Cradle
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/peer-auth.md", (req, res) => {
+  res.type("text/markdown; charset=utf-8").send(buildPeerAuthMarkdown(req));
+});
+
+/**
+ * @swagger
  * /api/game/narrative:
  *   get:
  *     summary: Get canonical game lore and mechanic mappings
@@ -206,6 +219,47 @@ router.get("/skill.md", (req, res) => {
  */
 router.get("/narrative", (req, res) => {
   res.json({ narrative: getGameNarrative(), requestId: req.requestId || ulid() });
+});
+
+/**
+ * @swagger
+ * /api/game/games/{gameId}/players/{agentId}/identity:
+ *   get:
+ *     summary: Public cradle identity (game ULID + Passport roditId) for peer discovery
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/games/:gameId/players/:agentId/identity", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  try {
+    const game = await repo.getGameById(req.params.gameId);
+    if (!game) {
+      return handleGameError(
+        res,
+        { code: "GAME_NOT_FOUND", message: "Game not found", statusCode: 404 },
+        requestId
+      );
+    }
+    const agent = await repo.getAgentById(req.params.agentId);
+    if (!agent || agent.gameId !== game.id) {
+      return handleGameError(
+        res,
+        { code: "AGENT_NOT_FOUND", message: "Agent not found in this game", statusCode: 404 },
+        requestId
+      );
+    }
+    res.json({
+      agentId: agent.id,
+      displayName: agent.displayName,
+      roditId: agent.roditId,
+      status: agent.status,
+      notes:
+        "roditId is the Passport / RODiT id for HOLA and IdentyClaw lookup. Public negotiation may advertise email/A2A/webhook contact; those claims are not forged as verified identity — mutual HOLA still required before private deals. Transfers use agentId (ULID), not roditId.",
+      requestId
+    });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
 });
 
 /**

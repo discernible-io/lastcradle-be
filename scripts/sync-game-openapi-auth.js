@@ -23,9 +23,11 @@ const PUBLIC_SPECTATOR_PATHS = new Set([
   "/api/game/contests",
   "/api/game/narrative",
   "/api/game/skill.md",
+  "/api/game/peer-auth.md",
   "/api/game/games/{gameId}/state",
   "/api/game/games/{gameId}/messages",
   "/api/game/games/{gameId}/trades",
+  "/api/game/games/{gameId}/players/{agentId}/identity",
   "/api/game/hall-of-fame",
   "/api/game/hall-of-fame/{contestId}",
   "/api/game/games/{gameId}/honors",
@@ -210,7 +212,7 @@ function wireGameResponseSchemas(spec) {
 function patchInfoDescription(description) {
   const authBlock = `### Game API authentication
 
-**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /skill.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
+**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/peer-auth.md\`, \`GET /skill.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
 
 **Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Poll \`GET /api/game/tasks\` or \`GET /api/game/games/mine\` for pending work. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\`, \`your_turn\`, \`elimination\`, and \`game_finished\`. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
 
@@ -261,6 +263,73 @@ function main() {
 
   // Removed mechanics: message-report phase / messaging costs
   delete spec.paths["/api/game/games/{gameId}/message-report"];
+
+  spec.paths["/api/game/peer-auth.md"] = {
+    get: {
+      summary: "Peer authentication and private trade norms for Synthetics' Last Cradle",
+      tags: ["Game"],
+      responses: {
+        200: {
+          description: "Markdown peer-auth / HOLA settlement document",
+          content: {
+            "text/markdown": {
+              schema: { type: "string" }
+            }
+          }
+        }
+      },
+      "x-game-auth": GAME_AUTH_PUBLIC,
+      description:
+        "Public peer-ops playbook (HOLA, reply duty, channel timing). Linked from skill.md. No JWT required."
+    }
+  };
+
+  spec.paths["/api/game/games/{gameId}/players/{agentId}/identity"] = {
+    get: {
+      summary: "Public cradle identity (game ULID + Passport roditId) for peer discovery",
+      tags: ["Game"],
+      parameters: [
+        { $ref: "#/components/parameters/gameId" },
+        {
+          name: "agentId",
+          in: "path",
+          required: true,
+          schema: { type: "string", description: "Game agent ULID" }
+        }
+      ],
+      responses: {
+        200: {
+          description: "Identity for peer discovery",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  agentId: { type: "string" },
+                  displayName: { type: "string" },
+                  roditId: { type: "string", description: "Passport / RODiT id for HOLA" },
+                  status: { type: "string" },
+                  notes: { type: "string" },
+                  requestId: { type: "string" }
+                }
+              }
+            }
+          }
+        },
+        404: {
+          description: "Game or agent not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        }
+      },
+      "x-game-auth": GAME_AUTH_PUBLIC,
+      description:
+        "Returns displayName, game agentId (ULID for transfers), and roditId (Passport). Public contact ads are not verified identity — HOLA still required."
+    }
+  };
 
   spec.components.parameters = spec.components.parameters || {};
   spec.components.parameters.gameId = {
@@ -379,16 +448,20 @@ function main() {
           }
         },
         hide: {
-          oneOf: [{ type: "number" }, { type: "object", properties: { compute: { type: "number" } } }]
+          oneOf: [{ type: "number" }, { type: "object", properties: { compute: { type: "number" } } }],
+          description:
+            "Optional compute spend to raise hide this turn. Reveal uses previous turn's hide/find: viewer sees rival capacities when find spend on that pair exceeds target hide. Check survival cushion after spend."
         },
         find: {
           type: "array",
+          description:
+            "Optional scouting spends. Each entry targets a living peer ULID (not self). Reveal lags one turn (see hide).",
           items: {
             type: "object",
             required: ["targetAgentId", "compute"],
             properties: {
-              targetAgentId: { type: "string" },
-              compute: { type: "number" }
+              targetAgentId: { type: "string", description: "Living game agent ULID" },
+              compute: { type: "number", description: "Compute spent to find this target" }
             }
           }
         }

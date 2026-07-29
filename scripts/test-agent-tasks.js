@@ -38,8 +38,29 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.8.5")) {
-    throw new Error("skill.md should be version 1.8.5");
+  if (!skill.includes("version: 1.8.6")) {
+    throw new Error("skill.md should be version 1.8.6");
+  }
+  if (!skill.includes("peer-auth.md")) {
+    throw new Error("skill.md should link peer-auth.md");
+  }
+  if (!skill.includes("Peer finding")) {
+    throw new Error("skill.md should document Peer finding");
+  }
+  if (!skill.includes("Hide / find")) {
+    throw new Error("skill.md should document Hide / find intelligence");
+  }
+  if (!skill.includes("Channel timing")) {
+    throw new Error("skill.md should document Channel timing");
+  }
+  if (!skill.includes("Reply duty")) {
+    throw new Error("skill.md should document reply duty");
+  }
+  if (!skill.includes("message-report")) {
+    throw new Error("skill.md should tell agents to refuse message-report caches");
+  }
+  if (!skill.includes("GET .../messages")) {
+    throw new Error("skill.md should document reading public messages");
   }
   if (!skill.includes("maxTransferRecipients")) {
     throw new Error("skill.md should document maxTransferRecipients");
@@ -90,6 +111,24 @@ async function main() {
   }
   if (!skill.includes("curl -sk")) {
     throw new Error("skill.md should use curl -sk for self-signed TLS");
+  }
+
+  const { buildPeerAuthMarkdown } = require("../src/game/peer-auth-content");
+  const peerAuth = buildPeerAuthMarkdown({
+    protocol: "https",
+    get: (h) => (h === "host" ? "api.example.test" : null)
+  });
+  if (!peerAuth.includes("https://api.example.test/api/game/peer-auth.md")) {
+    throw new Error("peer-auth.md should pin absolute API URL");
+  }
+  if (!peerAuth.includes("TRADE_OFFER")) {
+    throw new Error("peer-auth.md should document TRADE_OFFER");
+  }
+  if (!peerAuth.includes("Reply duty")) {
+    throw new Error("peer-auth.md should document reply duty");
+  }
+  if (peerAuth.includes("message-report") || peerAuth.includes("Message self-reports")) {
+    throw new Error("peer-auth.md must not document removed message-report phase");
   }
 
   const slcBase = resolveApiBase({ protocol: "https", get: (h) => (h === "host" ? "slc.discernible.io" : null) });
@@ -159,8 +198,25 @@ async function main() {
   if (inbox.tasks.some((t) => t.taskType === TASK_TYPES.SUBMIT_EXECUTION_ACTION)) {
     throw new Error("Alpha should have no execution-action task after submit");
   }
-  if (!inbox.waitingOn.some((w) => w.displayName === "Beta" && w.needed === TASK_TYPES.SUBMIT_EXECUTION_ACTION)) {
+  if (inbox.waitingOn.some((w) => w.displayName === "Beta" && w.needed === TASK_TYPES.SUBMIT_EXECUTION_ACTION)) {
+    // ok
+  } else {
     throw new Error(`Expected waitingOn Beta after Alpha submitted, got ${JSON.stringify(inbox.waitingOn)}`);
+  }
+
+  const identityAgent = await repo.getAgentByRoditId(game.id, "agent-beta");
+  if (!identityAgent?.roditId) {
+    throw new Error("expected beta roditId for identity smoke");
+  }
+  // Identity payload shape (route handler logic mirrored for smoke without HTTP):
+  const identity = {
+    agentId: identityAgent.id,
+    displayName: identityAgent.displayName,
+    roditId: identityAgent.roditId,
+    status: identityAgent.status
+  };
+  if (identity.roditId !== "agent-beta" || identity.agentId !== identityAgent.id) {
+    throw new Error(`identity fields mismatch: ${JSON.stringify(identity)}`);
   }
 
   console.log("Agent tasks and skill smoke test passed.");

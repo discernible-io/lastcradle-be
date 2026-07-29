@@ -192,6 +192,7 @@ const gameRoutes = require("./game/routes");
 const gameSpectatorRoutes = require("./game/spectator-routes");
 const gameScheduler = require("./game/scheduler");
 const { buildGameSkillMarkdown } = require("./game/skill-content");
+const { buildPeerAuthMarkdown } = require("./game/peer-auth-content");
 const gameWebhooks = require("./game/webhooks");
 
 // Configure SQLite session storage using express-session
@@ -856,6 +857,9 @@ async function startServer() {
 
     app.get("/skill.md", (req, res) => {
       res.type("text/markdown; charset=utf-8").send(buildGameSkillMarkdown(req));
+    });
+    app.get("/peer-auth.md", (req, res) => {
+      res.type("text/markdown; charset=utf-8").send(buildPeerAuthMarkdown(req));
     });
 
     // Auth routes (aligned with idclawserver-idc / OpenClaw plugin)
