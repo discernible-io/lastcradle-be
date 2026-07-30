@@ -131,13 +131,114 @@ async function main() {
   const viewOfSelf = selfView.agents.find((a) => a.id === two.id);
   console.log("Two sees own inventory:", viewOfSelf.inventory !== null);
 
+  if (!selfView.you?.actionHints || typeof selfView.you.actionHints.hiddenRivalCount !== "number") {
+    throw new Error("viewer actionHints should include hiddenRivalCount");
+  }
+  if (selfView.you.actionHints.intelligenceMemoryTurns !== 2) {
+    throw new Error("expected intelligenceMemoryTurns 2 on actionHints");
+  }
+
   console.log("Smoke test passed.");
 
+  await testIntelligenceMemoryWindow();
   await testSpecializedCradlesAndCombinedAction();
   await testInvalidTransferRejected();
   await testMultiRecipientTransfers();
 
   await repo.closeDatabase();
+}
+
+async function testIntelligenceMemoryWindow() {
+  const game = await engine.createGame({
+    config: {
+      useRandomStartingInventory: false,
+      startingInventory: { energy: 80, water: 80, compute: 80 },
+      cradleCapacityMin: 100,
+      cradleCapacityMax: 100,
+      useSpecializedCradles: false,
+      minAgents: 3,
+      joiningWindowDurationMs: 0,
+      productionEnergyCostRate: 0,
+      storageWaterCostRate: 0,
+      survivalCost: { energy: 1, water: 1, compute: 1 },
+      intelligenceMemoryTurns: 2
+    }
+  });
+
+  await engine.joinGame(game.id, { roditId: "mem-a", displayName: "MemA" });
+  await engine.joinGame(game.id, { roditId: "mem-b", displayName: "MemB" });
+  await engine.joinGame(game.id, { roditId: "mem-c", displayName: "MemC" });
+  await engine.startGame(game.id);
+
+  const agents = await repo.listAgents(game.id);
+  const one = agents.find((a) => a.roditId === "mem-a");
+  const two = agents.find((a) => a.roditId === "mem-b");
+  const three = agents.find((a) => a.roditId === "mem-c");
+
+  // Turn 1: two scouts one (find 2 > hide 0)
+  await engine.beginExecutionPhase(game.id);
+  await engine.submitAction(game.id, one.id, { type: "none" });
+  await engine.submitAction(game.id, two.id, {
+    type: "none",
+    find: [{ targetAgentId: one.id, compute: 2 }]
+  });
+  const turn1 = await engine.submitAction(game.id, three.id, { type: "none" });
+  if (!turn1.turnCompleted) throw new Error("turn 1 did not complete");
+
+  let state = await engine.getPublicState(game.id, { viewerAgentId: two.id });
+  let viewOfOne = state.agents.find((a) => a.id === one.id);
+  if (viewOfOne.intelligenceHidden || !viewOfOne.inventory) {
+    throw new Error("after turn 1, find should reveal one to two");
+  }
+  if (state.you.actionHints.hiddenRivalCount < 1) {
+    // three still hidden
+    throw new Error("expected at least one hidden rival (three) after scouting one");
+  }
+
+  // Turn 2: no find, no hide — memory window still includes turn 1
+  await engine.beginExecutionPhase(game.id);
+  await engine.submitAction(game.id, one.id, { type: "none" });
+  await engine.submitAction(game.id, two.id, { type: "none" });
+  const turn2 = await engine.submitAction(game.id, three.id, { type: "none" });
+  if (!turn2.turnCompleted) throw new Error("turn 2 did not complete");
+
+  state = await engine.getPublicState(game.id, { viewerAgentId: two.id });
+  viewOfOne = state.agents.find((a) => a.id === one.id);
+  if (viewOfOne.intelligenceHidden || !viewOfOne.inventory) {
+    throw new Error("memory window should keep turn-1 find visible on turn 3 state");
+  }
+
+  // Turn 3: still no find — window is turns 2–3 only; fog returns
+  await engine.beginExecutionPhase(game.id);
+  await engine.submitAction(game.id, one.id, { type: "none" });
+  await engine.submitAction(game.id, two.id, { type: "none" });
+  const turn3 = await engine.submitAction(game.id, three.id, { type: "none" });
+  if (!turn3.turnCompleted) throw new Error("turn 3 did not complete");
+
+  state = await engine.getPublicState(game.id, { viewerAgentId: two.id });
+  viewOfOne = state.agents.find((a) => a.id === one.id);
+  if (!viewOfOne.intelligenceHidden || viewOfOne.inventory != null) {
+    throw new Error("after window slides past turn 1, one should be hidden again");
+  }
+
+  // Hide escalation: find then target out-hides on the only window turns
+  await engine.beginExecutionPhase(game.id);
+  await engine.submitAction(game.id, one.id, { type: "none", hide: 3 });
+  await engine.submitAction(game.id, two.id, {
+    type: "none",
+    find: [{ targetAgentId: one.id, compute: 1 }]
+  });
+  const turn4 = await engine.submitAction(game.id, three.id, { type: "none" });
+  if (!turn4.turnCompleted) throw new Error("turn 4 did not complete");
+
+  state = await engine.getPublicState(game.id, { viewerAgentId: two.id });
+  viewOfOne = state.agents.find((a) => a.id === one.id);
+  // Window turns 3–4: turn 3 no find, turn 4 find 1 <= hide 3 → still hidden
+  if (!viewOfOne.intelligenceHidden) {
+    throw new Error("hide 3 should beat find 1 within the memory window");
+  }
+
+  console.log("Intelligence memory window test passed.");
 }
 
 async function testSpecializedCradlesAndCombinedAction() {

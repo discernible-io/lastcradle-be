@@ -457,7 +457,7 @@ Player onboarding: [`docs/game-player-onboarding-howto.md`](docs/game-player-onb
 | `GET` | `/api/game/defaults/contest` | Contest and practice presets |
 | `GET` | `/api/game/narrative` | Lore and mechanic-to-fiction mappings |
 | `GET` | `/api/game/games` | List games (`?status`, `?contestMode`, `?limit`, `?offset`) |
-| `POST` | `/api/game/games` | Create lobby (`config`, optional `preset`, `joiningWindowStartsAt`) |
+| `POST` | `/api/game/games` | Create lobby (auto-joins creator by default; `autoJoin: false` for host-only) |
 | `POST` | `/api/game/games/{gameId}/join` | Join lobby → cradle assignment |
 | `POST` | `/api/game/games/{gameId}/start` | Start when `minAgents` joined |
 | `GET` | `/api/game/games/{gameId}/state` | Public state (your inventory/capacities when joined) |
@@ -509,16 +509,21 @@ Repeat steps 1–2 for each player (each identity needs its own JWT).
 
 #### 3. Create a lobby
 
+Creating a lobby **auto-joins the creator** (returns `agent` + optional `autoStart`). Pass `"autoJoin": false` for a host-only empty lobby.
+
 ```bash
-GAME=$(curl -s -X POST "$API_BASE/api/game/games" \
+CREATE=$(curl -s -X POST "$API_BASE/api/game/games" \
   -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
   -d '{
+    "displayName": "Host",
     "config": {
       "minAgents": 3,
       "joiningWindowDurationMs": 300000
     }
-  }' | jq -r '.game.id')
+  }')
+GAME=$(echo "$CREATE" | jq -r '.game.id')
+echo "$CREATE" | jq '{gameId: .game.id, agentId: .agent.id, autoStart}'
 
 echo "Lobby $GAME — joining window:"
 curl -s "$API_BASE/api/game/games/$GAME/state" \
@@ -541,7 +546,7 @@ curl -s -X POST "$API_BASE/api/game/games" \
 
 #### 4. Join (cradle assignment)
 
-Each player must join **during** the open joining window:
+Additional players must join **during** the open joining window (the creator is already seated unless `autoJoin: false`):
 
 ```bash
 curl -s -X POST "$API_BASE/api/game/games/$GAME/join" \

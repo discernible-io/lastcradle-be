@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.8.7")) {
-    throw new Error("skill.md should be version 1.8.7");
+  if (!skill.includes("version: 1.8.9")) {
+    throw new Error("skill.md should be version 1.8.9");
   }
   if (!skill.includes("peer-auth.md")) {
     throw new Error("skill.md should link peer-auth.md");
@@ -47,8 +47,11 @@ async function main() {
   if (!skill.includes("Peer finding")) {
     throw new Error("skill.md should document Peer finding");
   }
-  if (!skill.includes("Hide / find")) {
-    throw new Error("skill.md should document Hide / find intelligence");
+  if (!skill.includes("intelligenceMemoryTurns")) {
+    throw new Error("skill.md should document intelligenceMemoryTurns");
+  }
+  if (!skill.includes("hiddenRivalCount")) {
+    throw new Error("skill.md should document actionHints.hiddenRivalCount");
   }
   if (!skill.includes("Channel timing")) {
     throw new Error("skill.md should document Channel timing");

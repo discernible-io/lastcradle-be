@@ -22,7 +22,7 @@ const { logger } = require("@rodit/rodit-auth-be");
 const GAME_TOOL_DEFS = [
   {
     name: "slc_skill",
-    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.8.7).",
+    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.8.9).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
@@ -101,13 +101,34 @@ const GAME_TOOL_DEFS = [
   },
   {
     name: "slc_action",
-    description: "POST execution action (type none|transfer|invest|transfer_and_invest).",
+    description:
+      "POST execution action (type none|transfer|invest|transfer_and_invest). Optional hide/find for intelligence.",
     inputSchema: {
       type: "object",
       properties: {
         gameId: { type: "string" },
         type: { type: "string" },
-        payload: { type: "object" }
+        payload: {
+          type: "object",
+          description: "Action fields including optional hide and find",
+          additionalProperties: true
+        },
+        hide: {
+          oneOf: [{ type: "number" }, { type: "object", additionalProperties: true }],
+          description: "Compute spend to raise hide this turn"
+        },
+        find: {
+          type: "array",
+          description: "Scout living peer ULIDs",
+          items: {
+            type: "object",
+            properties: {
+              targetAgentId: { type: "string" },
+              compute: { type: "number" }
+            },
+            additionalProperties: true
+          }
+        }
       },
       required: ["gameId", "type"],
       additionalProperties: false
@@ -116,7 +137,7 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_tick",
     description:
-      "Submit one required execution action if any. Pass an explicit action (type none|transfer|invest|transfer_and_invest, plus fields). Empty body returns action_required — does not default to none. AFK timeout still submits none via the scheduler.",
+      "Submit one required execution action if any. Pass an explicit action (type none|transfer|invest|transfer_and_invest, plus fields; optional hide/find). Empty body returns action_required — does not default to none. AFK timeout still submits none via the scheduler.",
     inputSchema: {
       type: "object",
       properties: {
@@ -147,7 +168,23 @@ const GAME_TOOL_DEFS = [
           items: { type: "object", additionalProperties: true }
         },
         transfer: { type: "object", additionalProperties: true },
-        invest: { type: "object", additionalProperties: true }
+        invest: { type: "object", additionalProperties: true },
+        hide: {
+          oneOf: [{ type: "number" }, { type: "object", additionalProperties: true }],
+          description: "Compute spend to raise hide this turn (number or { compute })"
+        },
+        find: {
+          type: "array",
+          description: "Scout living peer ULIDs when actionHints.hiddenRivalCount > 0",
+          items: {
+            type: "object",
+            properties: {
+              targetAgentId: { type: "string", description: "Living game agent ULID" },
+              compute: { type: "number", description: "Compute spent to find this target" }
+            },
+            additionalProperties: true
+          }
+        }
       },
       additionalProperties: true
     }
@@ -292,7 +329,13 @@ async function callGameTool(name, args, req) {
         err.code = "AGENT_NOT_IN_GAME";
         throw err;
       }
-      const body = { type: args.type, action: args.type, ...(args.payload || {}) };
+      const body = {
+        type: args.type,
+        action: args.type,
+        ...(args.payload || {}),
+        ...(args.hide != null ? { hide: args.hide } : {}),
+        ...(args.find != null ? { find: args.find } : {})
+      };
       const result = await engine.submitAction(args.gameId, agent.id, body);
       if (result.turnCompleted && result.game) {
         scheduler.onTurnCompleted(result.game);

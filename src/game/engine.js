@@ -789,6 +789,10 @@ function collectIntelligenceFromActions(actions) {
   return { hideSpendByAgent, findSpendByPair };
 }
 
+/**
+ * @param {object|object[]} intelligence - One turn's maps, or an array of per-turn maps (memory window).
+ * Reveal if any turn in the window has find(viewer→target) > hide(target).
+ */
 function canViewerSeeCapacities(viewerAgentId, targetAgentId, intelligence) {
   if (viewerAgentId === targetAgentId) {
     return true;
@@ -796,9 +800,37 @@ function canViewerSeeCapacities(viewerAgentId, targetAgentId, intelligence) {
   if (!viewerAgentId) {
     return false;
   }
-  const hideSpend = intelligence.hideSpendByAgent.get(targetAgentId) || 0;
-  const findSpend = intelligence.findSpendByPair.get(`${targetAgentId}:${viewerAgentId}`) || 0;
-  return findSpend > hideSpend;
+  const turns = Array.isArray(intelligence) ? intelligence : intelligence ? [intelligence] : [];
+  for (const intel of turns) {
+    if (!intel?.hideSpendByAgent || !intel?.findSpendByPair) continue;
+    const hideSpend = intel.hideSpendByAgent.get(targetAgentId) || 0;
+    const findSpend = intel.findSpendByPair.get(`${targetAgentId}:${viewerAgentId}`) || 0;
+    if (findSpend > hideSpend) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Load per-turn intelligence for the rolling memory window ending at the last completed turn.
+ */
+async function loadIntelligenceMemory(gameId, currentTurn, memoryTurns) {
+  const windowSize = Math.max(1, Number(memoryTurns) || DEFAULT_GAME_CONFIG.intelligenceMemoryTurns);
+  if (currentTurn <= 0) {
+    return [];
+  }
+  const lastCompleted = currentTurn - 1;
+  if (lastCompleted < 1) {
+    return [];
+  }
+  const first = Math.max(1, lastCompleted - windowSize + 1);
+  const turns = [];
+  for (let t = first; t <= lastCompleted; t += 1) {
+    const actions = await repo.listTurnActions(gameId, t);
+    turns.push(collectIntelligenceFromActions(actions));
+  }
+  return turns;
 }
 
 async function executeTurn(gameId) {
@@ -1073,7 +1105,29 @@ function maxEqualInvestPreservingSurvival(inventory, survivalCost, config = {}) 
   return 0;
 }
 
-function buildActionHints(inventory, survivalCost, config = {}) {
+/**
+ * Max compute spendable on hide/find while still paying survival after storage water cost.
+ * Does not model transfer/invest in the same action — leave cushion if combining.
+ */
+function maxIntelligenceComputeAfterSurvival(inventory, survivalCost, config = {}) {
+  const rate = Number(config.storageWaterCostRate) || 0;
+  const se = survivalCost?.energy ?? 0;
+  const sw = survivalCost?.water ?? 0;
+  const sc = survivalCost?.compute ?? 0;
+  const maxAffordable = Math.max(0, Math.floor(inventory?.compute ?? 0));
+
+  for (let n = maxAffordable; n >= 0; n -= 1) {
+    const energy = inventory.energy;
+    const water = inventory.water;
+    const compute = inventory.compute - n;
+    if (energy < se || compute < sc) continue;
+    const waterAfterStorage = Math.max(0, water - (energy + compute) * rate);
+    if (waterAfterStorage >= sw) return n;
+  }
+  return 0;
+}
+
+function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
   const maxInvestAmount = Math.max(
     0,
     Math.floor(Math.min(inventory.energy, inventory.water, inventory.compute))
@@ -1083,15 +1137,34 @@ function buildActionHints(inventory, survivalCost, config = {}) {
     survivalCost,
     config
   );
+  const maxIntelligenceCompute =
+    maxIntelligenceComputeAfterSurvival(inventory, survivalCost, config);
   const maxTransferRecipients =
     config.maxTransferRecipients ?? DEFAULT_GAME_CONFIG.maxTransferRecipients;
+  const intelligenceMemoryTurns =
+    config.intelligenceMemoryTurns ?? DEFAULT_GAME_CONFIG.intelligenceMemoryTurns;
+  const hiddenRivalCount = fog.hiddenRivalCount ?? 0;
+  const livingRivalCount = fog.livingRivalCount ?? 0;
+
+  const fogNote =
+    hiddenRivalCount > 0 && maxIntelligenceCompute >= 1
+      ? ` ${hiddenRivalCount} living rival(s) have intelligenceHidden — attach find[{ targetAgentId, compute }] (compute 1 beats hide 0); successful find stays visible for intelligenceMemoryTurns (${intelligenceMemoryTurns}) completed turns.`
+      : hiddenRivalCount > 0
+        ? ` ${hiddenRivalCount} living rival(s) have intelligenceHidden but maxIntelligenceComputeAfterSurvival is 0 — do not spend hide/find this turn.`
+        : ` No hidden living rivals (or you are not seated).`;
+
   return {
     allowedActionTypes: ["transfer", "invest", "transfer_and_invest", "none"],
     maxInvestAmount,
     maxInvestAmountAfterSurvival,
+    maxIntelligenceComputeAfterSurvival: maxIntelligenceCompute,
     maxTransferRecipients,
+    intelligenceMemoryTurns,
+    hiddenRivalCount,
+    livingRivalCount,
     note:
-      "maxInvestAmount is equal E/W/C affordable now; cap invest amount at maxInvestAmountAfterSurvival so thisTurnSurvivalCost remains payable after execution and storage water cost (storageWaterCostRate × remaining energy+compute). Transfers/hide/find spend inventory beyond that invest hint. Up to maxTransferRecipients distinct living peers per transfer action (transfers[]). Choose type from current state — empty tick does not imply none."
+      "maxInvestAmount is equal E/W/C affordable now; cap invest amount at maxInvestAmountAfterSurvival so thisTurnSurvivalCost remains payable after execution and storage water cost (storageWaterCostRate × remaining energy+compute). Cap hide+find compute at maxIntelligenceComputeAfterSurvival (transfers/invest spend beyond that). Up to maxTransferRecipients distinct living peers per transfer action (transfers[]). Choose type from current state — empty tick does not imply none." +
+      fogNote
   };
 }
 
@@ -1112,12 +1185,12 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       ? await repo.getExecutionSubmissionStatus(gameId, game.current_turn)
       : null;
 
-  const intelligenceTurn = Math.max(0, game.current_turn - 1);
-  const turnActions =
-    game.status === "running" && intelligenceTurn > 0
-      ? await repo.listTurnActions(gameId, intelligenceTurn)
+  const memoryTurns =
+    game.config?.intelligenceMemoryTurns ?? DEFAULT_GAME_CONFIG.intelligenceMemoryTurns;
+  const intelligence =
+    game.status === "running"
+      ? await loadIntelligenceMemory(gameId, game.current_turn, memoryTurns)
       : [];
-  const intelligence = collectIntelligenceFromActions(turnActions);
 
   const projectedSurvivalContext = buildSurvivalContext({
     turnNumber: game.current_turn,
@@ -1133,15 +1206,27 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       ? Object.fromEntries(livingAgents.map((agent) => [agent.id, { ...thisTurnSurvivalCost }]))
       : null;
 
+  // First pass without actionHints so we can count fog, then attach hints on the viewer row.
   const agentViews = agents.map((agent) =>
     publicAgentView(agent, viewerAgentId, intelligence, {
       thisTurnSurvivalCost,
-      includeActionHints: Boolean(viewerAgentId && agent.id === viewerAgentId),
+      includeActionHints: false,
       config: game.config
     })
   );
   const you =
     viewerAgentId != null ? agentViews.find((a) => a.id === viewerAgentId) || null : null;
+
+  if (you && you.status === "alive" && you.inventory) {
+    const livingRivals = agentViews.filter(
+      (a) => a.status === "alive" && a.id !== viewerAgentId
+    );
+    const hiddenRivalCount = livingRivals.filter((a) => a.intelligenceHidden).length;
+    you.actionHints = buildActionHints(you.inventory, thisTurnSurvivalCost, game.config, {
+      hiddenRivalCount,
+      livingRivalCount: livingRivals.length
+    });
+  }
 
   return {
     game: {
@@ -1632,6 +1717,8 @@ module.exports = {
   normalizeHideSpend,
   canViewerSeeCapacities,
   collectIntelligenceFromActions,
+  loadIntelligenceMemory,
+  maxIntelligenceComputeAfterSurvival,
   buildOpeningInventoryReport,
   selectOpeningInventoryScout,
   openingInventoryReportForViewer,

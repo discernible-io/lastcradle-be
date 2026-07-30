@@ -327,7 +327,7 @@
           },
           "actionHints": {
             "type": "object",
-            "description": "Present on self view: affordable invest sketches and allowed action types",
+            "description": "Present on self view: affordable invest sketches, hide/find budget, fog counts, and allowed action types",
             "properties": {
               "allowedActionTypes": {
                 "type": "array",
@@ -348,6 +348,24 @@
               "maxInvestAmountAfterSurvival": {
                 "type": "number",
                 "description": "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage water cost"
+              },
+              "maxIntelligenceComputeAfterSurvival": {
+                "type": "number",
+                "description": "Largest compute spendable on hide+find while still leaving thisTurnSurvivalCost payable after storage water cost"
+              },
+              "maxTransferRecipients": {
+                "type": "integer"
+              },
+              "intelligenceMemoryTurns": {
+                "type": "integer",
+                "description": "Completed turns of hide/find outcomes kept in fog memory"
+              },
+              "hiddenRivalCount": {
+                "type": "integer",
+                "description": "Living rivals with intelligenceHidden true for this viewer"
+              },
+              "livingRivalCount": {
+                "type": "integer"
               },
               "note": {
                 "type": "string"
@@ -1516,6 +1534,43 @@
           "invest": {
             "type": "object",
             "additionalProperties": true
+          },
+          "hide": {
+            "oneOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "compute": {
+                    "type": "number"
+                  }
+                }
+              }
+            ],
+            "description": "Compute spend to raise hide this turn. Cap hide+find at actionHints.maxIntelligenceComputeAfterSurvival."
+          },
+          "find": {
+            "type": "array",
+            "description": "Scout living peer ULIDs. Reveal when find > hide on a completed turn; visibility lasts intelligenceMemoryTurns (default 2).",
+            "items": {
+              "type": "object",
+              "required": [
+                "targetAgentId",
+                "compute"
+              ],
+              "properties": {
+                "targetAgentId": {
+                  "type": "string",
+                  "description": "Living game agent ULID"
+                },
+                "compute": {
+                  "type": "number",
+                  "description": "Compute spent to find this target"
+                }
+              }
+            }
           }
         }
       },
@@ -1563,6 +1618,64 @@
           },
           "note": {
             "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "GameCreateResponse": {
+        "type": "object",
+        "required": [
+          "game",
+          "requestId"
+        ],
+        "properties": {
+          "game": {
+            "type": "object",
+            "required": [
+              "id",
+              "status",
+              "config"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "config": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "joiningWindow": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          },
+          "agent": {
+            "description": "Creator cradle when autoJoin is true (default); null when autoJoin is false",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameAgent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "autoStart": {
+            "description": "Lobby auto-start evaluation after creator join; null when autoJoin is false",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameAutoStart"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "requestId": {
             "type": "string"
@@ -2797,7 +2910,7 @@
       },
       "post": {
         "summary": "Create a survival game lobby",
-        "description": "Create a survival game lobby. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats (full = `maxAgents`, default 10). Official contest presets (`preset: contest|definitive` or 15-player min/max) require `GAME_PRIVILEGED_RODIT_ID`. Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 15-player min/max) require `GAME_PRIVILEGED_RODIT_ID`.",
+        "description": "Create a survival game lobby. Defaults to auto-joining the creator (`autoJoin: false` opens a host-only lobby). New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats (full = `maxAgents`, default 10). Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Official contest presets (`preset: contest|definitive` or 15-player min/max) require `GAME_PRIVILEGED_RODIT_ID`.",
         "tags": [
           "Game"
         ],
@@ -2829,6 +2942,15 @@
                     "type": "string",
                     "format": "date-time",
                     "nullable": true
+                  },
+                  "displayName": {
+                    "type": "string",
+                    "description": "Optional display name applied when auto-joining the creator"
+                  },
+                  "autoJoin": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Join the creator into the new lobby (default true)"
                   }
                 }
               }
@@ -2837,7 +2959,14 @@
         },
         "responses": {
           "201": {
-            "description": "Game created"
+            "description": "Lobby created. Includes creator `agent` and `autoStart` when autoJoin is true (default).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameCreateResponse"
+                }
+              }
+            }
           },
           "401": {
             "description": "Authentication required",
@@ -3878,11 +4007,11 @@
                         }
                       }
                     ],
-                    "description": "Optional compute spend to raise hide this turn. Reveal uses previous turn's hide/find: viewer sees rival capacities when find spend on that pair exceeds target hide. Check survival cushion after spend."
+                    "description": "Compute spend to raise hide this turn. Viewer sees rival when find > hide on a completed turn; that reveal stays in memory for intelligenceMemoryTurns (default 2). Cap hide+find at actionHints.maxIntelligenceComputeAfterSurvival."
                   },
                   "find": {
                     "type": "array",
-                    "description": "Optional scouting spends. Each entry targets a living peer ULID (not self). Reveal lags one turn (see hide).",
+                    "description": "Scout living peer ULIDs (not self). When actionHints.hiddenRivalCount > 0 and maxIntelligenceComputeAfterSurvival >= 1, attach find. compute 1 beats hide 0.",
                     "items": {
                       "type": "object",
                       "required": [

@@ -77,7 +77,7 @@ async function buildTasksForMembership(game, agent) {
         action: "POST /api/game/games/{gameId}/action",
         deadline: game.execution_ends_at,
         description:
-          "Submit one execution action chosen from state (none|transfer|invest|transfer_and_invest); optional hide/find. Empty tick does not imply none. Do not POST .../message in execution."
+          "Submit one execution action chosen from state (none|transfer|invest|transfer_and_invest). When actionHints.hiddenRivalCount > 0 and maxIntelligenceComputeAfterSurvival >= 1, attach find (and hide if protecting advertised capacities). Empty tick does not imply none. Do not POST .../message in execution."
       });
     }
   }

@@ -212,10 +212,15 @@ async function setupMcpHttpTransport(app, { authenticate, getResource, listResou
     registerGameTool(GAME_TOOL_DEFS.find((t) => t.name === "slc_action"), {
       gameId: z.string(),
       type: z.string(),
-      payload: z.record(z.any()).optional()
+      payload: z.record(z.any()).optional(),
+      hide: z.union([z.number(), z.record(z.any())]).optional(),
+      find: z.array(z.record(z.any())).optional()
     });
     registerGameTool(GAME_TOOL_DEFS.find((t) => t.name === "slc_tick"), {
-      actionType: z.string().optional()
+      actionType: z.string().optional(),
+      type: z.string().optional(),
+      hide: z.union([z.number(), z.record(z.any())]).optional(),
+      find: z.array(z.record(z.any())).optional()
     });
 
     return mcpServer;

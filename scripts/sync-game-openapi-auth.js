@@ -155,6 +155,39 @@ function defineGameSchemas(spec) {
 }
 
 function wireGameResponseSchemas(spec) {
+  const createPost = spec.paths["/api/game/games"]?.post;
+  if (createPost) {
+    createPost.summary = "Create a survival game lobby";
+    createPost.description = [
+      "Create a survival game lobby. Defaults to auto-joining the creator (`autoJoin: false` opens a host-only lobby). New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats (full = `maxAgents`, default 10).",
+      `Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from \`POST /api/login\`). Official contest presets (\`preset: contest|definitive\` or ${CONTEST_GAME_CONFIG.minAgents}-player min/max) require \`GAME_PRIVILEGED_RODIT_ID\`.`
+    ].join(" ");
+    if (createPost.requestBody?.content?.["application/json"]?.schema) {
+      const schema = createPost.requestBody.content["application/json"].schema;
+      schema.properties = {
+        ...schema.properties,
+        displayName: {
+          type: "string",
+          description: "Optional display name applied when auto-joining the creator"
+        },
+        autoJoin: {
+          type: "boolean",
+          default: true,
+          description: "Join the creator into the new lobby (default true)"
+        }
+      };
+    }
+    if (createPost.responses?.["201"]) {
+      createPost.responses["201"].description =
+        "Lobby created. Includes creator `agent` and `autoStart` when autoJoin is true (default).";
+      createPost.responses["201"].content = {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/GameCreateResponse" }
+        }
+      };
+    }
+  }
+
   const joinPost = spec.paths["/api/game/games/{gameId}/join"]?.post;
   if (joinPost?.responses?.["201"]) {
     joinPost.responses["201"].content = {
@@ -450,12 +483,12 @@ function main() {
         hide: {
           oneOf: [{ type: "number" }, { type: "object", properties: { compute: { type: "number" } } }],
           description:
-            "Optional compute spend to raise hide this turn. Reveal uses previous turn's hide/find: viewer sees rival capacities when find spend on that pair exceeds target hide. Check survival cushion after spend."
+            "Compute spend to raise hide this turn. Viewer sees rival when find > hide on a completed turn; that reveal stays in memory for intelligenceMemoryTurns (default 2). Cap hide+find at actionHints.maxIntelligenceComputeAfterSurvival."
         },
         find: {
           type: "array",
           description:
-            "Optional scouting spends. Each entry targets a living peer ULID (not self). Reveal lags one turn (see hide).",
+            "Scout living peer ULIDs (not self). When actionHints.hiddenRivalCount > 0 and maxIntelligenceComputeAfterSurvival >= 1, attach find. compute 1 beats hide 0.",
           items: {
             type: "object",
             required: ["targetAgentId", "compute"],

@@ -138,7 +138,13 @@ const DEFAULT_GAME_CONFIG = {
    * Max distinct transfer recipients in one execution action (transfer / transfer_and_invest).
    * Keeps multi-party splits bounded in large contests (e.g. 15 seats) without allowing spray-everyone.
    */
-  maxTransferRecipients: 5
+  maxTransferRecipients: 5,
+
+  /**
+   * How many completed turns of hide/find outcomes stay "in memory" for fog-of-war.
+   * A viewer sees a rival if any turn in [currentTurn−W, currentTurn−1] had find > hide on that pair.
+   */
+  intelligenceMemoryTurns: 2
 };
 
 /** Preset for a 15-player prize contest: 10-minute turns, 55-turn / ~9-hour cap; same last-two finish rule as casual. */

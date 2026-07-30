@@ -68,6 +68,31 @@ const gameSchemas = {
       requestId: { type: "string" }
     }
   },
+  GameCreateResponse: {
+    type: "object",
+    required: ["game", "requestId"],
+    properties: {
+      game: {
+        type: "object",
+        required: ["id", "status", "config"],
+        properties: {
+          id: { type: "string" },
+          status: { type: "string" },
+          config: { type: "object", additionalProperties: true },
+          joiningWindow: { type: "object", additionalProperties: true }
+        }
+      },
+      agent: {
+        description: "Creator cradle when autoJoin is true (default); null when autoJoin is false",
+        oneOf: [{ $ref: "#/components/schemas/GameAgent" }, { type: "null" }]
+      },
+      autoStart: {
+        description: "Lobby auto-start evaluation after creator join; null when autoJoin is false",
+        oneOf: [{ $ref: "#/components/schemas/GameAutoStart" }, { type: "null" }]
+      },
+      requestId: { type: "string" }
+    }
+  },
   GameAgentPublic: {
     type: "object",
     description:
@@ -106,7 +131,8 @@ const gameSchemas = {
       },
       actionHints: {
         type: "object",
-        description: "Present on self view: affordable invest sketches and allowed action types",
+        description:
+          "Present on self view: affordable invest sketches, hide/find budget, fog counts, and allowed action types",
         properties: {
           allowedActionTypes: {
             type: "array",
@@ -124,6 +150,21 @@ const gameSchemas = {
             description:
               "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage water cost"
           },
+          maxIntelligenceComputeAfterSurvival: {
+            type: "number",
+            description:
+              "Largest compute spendable on hide+find while still leaving thisTurnSurvivalCost payable after storage water cost"
+          },
+          maxTransferRecipients: { type: "integer" },
+          intelligenceMemoryTurns: {
+            type: "integer",
+            description: "Completed turns of hide/find outcomes kept in fog memory"
+          },
+          hiddenRivalCount: {
+            type: "integer",
+            description: "Living rivals with intelligenceHidden true for this viewer"
+          },
+          livingRivalCount: { type: "integer" },
           note: { type: "string" }
         }
       },
@@ -265,7 +306,25 @@ const gameSchemas = {
         }
       },
       transfer: { type: "object", additionalProperties: true },
-      invest: { type: "object", additionalProperties: true }
+      invest: { type: "object", additionalProperties: true },
+      hide: {
+        oneOf: [{ type: "number" }, { type: "object", properties: { compute: { type: "number" } } }],
+        description:
+          "Compute spend to raise hide this turn. Cap hide+find at actionHints.maxIntelligenceComputeAfterSurvival."
+      },
+      find: {
+        type: "array",
+        description:
+          "Scout living peer ULIDs. Reveal when find > hide on a completed turn; visibility lasts intelligenceMemoryTurns (default 2).",
+        items: {
+          type: "object",
+          required: ["targetAgentId", "compute"],
+          properties: {
+            targetAgentId: { type: "string", description: "Living game agent ULID" },
+            compute: { type: "number", description: "Compute spent to find this target" }
+          }
+        }
+      }
     }
   },
   GameTickResponse: {

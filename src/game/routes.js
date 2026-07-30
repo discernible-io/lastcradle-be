@@ -49,7 +49,7 @@ function denyUnlessPrivileged(req, res, requestId) {
  * /api/game/games:
  *   post:
  *     summary: Create a new survival game lobby
- *     description: Rejects with 409 OPEN_LOBBY_AVAILABLE while any joinable casual lobby still has seats (full = maxAgents, default 10).
+ *     description: Defaults to auto-joining the creator (set autoJoin false for a host-only lobby). Rejects with 409 OPEN_LOBBY_AVAILABLE while any joinable casual lobby still has seats (full = maxAgents, default 10).
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
@@ -63,16 +63,48 @@ router.post("/games", validateContentType, validateJsonBody, async (req, res) =>
       return;
     }
 
+    const autoJoin = req.body?.autoJoin !== false;
+    const roditId = resolveRoditId(req);
+    if (autoJoin && !roditId) {
+      return sendError(res, {
+        statusCode: 401,
+        requestId,
+        code: "AUTH_REQUIRED",
+        message: "Authenticated agent identity required"
+      });
+    }
+
     const joiningWindowStartsAt = req.body?.joiningWindowStartsAt ?? null;
     const game = await engine.createGame({ config: configOverrides, joiningWindowStartsAt });
     orchestrator.registerLobbyGame(game);
+
+    const gamePayload = {
+      id: game.id,
+      status: game.status,
+      config: game.config,
+      joiningWindow: engine.joiningWindowDetails(game)
+    };
+
+    if (!autoJoin) {
+      return res.status(201).json({
+        game: gamePayload,
+        agent: null,
+        autoStart: null,
+        requestId
+      });
+    }
+
+    const agent = await engine.joinGame(game.id, {
+      roditId,
+      displayName: req.body?.displayName
+    });
+    await notifyCradleAssigned(req, { gameId: game.id, game, agent, roditId });
+    const autoStart = await orchestrator.evaluateLobbyAutoStart(game.id);
+
     res.status(201).json({
-      game: {
-        id: game.id,
-        status: game.status,
-        config: game.config,
-        joiningWindow: engine.joiningWindowDetails(game)
-      },
+      game: gamePayload,
+      agent,
+      autoStart,
       requestId
     });
   } catch (err) {
