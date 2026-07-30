@@ -102,7 +102,7 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_action",
     description:
-      "POST execution action (type none|transfer|invest|transfer_and_invest). Optional hide/find for intelligence.",
+      "POST execution action only (type none|transfer|invest|transfer_and_invest). There is no GET .../action. Before invest, read you.actionHints.storageWaterCostIfNoSpend / waterAfterStorageIfNoSpend and cap amount at maxInvestAmountAfterSurvival. Optional hide/find for intelligence.",
     inputSchema: {
       type: "object",
       properties: {
@@ -137,7 +137,7 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_tick",
     description:
-      "Submit one required execution action if any. Pass an explicit action (type none|transfer|invest|transfer_and_invest, plus fields; optional hide/find). Empty body returns action_required — does not default to none. AFK timeout still submits none via the scheduler.",
+      "Submit one required execution action if any (POST). Pass an explicit action (type none|transfer|invest|transfer_and_invest, plus fields; optional hide/find). Read actionHints.storageWaterCostIfNoSpend / waterAfterStorageIfNoSpend before investing; cap at maxInvestAmountAfterSurvival. Empty body returns action_required — does not default to none. AFK timeout still submits none via the scheduler.",
     inputSchema: {
       type: "object",
       properties: {

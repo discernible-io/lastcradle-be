@@ -132,7 +132,7 @@ const gameSchemas = {
       actionHints: {
         type: "object",
         description:
-          "Present on self view: affordable invest sketches, hide/find budget, fog counts, and allowed action types",
+          "Present on self view: invest/intel caps, storage-water tax projections, fog counts, and allowed action types",
         properties: {
           allowedActionTypes: {
             type: "array",
@@ -148,7 +148,7 @@ const gameSchemas = {
           maxInvestAmountAfterSurvival: {
             type: "number",
             description:
-              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage water cost"
+              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage water cost (equal-invest only)"
           },
           maxIntelligenceComputeAfterSurvival: {
             type: "number",
@@ -165,6 +165,28 @@ const gameSchemas = {
             description: "Living rivals with intelligenceHidden true for this viewer"
           },
           livingRivalCount: { type: "integer" },
+          storageWaterCostRate: {
+            type: "number",
+            description: "Config rate: water tax = rate × (energy + compute) held after execution"
+          },
+          storageWaterCostIfNoSpend: {
+            type: "number",
+            description: "Water deducted for storage if you spend nothing this turn"
+          },
+          waterAfterStorageIfNoSpend: {
+            type: "number",
+            description: "Water remaining after that tax (before thisTurnSurvivalCost)"
+          },
+          storageWaterCostIfMaxSafeInvest: {
+            type: "number",
+            description:
+              "Water tax after spending maxInvestAmountAfterSurvival equal E/W/C (no transfer/hide/find)"
+          },
+          waterAfterStorageIfMaxSafeInvest: {
+            type: "number",
+            description:
+              "Water left after that tax (before survival); compare to thisTurnSurvivalCost.water"
+          },
           note: { type: "string" }
         }
       },

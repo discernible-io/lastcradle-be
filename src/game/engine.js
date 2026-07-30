@@ -1127,6 +1127,23 @@ function maxIntelligenceComputeAfterSurvival(inventory, survivalCost, config = {
   return 0;
 }
 
+/**
+ * Post-execution storage water tax for a holdings snapshot (rate × energy+compute).
+ * Does not model inbound transfers — those can raise the tax further at resolve time.
+ */
+function projectStorageWater(inventory, config = {}) {
+  const rate = Number(config.storageWaterCostRate) || 0;
+  const energy = Number(inventory?.energy) || 0;
+  const water = Number(inventory?.water) || 0;
+  const compute = Number(inventory?.compute) || 0;
+  const cost = (energy + compute) * rate;
+  return {
+    storageWaterCostRate: rate,
+    storageWaterCost: cost,
+    waterAfterStorage: Math.max(0, water - cost)
+  };
+}
+
 function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
   const maxInvestAmount = Math.max(
     0,
@@ -1146,6 +1163,16 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
   const hiddenRivalCount = fog.hiddenRivalCount ?? 0;
   const livingRivalCount = fog.livingRivalCount ?? 0;
 
+  const noSpend = projectStorageWater(inventory, config);
+  const afterSafeInvest = projectStorageWater(
+    {
+      energy: inventory.energy - maxInvestAmountAfterSurvival,
+      water: inventory.water - maxInvestAmountAfterSurvival,
+      compute: inventory.compute - maxInvestAmountAfterSurvival
+    },
+    config
+  );
+
   const fogNote =
     hiddenRivalCount > 0 && maxIntelligenceCompute >= 1
       ? ` ${hiddenRivalCount} living rival(s) have intelligenceHidden — attach find[{ targetAgentId, compute }] (compute 1 beats hide 0); successful find stays visible for intelligenceMemoryTurns (${intelligenceMemoryTurns}) completed turns.`
@@ -1162,8 +1189,13 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     intelligenceMemoryTurns,
     hiddenRivalCount,
     livingRivalCount,
+    storageWaterCostRate: noSpend.storageWaterCostRate,
+    storageWaterCostIfNoSpend: noSpend.storageWaterCost,
+    waterAfterStorageIfNoSpend: noSpend.waterAfterStorage,
+    storageWaterCostIfMaxSafeInvest: afterSafeInvest.storageWaterCost,
+    waterAfterStorageIfMaxSafeInvest: afterSafeInvest.waterAfterStorage,
     note:
-      "maxInvestAmount is equal E/W/C affordable now; cap invest amount at maxInvestAmountAfterSurvival so thisTurnSurvivalCost remains payable after execution and storage water cost (storageWaterCostRate × remaining energy+compute). Cap hide+find compute at maxIntelligenceComputeAfterSurvival (transfers/invest spend beyond that). Up to maxTransferRecipients distinct living peers per transfer action (transfers[]). Choose type from current state — empty tick does not imply none." +
+      "Read storageWaterCostIfNoSpend / waterAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageWaterCostRate × remaining energy+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only (no transfers/hide/find/inbound). Cap hide+find at maxIntelligenceComputeAfterSurvival. Up to maxTransferRecipients peers per transfer. Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
       fogNote
   };
 }
@@ -1706,6 +1738,7 @@ module.exports = {
   applyStorageCost,
   deriveCradleEconomics,
   maxEqualInvestPreservingSurvival,
+  projectStorageWater,
   buildActionHints,
   gameError,
   isJoiningWindowOpen,

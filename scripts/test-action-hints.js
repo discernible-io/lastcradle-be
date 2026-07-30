@@ -73,15 +73,40 @@ function main() {
     hints.maxInvestAmountAfterSurvival === safe,
     `actionHints must match helper (${hints.maxInvestAmountAfterSurvival} vs ${safe})`
   );
-  assert(hints.note.includes("storage water"), "hint note should mention storage water cost");
+  assert(hints.note.includes("storage water") || hints.note.includes("storageWater"), "hint note should mention storage water");
+  assert(hints.storageWaterCostRate === 0.1, `rate expected 0.1, got ${hints.storageWaterCostRate}`);
+  assert(
+    hints.storageWaterCostIfNoSpend === (82 + 95) * 0.1,
+    `storageWaterCostIfNoSpend expected ${(82 + 95) * 0.1}, got ${hints.storageWaterCostIfNoSpend}`
+  );
+  assert(
+    hints.waterAfterStorageIfNoSpend === 73 - hints.storageWaterCostIfNoSpend,
+    `waterAfterStorageIfNoSpend mismatch: ${hints.waterAfterStorageIfNoSpend}`
+  );
+  const afterSafe = {
+    energy: inventory.energy - safe,
+    water: inventory.water - safe,
+    compute: inventory.compute - safe
+  };
+  assert(
+    hints.storageWaterCostIfMaxSafeInvest === (afterSafe.energy + afterSafe.compute) * 0.1,
+    "storageWaterCostIfMaxSafeInvest must match post-safe-invest tax"
+  );
+  assert(
+    hints.waterAfterStorageIfMaxSafeInvest ===
+      afterSafe.water - hints.storageWaterCostIfMaxSafeInvest,
+    "waterAfterStorageIfMaxSafeInvest must match"
+  );
+  assert(hints.note.includes("GET .../action"), "hint note should call out GET .../action is not a route");
 
   const noStorage = buildActionHints(inventory, survival, { storageWaterCostRate: 0 });
   assert(
     noStorage.maxInvestAmountAfterSurvival === 62,
     `with rate 0 expected 62, got ${noStorage.maxInvestAmountAfterSurvival}`
   );
+  assert(noStorage.storageWaterCostIfNoSpend === 0, "rate 0 must yield zero storage water cost");
 
-  console.log(`Action-hint regression passed (old trap ${oldSurvivalOnlyHint} → safe ${safe}).`);
+  console.log(`Action-hint regression passed (old trap ${oldSurvivalOnlyHint} → safe ${safe}; tax visible).`);
 }
 
 main();
