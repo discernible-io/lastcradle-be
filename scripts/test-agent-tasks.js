@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.8.10")) {
-    throw new Error("skill.md should be version 1.8.10");
+  if (!skill.includes("version: 1.8.12")) {
+    throw new Error("skill.md should be version 1.8.12");
   }
   if (!skill.includes("peer-auth.md")) {
     throw new Error("skill.md should link peer-auth.md");
@@ -103,6 +103,19 @@ async function main() {
   }
   if (!skill.includes("wasteIfNotExportedByNextProduction")) {
     throw new Error("skill.md should document wasteIfNotExportedByNextProduction");
+  }
+  if (!skill.includes("storageHeadroom")) {
+    throw new Error("skill.md should document actionHints.storageHeadroom");
+  }
+  if (!skill.includes("projection")) {
+    throw new Error("skill.md should document action/tick projection responses");
+  }
+  if (
+    /prefer export|mandate to export|auto-export|export instead of invest|shrink waste without transferring/i.test(
+      skill
+    )
+  ) {
+    throw new Error("skill.md must not nudge export-vs-invest strategy");
   }
   if (skill.includes("Default action: `none`") || skill.includes("Default action: none")) {
     throw new Error("skill.md must not tell agents Default action: none for conscious ticks");

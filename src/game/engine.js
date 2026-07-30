@@ -710,6 +710,20 @@ async function submitAction(gameId, agentId, action) {
     validateBalancedInvestment(investPart);
   }
 
+  const livingAgents = await repo.listAgents(gameId, { status: "alive" });
+  const survivalContext = buildSurvivalContext({
+    turnNumber: game.current_turn,
+    livingAgents,
+    game
+  });
+  const thisTurnSurvivalCost = computeSurvivalCost(game.config, survivalContext);
+  const projection = projectActionOutcome(
+    agent,
+    normalized,
+    game.config,
+    thisTurnSurvivalCost
+  );
+
   const record = await repo.upsertAction({
     gameId,
     turnNumber: game.current_turn,
@@ -719,7 +733,7 @@ async function submitAction(gameId, agentId, action) {
   });
 
   const completion = await tryCompleteTurn(gameId);
-  return { action: record, agentId, ...completion };
+  return { action: record, agentId, projection, ...completion };
 }
 
 async function validateIntelligenceAction(gameId, agentId, action) {
@@ -1144,6 +1158,125 @@ function projectStorageWater(inventory, config = {}) {
   };
 }
 
+/**
+ * Storage headroom / at-cap / waste readouts for actionHints (facts only — no preferred action).
+ */
+function buildStorageReadouts(inventory, productionCapacity, storageCapacity) {
+  if (!inventory || !storageCapacity) {
+    return null;
+  }
+  const production = productionCapacity || { energy: 0, water: 0, compute: 0 };
+  const economics = deriveCradleEconomics(production, storageCapacity, inventory);
+  const storageHeadroom = { energy: 0, water: 0, compute: 0 };
+  const inventoryAtStorageCap = { energy: false, water: false, compute: false };
+  for (const key of RESOURCE_KEYS) {
+    const held = inventory[key] ?? 0;
+    const storage = storageCapacity[key] ?? 0;
+    storageHeadroom[key] = Math.max(0, storage - held);
+    inventoryAtStorageCap[key] = storage > 0 && held >= storage;
+  }
+  return {
+    wasteIfNotExportedByNextProduction: economics.wasteIfNotExportedByNextProduction,
+    storageHeadroom,
+    inventoryAtStorageCap
+  };
+}
+
+/**
+ * Apply outbound effects of an action to a cloned agent state (no inbound peer transfers).
+ */
+function applyOutboundActionToState(state, action, config) {
+  if (action.type === "transfer" || action.type === "transfer_and_invest") {
+    const legs = transferLegsFromPayload(action);
+    for (const leg of legs) {
+      const transfer = {
+        energy: leg.energy || 0,
+        water: leg.water || 0,
+        compute: leg.compute || 0
+      };
+      if (transfer.energy + transfer.water + transfer.compute <= 0) {
+        throw new Error("Transfer must include at least one resource");
+      }
+      if (!hasSufficient(state.inventory, transfer)) {
+        throw new Error("Insufficient resources for transfer");
+      }
+      state.inventory = deduct(state.inventory, transfer);
+    }
+  }
+  if (action.type === "invest") {
+    executeInvest(state, action);
+    applyInvestmentCapacityGrowth(state, action, config);
+  } else if (action.type === "transfer_and_invest") {
+    executeInvest(state, action.invest);
+    applyInvestmentCapacityGrowth(state, action.invest, config);
+  }
+  executeIntelligenceSpend(state, action);
+}
+
+function snapshotProjectedHoldings(state) {
+  return {
+    inventory: cloneInventory(state.inventory),
+    productionCapacity: cloneCapacities(state.productionCapacity),
+    storageCapacity: cloneCapacities(state.storageCapacity),
+    ...deriveCradleEconomics(
+      state.productionCapacity,
+      state.storageCapacity,
+      state.inventory
+    )
+  };
+}
+
+/**
+ * Project inventory/capacities/waste after the chosen action (outbound effects only).
+ * Inbound peer transfers are not modeled.
+ */
+function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
+  const state = {
+    inventory: cloneInventory(agent.inventory),
+    productionCapacity: cloneCapacities(agent.productionCapacity),
+    storageCapacity: cloneCapacities(agent.storageCapacity)
+  };
+
+  try {
+    applyOutboundActionToState(state, action, config);
+  } catch (err) {
+    return {
+      ok: false,
+      error: err.message,
+      note: "Could not project this action against current holdings."
+    };
+  }
+
+  const afterAction = snapshotProjectedHoldings(state);
+  const storageTax = projectStorageWater(state.inventory, config);
+  const afterStorageInv = applyStorageCost(state.inventory, state.storageCapacity, config);
+  const survives =
+    survivalCost != null ? hasSufficient(afterStorageInv, survivalCost) : null;
+  const afterSurvivalInv =
+    survives === true ? deduct(afterStorageInv, survivalCost) : afterStorageInv;
+
+  return {
+    ok: true,
+    afterAction,
+    afterStorageAndSurvival: {
+      inventory: cloneInventory(afterSurvivalInv),
+      productionCapacity: cloneCapacities(state.productionCapacity),
+      storageCapacity: cloneCapacities(state.storageCapacity),
+      survives,
+      thisTurnSurvivalCost: survivalCost ? { ...survivalCost } : null,
+      storageWaterCost: storageTax.storageWaterCost,
+      waterAfterStorage: storageTax.waterAfterStorage,
+      ...deriveCradleEconomics(
+        state.productionCapacity,
+        state.storageCapacity,
+        afterSurvivalInv
+      )
+    },
+    note:
+      "Outbound-only projection of your submit (transfer out, invest capacity growth, hide/find). Inbound peer transfers are not modeled. Fields: afterAction and afterStorageAndSurvival inventory, capacities, wasteIfNotExportedByNextProduction."
+  };
+}
+
 function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
   const maxInvestAmount = Math.max(
     0,
@@ -1162,6 +1295,11 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     config.intelligenceMemoryTurns ?? DEFAULT_GAME_CONFIG.intelligenceMemoryTurns;
   const hiddenRivalCount = fog.hiddenRivalCount ?? 0;
   const livingRivalCount = fog.livingRivalCount ?? 0;
+  const storageReadouts = buildStorageReadouts(
+    inventory,
+    fog.productionCapacity,
+    fog.storageCapacity
+  );
 
   const noSpend = projectStorageWater(inventory, config);
   const afterSafeInvest = projectStorageWater(
@@ -1180,6 +1318,10 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
         ? ` ${hiddenRivalCount} living rival(s) have intelligenceHidden but maxIntelligenceComputeAfterSurvival is 0 — do not spend hide/find this turn.`
         : ` No hidden living rivals (or you are not seated).`;
 
+  const capacityNote = storageReadouts
+    ? " Also present: wasteIfNotExportedByNextProduction, storageHeadroom, inventoryAtStorageCap."
+    : "";
+
   return {
     allowedActionTypes: ["transfer", "invest", "transfer_and_invest", "none"],
     maxInvestAmount,
@@ -1194,8 +1336,10 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     waterAfterStorageIfNoSpend: noSpend.waterAfterStorage,
     storageWaterCostIfMaxSafeInvest: afterSafeInvest.storageWaterCost,
     waterAfterStorageIfMaxSafeInvest: afterSafeInvest.waterAfterStorage,
+    ...(storageReadouts || {}),
     note:
       "Read storageWaterCostIfNoSpend / waterAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageWaterCostRate × remaining energy+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only (no transfers/hide/find/inbound). Cap hide+find at maxIntelligenceComputeAfterSurvival. Up to maxTransferRecipients peers per transfer. Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
+      capacityNote +
       fogNote
   };
 }
@@ -1256,7 +1400,9 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
     const hiddenRivalCount = livingRivals.filter((a) => a.intelligenceHidden).length;
     you.actionHints = buildActionHints(you.inventory, thisTurnSurvivalCost, game.config, {
       hiddenRivalCount,
-      livingRivalCount: livingRivals.length
+      livingRivalCount: livingRivals.length,
+      productionCapacity: you.productionCapacity,
+      storageCapacity: you.storageCapacity
     });
   }
 
@@ -1347,7 +1493,11 @@ function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
       base.actionHints = buildActionHints(
         agent.inventory,
         thisTurnSurvivalCost,
-        config || DEFAULT_GAME_CONFIG
+        config || DEFAULT_GAME_CONFIG,
+        {
+          productionCapacity: agent.productionCapacity,
+          storageCapacity: agent.storageCapacity
+        }
       );
     }
   } else {
@@ -1739,7 +1889,9 @@ module.exports = {
   deriveCradleEconomics,
   maxEqualInvestPreservingSurvival,
   projectStorageWater,
+  buildStorageReadouts,
   buildActionHints,
+  projectActionOutcome,
   gameError,
   isJoiningWindowOpen,
   joiningWindowDetails,

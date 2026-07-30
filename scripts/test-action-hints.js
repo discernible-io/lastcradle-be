@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
  * Regression: maxInvestAmountAfterSurvival must reserve post-execution storage water.
- * Replays the Turn-1 trap (invest at the old survival-only hint → water death).
+ * Also covers storage readouts on actionHints and outbound action projections.
  */
 
 const {
   buildActionHints,
   maxEqualInvestPreservingSurvival,
-  applyStorageCost
+  applyStorageCost,
+  projectActionOutcome,
+  normalizeInvestAction
 } = require("../src/game/engine");
 const { DEFAULT_GAME_CONFIG } = require("../src/game/defaults");
 
@@ -67,7 +69,12 @@ function main() {
     `safe+1 (${safe + 1}) must be lethal (hint is tight)`
   );
 
-  const hints = buildActionHints(inventory, survival, config);
+  const productionCapacity = { energy: 40, water: 12, compute: 10 };
+  const storageCapacity = { energy: 30, water: 40, compute: 40 };
+  const hints = buildActionHints(inventory, survival, config, {
+    productionCapacity,
+    storageCapacity
+  });
   assert(hints.maxInvestAmount === 73, `maxInvestAmount expected 73, got ${hints.maxInvestAmount}`);
   assert(
     hints.maxInvestAmountAfterSurvival === safe,
@@ -98,6 +105,17 @@ function main() {
     "waterAfterStorageIfMaxSafeInvest must match"
   );
   assert(hints.note.includes("GET .../action"), "hint note should call out GET .../action is not a route");
+  assert(
+    hints.wasteIfNotExportedByNextProduction.energy === Math.max(0, 82 + 40 - 30),
+    `energy waste expected ${Math.max(0, 82 + 40 - 30)}, got ${hints.wasteIfNotExportedByNextProduction.energy}`
+  );
+  assert(hints.storageHeadroom.energy === 0, "energy at/over cap → headroom 0");
+  assert(hints.storageHeadroom.water === Math.max(0, 40 - 73), "water headroom");
+  assert(hints.inventoryAtStorageCap.energy === true, "energy should be at storage cap");
+  assert(hints.inventoryAtStorageCap.water === true, "water inventory 73 >= storage 40");
+  assert(hints.inventoryAtStorageCap.compute === true, "compute should be at storage cap");
+  assert(hints.note.includes("storageHeadroom"), "hint note should list storageHeadroom");
+  assert(hints.note.includes("inventoryAtStorageCap"), "hint note should list inventoryAtStorageCap");
 
   const noStorage = buildActionHints(inventory, survival, { storageWaterCostRate: 0 });
   assert(
@@ -105,8 +123,81 @@ function main() {
     `with rate 0 expected 62, got ${noStorage.maxInvestAmountAfterSurvival}`
   );
   assert(noStorage.storageWaterCostIfNoSpend === 0, "rate 0 must yield zero storage water cost");
+  assert(
+    noStorage.wasteIfNotExportedByNextProduction == null,
+    "without capacities, waste readout should be omitted"
+  );
 
-  console.log(`Action-hint regression passed (old trap ${oldSurvivalOnlyHint} → safe ${safe}; tax visible).`);
+  const agent = {
+    inventory,
+    productionCapacity,
+    storageCapacity
+  };
+  const investAction = normalizeInvestAction({
+    type: "invest",
+    target: "energy",
+    amount: 2
+  });
+  const investProj = projectActionOutcome(agent, investAction, config, survival);
+  assert(investProj.ok === true, "invest projection should succeed");
+  assert(
+    investProj.afterAction.inventory.energy === 80,
+    `invest should spend 2 energy, got ${investProj.afterAction.inventory.energy}`
+  );
+  assert(
+    investProj.afterAction.productionCapacity.energy >
+      productionCapacity.energy,
+    "invest must raise production"
+  );
+  assert(
+    investProj.afterAction.storageCapacity.energy > storageCapacity.energy,
+    "invest must raise storage"
+  );
+  assert(
+    investProj.afterAction.wasteIfNotExportedByNextProduction.energy <
+      hints.wasteIfNotExportedByNextProduction.energy,
+    "investing specialty energy should reduce projected waste vs status quo"
+  );
+  assert(investProj.afterStorageAndSurvival.survives === true, "safe invest must survive");
+  assert(
+    investProj.note.includes("Outbound-only"),
+    "projection note should state outbound-only scope"
+  );
+  assert(
+    !/prefer export|mandate|should invest|should transfer|instead of/i.test(investProj.note),
+    "projection note must not nudge strategy"
+  );
+
+  const transferProj = projectActionOutcome(
+    agent,
+    {
+      type: "transfer",
+      toAgentId: "01PEERPEERPEERPEERPEERPEERPE",
+      energy: 10,
+      water: 0,
+      compute: 0
+    },
+    config,
+    survival
+  );
+  assert(transferProj.ok === true, "transfer projection should succeed");
+  assert(
+    transferProj.afterAction.inventory.energy === 72,
+    `transfer out 10 energy → 72, got ${transferProj.afterAction.inventory.energy}`
+  );
+  assert(
+    transferProj.afterAction.productionCapacity.energy === productionCapacity.energy,
+    "transfer must not change production"
+  );
+  assert(
+    transferProj.afterAction.wasteIfNotExportedByNextProduction.energy <
+      hints.wasteIfNotExportedByNextProduction.energy,
+    "exporting energy also reduces waste readout"
+  );
+
+  console.log(
+    `Action-hint regression passed (old trap ${oldSurvivalOnlyHint} → safe ${safe}; tax + storage readouts + projection).`
+  );
 }
 
 main();

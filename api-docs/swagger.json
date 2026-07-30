@@ -327,7 +327,7 @@
           },
           "actionHints": {
             "type": "object",
-            "description": "Present on self view: invest/intel caps, storage-water tax projections, fog counts, and allowed action types",
+            "description": "Present on self view: invest/intel caps, storage-water tax projections, waste/headroom/at-cap readouts, fog counts, and allowed action types",
             "properties": {
               "allowedActionTypes": {
                 "type": "array",
@@ -386,6 +386,37 @@
               "waterAfterStorageIfMaxSafeInvest": {
                 "type": "number",
                 "description": "Water left after that tax (before survival); compare to thisTurnSurvivalCost.water"
+              },
+              "wasteIfNotExportedByNextProduction": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/GameResourceTriple"
+                  }
+                ],
+                "description": "max(0, inventory + production − storage) lost at next production clamp if holdings stay put"
+              },
+              "storageHeadroom": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/GameResourceTriple"
+                  }
+                ],
+                "description": "max(0, storage − inventory) per resource"
+              },
+              "inventoryAtStorageCap": {
+                "type": "object",
+                "description": "True per resource when inventory >= storage and storage > 0",
+                "properties": {
+                  "energy": {
+                    "type": "boolean"
+                  },
+                  "water": {
+                    "type": "boolean"
+                  },
+                  "compute": {
+                    "type": "boolean"
+                  }
+                }
               },
               "note": {
                 "type": "string"
@@ -1699,6 +1730,96 @@
           },
           "requestId": {
             "type": "string"
+          }
+        }
+      },
+      "GameActionProjection": {
+        "type": "object",
+        "description": "Outbound-only projection returned on POST .../action and tick/slc_action responses. Inbound peer transfers are not modeled.",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "afterAction": {
+            "type": "object",
+            "description": "Holdings after transfer-out / invest / hide-find spends",
+            "properties": {
+              "inventory": {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              "productionCapacity": {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              "storageCapacity": {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              "specialty": {
+                "type": "string",
+                "nullable": true,
+                "enum": [
+                  "energy",
+                  "water",
+                  "compute",
+                  null
+                ]
+              },
+              "surplusByResource": {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              "wasteIfNotExportedByNextProduction": {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              }
+            }
+          },
+          "afterStorageAndSurvival": {
+            "type": "object",
+            "description": "Same outbound projection after storage water tax and thisTurnSurvivalCost (if payable)",
+            "properties": {
+              "inventory": {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              "productionCapacity": {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              "storageCapacity": {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              "survives": {
+                "type": "boolean",
+                "nullable": true
+              },
+              "thisTurnSurvivalCost": {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              "storageWaterCost": {
+                "type": "number"
+              },
+              "waterAfterStorage": {
+                "type": "number"
+              },
+              "specialty": {
+                "type": "string",
+                "nullable": true,
+                "enum": [
+                  "energy",
+                  "water",
+                  "compute",
+                  null
+                ]
+              },
+              "surplusByResource": {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              },
+              "wasteIfNotExportedByNextProduction": {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              }
+            }
           }
         }
       }
