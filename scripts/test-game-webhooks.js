@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Unit checks for game webhook URL resolution and /hooks/wake delivery wiring.
+ * Unit checks for game webhook URL resolution and /hooks/wake + /hooks/agent delivery wiring.
  */
 
 const {
@@ -8,6 +8,7 @@ const {
   lookupWebhookUrlFromChain,
   clearWebhookUrlCacheForTests,
   sendGameWebhook,
+  sendGameAgentHook,
   setRoditClient
 } = require("../src/game/webhooks");
 const { resolveRoditId } = require("../src/game/route-helpers");
@@ -124,12 +125,73 @@ async function testSendWakeHookEndpoint() {
   assert(result.success === true, "successful delivery should normalize success=true");
 }
 
+async function testSendAgentHookDeadlineWarning() {
+  let capturedEndpoint = null;
+  let capturedPayload = null;
+  let wakeCalled = false;
+
+  setRoditClient({
+    sendWakeHook: async () => {
+      wakeCalled = true;
+      throw new Error("deadline_warning must not use sendWakeHook");
+    },
+    sendAgentHook: async (payload, req, options) => {
+      capturedEndpoint = "sendAgentHook";
+      capturedPayload = payload;
+      assert(payload.event === "deadline_warning", "payload event preserved");
+      assert(payload.data?.urgency === "deadline", "urgency field preserved");
+      assert(options.sessionRoditId === "DeadlineTok1", "sessionRoditId passed");
+      assert(
+        req.user?.rodit_webhookurl === "agent-deadline.identyclaw.com:9443",
+        "delivery request should include resolved rodit_webhookurl"
+      );
+      return { isValid: true, requestId: "test-agent-req" };
+    }
+  });
+
+  blockchainService.nearorg_rpc_tokenfromroditid = async () => ({
+    metadata: { webhook_url: "agent-deadline.identyclaw.com:9443" }
+  });
+
+  const result = await sendGameAgentHook(
+    {
+      event: "deadline_warning",
+      data: {
+        roditId: "DeadlineTok1",
+        gameId: "01DEADLINE",
+        urgency: "deadline",
+        taskType: "submit_execution_action",
+        message: "SLC deadline warning: required submit_execution_action pending"
+      }
+    },
+    "DeadlineTok1"
+  );
+
+  assert(wakeCalled === false, "deadline_warning must not call sendWakeHook");
+  assert(capturedEndpoint === "sendAgentHook", "delivery should use sendAgentHook");
+  assert(capturedPayload?.event === "deadline_warning", "event must be deadline_warning");
+  assert(result.success === true, "successful agent-hook delivery should normalize success=true");
+
+  const viaChannel = await sendGameWebhook(
+    {
+      event: "deadline_warning",
+      data: { roditId: "DeadlineTok1", gameId: "01DEADLINE", urgency: "deadline" }
+    },
+    "DeadlineTok1",
+    { channel: "agent" }
+  );
+  assert(viaChannel.success === true, "channel:agent should also use sendAgentHook");
+}
+
 async function testMissingWebhookUrl() {
   blockchainService.nearorg_rpc_tokenfromroditid = async () => ({ metadata: {} });
 
   setRoditClient({
     sendWakeHook: async () => {
       throw new Error("sendWakeHook should not run when webhook_url is missing");
+    },
+    sendAgentHook: async () => {
+      throw new Error("sendAgentHook should not run when webhook_url is missing");
     }
   });
 
@@ -139,6 +201,16 @@ async function testMissingWebhookUrl() {
   );
   assert(result.success === false, "missing webhook_url should return success=false");
   assert(result.error === "WEBHOOK_URL_MISSING", "missing webhook_url should report WEBHOOK_URL_MISSING");
+
+  const agentResult = await sendGameAgentHook(
+    { event: "deadline_warning", data: { roditId: "MissingUrl12", gameId: "01TEST" } },
+    "MissingUrl12"
+  );
+  assert(agentResult.success === false, "agent hook missing webhook_url should return success=false");
+  assert(
+    agentResult.error === "WEBHOOK_URL_MISSING",
+    "agent hook missing webhook_url should report WEBHOOK_URL_MISSING"
+  );
 }
 
 async function main() {
@@ -152,6 +224,8 @@ async function main() {
   await testResolveRoditIdPrefersClientPassportFromSub();
   clearWebhookUrlCacheForTests();
   await testSendWakeHookEndpoint();
+  clearWebhookUrlCacheForTests();
+  await testSendAgentHookDeadlineWarning();
   clearWebhookUrlCacheForTests();
   await testMissingWebhookUrl();
   console.log(JSON.stringify({ ok: true, suite: "test-game-webhooks" }));

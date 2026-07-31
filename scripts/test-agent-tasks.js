@@ -38,8 +38,14 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.8.12")) {
-    throw new Error("skill.md should be version 1.8.12");
+  if (!skill.includes("version: 1.8.13")) {
+    throw new Error("skill.md should be version 1.8.13");
+  }
+  if (!skill.includes("deadline_warning")) {
+    throw new Error("skill.md should document deadline_warning webhook");
+  }
+  if (!skill.includes("/hooks/agent")) {
+    throw new Error("skill.md should document /hooks/agent for deadline_warning");
   }
   if (!skill.includes("peer-auth.md")) {
     throw new Error("skill.md should link peer-auth.md");

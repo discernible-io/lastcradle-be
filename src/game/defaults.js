@@ -102,6 +102,13 @@ const DEFAULT_GAME_CONFIG = {
   executionDurationMs: 5 * 60 * 1000,
 
   /**
+   * How long before execution_ends_at to fire a deadline_warning agent hook
+   * (POST /hooks/agent) for agents still pending submission. Skip scheduling when
+   * the phase is shorter than this lead (e.g. short test timers).
+   */
+  deadlineWarningLeadMs: 90 * 1000,
+
+  /**
    * Target wall-clock duration for one full turn (negotiation + execution).
    * Informational default for contest presets; enforced via individual phase timers.
    */

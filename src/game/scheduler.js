@@ -7,17 +7,21 @@ const repo = require("./repository");
 const engine = require("./engine");
 const events = require("./events");
 const orchestrator = require("./contest-orchestrator");
-const { onGamePhaseUpdated } = require("./webhooks");
+const { onGamePhaseUpdated, notifyDeadlineWarningForGame } = require("./webhooks");
+const { DEFAULT_GAME_CONFIG } = require("./defaults");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
+
+/** Do not fire a deadline warning if it would land this close to phase end. */
+const DEADLINE_WARNING_MIN_GAP_MS = 5 * 1000;
 
 const timers = new Map();
 
 function clearGameTimers(gameId) {
   const existing = timers.get(gameId);
   if (!existing) return;
-  for (const key of ["negotiation", "execution", "deadline"]) {
+  for (const key of ["negotiation", "execution", "deadline", "deadlineWarning"]) {
     if (existing[key]) clearTimeout(existing[key]);
   }
   timers.delete(gameId);
@@ -42,6 +46,60 @@ function schedulePhaseTransition(gameId, phase, endsAtIso, handler) {
         error: err.message
       });
     }
+  }, delay);
+  timers.set(gameId, entry);
+}
+
+function resolveDeadlineWarningLeadMs(game) {
+  const configured = game?.config?.deadlineWarningLeadMs;
+  if (typeof configured === "number" && Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+  return DEFAULT_GAME_CONFIG.deadlineWarningLeadMs;
+}
+
+/**
+ * Schedule a mid-window deadline_warning agent hook for pending execution submitters.
+ * Skips when the phase is shorter than the lead, or the fire time is already past /
+ * within DEADLINE_WARNING_MIN_GAP_MS of phase end.
+ */
+function scheduleDeadlineWarning(game) {
+  if (!game || game.status !== "running" || game.phase !== "execution" || !game.execution_ends_at) {
+    return;
+  }
+
+  const endsAt = new Date(game.execution_ends_at).getTime();
+  if (!Number.isFinite(endsAt)) {
+    return;
+  }
+
+  const leadMs = resolveDeadlineWarningLeadMs(game);
+  const phaseDurationMs =
+    typeof game.config?.executionDurationMs === "number"
+      ? game.config.executionDurationMs
+      : DEFAULT_GAME_CONFIG.executionDurationMs;
+
+  if (phaseDurationMs > 0 && phaseDurationMs <= leadMs) {
+    return;
+  }
+
+  const fireAt = endsAt - leadMs;
+  const delay = fireAt - Date.now();
+  if (delay < 0 || endsAt - fireAt < DEADLINE_WARNING_MIN_GAP_MS) {
+    return;
+  }
+
+  const gameId = game.id;
+  const entry = timers.get(gameId) || {};
+  if (entry.deadlineWarning) clearTimeout(entry.deadlineWarning);
+  entry.deadlineWarning = setTimeout(() => {
+    notifyDeadlineWarningForGame(gameId).catch((err) => {
+      logger.warnWithContext("Deadline warning webhook delivery failed", {
+        component: "GameScheduler",
+        gameId,
+        error: err.message
+      });
+    });
   }, delay);
   timers.set(gameId, entry);
 }
@@ -202,6 +260,7 @@ function scheduleGame(game) {
     schedulePhaseTransition(game.id, "execution", game.execution_ends_at, () =>
       onExecutionEnd(game.id)
     );
+    scheduleDeadlineWarning(game);
   }
 }
 

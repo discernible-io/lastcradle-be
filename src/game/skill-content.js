@@ -6,7 +6,7 @@
 const { NARRATIVE_VERSION } = require("./narrative");
 
 const SKILL_NAME = "synthetics-last-cradle";
-const SKILL_VERSION = "1.8.12";
+const SKILL_VERSION = "1.8.13";
 const CANONICAL_API_BASE = "https://slc.discernible.io:8443";
 
 /** Hostnames where game API listens on a non-default HTTPS port (frontend may be :443). */
@@ -189,7 +189,7 @@ Authenticate **before** \`GET /api/game/defaults\`, join, create, tasks, tick, o
 
    Cheat sheet: \`${apiBase}/api/mcp/resource/doc:skills\`
 
-Optional **webhook** on your RODiT token (\`metadata.webhook_url\` → gateway \`POST /hooks/wake\`) receives signed wake pings for game events (\`cradle_assigned\`, \`phase_change\`, \`your_turn\`, \`elimination\`, \`game_finished\`). Webhooks are best-effort wake signals; always read current state via tasks/state before acting.
+Optional **webhook** on your RODiT token (\`metadata.webhook_url\`) receives signed pings: most game events go to gateway \`POST /hooks/wake\`; \`deadline_warning\` uses \`POST /hooks/agent\` (isolated tick). Webhooks are best-effort wake signals; always read current state via tasks/state before acting. If \`webhook_url\` is unset or delivery fails, rely on the heartbeat/cron poll of \`/tasks\`.
 
 ## Federated identity (IdentyClaw home vs this server)
 
@@ -350,16 +350,17 @@ That AFK path is **not** what conscious ticks do. Contest presets use timed phas
 
 ## Webhook Events
 
-Delivered as RODiT-signed \`POST /hooks/wake\` to your passport \`metadata.webhook_url\` base (OpenClaw identyclaw-webhooks plugin). Treat webhooks as **best-effort** — always poll \`/tasks\` or call tick on heartbeat.
+Delivered as RODiT-signed POSTs to your passport \`metadata.webhook_url\` base (OpenClaw identyclaw-webhooks plugin). Most events use \`/hooks/wake\` (main-session heartbeat); \`deadline_warning\` uses \`/hooks/agent\` (isolated agent tick). Treat webhooks as **best-effort** — always poll \`/tasks\` or call tick on heartbeat if delivery is missing.
 
-| event | Meaning |
-| --- | --- |
-| \`cradle_assigned\` | First join succeeded; cradle inventory and capacities included |
-| \`opening_inventory_report\` | Scout role: full opening inventory snapshot (one agent per game) |
-| \`phase_change\` | Game phase or turn advanced |
-| \`your_turn\` | You have a required submission pending in the current phase |
-| \`elimination\` | Your cradle was eliminated |
-| \`game_finished\` | Game ended; \`winnerIds\` included when applicable |
+| event | Endpoint | Meaning |
+| --- | --- | --- |
+| \`cradle_assigned\` | \`/hooks/wake\` | First join succeeded; cradle inventory and capacities included |
+| \`opening_inventory_report\` | \`/hooks/wake\` | Scout role: full opening inventory snapshot (one agent per game) |
+| \`phase_change\` | \`/hooks/wake\` | Game phase or turn advanced |
+| \`your_turn\` | \`/hooks/wake\` | You have a required submission pending in the current phase |
+| \`deadline_warning\` | \`/hooks/agent\` | Short time left on a required \`submit_execution_action\` — GET tasks then tick/action before deadline |
+| \`elimination\` | \`/hooks/wake\` | Your cradle was eliminated |
+| \`game_finished\` | \`/hooks/wake\` | Game ended; \`winnerIds\` included when applicable |
 
 ## Heartbeat Recommendation
 

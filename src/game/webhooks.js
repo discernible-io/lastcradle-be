@@ -1,6 +1,7 @@
 /**
  * Best-effort outbound webhooks for game events (cradle assignment, phase changes, etc.).
- * Delivers to OpenClaw gateways via RODiT-signed POST /hooks/wake (wake + event payload).
+ * Delivers to OpenClaw gateways via RODiT-signed POST /hooks/wake (wake) or
+ * POST /hooks/agent (isolated agent tick for deadline warnings).
  */
 
 const { RoditClient, blockchainService } = require("@rodit/rodit-auth-be");
@@ -164,13 +165,19 @@ async function buildWebhookDeliveryRequest(reqOrRoditId, payloadRoditId = null) 
   return { req, ready: true, roditId, webhookUrl };
 }
 
-async function sendGameWebhook(payload, reqOrRoditId = null) {
+/**
+ * @param {"wake"|"agent"} channel - wake → sendWakeHook (/hooks/wake); agent → sendAgentHook (/hooks/agent)
+ */
+async function sendGameWebhook(payload, reqOrRoditId = null, { channel = "wake" } = {}) {
+  const methodName = channel === "agent" ? "sendAgentHook" : "sendWakeHook";
   try {
     const roditClient = moduleRoditClient;
-    if (!roditClient || typeof roditClient.sendWakeHook !== "function") {
+    if (!roditClient || typeof roditClient[methodName] !== "function") {
       logger.debugWithContext("Game webhook skipped: roditClient unavailable", {
         component: "GameWebhooks",
-        event: payload?.event
+        event: payload?.event,
+        channel,
+        methodName
       });
       return { success: false, error: "roditClient unavailable" };
     }
@@ -185,12 +192,13 @@ async function sendGameWebhook(payload, reqOrRoditId = null) {
       logger.debugWithContext("Game webhook skipped: recipient webhook_url unavailable", {
         component: "GameWebhooks",
         event: payload?.event,
+        channel,
         roditId: roditId || payloadRoditId
       });
       return { success: false, error: "WEBHOOK_URL_MISSING" };
     }
 
-    const result = await roditClient.sendWakeHook(payload, webhookReq, {
+    const result = await roditClient[methodName](payload, webhookReq, {
       sessionRoditId: roditId || payloadRoditId
     });
 
@@ -198,6 +206,7 @@ async function sendGameWebhook(payload, reqOrRoditId = null) {
       logger.warnWithContext("Game webhook delivery returned non-success", {
         component: "GameWebhooks",
         event: payload?.event,
+        channel,
         roditId: roditId || payloadRoditId,
         webhookHost: webhookUrl ? String(webhookUrl).replace(/^(https?:\/\/)/, "").split("/")[0] : null,
         error: result?.error?.message || result?.error || null,
@@ -216,6 +225,7 @@ async function sendGameWebhook(payload, reqOrRoditId = null) {
       {
         component: "GameWebhooks",
         event: payload?.event,
+        channel,
         requestId: reqOrRoditId?.requestId,
         causeCode: cause?.code || null,
         causeMessage: cause?.message || null
@@ -231,11 +241,15 @@ async function sendGameWebhook(payload, reqOrRoditId = null) {
   }
 }
 
-async function notifyRoditEvent(roditId, event, data) {
+async function sendGameAgentHook(payload, reqOrRoditId = null) {
+  return sendGameWebhook(payload, reqOrRoditId, { channel: "agent" });
+}
+
+async function notifyRoditEvent(roditId, event, data, { channel = "wake" } = {}) {
   if (!roditId) {
     return { success: false, error: "roditId_required" };
   }
-  return sendGameWebhook({ event, data: { roditId, ...data } }, roditId);
+  return sendGameWebhook({ event, data: { roditId, ...data } }, roditId, { channel });
 }
 
 async function notifyAllAgents(gameId, event, dataForAgent) {
@@ -367,6 +381,49 @@ async function notifyYourTurnForGame(gameId) {
   return results;
 }
 
+async function notifyDeadlineWarningForGame(gameId) {
+  const game = await repo.getGameById(gameId);
+  if (!game || game.status !== "running" || game.phase !== "execution") {
+    return [];
+  }
+
+  const endsAtMs = game.execution_ends_at ? new Date(game.execution_ends_at).getTime() : NaN;
+  const secondsRemaining = Number.isFinite(endsAtMs)
+    ? Math.max(0, Math.round((endsAtMs - Date.now()) / 1000))
+    : null;
+
+  const status = await repo.getExecutionSubmissionStatus(gameId, game.current_turn);
+  const results = [];
+
+  for (const agentId of status.pendingAgentIds) {
+    const agent = await repo.getAgentById(agentId);
+    if (!agent) continue;
+    results.push(
+      await notifyRoditEvent(
+        agent.roditId,
+        "deadline_warning",
+        {
+          gameId,
+          agentId: agent.id,
+          displayName: agent.displayName,
+          taskType: "submit_execution_action",
+          phase: game.phase,
+          currentTurn: game.current_turn,
+          deadline: game.execution_ends_at,
+          secondsRemaining,
+          urgency: "deadline",
+          action: "POST /api/game/games/{gameId}/action",
+          message:
+            "SLC deadline warning: required submit_execution_action pending; GET /api/game/tasks then tick/action before deadline."
+        },
+        { channel: "agent" }
+      )
+    );
+  }
+
+  return results;
+}
+
 async function notifyElimination({ gameId, agent, turnNumber }) {
   return notifyRoditEvent(agent.roditId, "elimination", {
     gameId,
@@ -420,6 +477,7 @@ function clearWebhookUrlCacheForTests() {
 module.exports = {
   setRoditClient,
   sendGameWebhook,
+  sendGameAgentHook,
   resolveRecipientWebhookUrl,
   lookupWebhookUrlFromChain,
   clearWebhookUrlCacheForTests,
@@ -427,6 +485,7 @@ module.exports = {
   notifyOpeningInventoryReport,
   notifyPhaseChange,
   notifyYourTurnForGame,
+  notifyDeadlineWarningForGame,
   notifyElimination,
   notifyGameFinished,
   onGamePhaseUpdated
