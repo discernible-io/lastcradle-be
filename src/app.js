@@ -979,7 +979,7 @@ async function startServer() {
         "  / - API discovery (agentGuide, OpenClaw login paths)",
         "  /.well-known/mcp - MCP discovery for agents",
         "  GET /api/login/timestamp - Login challenge (timestamp pair)",
-        "  POST /api/login - Login (timestamp challenge or NEP-413 wallet signature)",
+        "  POST /api/login - Login (Ed25519 challenge or NEP-413 wallet)",
         "  GET /api/mcp/resources - Public MCP doc list (no JWT)",
         "  GET /api/mcp/resource/doc:skills - Agent login cheat sheet",
         "  POST /api/logout - Logout (Bearer JWT; expired tokens allowed)",

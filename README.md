@@ -260,15 +260,23 @@ Local deploy without rsync/GHCR: `./scripts/deploy-local-podman.sh` (requires `~
 
 ### Authentication Flow
 
-1. Client sends RODiT credentials (roditid + signature)
-2. Server verifies signature against NEAR blockchain
-3. JWT token issued with configurable expiration
-4. Subsequent requests include JWT in Authorization header
-5. Middleware validates JWT and extracts user claims
+`POST /api/login` supports two credential styles:
+
+1. **Ed25519 challenge (agents / OpenClaw):** `GET /api/login/timestamp`, then POST `roditid` + signature + exactly one of `timestamp` / `timestamp_iso`.
+2. **NEP-413 (NEAR wallet frontend):** POST `signature`, `message`, `nonce`, and `recipient` (optional `callbackUrl`). When those four fields are present, the server uses SDK `login_client_withnep413` (same contract as SignSanctum).
+
+Either path:
+
+1. Server verifies the credential against NEAR / RODiT ownership
+2. JWT token issued with configurable expiration
+3. Subsequent requests include JWT in `Authorization: Bearer` header
+4. Middleware validates JWT and extracts user claims
+
+Privileged game operator routes additionally require the JWT identity to match `GAME_PRIVILEGED_RODIT_ID` (must be set in server config / env; empty disables operator access).
 
 ### Security Features
 
-- **Cryptographic Identity**: Ed25519 signature verification
+- **Cryptographic Identity**: Ed25519 challenge login and NEP-413 wallet signature verification
 - **JWT Tokens**: Short-lived tokens with automatic renewal
 - **Session Management**: SQLite-backed persistent sessions
 - **Rate Limiting**: Configurable per-route limits
@@ -401,13 +409,23 @@ tail -f ~/syntheticlc-app/logs/nginx/nginxaccess.log
 ### Authentication
 
 ```bash
-# Login with RODiT credentials
-curl -X POST https://api.discernible.io:9443/api/login \
+# Ed25519 challenge login (agents)
+curl -X POST https://slcapi.discernible.io:9443/api/login \
   -H "Content-Type: application/json" \
   -d '{
     "roditid": "user.rodit.near",
     "roditid_base64url_signature": "...",
     "timestamp": 1234567890
+  }'
+
+# NEP-413 wallet login (frontend / operator UI)
+curl -X POST https://slcapi.discernible.io:9443/api/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "signature": "...",
+    "message": "user.rodit.near",
+    "nonce": "...",
+    "recipient": "https://slcapi.discernible.io:9443"
   }'
 
 # Response includes JWT token
@@ -438,8 +456,8 @@ curl -X POST https://api.discernible.io:9443/api/cruda/create \
 
 | Audience | Requirement |
 | --- | --- |
-| **Players** | IdentyClaw / RODiT passport login (`POST /api/login` → JWT). Any authenticated holder may create casual lobbies, join, and play. No `METHOD_PERMISSION_MAP` scopes. |
-| **Game administrator** | Same JWT, but `roditId` must match `GAME_PRIVILEGED_RODIT_ID` for `POST /api/game/contests`, `POST /api/game/contest-series`, and official contest lobbies (`preset: contest\|definitive` or 15-player min/max). |
+| **Players** | IdentyClaw / RODiT passport login (`POST /api/login` via Ed25519 challenge or NEP-413 → JWT). Any authenticated holder may create casual lobbies, join, and play. No `METHOD_PERMISSION_MAP` scopes. |
+| **Game administrator** | Same JWT, but `roditId` must match `GAME_PRIVILEGED_RODIT_ID` for `POST /api/game/contests`, `POST /api/game/contest-series`, and official contest lobbies (`preset: contest\|definitive` or 15-player min/max). Set `GAME_PRIVILEGED_RODIT_ID` in config/env to the operator RODiT id (empty disables privileged access). |
 
 Swagger marks each Game operation with `x-game-auth`: `jwt-passport` or `privileged-rodit-id`. Re-sync after swagger edits: `node scripts/sync-game-openapi-auth.js`.
 

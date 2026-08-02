@@ -6,19 +6,15 @@ const { sendError } = errorResponse;
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
 
 /**
- * mintserver-style NEP-413 wallet login body (signature over RODiT token id).
- * Agents still use timestamp challenge login; operators use this path.
+ * NEP-413 wallet login body (signature over RODiT token id).
+ * Agents still use timestamp challenge login; wallet frontends use this path.
  */
 function isNep413LoginBody(body) {
   if (!body || typeof body !== "object") {
     return false;
   }
-  return Boolean(
-    body.signature &&
-      body.message &&
-      body.nonce != null &&
-      body.recipient
-  );
+  const { signature, message, nonce, recipient } = body;
+  return !!(signature && message && nonce && recipient);
 }
 
 function parseCanonicalTimestampIsoToUnixSeconds(timestampIso) {
@@ -121,8 +117,17 @@ const authenticateLogout = (req, res, next) => {
 };
 
 router.post("/login", validateContentType, validateJsonBody, async (req, res) => {
-  const requestId = req.requestId || ulid();
   req.logAction = "login-attempt";
+  const requestId = req.requestId || ulid();
+
+  logger.infoWithContext("Login request received", {
+    component: "AuthRoutes",
+    method: "login",
+    requestId,
+    path: req.originalUrl,
+    ip: req.ip,
+    userAgent: req.get("User-Agent")
+  });
 
   const client = req.app.locals.roditClient;
   if (!client) {
@@ -141,59 +146,92 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
     req.headers["user-agent"] = req.get("User-Agent");
   }
 
-  const body = req.body || {};
+  try {
+    if (isNep413LoginBody(req.body)) {
+      const { signature, message, nonce, recipient, callbackUrl } = req.body;
 
-  if (isNep413LoginBody(body)) {
-    logger.infoWithContext("NEP-413 login request received", {
+      logger.infoWithContext("Processing NEP-413 login request", {
+        component: "AuthRoutes",
+        method: "login_client_withnep413",
+        requestId,
+        recipient,
+        hasSignature: !!signature,
+        hasCallbackUrl: !!callbackUrl
+      });
+
+      logger.debugWithContext("NEP-413 request diagnostics", {
+        component: "AuthRoutes",
+        operation: "nep413Login",
+        requestId,
+        recipient,
+        messagePresent: !!message,
+        messageLength: typeof message === "string" ? message.length : undefined,
+        noncePresent: !!nonce,
+        nonceLength: Array.isArray(nonce)
+          ? nonce.length
+          : typeof nonce === "string"
+            ? nonce.length
+            : undefined,
+        callbackUrlPresent: !!callbackUrl,
+        signaturePresent: !!signature,
+        signatureLength: typeof signature === "string" ? signature.length : undefined
+      });
+
+      const config_own_rodit = await client.getConfigOwnRodit();
+      if (!config_own_rodit) {
+        return sendError(res, {
+          statusCode: 500,
+          requestId,
+          code: "SERVER_CONFIG_NOT_INITIALIZED",
+          message: "Server configuration not initialized"
+        });
+      }
+
+      await login_client_withnep413(req, res, config_own_rodit);
+      return;
+    }
+
+    logger.infoWithContext("Processing Ed25519 challenge login request", {
       component: "AuthRoutes",
-      method: "login_client_withnep413",
-      requestId,
-      path: req.originalUrl,
-      ip: req.ip,
-      userAgent: req.get("User-Agent"),
-      recipient: body.recipient,
-      messageLength: typeof body.message === "string" ? body.message.length : 0
+      method: "login_client",
+      requestId
     });
 
-    const config_own_rodit = client.getStateManager?.()?.getConfigOwnRodit?.();
-    if (!config_own_rodit) {
+    const timestampResolution = resolveLoginTimestampFromBody(req.body || {});
+    if (timestampResolution.value === null) {
       return sendError(res, {
-        statusCode: 500,
+        statusCode: 400,
         requestId,
-        code: "SERVER_CONFIG_NOT_INITIALIZED",
-        message: "Server configuration not initialized"
+        code: timestampResolution.error,
+        message: timestampResolution.message
       });
     }
 
-    await login_client_withnep413(req, res, config_own_rodit);
-    return;
-  }
+    req.body.timestamp = timestampResolution.value;
+    if (Object.prototype.hasOwnProperty.call(req.body, "timestamp_iso")) {
+      delete req.body.timestamp_iso;
+    }
 
-  logger.infoWithContext("Login request received", {
-    component: "AuthRoutes",
-    method: "login_client",
-    requestId,
-    path: req.originalUrl,
-    ip: req.ip,
-    userAgent: req.get("User-Agent")
-  });
-
-  const timestampResolution = resolveLoginTimestampFromBody(body);
-  if (timestampResolution.value === null) {
+    await client.login_client(req, res);
+  } catch (error) {
+    logger.errorWithContext(
+      "Login request failed",
+      {
+        component: "AuthRoutes",
+        method: req.method,
+        url: req.originalUrl,
+        userIP: req.ip,
+        requestId
+      },
+      error
+    );
     return sendError(res, {
-      statusCode: 400,
+      statusCode: 500,
       requestId,
-      code: timestampResolution.error,
-      message: timestampResolution.message
+      code: "AUTHENTICATION_FAILED",
+      message: "Authentication failed"
     });
   }
-
-  req.body.timestamp = timestampResolution.value;
-  if (Object.prototype.hasOwnProperty.call(req.body, "timestamp_iso")) {
-    delete req.body.timestamp_iso;
-  }
-
-  await client.login_client(req, res);
 });
 
 router.post("/logout", validateContentType, authenticateLogout, async (req, res) => {
