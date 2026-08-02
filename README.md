@@ -10,8 +10,8 @@ This API provides secure authentication services using the Discernible Authentic
 
 | Branch | Role | API | Game frontend |
 |--------|------|-----|---------------|
-| **`main`** | Production (SLC) | https://slc.discernible.io:8443 | `/play`, `/watch` on API host |
-| **`development`** | Development / integration | https://slc.dihola.io:8443 | `/play`, `/watch` on API host |
+| **`main`** | Production (SLC) | https://slc.discernible.io:9443 | `/play`, `/watch` on API host |
+| **`development`** | Development / integration | https://slc.dihola.io:9443 | `/play`, `/watch` on API host |
 | **`legacy`** | Archive of pre-migration `main` (read-only) | — | — |
 
 See [`docs/BRANCHING.md`](docs/BRANCHING.md).
@@ -479,8 +479,8 @@ Set a base URL for the examples below:
 API_BASE=http://localhost:8080
 
 # Development / main tier
-# API_BASE=https://slc.dihola.io:8443
-# API_BASE=https://slc.discernible.io:8443
+# API_BASE=https://slc.dihola.io:9443
+# API_BASE=https://slc.discernible.io:9443
 ```
 
 #### 1. Login challenge

@@ -173,11 +173,12 @@ async function sendGameWebhook(payload, reqOrRoditId = null, { channel = "wake" 
   try {
     const roditClient = moduleRoditClient;
     if (!roditClient || typeof roditClient[methodName] !== "function") {
-      logger.debugWithContext("Game webhook skipped: roditClient unavailable", {
+      logger.warnWithContext("Game webhook skipped: roditClient unavailable", {
         component: "GameWebhooks",
         event: payload?.event,
         channel,
-        methodName
+        methodName,
+        error: "RODIT_CLIENT_UNAVAILABLE"
       });
       return { success: false, error: "roditClient unavailable" };
     }
@@ -189,14 +190,29 @@ async function sendGameWebhook(payload, reqOrRoditId = null, { channel = "wake" 
     );
 
     if (!ready) {
-      logger.debugWithContext("Game webhook skipped: recipient webhook_url unavailable", {
+      // warn (not debug): LOG_LEVEL=info on main otherwise hides why wakes never leave the server
+      logger.warnWithContext("Game webhook skipped: recipient webhook_url unavailable", {
         component: "GameWebhooks",
         event: payload?.event,
         channel,
-        roditId: roditId || payloadRoditId
+        roditId: roditId || payloadRoditId,
+        error: "WEBHOOK_URL_MISSING"
       });
       return { success: false, error: "WEBHOOK_URL_MISSING" };
     }
+
+    const webhookHost = webhookUrl
+      ? String(webhookUrl).replace(/^(https?:\/\/)/, "").split("/")[0]
+      : null;
+
+    logger.infoWithContext("Game webhook sending", {
+      component: "GameWebhooks",
+      event: payload?.event,
+      channel,
+      methodName,
+      roditId: roditId || payloadRoditId,
+      webhookHost
+    });
 
     const result = await roditClient[methodName](payload, webhookReq, {
       sessionRoditId: roditId || payloadRoditId
@@ -208,9 +224,18 @@ async function sendGameWebhook(payload, reqOrRoditId = null, { channel = "wake" 
         event: payload?.event,
         channel,
         roditId: roditId || payloadRoditId,
-        webhookHost: webhookUrl ? String(webhookUrl).replace(/^(https?:\/\/)/, "").split("/")[0] : null,
+        webhookHost,
         error: result?.error?.message || result?.error || null,
         requestId: result?.requestId || reqOrRoditId?.requestId || null
+      });
+    } else {
+      logger.infoWithContext("Game webhook delivered", {
+        component: "GameWebhooks",
+        event: payload?.event,
+        channel,
+        roditId: roditId || payloadRoditId,
+        webhookHost,
+        requestId: result?.requestId || null
       });
     }
 

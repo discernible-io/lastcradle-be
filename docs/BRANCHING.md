@@ -15,7 +15,7 @@
 
 | Branch | Purpose | Auto-deploy |
 |--------|---------|-------------|
-| **`main`** | Production SLC (`slc.discernible.io:8443` API + `/play`, `/watch`) | Yes |
+| **`main`** | Production SLC (`slc.discernible.io:9443` API + `/play`, `/watch`) | Yes |
 | **`development`** | Development tier (`slc.dihola.io`, `NODE_ENV=development`) | Yes |
 | **`legacy`** | Frozen snapshot of pre-migration `main` | No |
 

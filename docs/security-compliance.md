@@ -186,7 +186,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Swagger as contract | **Met** | Auth, CRUDA, sessions, `/health`, full `/api/game/*` with `x-game-auth` policy |
 | Runtime serves static swagger | **Met** | `/api-docs` and `/api-docs/swagger.json` load `api-docs/swagger.json` (no swagger-jsdoc drift) |
 | `npm run validate:permissions` | **Met** | Game paths excluded; map matches swagger (16 ops) |
-| Dual server URLs | **Met** | `slc.discernible.io:8443`, `slc.dihola.io:8443` |
+| Dual server URLs | **Met** | `slc.discernible.io:9443`, `slc.dihola.io:9443` |
 | README indexes all docs | **Met** | Standards, game howtos, `scripts/README-database-init.md` |
 | README commands match `package.json` | **Met** | Local verification section lists `validate:permissions`, `node --check`, deploy smoke tests |
 

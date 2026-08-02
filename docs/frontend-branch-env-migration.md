@@ -8,7 +8,7 @@ This note documents the changes needed for React/Parcel frontends that are deplo
 
 ## Goals
 
-- Build `development` with development API endpoints, for example `https://slc.dihola.io:8443`.
+- Build `development` with development API endpoints, for example `https://slc.dihola.io:9443`.
 - Build `main` with main-tier API endpoints, for example `https://api.identyclaw.com:8443`.
 - Stop tracking and deploying a single ambiguous `.env`.
 - Prevent local `.env` files from overriding the selected branch config inside Docker builds.
@@ -29,7 +29,7 @@ Example difference:
 
 ```dotenv
 # .env.development
-REACT_APP_SIGNAPIENDPOINT="https://slc.dihola.io:8443"
+REACT_APP_SIGNAPIENDPOINT="https://slc.dihola.io:9443"
 ```
 
 ```dotenv

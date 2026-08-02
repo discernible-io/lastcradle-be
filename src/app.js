@@ -78,7 +78,7 @@ const HEALTH_CHECKS_CACHE_MS = Number(config.get("HEALTH_CHECKS_CACHE_MS"));
 const isMainTier = () => config.get("NODE_ENV") === "main";
 
 function tierSwaggerServerUrl() {
-  const publicPort = config.has("PUBLIC_PORT") ? config.get("PUBLIC_PORT") : "8443";
+  const publicPort = config.has("PUBLIC_PORT") ? config.get("PUBLIC_PORT") : "9443";
   return `https://${SERVICE_NAME}:${publicPort}`;
 }
 

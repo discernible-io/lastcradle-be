@@ -1,6 +1,6 @@
 /**
  * Resolve the game API origin for static frontend pages.
- * - slc.discernible.io (frontend :443) → API at slc.discernible.io:8443
+ * - slc.discernible.io (frontend :443) → API at slc.discernible.io:9443
  * - api.* or localhost → same origin (legacy /play, /watch on API host)
  */
 export function resolveApiBase() {
@@ -10,10 +10,10 @@ export function resolveApiBase() {
   }
 
   const { hostname, origin } = window.location;
-  if (hostname === "slc.discernible.io") {
+  if (hostname === "slc.discernible.io" || hostname === "slc.dihola.io") {
     const { port, protocol } = window.location;
-    if (port === "8443") return origin;
-    return `${protocol}//${hostname}:8443`;
+    if (port === "9443") return origin;
+    return `${protocol}//${hostname}:9443`;
   }
   if (hostname.startsWith("api.") || hostname === "localhost" || hostname === "127.0.0.1") {
     return origin;

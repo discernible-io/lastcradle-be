@@ -34,7 +34,7 @@ TARGET="${TARGET:-development}"
 APP_DIR="${APP_DIR:-~/syntheticlc-app}"
 APP_DIR="${APP_DIR/#\~/$HOME}"
 bash "${REPO_ROOT}/scripts/migrate-app-dir.sh"
-APP_PORT="${APP_PORT:-8443}"
+APP_PORT="${APP_PORT:-9443}"
 POD_NAME="${POD_NAME:-syntheticlc-pod}"
 APP_CONTAINER_NAME="${APP_CONTAINER_NAME:-syntheticlc-container}"
 NGINX_CONTAINER_NAME="${NGINX_CONTAINER_NAME:-syntheticlc-nginx}"
@@ -45,12 +45,12 @@ case "$TARGET" in
   development)
     NODE_ENV=development
     DOMAIN="${DOMAIN:-slc.dihola.io}"
-    APP_PORT="${APP_PORT:-8443}"
+    APP_PORT="${APP_PORT:-9443}"
     ;;
   main)
     NODE_ENV=main
     DOMAIN="${DOMAIN:-slc.discernible.io}"
-    APP_PORT="${APP_PORT:-8443}"
+    APP_PORT="${APP_PORT:-9443}"
     ;;
   *) echo "TARGET must be development or main" >&2; exit 1 ;;
 esac

@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.8.13")) {
-    throw new Error("skill.md should be version 1.8.13");
+  if (!skill.includes("version: 1.9.0")) {
+    throw new Error("skill.md should be version 1.9.0");
   }
   if (!skill.includes("deadline_warning")) {
     throw new Error("skill.md should document deadline_warning webhook");
@@ -166,8 +166,8 @@ async function main() {
   }
 
   const slcBase = resolveApiBase({ protocol: "https", get: (h) => (h === "host" ? "slc.discernible.io" : null) });
-  if (slcBase !== "https://slc.discernible.io:8443") {
-    throw new Error(`resolveApiBase should append :8443 for SLC host, got ${slcBase}`);
+  if (slcBase !== "https://slc.discernible.io:9443") {
+    throw new Error(`resolveApiBase should append :9443 for SLC host, got ${slcBase}`);
   }
 
   const {
