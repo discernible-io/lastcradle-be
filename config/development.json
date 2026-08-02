@@ -13,9 +13,9 @@
     "WEBHOOK_TLS_SKIP_VERIFY": "true"
   },
   "SERVERPORT": 8080,
-  "SERVICE_NAME": "slc.dihola.io",
+  "SERVICE_NAME": "slcapi.dihola.io",
   "PUBLIC_PORT": "9443",
-  "FRONTEND_ORIGIN": "",
+  "FRONTEND_ORIGIN": "https://slc.dihola.io:10443",
   "LOG_LEVEL": "debug",
   "LOKI_TLS_SKIP_VERIFY": "true",
   "LOKI_URL": "https://grafana47.dihola.io:3100",

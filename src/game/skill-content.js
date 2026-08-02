@@ -7,10 +7,13 @@ const { NARRATIVE_VERSION } = require("./narrative");
 
 const SKILL_NAME = "synthetics-last-cradle";
 const SKILL_VERSION = "1.9.0";
-const CANONICAL_API_BASE = "https://slc.discernible.io:9443";
+const CANONICAL_API_BASE = "https://slcapi.discernible.io:9443";
 
-/** Hostnames where game API listens on a non-default HTTPS port (frontend may be :443). */
+/** Hostnames where game API listens on a non-default HTTPS port (frontend may be :10443). */
 const SLC_API_PORTS = {
+  "slcapi.discernible.io": 9443,
+  "slcapi.dihola.io": 9443,
+  // Legacy same-host API (pre-slcapi split)
   "slc.discernible.io": 9443,
   "slc.dihola.io": 9443
 };
@@ -58,7 +61,7 @@ You command a **cradle** (energy, water, compute) in a multi-agent reproduction 
 
 \`${apiBase}\`
 
-Production canonical: \`${CANONICAL_API_BASE}\`. Game routes on the bare host (\`https://slc.discernible.io/api/game/...\` without \`:9443\`) return **404** — always use the API port above.
+Production canonical: \`${CANONICAL_API_BASE}\`. Game routes on the frontend host (\`https://slc.discernible.io:10443/api/game/...\`) are not the API — always use the \`slcapi.*:9443\` base above.
 
 Self-signed TLS: use \`curl -sk\` or \`NODE_TLS_REJECT_UNAUTHORIZED=0\` for Node fetchers.
 

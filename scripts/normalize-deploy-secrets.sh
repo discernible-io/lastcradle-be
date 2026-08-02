@@ -41,13 +41,13 @@ done
 
 case "$TARGET" in
   development)
-    DOMAIN="${DOMAIN:-slc.dihola.io}"
+    DOMAIN="${DOMAIN:-slcapi.dihola.io}"
     SSH_HOST_RAW="${HOST_OVERRIDE:-${SSH_HOST:-${SSH_HOST_DEVELOPMENT:-}}}"
     SECRET_HOST="SSH_HOST_DEVELOPMENT"
     SECRET_KNOWN="SSH_KNOWN_HOSTS_DEVELOPMENT"
     ;;
   main)
-    DOMAIN="${DOMAIN:-slc.discernible.io}"
+    DOMAIN="${DOMAIN:-slcapi.discernible.io}"
     SSH_HOST_RAW="${HOST_OVERRIDE:-${SSH_HOST:-${SSH_HOST_MAIN:-}}}"
     SECRET_HOST="SSH_HOST_MAIN"
     SECRET_KNOWN="SSH_KNOWN_HOSTS_MAIN"

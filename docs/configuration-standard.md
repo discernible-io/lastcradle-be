@@ -87,8 +87,8 @@ In `sdk/utils.js`, the compatibility fallback uses `process.env[key] || null`. T
 
 | File | When loaded | Contents |
 | --- | --- | --- |
-| [`config/development.json`](../config/development.json) | `NODE_ENV=development` | Full config for `slc.dihola.io` / `development` branch |
-| [`config/main.json`](../config/main.json) | `NODE_ENV=main` | Full config for `slc.discernible.io` / `main` branch |
+| [`config/development.json`](../config/development.json) | `NODE_ENV=development` | Full config for `slcapi.dihola.io` / `development` branch |
+| [`config/main.json`](../config/main.json) | `NODE_ENV=main` | Full config for `slcapi.discernible.io` / `main` branch |
 | [`config/custom-environment-variables.json`](../config/custom-environment-variables.json) | Runtime | Env var → config mapping |
 | `secrets/secrets.env` (host, not in git) | Runtime | `NEAR_RPC_URL`, `LOKI_BASIC_AUTH`, production `SESSION_SECRET`, etc. |
 
@@ -119,7 +119,7 @@ Certain config keys **must differ** between development and main branches. These
 
 | Key | `development` | `main` |
 | --- | --- | --- |
-| `SERVICE_NAME` | `slc.dihola.io` | `slc.discernible.io` |
+| `SERVICE_NAME` | `slcapi.dihola.io` | `slcapi.discernible.io` |
 | `SIGNPORTAL_API_URL` | signportal.dihola.io | signportal.roditcorp.com |
 | `NEAR_CONTRACT_ID` | `genaaaa-identyclaw-com.near` | `genaaaa-identyclaw-com.near` |
 | `MINTING_FEE` | `0.4` | `0.28` |

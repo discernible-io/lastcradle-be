@@ -301,8 +301,8 @@ node scripts/test-joining-window.js
 # Repo / deploy hygiene
 npm run validate:permissions
 node --check src/app.js
-API_BASE_URL=https://slc.discernible.io:9443 node scripts/run-deployment-api-tests.js
+API_BASE_URL=https://slcapi.discernible.io:9443 node scripts/run-deployment-api-tests.js
 
 # Post-deploy on host
-curl -fsSk "https://slc.discernible.io:9443/health" | jq .
+curl -fsSk "https://slcapi.discernible.io:9443/health" | jq .
 ```

@@ -16,11 +16,11 @@ env:
   SSH_USER: ${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}
   SSH_PRIVATE_KEY: ${{ github.ref == 'refs/heads/main' && secrets.SSH_PRIVATE_KEY_MAIN || secrets.SSH_PRIVATE_KEY_DEVELOPMENT }}
   SSH_KNOWN_HOSTS: ${{ github.ref == 'refs/heads/main' && secrets.SSH_KNOWN_HOSTS_MAIN || secrets.SSH_KNOWN_HOSTS_DEVELOPMENT }}
-  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'slc.discernible.io' || 'slc.dihola.io' }}
+  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'slcapi.discernible.io' || 'slcapi.dihola.io' }}
   APP_PORT: "9443"
   # Public surface is APP_PORT only. nginx must not listen on 443: rootless
   # Podman cannot bind privileged ports, and a failed :443 bind aborts nginx entirely.
-  # Game UI is on the same port via Express (/play, /watch).
+  # Game UI frontend is on slc.*:10443; API is slcapi.*:9443.
   APP_DIR: ~/syntheticlc-app
   POD_NAME: syntheticlc-pod
   APP_CONTAINER_NAME: syntheticlc-container

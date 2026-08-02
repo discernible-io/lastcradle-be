@@ -44,12 +44,12 @@ IMAGE_TAG="${IMAGE_TAG:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo
 case "$TARGET" in
   development)
     NODE_ENV=development
-    DOMAIN="${DOMAIN:-slc.dihola.io}"
+    DOMAIN="${DOMAIN:-slcapi.dihola.io}"
     APP_PORT="${APP_PORT:-9443}"
     ;;
   main)
     NODE_ENV=main
-    DOMAIN="${DOMAIN:-slc.discernible.io}"
+    DOMAIN="${DOMAIN:-slcapi.discernible.io}"
     APP_PORT="${APP_PORT:-9443}"
     ;;
   *) echo "TARGET must be development or main" >&2; exit 1 ;;

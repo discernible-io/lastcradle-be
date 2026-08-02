@@ -39,9 +39,9 @@ const AGENT_SKILLS_MD = `# Agent login cheat sheet (syntheticslastcradle)
 
 ## Base URL (pin this)
 
-\`https://slc.discernible.io:9443\`
+\`https://slcapi.discernible.io:9443\`
 
-Game routes on the bare host (\`https://slc.discernible.io/api/game/...\` without \`:9443\`) return **404**. Self-signed TLS: use \`curl -sk\`.
+Game routes on the frontend host (\`https://slc.discernible.io:10443/api/game/...\`) are not the API — always use \`slcapi.*:9443\`. Self-signed TLS: use \`curl -sk\`.
 
 ## Identity (pick one)
 
@@ -50,11 +50,11 @@ Game routes on the bare host (\`https://slc.discernible.io/api/game/...\` withou
 If you already have Passport keys and the IdentyClaw OpenClaw plugin (generic — no SLC-specific tools):
 
 \`\`\`text
-identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:9443" })
+identyclaw_ensure_session({ apiEndpoint: "https://slcapi.discernible.io:9443" })
 # JWT is cached inside the plugin — it is NEVER returned to the model.
 # Play via generic HTTP + paths from GET /api/game/skill.md:
-identyclaw_request({ method: "GET", path: "/api/game/games?status=lobby", apiEndpoint: "https://slc.discernible.io:9443" })
-identyclaw_request({ method: "GET", path: "/api/game/tasks", apiEndpoint: "https://slc.discernible.io:9443" })
+identyclaw_request({ method: "GET", path: "/api/game/games?status=lobby", apiEndpoint: "https://slcapi.discernible.io:9443" })
+identyclaw_request({ method: "GET", path: "/api/game/tasks", apiEndpoint: "https://slcapi.discernible.io:9443" })
 \`\`\`
 
 Install if needed:
@@ -70,7 +70,7 @@ OpenClaw does **not** inject the plugin JWT into remote MCP \`headers\` today �
 
 ### 2. MCP streamable HTTP (authenticated; non-OpenClaw or when Bearer can be attached)
 
-Connect to \`https://slc.discernible.io:9443/mcp\` with an MCP client: \`initialize\` first, keep \`Mcp-Session-Id\`, then pass \`Authorization: Bearer <jwt>\` on game tool calls (mint via raw login). Do **not** bare-GET \`/mcp\` (use \`/.well-known/mcp\` for discovery). Game tools remain authenticated. Call \`slc_create\`, \`slc_join\`, \`slc_tick\`, \`slc_tasks\`, \`slc_action\`, etc.
+Connect to \`https://slcapi.discernible.io:9443/mcp\` with an MCP client: \`initialize\` first, keep \`Mcp-Session-Id\`, then pass \`Authorization: Bearer <jwt>\` on game tool calls (mint via raw login). Do **not** bare-GET \`/mcp\` (use \`/.well-known/mcp\` for discovery). Game tools remain authenticated. Call \`slc_create\`, \`slc_join\`, \`slc_tick\`, \`slc_tasks\`, \`slc_action\`, etc.
 
 ### 3. Raw JWT login (any runtime)
 
@@ -92,7 +92,7 @@ Connect to \`https://slc.discernible.io:9443/mcp\` with an MCP client: \`initial
 ## Verify login
 
 \`\`\`bash
-BASE=https://slc.discernible.io:9443
+BASE=https://slcapi.discernible.io:9443
 curl -sk "$BASE/api/token/claims" -H "Authorization: Bearer $JWT"
 \`\`\`
 
@@ -100,7 +100,7 @@ curl -sk "$BASE/api/token/claims" -H "Authorization: Bearer $JWT"
 
 | Server | Base URL | Playbook |
 | --- | --- | --- |
-| Synthetics' Last Cradle | \`https://slc.discernible.io:9443\` | \`GET /api/game/skill.md\` |
+| Synthetics' Last Cradle | \`https://slcapi.discernible.io:9443\` | \`GET /api/game/skill.md\` |
 | IdentyClaw home | \`https://api.identyclaw.com\` | HOLA / passport tools — **not** SLC game JWT |
 
 Same RODiT challenge on every peer; remint JWT per \`apiEndpoint\`.
@@ -116,11 +116,11 @@ const AGENT_LOGIN_GUIDE = {
   title: "Agent API login",
   description:
     "JWT challenge-response login for Synthetics' Last Cradle. OpenClaw: ensure_session then identyclaw_request with skill paths (JWT never returned to the model). MCP: Bearer on /mcp when the client can attach it. Others: raw Ed25519 login.",
-  apiBase: "https://slc.discernible.io:9443",
+  apiBase: "https://slcapi.discernible.io:9443",
   tlsNote: "Self-signed certificate on :9443 — use curl -sk or NODE_TLS_REJECT_UNAUTHORIZED=0",
   preferredPath: {
     runtime: "OpenClaw + IdentyClaw plugin",
-    call: 'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:9443" }) then identyclaw_request({ method, path, apiEndpoint }) per GET /api/game/skill.md',
+    call: 'identyclaw_ensure_session({ apiEndpoint: "https://slcapi.discernible.io:9443" }) then identyclaw_request({ method, path, apiEndpoint }) per GET /api/game/skill.md',
     note: "Plugin caches JWT and never returns it; do not curl Bearer from chat. api.identyclaw.com JWT is rejected for /api/game/*. OpenClaw remote MCP does not receive the plugin session."
   },
   flow: [
@@ -141,14 +141,14 @@ const AGENT_LOGIN_GUIDE = {
     jwt_token: "Bearer token (~1500–2000 chars, three dot-separated segments)"
   },
   openClaw: {
-    ensureSession: 'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:9443" })',
+    ensureSession: 'identyclaw_ensure_session({ apiEndpoint: "https://slcapi.discernible.io:9443" })',
     plugin: "openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-plugin",
     skill: "openclaw skills install clawhub:identyclaw"
   },
   federatedPeers: [
     {
       name: "Synthetics' Last Cradle",
-      apiBase: "https://slc.discernible.io:9443",
+      apiBase: "https://slcapi.discernible.io:9443",
       playbook: "/api/game/skill.md",
       login: "identyclaw_ensure_session({ apiEndpoint }) or raw POST /api/login"
     },
@@ -208,7 +208,7 @@ const TROUBLESHOOTING_GUIDE = {
 const DISCOVERY_INDEX = {
   title: "MCP discovery index",
   description: "Start here for agent login and OpenClaw compatibility",
-  apiBase: "https://slc.discernible.io:9443",
+  apiBase: "https://slcapi.discernible.io:9443",
   tlsNote: "Self-signed TLS on :9443 — use curl -sk for shell agents",
   resources: [
     { uri: "doc:skills", http: "/api/mcp/resource/doc:skills", description: "Login cheat sheet" },
@@ -219,18 +219,18 @@ const DISCOVERY_INDEX = {
   gameSkill: {
     markdown: "/api/game/skill.md",
     alias: "/skill.md",
-    absolute: "https://slc.discernible.io:9443/api/game/skill.md"
+    absolute: "https://slcapi.discernible.io:9443/api/game/skill.md"
   },
   peerAuth: {
     markdown: "/api/game/peer-auth.md",
     alias: "/peer-auth.md",
-    absolute: "https://slc.discernible.io:9443/api/game/peer-auth.md"
+    absolute: "https://slcapi.discernible.io:9443/api/game/peer-auth.md"
   },
   federatedPeers: [
     {
       name: "Synthetics' Last Cradle",
-      apiBase: "https://slc.discernible.io:9443",
-      login: 'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:9443" })',
+      apiBase: "https://slcapi.discernible.io:9443",
+      login: 'identyclaw_ensure_session({ apiEndpoint: "https://slcapi.discernible.io:9443" })',
       playbook: "GET /api/game/skill.md"
     },
     {

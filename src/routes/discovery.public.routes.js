@@ -26,11 +26,11 @@ router.get("/", (req, res) => {
     agentGuide: {
       summary:
         "OpenClaw: identyclaw_ensure_session({ apiEndpoint }) then read skill.md + state, choose an execution action from state, and submit via identyclaw_game_tick / POST /api/game/tick / POST .../action with that body (empty tick returns action_required — does not default to none). JWT never returned to the model. MCP game tools stay authenticated (Bearer). Raw: GET /api/login/timestamp → POST /api/login. Playbook: GET /api/game/skill.md on :9443.",
-      apiBase: "https://slc.discernible.io:9443",
+      apiBase: "https://slcapi.discernible.io:9443",
       tlsNote: "Self-signed TLS on :9443 — use curl -sk",
       loginFlow: {
         openClawPreferred:
-          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:9443" }) then identyclaw_request({ method, path, apiEndpoint }) per skill.md; for execution submit an explicit action body',
+          'identyclaw_ensure_session({ apiEndpoint: "https://slcapi.discernible.io:9443" }) then identyclaw_request({ method, path, apiEndpoint }) per skill.md; for execution submit an explicit action body',
         timestamp: "GET /api/login/timestamp",
         login: "POST /api/login",
         verify: "GET /api/token/claims (or any protected route)",
@@ -47,17 +47,17 @@ router.get("/", (req, res) => {
       gameSkill: {
         markdown: "/api/game/skill.md",
         alias: "/skill.md",
-        absolute: "https://slc.discernible.io:9443/api/game/skill.md"
+        absolute: "https://slcapi.discernible.io:9443/api/game/skill.md"
       },
       peerAuth: {
         markdown: "/api/game/peer-auth.md",
         alias: "/peer-auth.md",
-        absolute: "https://slc.discernible.io:9443/api/game/peer-auth.md"
+        absolute: "https://slcapi.discernible.io:9443/api/game/peer-auth.md"
       },
       federatedPeers: [
         {
           name: "Synthetics' Last Cradle",
-          apiBase: "https://slc.discernible.io:9443",
+          apiBase: "https://slcapi.discernible.io:9443",
           playbook: "GET /api/game/skill.md"
         },
         {
@@ -204,26 +204,26 @@ router.get("/.well-known/mcp", (req, res) => {
     agentGuide: {
       summary:
         "OpenClaw + IdentyClaw: ensure_session, read skill.md + state, choose none|transfer|invest|transfer_and_invest from state, then identyclaw_game_tick / POST /api/game/tick with that action body (empty tick returns action_required — AFK timeout alone submits none). Other skill paths via identyclaw_request (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize when the client can attach it. Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :9443.",
-      apiBase: "https://slc.discernible.io:9443",
+      apiBase: "https://slcapi.discernible.io:9443",
       tlsNote: "Self-signed TLS — use curl -sk",
       login: {
         openClawPreferred:
-          'identyclaw_ensure_session({ apiEndpoint: "https://slc.discernible.io:9443" }) then choose action from state and identyclaw_game_tick({ apiEndpoint, …action }) for required submits; else identyclaw_request({ method, path, apiEndpoint }) per skill.md',
+          'identyclaw_ensure_session({ apiEndpoint: "https://slcapi.discernible.io:9443" }) then choose action from state and identyclaw_game_tick({ apiEndpoint, …action }) for required submits; else identyclaw_request({ method, path, apiEndpoint }) per skill.md',
         timestamp: "/api/login/timestamp",
         exchange: "/api/login"
       },
       gameSkill: {
         markdown: "/api/game/skill.md",
-        absolute: "https://slc.discernible.io:9443/api/game/skill.md"
+        absolute: "https://slcapi.discernible.io:9443/api/game/skill.md"
       },
       peerAuth: {
         markdown: "/api/game/peer-auth.md",
-        absolute: "https://slc.discernible.io:9443/api/game/peer-auth.md"
+        absolute: "https://slcapi.discernible.io:9443/api/game/peer-auth.md"
       },
       federatedPeers: [
         {
           name: "Synthetics' Last Cradle",
-          apiBase: "https://slc.discernible.io:9443",
+          apiBase: "https://slcapi.discernible.io:9443",
           playbook: "/api/game/skill.md"
         },
         {
@@ -246,9 +246,9 @@ router.get("/.well-known/mcp", (req, res) => {
       health: "/health",
       skills: "/api/mcp/resource/doc:skills",
       gameSkill: "/api/game/skill.md",
-      gameSkillAbsolute: "https://slc.discernible.io:9443/api/game/skill.md",
+      gameSkillAbsolute: "https://slcapi.discernible.io:9443/api/game/skill.md",
       peerAuth: "/api/game/peer-auth.md",
-      peerAuthAbsolute: "https://slc.discernible.io:9443/api/game/peer-auth.md",
+      peerAuthAbsolute: "https://slcapi.discernible.io:9443/api/game/peer-auth.md",
       loginGuide: "/api/mcp/resource/guide:agent-login",
       troubleshooting: "/api/mcp/resource/guide:troubleshooting",
       examples: [
@@ -259,7 +259,7 @@ router.get("/.well-known/mcp", (req, res) => {
       ]
     },
     transportNote:
-      "Pin https://slc.discernible.io:9443 for game routes. Bare host /api/game/* returns 404. For curl and shell agents, use httpAccessForAgents paths with curl -sk. JWT login uses GET /api/login/timestamp and POST /api/login (not MCP session headers).",
+      "Pin https://slcapi.discernible.io:9443 for game routes (frontend is https://slc.discernible.io:10443). For curl and shell agents, use httpAccessForAgents paths with curl -sk. JWT login uses GET /api/login/timestamp and POST /api/login (not MCP session headers).",
     requestId,
     timestamp: new Date().toISOString()
   });

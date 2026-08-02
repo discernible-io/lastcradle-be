@@ -18,11 +18,11 @@
   },
   "servers": [
     {
-      "url": "https://slc.discernible.io:9443",
+      "url": "https://slcapi.discernible.io:9443",
       "description": "Main (main branch) — Synthetics' Last Cradle API"
     },
     {
-      "url": "https://slc.dihola.io:9443",
+      "url": "https://slcapi.dihola.io:9443",
       "description": "Development (development branch)"
     },
     {
