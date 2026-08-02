@@ -1,9 +1,25 @@
 const express = require("express");
 const router = express.Router();
 const { ulid } = require("ulid");
-const { logger, errorResponse } = require("@rodit/rodit-auth-be");
+const { logger, errorResponse, login_client_withnep413 } = require("@rodit/rodit-auth-be");
 const { sendError } = errorResponse;
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
+
+/**
+ * mintserver-style NEP-413 wallet login body (signature over RODiT token id).
+ * Agents still use timestamp challenge login; operators use this path.
+ */
+function isNep413LoginBody(body) {
+  if (!body || typeof body !== "object") {
+    return false;
+  }
+  return Boolean(
+    body.signature &&
+      body.message &&
+      body.nonce != null &&
+      body.recipient
+  );
+}
 
 function parseCanonicalTimestampIsoToUnixSeconds(timestampIso) {
   if (typeof timestampIso !== "string") {
@@ -105,21 +121,14 @@ const authenticateLogout = (req, res, next) => {
 };
 
 router.post("/login", validateContentType, validateJsonBody, async (req, res) => {
+  const requestId = req.requestId || ulid();
   req.logAction = "login-attempt";
-  logger.infoWithContext("Login request received", {
-    component: "AuthRoutes",
-    method: "login_client",
-    requestId: req.requestId || ulid(),
-    path: req.originalUrl,
-    ip: req.ip,
-    userAgent: req.get("User-Agent")
-  });
 
   const client = req.app.locals.roditClient;
   if (!client) {
     return sendError(res, {
       statusCode: 503,
-      requestId: req.requestId || ulid(),
+      requestId,
       code: "AUTH_SERVICE_UNAVAILABLE",
       message: "Authentication service unavailable"
     });
@@ -132,11 +141,48 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
     req.headers["user-agent"] = req.get("User-Agent");
   }
 
-  const timestampResolution = resolveLoginTimestampFromBody(req.body || {});
+  const body = req.body || {};
+
+  if (isNep413LoginBody(body)) {
+    logger.infoWithContext("NEP-413 login request received", {
+      component: "AuthRoutes",
+      method: "login_client_withnep413",
+      requestId,
+      path: req.originalUrl,
+      ip: req.ip,
+      userAgent: req.get("User-Agent"),
+      recipient: body.recipient,
+      messageLength: typeof body.message === "string" ? body.message.length : 0
+    });
+
+    const config_own_rodit = client.getStateManager?.()?.getConfigOwnRodit?.();
+    if (!config_own_rodit) {
+      return sendError(res, {
+        statusCode: 500,
+        requestId,
+        code: "SERVER_CONFIG_NOT_INITIALIZED",
+        message: "Server configuration not initialized"
+      });
+    }
+
+    await login_client_withnep413(req, res, config_own_rodit);
+    return;
+  }
+
+  logger.infoWithContext("Login request received", {
+    component: "AuthRoutes",
+    method: "login_client",
+    requestId,
+    path: req.originalUrl,
+    ip: req.ip,
+    userAgent: req.get("User-Agent")
+  });
+
+  const timestampResolution = resolveLoginTimestampFromBody(body);
   if (timestampResolution.value === null) {
     return sendError(res, {
       statusCode: 400,
-      requestId: req.requestId || ulid(),
+      requestId,
       code: timestampResolution.error,
       message: timestampResolution.message
     });
