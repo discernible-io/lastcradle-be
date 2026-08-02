@@ -188,6 +188,7 @@ const mcpRoutes = require("./routes/mcp.public.routes");
 // Import protected routes (require authentication)
 const metricsRoutes = require("./protected/metricsroutes");
 const sessionRoutes = require("./routes/session.privileged.routes");
+const operatorRoutes = require("./routes/operator.privileged.routes");
 const gameRoutes = require("./game/routes");
 const gameSpectatorRoutes = require("./game/spectator-routes");
 const gameScheduler = require("./game/scheduler");
@@ -872,7 +873,8 @@ async function startServer() {
     app.use("/api/game", authenticate_apicall, gameRoutes);
     app.use("/api/metrics", metricsRoutes);
     app.use("/api/sessions", sessionRoutes);
-    
+    app.use("/api/operator", operatorRoutes);
+
     // Mount token claims endpoint
     app.get("/api/token/claims", authenticate_apicall, (req, res) => {
       return res.json({
@@ -977,12 +979,13 @@ async function startServer() {
         "  / - API discovery (agentGuide, OpenClaw login paths)",
         "  /.well-known/mcp - MCP discovery for agents",
         "  GET /api/login/timestamp - Login challenge (timestamp pair)",
-        "  POST /api/login - Login with RODiT credentials",
+        "  POST /api/login - Login (timestamp challenge or NEP-413 wallet signature)",
         "  GET /api/mcp/resources - Public MCP doc list (no JWT)",
         "  GET /api/mcp/resource/doc:skills - Agent login cheat sheet",
         "  POST /api/logout - Logout (Bearer JWT; expired tokens allowed)",
         "  /api/cruda - CRUDA showcase (requires authentication + permissions)",
         "  /api/game - Synthetics' Last Cradle (JWT passport login; operator via GAME_PRIVILEGED_RODIT_ID)",
+        "  GET /api/operator/me - Operator identity / privilege probe (Bearer JWT)",
         "  /play - Player-facing turn report blog (static)",
         "  /api/sessions - Session admin (authenticate + authorize)",
         "  /api-docs - Swagger API documentation",
