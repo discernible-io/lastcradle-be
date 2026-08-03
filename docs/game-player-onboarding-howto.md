@@ -120,7 +120,7 @@ When you join, the server assigns:
 - **Production capacity** — how much of each resource you generate at the start of each turn.
 - **Storage capacity** — maximum stockpile per resource.
 
-At the start of each turn, production runs automatically: you gain resources up to storage limits, pay a small energy cost for water/compute production, and later pay water for holding stored energy/compute.
+At the start of each turn, production runs automatically: you gain resources up to storage limits, pay a small water cost for energy/compute production, and later pay energy for holding stored water/compute.
 
 ### Turn structure
 

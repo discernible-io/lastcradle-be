@@ -184,8 +184,8 @@ async function benchmarkPlayerCount(playerCount, trials, progress) {
   console.log("Synthetics' Last Cradle — length benchmark");
   console.log(
     `Config: survival base ${cfg.survivalCost.energy}/${cfg.survivalCost.water}/${cfg.survivalCost.compute}, ` +
-      `increment ${cfg.survivalCostTurnIncrement}, prod energy rate ${cfg.productionEnergyCostRate}, ` +
-      `storage water rate ${cfg.storageWaterCostRate}, storage cap ${cfg.maxStorageCapacity.energy}`
+      `increment ${cfg.survivalCostTurnIncrement}, prod water rate ${cfg.productionWaterCostRate}, ` +
+      `storage energy rate ${cfg.storageEnergyCostRate}, storage cap ${cfg.maxStorageCapacity.energy}`
   );
   console.log(`Trials per count: ${TRIALS} | max turns: ${MAX_TURNS}`);
 

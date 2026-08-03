@@ -79,8 +79,8 @@ async function main() {
       useSpecializedCradles: false,
       minAgents: 3,
       joiningWindowDurationMs: 0,
-      productionEnergyCostRate: 0.1,
-      storageWaterCostRate: 0.1,
+      productionWaterCostRate: 0.1,
+      storageEnergyCostRate: 0.1,
       investProductionGainPerUnit: 1,
       investStorageGainPerUnit: 2,
       survivalCost: { energy: 5, water: 5, compute: 5 }
@@ -158,8 +158,8 @@ async function testIntelligenceMemoryWindow() {
       useSpecializedCradles: false,
       minAgents: 3,
       joiningWindowDurationMs: 0,
-      productionEnergyCostRate: 0,
-      storageWaterCostRate: 0,
+      productionWaterCostRate: 0,
+      storageEnergyCostRate: 0,
       survivalCost: { energy: 1, water: 1, compute: 1 },
       intelligenceMemoryTurns: 2
     }
@@ -255,8 +255,8 @@ async function testSpecializedCradlesAndCombinedAction() {
       cradleSecondaryProductionMaxRatio: 0.5,
       minAgents: 3,
       joiningWindowDurationMs: 0,
-      productionEnergyCostRate: 0,
-      storageWaterCostRate: 0,
+      productionWaterCostRate: 0,
+      storageEnergyCostRate: 0,
       investProductionGainPerUnit: 1,
       investStorageGainPerUnit: 1,
       survivalCost: { energy: 1, water: 1, compute: 1 }

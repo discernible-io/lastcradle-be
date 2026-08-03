@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Regression: maxInvestAmountAfterSurvival must reserve post-execution storage water.
+ * Regression: maxInvestAmountAfterSurvival must reserve post-execution storage energy.
  * Also covers storage readouts on actionHints and outbound action projections.
  */
 
@@ -42,10 +42,10 @@ function survivesAfterInvest(inv, n, survival, config) {
 function main() {
   const config = {
     ...DEFAULT_GAME_CONFIG,
-    storageWaterCostRate: 0.1
+    storageEnergyCostRate: 0.1
   };
-  // Jay Rockefeller-style turn-1 cradle after production clamp
-  const inventory = { energy: 82, water: 73, compute: 95 };
+  // Water-heavy cradle: survival-only invest leaves energy short after storage tax
+  const inventory = { energy: 73, water: 82, compute: 95 };
   const survival = { energy: 11, water: 11, compute: 11 };
 
   const oldSurvivalOnlyHint = Math.floor(
@@ -58,7 +58,7 @@ function main() {
   assert(oldSurvivalOnlyHint === 62, `expected old trap hint 62, got ${oldSurvivalOnlyHint}`);
   assert(
     !survivesAfterInvest(inventory, oldSurvivalOnlyHint, survival, config),
-    "old hint 62 must be lethal once storage water is applied"
+    "old hint 62 must be lethal once storage energy is applied"
   );
 
   const safe = maxEqualInvestPreservingSurvival(inventory, survival, config);
@@ -80,15 +80,18 @@ function main() {
     hints.maxInvestAmountAfterSurvival === safe,
     `actionHints must match helper (${hints.maxInvestAmountAfterSurvival} vs ${safe})`
   );
-  assert(hints.note.includes("storage water") || hints.note.includes("storageWater"), "hint note should mention storage water");
-  assert(hints.storageWaterCostRate === 0.1, `rate expected 0.1, got ${hints.storageWaterCostRate}`);
   assert(
-    hints.storageWaterCostIfNoSpend === (82 + 95) * 0.1,
-    `storageWaterCostIfNoSpend expected ${(82 + 95) * 0.1}, got ${hints.storageWaterCostIfNoSpend}`
+    hints.note.includes("storage energy") || hints.note.includes("storageEnergy"),
+    "hint note should mention storage energy"
+  );
+  assert(hints.storageEnergyCostRate === 0.1, `rate expected 0.1, got ${hints.storageEnergyCostRate}`);
+  assert(
+    hints.storageEnergyCostIfNoSpend === (82 + 95) * 0.1,
+    `storageEnergyCostIfNoSpend expected ${(82 + 95) * 0.1}, got ${hints.storageEnergyCostIfNoSpend}`
   );
   assert(
-    hints.waterAfterStorageIfNoSpend === 73 - hints.storageWaterCostIfNoSpend,
-    `waterAfterStorageIfNoSpend mismatch: ${hints.waterAfterStorageIfNoSpend}`
+    hints.energyAfterStorageIfNoSpend === 73 - hints.storageEnergyCostIfNoSpend,
+    `energyAfterStorageIfNoSpend mismatch: ${hints.energyAfterStorageIfNoSpend}`
   );
   const afterSafe = {
     energy: inventory.energy - safe,
@@ -96,33 +99,33 @@ function main() {
     compute: inventory.compute - safe
   };
   assert(
-    hints.storageWaterCostIfMaxSafeInvest === (afterSafe.energy + afterSafe.compute) * 0.1,
-    "storageWaterCostIfMaxSafeInvest must match post-safe-invest tax"
+    hints.storageEnergyCostIfMaxSafeInvest === (afterSafe.water + afterSafe.compute) * 0.1,
+    "storageEnergyCostIfMaxSafeInvest must match post-safe-invest tax"
   );
   assert(
-    hints.waterAfterStorageIfMaxSafeInvest ===
-      afterSafe.water - hints.storageWaterCostIfMaxSafeInvest,
-    "waterAfterStorageIfMaxSafeInvest must match"
+    hints.energyAfterStorageIfMaxSafeInvest ===
+      afterSafe.energy - hints.storageEnergyCostIfMaxSafeInvest,
+    "energyAfterStorageIfMaxSafeInvest must match"
   );
   assert(hints.note.includes("GET .../action"), "hint note should call out GET .../action is not a route");
   assert(
-    hints.wasteIfNotExportedByNextProduction.energy === Math.max(0, 82 + 40 - 30),
-    `energy waste expected ${Math.max(0, 82 + 40 - 30)}, got ${hints.wasteIfNotExportedByNextProduction.energy}`
+    hints.wasteIfNotExportedByNextProduction.energy === Math.max(0, 73 + 40 - 30),
+    `energy waste expected ${Math.max(0, 73 + 40 - 30)}, got ${hints.wasteIfNotExportedByNextProduction.energy}`
   );
   assert(hints.storageHeadroom.energy === 0, "energy at/over cap → headroom 0");
-  assert(hints.storageHeadroom.water === Math.max(0, 40 - 73), "water headroom");
+  assert(hints.storageHeadroom.water === 0, "water at/over cap → headroom 0");
   assert(hints.inventoryAtStorageCap.energy === true, "energy should be at storage cap");
-  assert(hints.inventoryAtStorageCap.water === true, "water inventory 73 >= storage 40");
+  assert(hints.inventoryAtStorageCap.water === true, "water inventory 82 >= storage 40");
   assert(hints.inventoryAtStorageCap.compute === true, "compute should be at storage cap");
   assert(hints.note.includes("storageHeadroom"), "hint note should list storageHeadroom");
   assert(hints.note.includes("inventoryAtStorageCap"), "hint note should list inventoryAtStorageCap");
 
-  const noStorage = buildActionHints(inventory, survival, { storageWaterCostRate: 0 });
+  const noStorage = buildActionHints(inventory, survival, { storageEnergyCostRate: 0 });
   assert(
     noStorage.maxInvestAmountAfterSurvival === 62,
     `with rate 0 expected 62, got ${noStorage.maxInvestAmountAfterSurvival}`
   );
-  assert(noStorage.storageWaterCostIfNoSpend === 0, "rate 0 must yield zero storage water cost");
+  assert(noStorage.storageEnergyCostIfNoSpend === 0, "rate 0 must yield zero storage energy cost");
   assert(
     noStorage.wasteIfNotExportedByNextProduction == null,
     "without capacities, waste readout should be omitted"
@@ -141,7 +144,7 @@ function main() {
   const investProj = projectActionOutcome(agent, investAction, config, survival);
   assert(investProj.ok === true, "invest projection should succeed");
   assert(
-    investProj.afterAction.inventory.energy === 80,
+    investProj.afterAction.inventory.energy === 71,
     `invest should spend 2 energy, got ${investProj.afterAction.inventory.energy}`
   );
   assert(
@@ -182,8 +185,8 @@ function main() {
   );
   assert(transferProj.ok === true, "transfer projection should succeed");
   assert(
-    transferProj.afterAction.inventory.energy === 72,
-    `transfer out 10 energy → 72, got ${transferProj.afterAction.inventory.energy}`
+    transferProj.afterAction.inventory.energy === 63,
+    `transfer out 10 energy → 63, got ${transferProj.afterAction.inventory.energy}`
   );
   assert(
     transferProj.afterAction.productionCapacity.energy === productionCapacity.energy,

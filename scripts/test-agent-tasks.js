@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.9.0")) {
-    throw new Error("skill.md should be version 1.9.0");
+  if (!skill.includes("version: 1.9.1")) {
+    throw new Error("skill.md should be version 1.9.1");
   }
   if (!skill.includes("deadline_warning")) {
     throw new Error("skill.md should document deadline_warning webhook");
@@ -83,8 +83,8 @@ async function main() {
   if (!skill.includes("maxInvestAmountAfterSurvival")) {
     throw new Error("skill.md should reference maxInvestAmountAfterSurvival for invest caps");
   }
-  if (!skill.includes("storageWaterCostIfNoSpend")) {
-    throw new Error("skill.md should document storageWaterCostIfNoSpend on actionHints");
+  if (!skill.includes("storageEnergyCostIfNoSpend")) {
+    throw new Error("skill.md should document storageEnergyCostIfNoSpend on actionHints");
   }
   if (!skill.includes("GET .../action") && !skill.includes("GET `/api/game/games/{gameId}/action`")) {
     throw new Error("skill.md should call out that GET .../action is not a route");

@@ -132,7 +132,7 @@ const gameSchemas = {
       actionHints: {
         type: "object",
         description:
-          "Present on self view: invest/intel caps, storage-water tax projections, waste/headroom/at-cap readouts, fog counts, and allowed action types",
+          "Present on self view: invest/intel caps, storage-energy tax projections, waste/headroom/at-cap readouts, fog counts, and allowed action types",
         properties: {
           allowedActionTypes: {
             type: "array",
@@ -148,12 +148,12 @@ const gameSchemas = {
           maxInvestAmountAfterSurvival: {
             type: "number",
             description:
-              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage water cost (equal-invest only)"
+              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only)"
           },
           maxIntelligenceComputeAfterSurvival: {
             type: "number",
             description:
-              "Largest compute spendable on hide+find while still leaving thisTurnSurvivalCost payable after storage water cost"
+              "Largest compute spendable on hide+find while still leaving thisTurnSurvivalCost payable after storage energy cost"
           },
           maxTransferRecipients: { type: "integer" },
           intelligenceMemoryTurns: {
@@ -165,27 +165,27 @@ const gameSchemas = {
             description: "Living rivals with intelligenceHidden true for this viewer"
           },
           livingRivalCount: { type: "integer" },
-          storageWaterCostRate: {
+          storageEnergyCostRate: {
             type: "number",
-            description: "Config rate: water tax = rate × (energy + compute) held after execution"
+            description: "Config rate: energy tax = rate × (water + compute) held after execution"
           },
-          storageWaterCostIfNoSpend: {
+          storageEnergyCostIfNoSpend: {
             type: "number",
-            description: "Water deducted for storage if you spend nothing this turn"
+            description: "Energy deducted for storage if you spend nothing this turn"
           },
-          waterAfterStorageIfNoSpend: {
+          energyAfterStorageIfNoSpend: {
             type: "number",
-            description: "Water remaining after that tax (before thisTurnSurvivalCost)"
+            description: "Energy remaining after that tax (before thisTurnSurvivalCost)"
           },
-          storageWaterCostIfMaxSafeInvest: {
+          storageEnergyCostIfMaxSafeInvest: {
             type: "number",
             description:
-              "Water tax after spending maxInvestAmountAfterSurvival equal E/W/C (no transfer/hide/find)"
+              "Energy tax after spending maxInvestAmountAfterSurvival equal E/W/C (no transfer/hide/find)"
           },
-          waterAfterStorageIfMaxSafeInvest: {
+          energyAfterStorageIfMaxSafeInvest: {
             type: "number",
             description:
-              "Water left after that tax (before survival); compare to thisTurnSurvivalCost.water"
+              "Energy left after that tax (before survival); compare to thisTurnSurvivalCost.energy"
           },
           wasteIfNotExportedByNextProduction: {
             allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
@@ -243,15 +243,15 @@ const gameSchemas = {
       afterStorageAndSurvival: {
         type: "object",
         description:
-          "Same outbound projection after storage water tax and thisTurnSurvivalCost (if payable)",
+          "Same outbound projection after storage energy tax and thisTurnSurvivalCost (if payable)",
         properties: {
           inventory: { $ref: "#/components/schemas/GameResourceTriple" },
           productionCapacity: { $ref: "#/components/schemas/GameResourceTriple" },
           storageCapacity: { $ref: "#/components/schemas/GameResourceTriple" },
           survives: { type: "boolean", nullable: true },
           thisTurnSurvivalCost: { $ref: "#/components/schemas/GameResourceTriple" },
-          storageWaterCost: { type: "number" },
-          waterAfterStorage: { type: "number" },
+          storageEnergyCost: { type: "number" },
+          energyAfterStorage: { type: "number" },
           specialty: {
             type: "string",
             nullable: true,

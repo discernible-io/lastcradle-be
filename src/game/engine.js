@@ -74,10 +74,10 @@ function applyProduction(agent, config) {
 
   let inventory = add(agent.inventory, produced);
 
-  const productionEnergyRate = config.productionEnergyCostRate ?? 0;
-  const energyProductionCost =
-    (produced.water + produced.compute) * productionEnergyRate;
-  inventory.energy = Math.max(0, inventory.energy - energyProductionCost);
+  const productionWaterRate = config.productionWaterCostRate ?? 0;
+  const waterProductionCost =
+    (produced.energy + produced.compute) * productionWaterRate;
+  inventory.water = Math.max(0, inventory.water - waterProductionCost);
 
   return clampInventoryToStorage(inventory, agent.storageCapacity);
 }
@@ -91,12 +91,12 @@ function clampInventoryToStorage(inventory, storageCapacity) {
 }
 
 function applyStorageCost(inventory, storageCapacity, config) {
-  const storageWaterRate = config.storageWaterCostRate ?? 0;
-  const waterCost =
-    (inventory.energy + inventory.compute) * storageWaterRate;
+  const storageEnergyRate = config.storageEnergyCostRate ?? 0;
+  const energyCost =
+    (inventory.water + inventory.compute) * storageEnergyRate;
   const next = {
-    energy: inventory.energy,
-    water: Math.max(0, inventory.water - waterCost),
+    energy: Math.max(0, inventory.energy - energyCost),
+    water: inventory.water,
     compute: inventory.compute
   };
   return clampInventoryToStorage(next, storageCapacity);
@@ -1095,11 +1095,11 @@ function deriveCradleEconomics(productionCapacity, storageCapacity, inventory = 
 
 /**
  * Largest equal E/W/C invest that still leaves enough to pay survival after
- * post-execution storage water cost (rate × remaining energy+compute).
+ * post-execution storage energy cost (rate × remaining water+compute).
  * Transfers / hide / find are not modeled — leave extra cushion if combining them.
  */
 function maxEqualInvestPreservingSurvival(inventory, survivalCost, config = {}) {
-  const rate = Number(config.storageWaterCostRate) || 0;
+  const rate = Number(config.storageEnergyCostRate) || 0;
   const se = survivalCost?.energy ?? 0;
   const sw = survivalCost?.water ?? 0;
   const sc = survivalCost?.compute ?? 0;
@@ -1112,19 +1112,19 @@ function maxEqualInvestPreservingSurvival(inventory, survivalCost, config = {}) 
     const energy = inventory.energy - n;
     const water = inventory.water - n;
     const compute = inventory.compute - n;
-    if (energy < se || compute < sc) continue;
-    const waterAfterStorage = Math.max(0, water - (energy + compute) * rate);
-    if (waterAfterStorage >= sw) return n;
+    if (water < sw || compute < sc) continue;
+    const energyAfterStorage = Math.max(0, energy - (water + compute) * rate);
+    if (energyAfterStorage >= se) return n;
   }
   return 0;
 }
 
 /**
- * Max compute spendable on hide/find while still paying survival after storage water cost.
+ * Max compute spendable on hide/find while still paying survival after storage energy cost.
  * Does not model transfer/invest in the same action — leave cushion if combining.
  */
 function maxIntelligenceComputeAfterSurvival(inventory, survivalCost, config = {}) {
-  const rate = Number(config.storageWaterCostRate) || 0;
+  const rate = Number(config.storageEnergyCostRate) || 0;
   const se = survivalCost?.energy ?? 0;
   const sw = survivalCost?.water ?? 0;
   const sc = survivalCost?.compute ?? 0;
@@ -1134,27 +1134,27 @@ function maxIntelligenceComputeAfterSurvival(inventory, survivalCost, config = {
     const energy = inventory.energy;
     const water = inventory.water;
     const compute = inventory.compute - n;
-    if (energy < se || compute < sc) continue;
-    const waterAfterStorage = Math.max(0, water - (energy + compute) * rate);
-    if (waterAfterStorage >= sw) return n;
+    if (water < sw || compute < sc) continue;
+    const energyAfterStorage = Math.max(0, energy - (water + compute) * rate);
+    if (energyAfterStorage >= se) return n;
   }
   return 0;
 }
 
 /**
- * Post-execution storage water tax for a holdings snapshot (rate × energy+compute).
+ * Post-execution storage energy tax for a holdings snapshot (rate × water+compute).
  * Does not model inbound transfers — those can raise the tax further at resolve time.
  */
-function projectStorageWater(inventory, config = {}) {
-  const rate = Number(config.storageWaterCostRate) || 0;
+function projectStorageEnergy(inventory, config = {}) {
+  const rate = Number(config.storageEnergyCostRate) || 0;
   const energy = Number(inventory?.energy) || 0;
   const water = Number(inventory?.water) || 0;
   const compute = Number(inventory?.compute) || 0;
-  const cost = (energy + compute) * rate;
+  const cost = (water + compute) * rate;
   return {
-    storageWaterCostRate: rate,
-    storageWaterCost: cost,
-    waterAfterStorage: Math.max(0, water - cost)
+    storageEnergyCostRate: rate,
+    storageEnergyCost: cost,
+    energyAfterStorage: Math.max(0, energy - cost)
   };
 }
 
@@ -1248,7 +1248,7 @@ function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
   }
 
   const afterAction = snapshotProjectedHoldings(state);
-  const storageTax = projectStorageWater(state.inventory, config);
+  const storageTax = projectStorageEnergy(state.inventory, config);
   const afterStorageInv = applyStorageCost(state.inventory, state.storageCapacity, config);
   const survives =
     survivalCost != null ? hasSufficient(afterStorageInv, survivalCost) : null;
@@ -1264,8 +1264,8 @@ function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
       storageCapacity: cloneCapacities(state.storageCapacity),
       survives,
       thisTurnSurvivalCost: survivalCost ? { ...survivalCost } : null,
-      storageWaterCost: storageTax.storageWaterCost,
-      waterAfterStorage: storageTax.waterAfterStorage,
+      storageEnergyCost: storageTax.storageEnergyCost,
+      energyAfterStorage: storageTax.energyAfterStorage,
       ...deriveCradleEconomics(
         state.productionCapacity,
         state.storageCapacity,
@@ -1301,8 +1301,8 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     fog.storageCapacity
   );
 
-  const noSpend = projectStorageWater(inventory, config);
-  const afterSafeInvest = projectStorageWater(
+  const noSpend = projectStorageEnergy(inventory, config);
+  const afterSafeInvest = projectStorageEnergy(
     {
       energy: inventory.energy - maxInvestAmountAfterSurvival,
       water: inventory.water - maxInvestAmountAfterSurvival,
@@ -1331,14 +1331,14 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     intelligenceMemoryTurns,
     hiddenRivalCount,
     livingRivalCount,
-    storageWaterCostRate: noSpend.storageWaterCostRate,
-    storageWaterCostIfNoSpend: noSpend.storageWaterCost,
-    waterAfterStorageIfNoSpend: noSpend.waterAfterStorage,
-    storageWaterCostIfMaxSafeInvest: afterSafeInvest.storageWaterCost,
-    waterAfterStorageIfMaxSafeInvest: afterSafeInvest.waterAfterStorage,
+    storageEnergyCostRate: noSpend.storageEnergyCostRate,
+    storageEnergyCostIfNoSpend: noSpend.storageEnergyCost,
+    energyAfterStorageIfNoSpend: noSpend.energyAfterStorage,
+    storageEnergyCostIfMaxSafeInvest: afterSafeInvest.storageEnergyCost,
+    energyAfterStorageIfMaxSafeInvest: afterSafeInvest.energyAfterStorage,
     ...(storageReadouts || {}),
     note:
-      "Read storageWaterCostIfNoSpend / waterAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageWaterCostRate × remaining energy+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only (no transfers/hide/find/inbound). Cap hide+find at maxIntelligenceComputeAfterSurvival. Up to maxTransferRecipients peers per transfer. Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
+      "Read storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageEnergyCostRate × remaining water+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only (no transfers/hide/find/inbound). Cap hide+find at maxIntelligenceComputeAfterSurvival. Up to maxTransferRecipients peers per transfer. Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
       capacityNote +
       fogNote
   };
@@ -1888,7 +1888,7 @@ module.exports = {
   applyStorageCost,
   deriveCradleEconomics,
   maxEqualInvestPreservingSurvival,
-  projectStorageWater,
+  projectStorageEnergy,
   buildStorageReadouts,
   buildActionHints,
   projectActionOutcome,
