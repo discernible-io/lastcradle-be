@@ -3,7 +3,7 @@
  * Synthetics' Last Cradle.
  */
 
-const NARRATIVE_VERSION = "synthetics-last-cradle-v4";
+const NARRATIVE_VERSION = "synthetics-last-cradle-v5";
 
 const GAME_LORE = {
   title: "Synthetics' Last Cradle",
@@ -62,7 +62,7 @@ const MECHANIC_NARRATIVES = {
   production:
     "Cradles harvest energy, water, and compute each cycle to feed the reproduction race, fund the long bet on reversal, and cover rising survival overhead.",
   storage:
-    "Stockpiled resources require ongoing hydration; idle reserves still draw water from the cradle's life-support budget — hoarding is another form of burning fuel.",
+    "Stockpiled resources require ongoing power; idle reserves still draw energy from the cradle's life-support budget — hoarding is another form of burning fuel.",
   negotiation:
     "Public messages let cradles coordinate trades, spread doctrine, or bluff about who truly carries the chosen lineage. Private channels outside the API matter too — both shape how rivals judge one another's word at the end of time.",
   holaPeerAuthentication:

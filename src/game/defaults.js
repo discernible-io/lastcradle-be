@@ -64,11 +64,11 @@ const DEFAULT_GAME_CONFIG = {
    */
   startingInventoryBalanceMin: 0,
 
-  /** Energy consumed as a fraction of water + compute produced each turn */
-  productionEnergyCostRate: 0.1,
+  /** Water consumed as a fraction of energy + compute produced each turn */
+  productionWaterCostRate: 0.1,
 
-  /** Water consumed as a fraction of energy + compute held in storage each turn */
-  storageWaterCostRate: 0.1,
+  /** Energy consumed as a fraction of water + compute held in storage each turn */
+  storageEnergyCostRate: 0.1,
 
   /** Per-unit EWC invested toward a resource adds this much production capacity */
   investProductionGainPerUnit: 0.7,
