@@ -307,6 +307,15 @@ async function testSpecializedCradlesAndCombinedAction() {
   if (!self.wasteIfNotExportedByNextProduction || !self.thisTurnSurvivalCost || !self.actionHints) {
     throw new Error("Expected waste/survival/actionHints on viewer state");
   }
+  if (!self.nextTurnSurvivalCost || !self.actionHints.nextTurnSurvivalCost) {
+    throw new Error("Expected nextTurnSurvivalCost on viewer and actionHints");
+  }
+  if (!self.actionHints.survivalCostPerTurnIncrement) {
+    throw new Error("Expected survivalCostPerTurnIncrement on actionHints");
+  }
+  if (!(self.nextTurnSurvivalCost.energy > self.thisTurnSurvivalCost.energy)) {
+    throw new Error("nextTurnSurvivalCost should exceed thisTurnSurvivalCost while rivals remain");
+  }
   const keys = ["energy", "water", "compute"];
   const specialties = keys.filter((k) => one.productionCapacity[k] > one.storageCapacity[k]);
   if (self.specialty !== specialties[0]) {

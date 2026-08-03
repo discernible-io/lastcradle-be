@@ -129,10 +129,15 @@ const gameSchemas = {
         allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
         description: "Survival cost due this turn (same values as projectedSurvival[agentId])"
       },
+      nextTurnSurvivalCost: {
+        allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
+        description:
+          "Projected survival cost next turn if living count holds (also mirrored on actionHints)"
+      },
       actionHints: {
         type: "object",
         description:
-          "Present on self view: invest/intel caps, storage-energy tax projections, waste/headroom/at-cap readouts, fog counts, and allowed action types",
+          "Present on self view: invest/intel caps, storage-energy tax projections, rising-survival readouts, waste/headroom/at-cap readouts, fog counts, and allowed action types",
         properties: {
           allowedActionTypes: {
             type: "array",
@@ -148,7 +153,7 @@ const gameSchemas = {
           maxInvestAmountAfterSurvival: {
             type: "number",
             description:
-              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only)"
+              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only; does not reserve nextTurnSurvivalCost)"
           },
           maxIntelligenceComputeAfterSurvival: {
             type: "number",
@@ -186,6 +191,16 @@ const gameSchemas = {
             type: "number",
             description:
               "Energy left after that tax (before survival); compare to thisTurnSurvivalCost.energy"
+          },
+          nextTurnSurvivalCost: {
+            allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
+            description:
+              "Survival cost next turn if living count holds — maxInvestAmountAfterSurvival does not reserve this"
+          },
+          survivalCostPerTurnIncrement: {
+            allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
+            description:
+              "Effective per-turn survival climb at current livingCount (base increment × living/reference)"
           },
           wasteIfNotExportedByNextProduction: {
             allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],

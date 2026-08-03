@@ -11,7 +11,11 @@ const {
   maxCapacityFor,
   DEFAULT_GAME_CONFIG
 } = require("./defaults");
-const { computeSurvivalCost, buildSurvivalContext } = require("./survival-cost");
+const {
+  computeSurvivalCost,
+  buildSurvivalContext,
+  survivalCostOutlook
+} = require("./survival-cost");
 const { getGameNarrative, buildSurvivalNarrative } = require("./narrative");
 const {
   normalizeTransferDisclosure,
@@ -1322,6 +1326,16 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     ? " Also present: wasteIfNotExportedByNextProduction, storageHeadroom, inventoryAtStorageCap."
     : "";
 
+  const nextTurnSurvivalCost = fog.nextTurnSurvivalCost
+    ? { ...fog.nextTurnSurvivalCost }
+    : null;
+  const survivalCostPerTurnIncrement = fog.survivalCostPerTurnIncrement
+    ? { ...fog.survivalCostPerTurnIncrement }
+    : null;
+  const risingNote = nextTurnSurvivalCost
+    ? " maxInvestAmountAfterSurvival reserves thisTurnSurvivalCost only — nextTurnSurvivalCost is higher when living count holds; survivalCostPerTurnIncrement is the per-turn climb at current livingCount."
+    : "";
+
   return {
     allowedActionTypes: ["transfer", "invest", "transfer_and_invest", "none"],
     maxInvestAmount,
@@ -1336,9 +1350,13 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     energyAfterStorageIfNoSpend: noSpend.energyAfterStorage,
     storageEnergyCostIfMaxSafeInvest: afterSafeInvest.storageEnergyCost,
     energyAfterStorageIfMaxSafeInvest: afterSafeInvest.energyAfterStorage,
+    ...(nextTurnSurvivalCost ? { nextTurnSurvivalCost } : {}),
+    ...(survivalCostPerTurnIncrement ? { survivalCostPerTurnIncrement } : {}),
     ...(storageReadouts || {}),
     note:
-      "Read storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageEnergyCostRate × remaining water+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only (no transfers/hide/find/inbound). Cap hide+find at maxIntelligenceComputeAfterSurvival. Up to maxTransferRecipients peers per transfer. Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
+      "Read storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageEnergyCostRate × remaining water+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only (no transfers/hide/find/inbound)." +
+      risingNote +
+      " Cap hide+find at maxIntelligenceComputeAfterSurvival. Up to maxTransferRecipients peers per transfer. Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
       capacityNote +
       fogNote
   };
@@ -1373,10 +1391,13 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
     livingAgents,
     game
   });
-  const thisTurnSurvivalCost =
+  const survivalOutlook =
     game.status === "running" && livingAgents.length > 0
-      ? computeSurvivalCost(game.config, projectedSurvivalContext)
+      ? survivalCostOutlook(game.config, projectedSurvivalContext)
       : null;
+  const thisTurnSurvivalCost = survivalOutlook?.thisTurn ?? null;
+  const nextTurnSurvivalCost = survivalOutlook?.nextTurn ?? null;
+  const survivalCostPerTurnIncrement = survivalOutlook?.effectiveIncrementPerTurn ?? null;
   const projectedSurvival =
     thisTurnSurvivalCost != null
       ? Object.fromEntries(livingAgents.map((agent) => [agent.id, { ...thisTurnSurvivalCost }]))
@@ -1386,6 +1407,7 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
   const agentViews = agents.map((agent) =>
     publicAgentView(agent, viewerAgentId, intelligence, {
       thisTurnSurvivalCost,
+      nextTurnSurvivalCost,
       includeActionHints: false,
       config: game.config
     })
@@ -1402,7 +1424,9 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       hiddenRivalCount,
       livingRivalCount: livingRivals.length,
       productionCapacity: you.productionCapacity,
-      storageCapacity: you.storageCapacity
+      storageCapacity: you.storageCapacity,
+      nextTurnSurvivalCost,
+      survivalCostPerTurnIncrement
     });
   }
 
@@ -1461,6 +1485,8 @@ async function getTurnInvestmentSummary(gameId, turnNumber) {
 function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
   const {
     thisTurnSurvivalCost = null,
+    nextTurnSurvivalCost = null,
+    survivalCostPerTurnIncrement = null,
     includeActionHints = false,
     config = null
   } = options;
@@ -1489,6 +1515,9 @@ function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
     if (thisTurnSurvivalCost) {
       base.thisTurnSurvivalCost = { ...thisTurnSurvivalCost };
     }
+    if (nextTurnSurvivalCost) {
+      base.nextTurnSurvivalCost = { ...nextTurnSurvivalCost };
+    }
     if (includeActionHints && agent.inventory) {
       base.actionHints = buildActionHints(
         agent.inventory,
@@ -1496,7 +1525,9 @@ function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
         config || DEFAULT_GAME_CONFIG,
         {
           productionCapacity: agent.productionCapacity,
-          storageCapacity: agent.storageCapacity
+          storageCapacity: agent.storageCapacity,
+          nextTurnSurvivalCost,
+          survivalCostPerTurnIncrement
         }
       );
     }

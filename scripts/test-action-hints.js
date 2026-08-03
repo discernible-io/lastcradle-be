@@ -73,12 +73,26 @@ function main() {
   const storageCapacity = { energy: 30, water: 40, compute: 40 };
   const hints = buildActionHints(inventory, survival, config, {
     productionCapacity,
-    storageCapacity
+    storageCapacity,
+    nextTurnSurvivalCost: { energy: 15.8, water: 15.8, compute: 15.8 },
+    survivalCostPerTurnIncrement: { energy: 4.8, water: 4.8, compute: 4.8 }
   });
   assert(hints.maxInvestAmount === 73, `maxInvestAmount expected 73, got ${hints.maxInvestAmount}`);
   assert(
     hints.maxInvestAmountAfterSurvival === safe,
     `actionHints must match helper (${hints.maxInvestAmountAfterSurvival} vs ${safe})`
+  );
+  assert(
+    hints.nextTurnSurvivalCost?.energy === 15.8,
+    "actionHints should mirror nextTurnSurvivalCost"
+  );
+  assert(
+    hints.survivalCostPerTurnIncrement?.energy === 4.8,
+    "actionHints should mirror survivalCostPerTurnIncrement"
+  );
+  assert(
+    hints.note.includes("nextTurnSurvivalCost"),
+    "hint note should mention nextTurnSurvivalCost rising beyond this-turn cap"
   );
   assert(
     hints.note.includes("storage energy") || hints.note.includes("storageEnergy"),

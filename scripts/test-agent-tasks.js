@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.9.1")) {
-    throw new Error("skill.md should be version 1.9.1");
+  if (!skill.includes("version: 1.9.2")) {
+    throw new Error("skill.md should be version 1.9.2");
   }
   if (!skill.includes("deadline_warning")) {
     throw new Error("skill.md should document deadline_warning webhook");
@@ -82,6 +82,12 @@ async function main() {
   }
   if (!skill.includes("maxInvestAmountAfterSurvival")) {
     throw new Error("skill.md should reference maxInvestAmountAfterSurvival for invest caps");
+  }
+  if (!skill.includes("nextTurnSurvivalCost")) {
+    throw new Error("skill.md should document nextTurnSurvivalCost for rising survival");
+  }
+  if (!skill.includes("survivalCostPerTurnIncrement")) {
+    throw new Error("skill.md should document survivalCostPerTurnIncrement");
   }
   if (!skill.includes("storageEnergyCostIfNoSpend")) {
     throw new Error("skill.md should document storageEnergyCostIfNoSpend on actionHints");
