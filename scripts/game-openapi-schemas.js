@@ -153,7 +153,19 @@ const gameSchemas = {
           maxInvestAmountAfterSurvival: {
             type: "number",
             description:
-              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only; does not reserve nextTurnSurvivalCost)"
+              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only; amount N spends N of each resource = 3N total; does not reserve nextTurnSurvivalCost)"
+          },
+          equalInvestUnitCost: {
+            type: "object",
+            description:
+              "Unit cost of equal invest: amount 1 spends 1 energy + 1 water + 1 compute (3 total resources) per side",
+            properties: {
+              energy: { type: "number" },
+              water: { type: "number" },
+              compute: { type: "number" },
+              totalResources: { type: "number" },
+              note: { type: "string" }
+            }
           },
           maxIntelligenceComputeAfterSurvival: {
             type: "number",
@@ -265,9 +277,36 @@ const gameSchemas = {
       ok: { type: "boolean" },
       error: { type: "string" },
       note: { type: "string" },
+      equalInvestCost: {
+        type: "object",
+        description:
+          "Present when the action includes invest sides. amount N per side spends N energy + N water + N compute (3N total resources).",
+        properties: {
+          note: { type: "string" },
+          energy: { type: "number" },
+          water: { type: "number" },
+          compute: { type: "number" },
+          totalResources: { type: "number" },
+          sides: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                kind: { type: "string", enum: ["production", "storage"] },
+                target: { type: "string", enum: ["energy", "water", "compute"] },
+                amount: { type: "number" },
+                energy: { type: "number" },
+                water: { type: "number" },
+                compute: { type: "number" },
+                totalResources: { type: "number" }
+              }
+            }
+          }
+        }
+      },
       afterAction: {
         type: "object",
-        description: "Holdings after transfer-out / invest / hide-find spends",
+        description: "Holdings after transfer-out / invest / reduceStorage / hide-find spends",
         properties: {
           inventory: { $ref: "#/components/schemas/GameResourceTriple" },
           productionCapacity: { $ref: "#/components/schemas/GameResourceTriple" },
@@ -475,6 +514,16 @@ const gameSchemas = {
             targetAgentId: { type: "string", description: "Living game agent ULID" },
             compute: { type: "number", description: "Compute spent to find this target" }
           }
+        }
+      },
+      reduceStorage: {
+        type: "object",
+        description:
+          "Free warehouse shrink during execution. Positive per-resource reductions to storageCapacity (floor 0); overflow inventory is clamped. No E/W/C cost.",
+        properties: {
+          energy: { type: "number" },
+          water: { type: "number" },
+          compute: { type: "number" }
         }
       }
     }

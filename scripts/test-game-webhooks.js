@@ -9,6 +9,7 @@ const {
   clearWebhookUrlCacheForTests,
   sendGameWebhook,
   sendGameAgentHook,
+  notifyActionSubmitted,
   setRoditClient
 } = require("../src/game/webhooks");
 const { resolveRoditId } = require("../src/game/route-helpers");
@@ -261,6 +262,81 @@ async function testPhaseChangePayloadCanCarryTransfersReceived() {
   );
 }
 
+async function testActionSubmittedConfirmationWebhook() {
+  let capturedPayload = null;
+  setRoditClient({
+    sendWakeHook: async (payload) => {
+      capturedPayload = payload;
+      return { isValid: true, requestId: "action-confirm" };
+    }
+  });
+  blockchainService.nearorg_rpc_tokenfromroditid = async () => ({
+    metadata: { webhook_url: "agent-action.identyclaw.com:9443" }
+  });
+
+  const result = await notifyActionSubmitted({
+    gameId: "01ACTION",
+    agent: { id: "agent1", roditId: "ActionTok123", displayName: "Tester" },
+    turnNumber: 2,
+    action: {
+      id: "act1",
+      action_type: "invest",
+      status: "pending",
+      payload_json: JSON.stringify({
+        type: "invest",
+        production: { target: "water", amount: 2, energy: 2, water: 2, compute: 2 }
+      })
+    },
+    projection: { ok: true, equalInvestCost: { totalResources: 6 } },
+    source: "submit"
+  });
+
+  assert(result.success === true, "action_submitted should deliver");
+  assert(capturedPayload?.event === "action_submitted", "event must be action_submitted");
+  assert(capturedPayload?.data?.source === "submit", "source preserved");
+  assert(capturedPayload?.data?.actionType === "invest", "actionType from DB row");
+  assert(
+    capturedPayload?.data?.projection?.equalInvestCost?.totalResources === 6,
+    "projection preserved"
+  );
+}
+
+async function testSurvivalWarningUsesAgentChannel() {
+  let capturedEndpoint = null;
+  let capturedPayload = null;
+  setRoditClient({
+    sendWakeHook: async () => {
+      throw new Error("survival_warning must not use sendWakeHook");
+    },
+    sendAgentHook: async (payload) => {
+      capturedEndpoint = "sendAgentHook";
+      capturedPayload = payload;
+      return { isValid: true, requestId: "surv-warn" };
+    }
+  });
+  blockchainService.nearorg_rpc_tokenfromroditid = async () => ({
+    metadata: { webhook_url: "agent-surv.identyclaw.com:9443" }
+  });
+
+  const result = await sendGameAgentHook(
+    {
+      event: "survival_warning",
+      data: {
+        roditId: "SurvTok12345",
+        gameId: "01SURV",
+        urgency: "survival",
+        message: "Survival risk: current stock cannot pay thisTurnSurvivalCost"
+      }
+    },
+    "SurvTok12345"
+  );
+
+  assert(result.success === true, "survival_warning agent hook should deliver");
+  assert(capturedEndpoint === "sendAgentHook", "survival_warning uses agent channel");
+  assert(capturedPayload?.event === "survival_warning", "event preserved");
+  assert(capturedPayload?.data?.urgency === "survival", "urgency preserved");
+}
+
 async function main() {
   clearWebhookUrlCacheForTests();
   await testJwtWebhookUrlPassthrough();
@@ -278,6 +354,10 @@ async function main() {
   await testMissingWebhookUrl();
   clearWebhookUrlCacheForTests();
   await testPhaseChangePayloadCanCarryTransfersReceived();
+  clearWebhookUrlCacheForTests();
+  await testActionSubmittedConfirmationWebhook();
+  clearWebhookUrlCacheForTests();
+  await testSurvivalWarningUsesAgentChannel();
   console.log(JSON.stringify({ ok: true, suite: "test-game-webhooks" }));
 }
 

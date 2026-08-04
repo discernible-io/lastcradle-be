@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.12.2")) {
-    throw new Error("skill.md should be version 1.12.2");
+  if (!skill.includes("version: 1.13.0")) {
+    throw new Error("skill.md should be version 1.13.0");
   }
   if (!skill.includes("transfersReceivedLastTurn")) {
     throw new Error("skill.md should document you.transfersReceivedLastTurn");
@@ -106,6 +106,21 @@ async function main() {
   }
   if (!skill.includes("maxInvestAmountAfterSurvival")) {
     throw new Error("skill.md should reference maxInvestAmountAfterSurvival for invest caps");
+  }
+  if (!skill.includes("Equal invest is triple-cost") && !skill.includes("triple-cost")) {
+    throw new Error("skill.md should document equal invest triple-cost (E+W+C)");
+  }
+  if (!skill.includes("equalInvestUnitCost") && !skill.includes("equalInvestCost")) {
+    throw new Error("skill.md should document equalInvestUnitCost / equalInvestCost");
+  }
+  if (!skill.includes("reduceStorage")) {
+    throw new Error("skill.md should document free reduceStorage warehouse shrink");
+  }
+  if (!skill.includes("action_submitted")) {
+    throw new Error("skill.md should document action_submitted webhook");
+  }
+  if (!skill.includes("survival_warning")) {
+    throw new Error("skill.md should document survival_warning webhook");
   }
   if (!skill.includes("nextTurnSurvivalCost")) {
     throw new Error("skill.md should document nextTurnSurvivalCost for rising survival");

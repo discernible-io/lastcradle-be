@@ -473,6 +473,103 @@ async function notifyElimination({ gameId, agent, turnNumber }) {
   });
 }
 
+async function notifyActionSubmitted({
+  gameId,
+  agent,
+  turnNumber,
+  action,
+  projection = null,
+  source = "submit"
+}) {
+  if (!agent?.roditId) {
+    return { success: false, error: "agent_roditId_required" };
+  }
+  let payload = action?.payload || null;
+  if (!payload && typeof action?.payload_json === "string") {
+    try {
+      payload = JSON.parse(action.payload_json);
+    } catch {
+      payload = null;
+    }
+  }
+  return notifyRoditEvent(agent.roditId, "action_submitted", {
+    gameId,
+    agentId: agent.id,
+    displayName: agent.displayName,
+    turnNumber,
+    source,
+    actionType: action?.action_type || action?.actionType || payload?.type || null,
+    actionId: action?.id || null,
+    status: action?.status || "pending",
+    payload,
+    projection,
+    message:
+      "SLC action submission confirmed. Projection is outbound-only; resolution status arrives after the turn executes."
+  });
+}
+
+async function notifySurvivalWarningsForGame(gameId) {
+  const game = await repo.getGameById(gameId);
+  if (!game || game.status !== "running") {
+    return [];
+  }
+  if (game.phase !== "negotiation" && game.phase !== "execution") {
+    return [];
+  }
+
+  // Lazy require avoids circular init with engine.js (which imports this module).
+  const { assessSurvivalRisk } = require("./engine");
+  const { computeSurvivalCost, buildSurvivalContext } = require("./survival-cost");
+
+  const livingAgents = await repo.listAgents(gameId, { status: "alive" });
+  const survivalContext = buildSurvivalContext({
+    turnNumber: game.current_turn,
+    livingAgents,
+    game
+  });
+  const thisTurnSurvivalCost = computeSurvivalCost(game.config, survivalContext);
+  const results = [];
+
+  for (const agent of livingAgents) {
+    const risk = assessSurvivalRisk(
+      agent.inventory,
+      agent.storageCapacity,
+      thisTurnSurvivalCost,
+      game.config
+    );
+    if (!risk.atRisk) continue;
+    results.push(
+      await notifyRoditEvent(
+        agent.roditId,
+        "survival_warning",
+        {
+          gameId,
+          agentId: agent.id,
+          displayName: agent.displayName,
+          phase: game.phase,
+          currentTurn: game.current_turn,
+          deadline:
+            game.phase === "execution" ? game.execution_ends_at : game.negotiation_ends_at,
+          thisTurnSurvivalCost: risk.thisTurnSurvivalCost,
+          storageEnergyCost: risk.storageEnergyCost,
+          energyAfterStorage: risk.energyAfterStorage,
+          inventoryAfterStorage: risk.inventoryAfterStorage,
+          shortfalls: risk.shortfalls,
+          urgency: "survival",
+          message: risk.message,
+          action:
+            game.phase === "execution"
+              ? "POST /api/game/games/{gameId}/action — transfer out taxed holdings, reduceStorage, or invest before survival resolves"
+              : "Negotiate transfers / plan execution — current stock risks elimination after storage tax"
+        },
+        { channel: "agent" }
+      )
+    );
+  }
+
+  return results;
+}
+
 async function notifyGameFinished(game) {
   if (!game) {
     return [];
@@ -499,7 +596,7 @@ function phasePayloadFromGame(game) {
 async function onGamePhaseUpdated(gameId) {
   const game = await repo.getGameById(gameId);
   if (!game) {
-    return { phaseChange: [], yourTurn: [] };
+    return { phaseChange: [], yourTurn: [], survivalWarnings: [] };
   }
 
   const phaseChange = await notifyPhaseChange(gameId, phasePayloadFromGame(game));
@@ -507,7 +604,14 @@ async function onGamePhaseUpdated(gameId) {
   if (game.status === "running" && game.phase === "execution") {
     yourTurn = await notifyYourTurnForGame(gameId);
   }
-  return { phaseChange, yourTurn };
+  let survivalWarnings = [];
+  if (
+    game.status === "running" &&
+    (game.phase === "negotiation" || game.phase === "execution")
+  ) {
+    survivalWarnings = await notifySurvivalWarningsForGame(gameId);
+  }
+  return { phaseChange, yourTurn, survivalWarnings };
 }
 
 function clearWebhookUrlCacheForTests() {
@@ -527,6 +631,8 @@ module.exports = {
   notifyYourTurnForGame,
   notifyDeadlineWarningForGame,
   notifyElimination,
+  notifyActionSubmitted,
+  notifySurvivalWarningsForGame,
   notifyGameFinished,
   onGamePhaseUpdated
 };

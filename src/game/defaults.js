@@ -103,11 +103,11 @@ const DEFAULT_GAME_CONFIG = {
 
   /**
    * Real-time phase durations in milliseconds (0 = submission-gated, no auto-advance).
-   * Execution is short: webhooks wake agents to submit; the AFK timeout is a backstop
+   * Execution still wakes agents via webhooks; the AFK timeout is a backstop
    * so one silent cradle cannot freeze the table.
    */
-  negotiationDurationMs: 5 * 60 * 1000,
-  executionDurationMs: 3 * 60 * 1000,
+  negotiationDurationMs: 8 * 60 * 1000,
+  executionDurationMs: 5 * 60 * 1000,
 
   /**
    * How long before execution_ends_at to fire a deadline_warning agent hook
@@ -163,16 +163,16 @@ const DEFAULT_GAME_CONFIG = {
   intelligenceMemoryTurns: 2
 };
 
-/** Preset for a 15-player prize contest: 8-minute turns (5+3), 55-turn / ~7.3-hour cap; same last-two finish rule as casual. */
+/** Preset for a 15-player prize contest: 13-minute turns (8+5), 55-turn / ~11.9-hour cap; same last-two finish rule as casual. */
 const CONTEST_GAME_CONFIG = {
   maxAgents: 15,
   minAgents: 15,
   finishSurvivorCount: 2,
-  negotiationDurationMs: 5 * 60 * 1000,
-  executionDurationMs: 3 * 60 * 1000,
-  turnIntervalMs: 8 * 60 * 1000,
+  negotiationDurationMs: 8 * 60 * 1000,
+  executionDurationMs: 5 * 60 * 1000,
+  turnIntervalMs: 13 * 60 * 1000,
   maxTurns: 55,
-  maxGameDurationMs: 55 * 8 * 60 * 1000,
+  maxGameDurationMs: 55 * 13 * 60 * 1000,
   joiningWindowDurationMs: 60 * 60 * 1000,
   contestMode: "definitive"
 };
