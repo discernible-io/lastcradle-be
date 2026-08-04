@@ -355,7 +355,9 @@ function executeInvestSides(state, payload, config) {
 /**
  * Roll storage + production. Specialized cradles (default): one specialty resource with
  * production > storage (cannot keep full output — trade pressure), secondaries with
- * production < storage (need imports). Legacy mode keeps production = storage.
+ * production < storage (need imports), plus a stockpile boost — very large storage on a
+ * different resource than the production specialty (warehouse for trade/imports).
+ * Legacy mode keeps production = storage.
  */
 function buildCradleAssignment(config) {
   const storageCapacity = {
@@ -388,6 +390,18 @@ function buildCradleAssignment(config) {
         productionCapacity[key] = Math.max(1, Math.round(storageCapacity[key] * ratio));
       }
     }
+
+    // Large warehouse on a different resource than the production specialty.
+    // Applied after production rolls so specialty surplus stays based on base storage.
+    const others = RESOURCE_KEYS.filter((key) => key !== specialty);
+    const stockpile = others[randomInt(0, others.length - 1)];
+    const stockpileMin = config.cradleStockpileStorageMinRatio ?? 1.6;
+    const stockpileMax = config.cradleStockpileStorageMaxRatio ?? 2.4;
+    const stockpileRatio = randomFloat(stockpileMin, stockpileMax);
+    storageCapacity[stockpile] = Math.max(
+      storageCapacity[stockpile] + 1,
+      Math.round(storageCapacity[stockpile] * stockpileRatio)
+    );
   }
 
   const clamped = clampCapacities(productionCapacity, storageCapacity, config);

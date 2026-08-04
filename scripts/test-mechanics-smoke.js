@@ -25,6 +25,7 @@ async function testOpeningInventoryScout() {
       startingInventory: { energy: 80, water: 80, compute: 80 },
       cradleCapacityMin: 100,
       cradleCapacityMax: 100,
+      useSpecializedCradles: false,
       minAgents: 3,
       joiningWindowDurationMs: 0
     }
@@ -374,6 +375,8 @@ async function testSpecializedCradlesAndCombinedAction() {
       cradleSpecialtyProductionMaxRatio: 1.5,
       cradleSecondaryProductionMinRatio: 0.5,
       cradleSecondaryProductionMaxRatio: 0.5,
+      cradleStockpileStorageMinRatio: 2.0,
+      cradleStockpileStorageMaxRatio: 2.0,
       minAgents: 3,
       joiningWindowDurationMs: 0,
       productionWaterCostRate: 0,
@@ -406,10 +409,22 @@ async function testSpecializedCradlesAndCombinedAction() {
     if (agent.productionCapacity[specialties[0]] !== 120) {
       throw new Error(`Specialty prod should be 80*1.5=120, got ${agent.productionCapacity[specialties[0]]}`);
     }
+    if (agent.storageCapacity[specialties[0]] !== 80) {
+      throw new Error(`Specialty storage should stay at base 80, got ${agent.storageCapacity[specialties[0]]}`);
+    }
     for (const k of secondaries) {
       if (agent.productionCapacity[k] !== 40) {
         throw new Error(`Secondary prod should be 40, got ${agent.productionCapacity[k]} for ${k}`);
       }
+    }
+    const stockpiles = secondaries.filter((k) => agent.storageCapacity[k] === 160);
+    const baseSecondaries = secondaries.filter((k) => agent.storageCapacity[k] === 80);
+    if (stockpiles.length !== 1 || baseSecondaries.length !== 1) {
+      throw new Error(
+        `Expected one stockpile storage=160 and one base secondary storage=80, got ${JSON.stringify(
+          Object.fromEntries(secondaries.map((k) => [k, agent.storageCapacity[k]]))
+        )}`
+      );
     }
   }
 

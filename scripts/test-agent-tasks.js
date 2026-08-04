@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.9.2")) {
-    throw new Error("skill.md should be version 1.9.2");
+  if (!skill.includes("version: 1.10.0")) {
+    throw new Error("skill.md should be version 1.10.0");
   }
   if (!skill.includes("deadline_warning")) {
     throw new Error("skill.md should document deadline_warning webhook");

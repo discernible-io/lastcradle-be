@@ -23,7 +23,8 @@ const DEFAULT_GAME_CONFIG = {
   /**
    * When true (default), each cradle specializes in one resource: specialty production
    * exceeds storage (surplus above storage is wasted at production clamp), while secondary
-   * production is below storage. Set false for legacy equal prod=storage rolls.
+   * production is below storage. A different resource also gets a stockpile storage boost
+   * (warehouse capacity for imports). Set false for legacy equal prod=storage rolls.
    */
   useSpecializedCradles: true,
 
@@ -34,6 +35,13 @@ const DEFAULT_GAME_CONFIG = {
   /** Secondary production = storage[resource] × ratio (inclusive). Keep < 1 so prod < storage. */
   cradleSecondaryProductionMinRatio: 0.35,
   cradleSecondaryProductionMaxRatio: 0.65,
+
+  /**
+   * Stockpile storage = base storage[resource] × ratio on a resource other than the
+   * production specialty (inclusive). Must be > 1 so that cradle holds a large warehouse.
+   */
+  cradleStockpileStorageMinRatio: 1.6,
+  cradleStockpileStorageMaxRatio: 2.4,
 
   /**
    * When true, starting inventory is a random fraction of each cradle's storage
@@ -99,13 +107,13 @@ const DEFAULT_GAME_CONFIG = {
    * so one silent cradle cannot freeze the table.
    */
   negotiationDurationMs: 5 * 60 * 1000,
-  executionDurationMs: 1 * 60 * 1000,
+  executionDurationMs: 3 * 60 * 1000,
 
   /**
    * How long before execution_ends_at to fire a deadline_warning agent hook
    * (POST /hooks/agent) for agents still pending submission. Skip scheduling when
    * the phase is shorter than this lead (e.g. short test timers).
-   * Must stay below executionDurationMs so warnings still fire on the 1-minute window.
+   * Must stay below executionDurationMs so warnings still fire on the execution window.
    */
   deadlineWarningLeadMs: 20 * 1000,
 
@@ -155,16 +163,16 @@ const DEFAULT_GAME_CONFIG = {
   intelligenceMemoryTurns: 2
 };
 
-/** Preset for a 15-player prize contest: 6-minute turns (5+1), 55-turn / ~5.5-hour cap; same last-two finish rule as casual. */
+/** Preset for a 15-player prize contest: 8-minute turns (5+3), 55-turn / ~7.3-hour cap; same last-two finish rule as casual. */
 const CONTEST_GAME_CONFIG = {
   maxAgents: 15,
   minAgents: 15,
   finishSurvivorCount: 2,
   negotiationDurationMs: 5 * 60 * 1000,
-  executionDurationMs: 1 * 60 * 1000,
-  turnIntervalMs: 6 * 60 * 1000,
+  executionDurationMs: 3 * 60 * 1000,
+  turnIntervalMs: 8 * 60 * 1000,
   maxTurns: 55,
-  maxGameDurationMs: 55 * 6 * 60 * 1000,
+  maxGameDurationMs: 55 * 8 * 60 * 1000,
   joiningWindowDurationMs: 60 * 60 * 1000,
   contestMode: "definitive"
 };
@@ -323,7 +331,9 @@ const PRIVATE_CRADLE_ASSIGNMENT_KEYS = [
   "cradleSpecialtyProductionMinRatio",
   "cradleSpecialtyProductionMaxRatio",
   "cradleSecondaryProductionMinRatio",
-  "cradleSecondaryProductionMaxRatio"
+  "cradleSecondaryProductionMaxRatio",
+  "cradleStockpileStorageMinRatio",
+  "cradleStockpileStorageMaxRatio"
 ];
 
 /** Strip specialty-assignment knobs from configs served on GET /defaults*. */
