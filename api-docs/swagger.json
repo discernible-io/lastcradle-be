@@ -325,9 +325,17 @@
             ],
             "description": "Survival cost due this turn (same values as projectedSurvival[agentId])"
           },
+          "nextTurnSurvivalCost": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GameResourceTriple"
+              }
+            ],
+            "description": "Projected survival cost next turn if living count holds (also mirrored on actionHints)"
+          },
           "actionHints": {
             "type": "object",
-            "description": "Present on self view: invest/intel caps, storage-energy tax projections, waste/headroom/at-cap readouts, fog counts, and allowed action types",
+            "description": "Present on self view: invest/intel caps, storage-energy tax projections, rising-survival readouts, waste/headroom/at-cap readouts, fog counts, and allowed action types",
             "properties": {
               "allowedActionTypes": {
                 "type": "array",
@@ -337,7 +345,11 @@
                     "none",
                     "transfer",
                     "invest",
-                    "transfer_and_invest"
+                    "invest_production",
+                    "invest_storage",
+                    "transfer_and_invest",
+                    "transfer_and_invest_production",
+                    "transfer_and_invest_storage"
                   ]
                 }
               },
@@ -347,14 +359,15 @@
               },
               "maxInvestAmountAfterSurvival": {
                 "type": "number",
-                "description": "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only)"
+                "description": "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only; does not reserve nextTurnSurvivalCost)"
               },
               "maxIntelligenceComputeAfterSurvival": {
                 "type": "number",
                 "description": "Largest compute spendable on hide+find while still leaving thisTurnSurvivalCost payable after storage energy cost"
               },
               "maxTransferRecipients": {
-                "type": "integer"
+                "type": "integer",
+                "description": "Max distinct transfer recipients per action. Defaults to maxAgents when unset (casual 10, contest 15)."
               },
               "intelligenceMemoryTurns": {
                 "type": "integer",
@@ -386,6 +399,22 @@
               "energyAfterStorageIfMaxSafeInvest": {
                 "type": "number",
                 "description": "Energy left after that tax (before survival); compare to thisTurnSurvivalCost.energy"
+              },
+              "nextTurnSurvivalCost": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/GameResourceTriple"
+                  }
+                ],
+                "description": "Survival cost next turn if living count holds — maxInvestAmountAfterSurvival does not reserve this"
+              },
+              "survivalCostPerTurnIncrement": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/GameResourceTriple"
+                  }
+                ],
+                "description": "Effective per-turn survival climb at current livingCount (base increment × living/reference)"
               },
               "wasteIfNotExportedByNextProduction": {
                 "allOf": [
@@ -1086,7 +1115,7 @@
           },
           "combinedWithInvest": {
             "type": "boolean",
-            "description": "True when the action was transfer_and_invest"
+            "description": "True when the action was transfer_and_invest (including production/storage aliases)"
           }
         }
       },
@@ -1503,7 +1532,11 @@
               "none",
               "transfer",
               "invest",
-              "transfer_and_invest"
+              "invest_production",
+              "invest_storage",
+              "transfer_and_invest",
+              "transfer_and_invest_production",
+              "transfer_and_invest_storage"
             ]
           },
           "actionType": {
@@ -1512,7 +1545,11 @@
               "none",
               "transfer",
               "invest",
-              "transfer_and_invest"
+              "invest_production",
+              "invest_storage",
+              "transfer_and_invest",
+              "transfer_and_invest_production",
+              "transfer_and_invest_storage"
             ],
             "description": "Alias for type"
           },
@@ -1546,7 +1583,7 @@
           },
           "transfers": {
             "type": "array",
-            "description": "Multi-recipient transfer legs (distinct toAgentId each). Cap: game config maxTransferRecipients (default 5).",
+            "description": "Multi-recipient transfer legs (distinct toAgentId each). Cap: actionHints.maxTransferRecipients (defaults to maxAgents).",
             "items": {
               "type": "object",
               "required": [
@@ -1582,8 +1619,19 @@
             "type": "object",
             "additionalProperties": true
           },
+          "production": {
+            "type": "object",
+            "description": "Production-capacity invest side (at most one per turn). { target, amount } or equal energy/water/compute.",
+            "additionalProperties": true
+          },
+          "storage": {
+            "type": "object",
+            "description": "Storage-capacity invest side (at most one per turn). { target, amount } or equal energy/water/compute.",
+            "additionalProperties": true
+          },
           "invest": {
             "type": "object",
+            "description": "Legacy single-side nest for transfer_and_invest_* aliases; prefer production/storage. Include capacity when type is transfer.",
             "additionalProperties": true
           },
           "hide": {
@@ -4088,7 +4136,11 @@
                       "none",
                       "transfer",
                       "invest",
-                      "transfer_and_invest"
+                      "invest_production",
+                      "invest_storage",
+                      "transfer_and_invest",
+                      "transfer_and_invest_production",
+                      "transfer_and_invest_storage"
                     ]
                   },
                   "toAgentId": {
@@ -4111,11 +4163,63 @@
                       "water",
                       "compute"
                     ],
-                    "description": "Capacity target (invest; energy, water, compute must be equal)"
+                    "description": "Flat-shorthand capacity target for invest_production / invest_storage aliases"
                   },
                   "amount": {
                     "type": "number",
-                    "description": "Shorthand for equal E/W/C invest amount"
+                    "description": "Shorthand for equal E/W/C invest amount on one side"
+                  },
+                  "production": {
+                    "type": "object",
+                    "description": "Production invest side (preferred). At most one per turn: { target, amount } or equal energy/water/compute.",
+                    "properties": {
+                      "target": {
+                        "type": "string",
+                        "enum": [
+                          "energy",
+                          "water",
+                          "compute"
+                        ]
+                      },
+                      "amount": {
+                        "type": "number"
+                      },
+                      "energy": {
+                        "type": "number"
+                      },
+                      "water": {
+                        "type": "number"
+                      },
+                      "compute": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "storage": {
+                    "type": "object",
+                    "description": "Storage invest side (preferred). At most one per turn: { target, amount } or equal energy/water/compute.",
+                    "properties": {
+                      "target": {
+                        "type": "string",
+                        "enum": [
+                          "energy",
+                          "water",
+                          "compute"
+                        ]
+                      },
+                      "amount": {
+                        "type": "number"
+                      },
+                      "energy": {
+                        "type": "number"
+                      },
+                      "water": {
+                        "type": "number"
+                      },
+                      "compute": {
+                        "type": "number"
+                      }
+                    }
                   },
                   "transfer": {
                     "type": "object",
@@ -4143,8 +4247,15 @@
                   },
                   "invest": {
                     "type": "object",
-                    "description": "Nested invest for transfer_and_invest (or type transfer + invest)",
+                    "description": "Legacy single-side nest for transfer_and_invest_* aliases; prefer production/storage. Include capacity: production|storage when type is transfer.",
                     "properties": {
+                      "capacity": {
+                        "type": "string",
+                        "enum": [
+                          "production",
+                          "storage"
+                        ]
+                      },
                       "target": {
                         "type": "string",
                         "enum": [

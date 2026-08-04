@@ -73,12 +73,26 @@ function main() {
   const storageCapacity = { energy: 30, water: 40, compute: 40 };
   const hints = buildActionHints(inventory, survival, config, {
     productionCapacity,
-    storageCapacity
+    storageCapacity,
+    nextTurnSurvivalCost: { energy: 15.8, water: 15.8, compute: 15.8 },
+    survivalCostPerTurnIncrement: { energy: 4.8, water: 4.8, compute: 4.8 }
   });
   assert(hints.maxInvestAmount === 73, `maxInvestAmount expected 73, got ${hints.maxInvestAmount}`);
   assert(
     hints.maxInvestAmountAfterSurvival === safe,
     `actionHints must match helper (${hints.maxInvestAmountAfterSurvival} vs ${safe})`
+  );
+  assert(
+    hints.nextTurnSurvivalCost?.energy === 15.8,
+    "actionHints should mirror nextTurnSurvivalCost"
+  );
+  assert(
+    hints.survivalCostPerTurnIncrement?.energy === 4.8,
+    "actionHints should mirror survivalCostPerTurnIncrement"
+  );
+  assert(
+    hints.note.includes("nextTurnSurvivalCost"),
+    "hint note should mention nextTurnSurvivalCost rising beyond this-turn cap"
   );
   assert(
     hints.note.includes("storage energy") || hints.note.includes("storageEnergy"),
@@ -136,11 +150,10 @@ function main() {
     productionCapacity,
     storageCapacity
   };
-  const investAction = normalizeInvestAction({
+  const investAction = {
     type: "invest",
-    target: "energy",
-    amount: 2
-  });
+    production: { target: "energy", amount: 2 }
+  };
   const investProj = projectActionOutcome(agent, investAction, config, survival);
   assert(investProj.ok === true, "invest projection should succeed");
   assert(
@@ -150,18 +163,51 @@ function main() {
   assert(
     investProj.afterAction.productionCapacity.energy >
       productionCapacity.energy,
-    "invest must raise production"
+    "invest production must raise production"
   );
   assert(
-    investProj.afterAction.storageCapacity.energy > storageCapacity.energy,
-    "invest must raise storage"
+    investProj.afterAction.storageCapacity.energy === storageCapacity.energy,
+    "invest production must not raise storage"
+  );
+
+  const storageInvest = {
+    type: "invest",
+    storage: { target: "energy", amount: 2 }
+  };
+  const storageProj = projectActionOutcome(agent, storageInvest, config, survival);
+  assert(storageProj.ok === true, "storage invest projection should succeed");
+  assert(
+    storageProj.afterAction.storageCapacity.energy > storageCapacity.energy,
+    "invest storage must raise storage"
   );
   assert(
-    investProj.afterAction.wasteIfNotExportedByNextProduction.energy <
+    storageProj.afterAction.productionCapacity.energy === productionCapacity.energy,
+    "invest storage must not raise production"
+  );
+  assert(
+    storageProj.afterAction.wasteIfNotExportedByNextProduction.energy <
       hints.wasteIfNotExportedByNextProduction.energy,
-    "investing specialty energy should reduce projected waste vs status quo"
+    "investing storage on specialty energy should reduce projected waste vs status quo"
   );
+
+  const dualInvest = {
+    type: "invest",
+    production: { target: "water", amount: 1 },
+    storage: { target: "energy", amount: 1 }
+  };
+  const dualProj = projectActionOutcome(agent, dualInvest, config, survival);
+  assert(dualProj.ok === true, "dual invest projection should succeed");
+  assert(
+    dualProj.afterAction.productionCapacity.water > productionCapacity.water,
+    "dual invest must raise water production"
+  );
+  assert(
+    dualProj.afterAction.storageCapacity.energy > storageCapacity.energy,
+    "dual invest must raise energy storage"
+  );
+
   assert(investProj.afterStorageAndSurvival.survives === true, "safe invest must survive");
+  assert(storageProj.afterStorageAndSurvival.survives === true, "safe storage invest must survive");
   assert(
     investProj.note.includes("Outbound-only"),
     "projection note should state outbound-only scope"

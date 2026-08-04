@@ -51,10 +51,34 @@ function buildSurvivalContext({ turnNumber, livingAgents, game } = {}) {
   };
 }
 
+/**
+ * This-turn / next-turn survival costs and the effective per-turn climb at the
+ * current living count (assumes livingCount stays constant for nextTurn).
+ */
+function survivalCostOutlook(config, context = {}) {
+  const turnNumber = Math.max(1, context.turnNumber ?? 1);
+  const thisTurn = computeSurvivalCost(config, { ...context, turnNumber });
+  const nextTurn = computeSurvivalCost(config, { ...context, turnNumber: turnNumber + 1 });
+  const effectiveIncrementPerTurn = {
+    energy: effectiveSurvivalTurnIncrement(config, context, "energy"),
+    water: effectiveSurvivalTurnIncrement(config, context, "water"),
+    compute: effectiveSurvivalTurnIncrement(config, context, "compute")
+  };
+
+  return {
+    thisTurn,
+    nextTurn,
+    effectiveIncrementPerTurn,
+    livingCount: context.livingCount ?? null,
+    playerReference: config.survivalCostPlayerReference ?? 3
+  };
+}
+
 module.exports = {
   investmentTotal,
   survivalCostPlayerMultiplier,
   effectiveSurvivalTurnIncrement,
   computeSurvivalCost,
-  buildSurvivalContext
+  buildSurvivalContext,
+  survivalCostOutlook
 };

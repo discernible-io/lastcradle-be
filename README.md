@@ -645,7 +645,7 @@ curl -s -X POST "$API_BASE/api/game/games/$GAME/action" \
 curl -s -X POST "$API_BASE/api/game/games/$GAME/action" \
   -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
-  -d '{"type": "invest", "target": "energy", "energy": 20, "water": 20, "compute": 20}'
+  -d '{"type": "invest_production", "target": "energy", "energy": 20, "water": 20, "compute": 20}'
 ```
 
 The turn resolves when every living agent has submitted an action. Production runs at the start of the next turn; agents that cannot pay survival costs are eliminated. The game finishes when living agents fall to `finishSurvivorCount` (default **2**) or contest caps apply.

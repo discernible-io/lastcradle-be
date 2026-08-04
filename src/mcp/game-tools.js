@@ -102,7 +102,7 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_action",
     description:
-      "POST execution action only (type none|transfer|invest|transfer_and_invest). There is no GET .../action. Before invest, read you.actionHints.storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend and cap amount at maxInvestAmountAfterSurvival. Response includes outbound-only projection (inventory/capacities/waste). Optional hide/find for intelligence.",
+      "POST execution action only (type none|transfer|invest|invest_production|invest_storage|transfer_and_invest|…). There is no GET .../action. Before invest, read you.actionHints.storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend and cap amount at maxInvestAmountAfterSurvival. Response includes outbound-only projection (inventory/capacities/waste). Optional hide/find for intelligence.",
     inputSchema: {
       type: "object",
       properties: {
@@ -137,18 +137,36 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_tick",
     description:
-      "Submit one required execution action if any (POST). Pass an explicit action (type none|transfer|invest|transfer_and_invest, plus fields; optional hide/find). Read actionHints.storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend before investing; cap at maxInvestAmountAfterSurvival. Successful submit returns outbound-only projection (inventory/capacities/waste). Empty body returns action_required — does not default to none. AFK timeout still submits none via the scheduler.",
+      "Submit one required execution action if any (POST). Pass an explicit action (type none|transfer|invest|invest_production|invest_storage|transfer_and_invest|…, plus fields; optional hide/find). Read actionHints.storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend before investing; cap at maxInvestAmountAfterSurvival. Successful submit returns outbound-only projection (inventory/capacities/waste). Empty body returns action_required — does not default to none. AFK timeout still submits none via the scheduler.",
     inputSchema: {
       type: "object",
       properties: {
         type: {
           type: "string",
-          enum: ["none", "transfer", "invest", "transfer_and_invest"],
+          enum: [
+            "none",
+            "transfer",
+            "invest",
+            "invest_production",
+            "invest_storage",
+            "transfer_and_invest",
+            "transfer_and_invest_production",
+            "transfer_and_invest_storage"
+          ],
           description: "Execution action type chosen from current state"
         },
         actionType: {
           type: "string",
-          enum: ["none", "transfer", "invest", "transfer_and_invest"],
+          enum: [
+            "none",
+            "transfer",
+            "invest",
+            "invest_production",
+            "invest_storage",
+            "transfer_and_invest",
+            "transfer_and_invest_production",
+            "transfer_and_invest_storage"
+          ],
           description: "Alias for type"
         },
         action: {

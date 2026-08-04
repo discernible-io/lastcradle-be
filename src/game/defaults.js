@@ -70,10 +70,10 @@ const DEFAULT_GAME_CONFIG = {
   /** Energy consumed as a fraction of water + compute held in storage each turn */
   storageEnergyCostRate: 0.1,
 
-  /** Per-unit EWC invested toward a resource adds this much production capacity */
+  /** Per-unit EWC invested via invest_production toward a resource adds this much production capacity */
   investProductionGainPerUnit: 0.7,
 
-  /** Per-unit EWC invested toward a resource adds this much storage capacity */
+  /** Per-unit EWC invested via invest_storage toward a resource adds this much storage capacity */
   investStorageGainPerUnit: 0.7,
 
   maxProductionCapacity: { energy: 700, water: 700, compute: 700 },
@@ -95,18 +95,19 @@ const DEFAULT_GAME_CONFIG = {
 
   /**
    * Real-time phase durations in milliseconds (0 = submission-gated, no auto-advance).
-   * Casual uses generous AFK caps so one silent cradle cannot freeze the table forever;
-   * agents should still submit via tick / action — timeouts apply server defaults.
+   * Execution is short: webhooks wake agents to submit; the AFK timeout is a backstop
+   * so one silent cradle cannot freeze the table.
    */
   negotiationDurationMs: 5 * 60 * 1000,
-  executionDurationMs: 5 * 60 * 1000,
+  executionDurationMs: 1 * 60 * 1000,
 
   /**
    * How long before execution_ends_at to fire a deadline_warning agent hook
    * (POST /hooks/agent) for agents still pending submission. Skip scheduling when
    * the phase is shorter than this lead (e.g. short test timers).
+   * Must stay below executionDurationMs so warnings still fire on the 1-minute window.
    */
-  deadlineWarningLeadMs: 90 * 1000,
+  deadlineWarningLeadMs: 20 * 1000,
 
   /**
    * Target wall-clock duration for one full turn (negotiation + execution).
@@ -142,10 +143,10 @@ const DEFAULT_GAME_CONFIG = {
   maxAgents: 10,
 
   /**
-   * Max distinct transfer recipients in one execution action (transfer / transfer_and_invest).
-   * Keeps multi-party splits bounded in large contests (e.g. 15 seats) without allowing spray-everyone.
+   * Max distinct transfer recipients in one execution action.
+   * Defaults to maxAgents when null/omitted so a cradle can trade with every other seat.
    */
-  maxTransferRecipients: 5,
+  maxTransferRecipients: null,
 
   /**
    * How many completed turns of hide/find outcomes stay "in memory" for fog-of-war.
@@ -154,16 +155,16 @@ const DEFAULT_GAME_CONFIG = {
   intelligenceMemoryTurns: 2
 };
 
-/** Preset for a 15-player prize contest: 10-minute turns, 55-turn / ~9-hour cap; same last-two finish rule as casual. */
+/** Preset for a 15-player prize contest: 6-minute turns (5+1), 55-turn / ~5.5-hour cap; same last-two finish rule as casual. */
 const CONTEST_GAME_CONFIG = {
   maxAgents: 15,
   minAgents: 15,
   finishSurvivorCount: 2,
   negotiationDurationMs: 5 * 60 * 1000,
-  executionDurationMs: 5 * 60 * 1000,
-  turnIntervalMs: 10 * 60 * 1000,
+  executionDurationMs: 1 * 60 * 1000,
+  turnIntervalMs: 6 * 60 * 1000,
   maxTurns: 55,
-  maxGameDurationMs: 55 * 10 * 60 * 1000,
+  maxGameDurationMs: 55 * 6 * 60 * 1000,
   joiningWindowDurationMs: 60 * 60 * 1000,
   contestMode: "definitive"
 };
@@ -193,9 +194,47 @@ function resolvePresetConfig(body = {}) {
   return body.config || {};
 }
 
-/** Balanced invest: same amount of energy, water, and compute toward target resource capacity. */
-function buildInvestAction(target, amount) {
-  return { type: "invest", target, energy: amount, water: amount, compute: amount };
+/**
+ * Balanced invest: same amount of energy, water, and compute toward one capacity kind.
+ * @param {"energy"|"water"|"compute"} target resource whose capacity grows
+ * @param {number} amount equal E/W/C spend
+ * @param {"production"|"storage"} [capacity="production"] which capacity grows
+ */
+function buildInvestAction(target, amount, capacity = "production") {
+  const kind = capacity === "storage" ? "storage" : "production";
+  return {
+    type: "invest",
+    [kind]: { target, amount }
+  };
+}
+
+/**
+ * Same-turn production and/or storage invest (at most one of each).
+ * @param {{ production?: { target: string, amount: number }, storage?: { target: string, amount: number } }} sides
+ */
+function buildDualInvestAction(sides = {}) {
+  const action = { type: "invest" };
+  if (sides.production) {
+    action.production = {
+      target: sides.production.target,
+      amount: sides.production.amount
+    };
+  }
+  if (sides.storage) {
+    action.storage = {
+      target: sides.storage.target,
+      amount: sides.storage.amount
+    };
+  }
+  return action;
+}
+
+/** Transfer recipient cap: explicit maxTransferRecipients, else maxAgents. */
+function resolveMaxTransferRecipients(config = {}) {
+  if (config.maxTransferRecipients != null) {
+    return config.maxTransferRecipients;
+  }
+  return config.maxAgents ?? DEFAULT_GAME_CONFIG.maxAgents ?? 10;
 }
 
 function randomInt(min, max) {
@@ -308,6 +347,8 @@ module.exports = {
   resolvePresetConfig,
   publicGameConfig,
   buildInvestAction,
+  buildDualInvestAction,
+  resolveMaxTransferRecipients,
   randomInt,
   randomFloat,
   clampInventoryToCradle,

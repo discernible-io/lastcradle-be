@@ -129,16 +129,21 @@ const gameSchemas = {
         allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
         description: "Survival cost due this turn (same values as projectedSurvival[agentId])"
       },
+      nextTurnSurvivalCost: {
+        allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
+        description:
+          "Projected survival cost next turn if living count holds (also mirrored on actionHints)"
+      },
       actionHints: {
         type: "object",
         description:
-          "Present on self view: invest/intel caps, storage-energy tax projections, waste/headroom/at-cap readouts, fog counts, and allowed action types",
+          "Present on self view: invest/intel caps, storage-energy tax projections, rising-survival readouts, waste/headroom/at-cap readouts, fog counts, and allowed action types",
         properties: {
           allowedActionTypes: {
             type: "array",
             items: {
               type: "string",
-              enum: ["none", "transfer", "invest", "transfer_and_invest"]
+              enum: ["none", "transfer", "invest", "invest_production", "invest_storage", "transfer_and_invest", "transfer_and_invest_production", "transfer_and_invest_storage"]
             }
           },
           maxInvestAmount: {
@@ -148,14 +153,18 @@ const gameSchemas = {
           maxInvestAmountAfterSurvival: {
             type: "number",
             description:
-              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only)"
+              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only; does not reserve nextTurnSurvivalCost)"
           },
           maxIntelligenceComputeAfterSurvival: {
             type: "number",
             description:
               "Largest compute spendable on hide+find while still leaving thisTurnSurvivalCost payable after storage energy cost"
           },
-          maxTransferRecipients: { type: "integer" },
+          maxTransferRecipients: {
+            type: "integer",
+            description:
+              "Max distinct transfer recipients per action. Defaults to maxAgents when unset (casual 10, contest 15)."
+          },
           intelligenceMemoryTurns: {
             type: "integer",
             description: "Completed turns of hide/find outcomes kept in fog memory"
@@ -186,6 +195,16 @@ const gameSchemas = {
             type: "number",
             description:
               "Energy left after that tax (before survival); compare to thisTurnSurvivalCost.energy"
+          },
+          nextTurnSurvivalCost: {
+            allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
+            description:
+              "Survival cost next turn if living count holds — maxInvestAmountAfterSurvival does not reserve this"
+          },
+          survivalCostPerTurnIncrement: {
+            allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
+            description:
+              "Effective per-turn survival climb at current livingCount (base increment × living/reference)"
           },
           wasteIfNotExportedByNextProduction: {
             allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
@@ -362,10 +381,10 @@ const gameSchemas = {
     description:
       "Explicit execution action for conscious tick. Empty object returns action_required when submit_execution_action is pending. AFK timeout submits none via scheduler only.",
     properties: {
-      type: { type: "string", enum: ["none", "transfer", "invest", "transfer_and_invest"] },
+      type: { type: "string", enum: ["none", "transfer", "invest", "invest_production", "invest_storage", "transfer_and_invest", "transfer_and_invest_production", "transfer_and_invest_storage"] },
       actionType: {
         type: "string",
-        enum: ["none", "transfer", "invest", "transfer_and_invest"],
+        enum: ["none", "transfer", "invest", "invest_production", "invest_storage", "transfer_and_invest", "transfer_and_invest_production", "transfer_and_invest_storage"],
         description: "Alias for type"
       },
       action: {
@@ -382,7 +401,7 @@ const gameSchemas = {
       transfers: {
         type: "array",
         description:
-          "Multi-recipient transfer legs (distinct toAgentId each). Cap: game config maxTransferRecipients (default 5).",
+          "Multi-recipient transfer legs (distinct toAgentId each). Cap: actionHints.maxTransferRecipients (defaults to maxAgents).",
         items: {
           type: "object",
           required: ["toAgentId"],
@@ -397,7 +416,24 @@ const gameSchemas = {
         }
       },
       transfer: { type: "object", additionalProperties: true },
-      invest: { type: "object", additionalProperties: true },
+      production: {
+        type: "object",
+        description:
+          "Production-capacity invest side (at most one per turn). { target, amount } or equal energy/water/compute.",
+        additionalProperties: true
+      },
+      storage: {
+        type: "object",
+        description:
+          "Storage-capacity invest side (at most one per turn). { target, amount } or equal energy/water/compute.",
+        additionalProperties: true
+      },
+      invest: {
+        type: "object",
+        description:
+          "Legacy single-side nest for transfer_and_invest_* aliases; prefer production/storage. Include capacity when type is transfer.",
+        additionalProperties: true
+      },
       hide: {
         oneOf: [{ type: "number" }, { type: "object", properties: { compute: { type: "number" } } }],
         description:
@@ -641,7 +677,7 @@ const gameSchemas = {
       },
       combinedWithInvest: {
         type: "boolean",
-        description: "True when the action was transfer_and_invest"
+        description: "True when the action was transfer_and_invest (including production/storage aliases)"
       }
     }
   },

@@ -9,9 +9,14 @@ const {
   finalizeStartingInventory,
   rollStartingInventory,
   maxCapacityFor,
-  DEFAULT_GAME_CONFIG
+  DEFAULT_GAME_CONFIG,
+  resolveMaxTransferRecipients
 } = require("./defaults");
-const { computeSurvivalCost, buildSurvivalContext } = require("./survival-cost");
+const {
+  computeSurvivalCost,
+  buildSurvivalContext,
+  survivalCostOutlook
+} = require("./survival-cost");
 const { getGameNarrative, buildSurvivalNarrative } = require("./narrative");
 const {
   normalizeTransferDisclosure,
@@ -22,6 +27,55 @@ const { notifyElimination } = require("./webhooks");
 
 const RESOURCE_KEYS = ["energy", "water", "compute"];
 const INVESTMENT_TARGETS = ["energy", "water", "compute"];
+const INVEST_KINDS = ["production", "storage"];
+/** Accepted on submit; normalized payloads use invest / transfer_and_invest. */
+const INVEST_ACTION_ALIASES = ["invest_production", "invest_storage"];
+const COMBINED_ACTION_ALIASES = [
+  "transfer_and_invest_production",
+  "transfer_and_invest_storage"
+];
+const INVEST_ACTION_TYPES = ["invest", ...INVEST_ACTION_ALIASES];
+const COMBINED_ACTION_TYPES = ["transfer_and_invest", ...COMBINED_ACTION_ALIASES];
+const EXECUTION_ACTION_TYPES = [
+  "none",
+  "transfer",
+  ...INVEST_ACTION_TYPES,
+  ...COMBINED_ACTION_TYPES
+];
+
+function isInvestActionType(type) {
+  return INVEST_ACTION_TYPES.includes(type);
+}
+
+function isCombinedActionType(type) {
+  return COMBINED_ACTION_TYPES.includes(type);
+}
+
+function hasInvestSides(action) {
+  return Boolean(action?.production || action?.storage);
+}
+
+function investKindFromActionType(type) {
+  if (type === "invest_production" || type === "transfer_and_invest_production") {
+    return "production";
+  }
+  if (type === "invest_storage" || type === "transfer_and_invest_storage") {
+    return "storage";
+  }
+  return null;
+}
+
+function resolveInvestKind(source, fallbackType = null) {
+  if (source && INVEST_KINDS.includes(source.capacity)) {
+    return source.capacity;
+  }
+  if (source && INVEST_KINDS.includes(source.kind)) {
+    return source.kind;
+  }
+  const fromType = investKindFromActionType(source?.type || fallbackType);
+  if (fromType) return fromType;
+  return null;
+}
 
 function cloneInventory(inv) {
   return { energy: inv.energy, water: inv.water, compute: inv.compute };
@@ -167,16 +221,135 @@ function normalizeHideSpend(hide) {
   throw gameError("INVALID_HIDE", "hide must be a positive number or { compute }", 400);
 }
 
-function applyInvestmentCapacityGrowth(state, payload, config) {
+function applyInvestmentCapacityGrowth(state, payload, config, kind) {
   const amount = payload.energy || 0;
   const target = payload.target;
-  const productionGain = amount * (config.investProductionGainPerUnit ?? 0);
-  const storageGain = amount * (config.investStorageGainPerUnit ?? 0);
-  state.productionCapacity[target] += productionGain;
-  state.storageCapacity[target] += storageGain;
+  if (kind === "production") {
+    const productionGain = amount * (config.investProductionGainPerUnit ?? 0);
+    state.productionCapacity[target] += productionGain;
+  } else if (kind === "storage") {
+    const storageGain = amount * (config.investStorageGainPerUnit ?? 0);
+    state.storageCapacity[target] += storageGain;
+  } else {
+    throw new Error("Investment kind must be production or storage");
+  }
   const clamped = clampCapacities(state.productionCapacity, state.storageCapacity, config);
   state.productionCapacity = clamped.productionCapacity;
   state.storageCapacity = clamped.storageCapacity;
+}
+
+function extractInvestLeg(source) {
+  if (!source || typeof source !== "object") {
+    throw gameError("INVALID_INVESTMENT", "invest details required", 400);
+  }
+  const normalized = normalizeInvestAction({
+    target: source.target,
+    energy: source.energy,
+    water: source.water,
+    compute: source.compute,
+    ...(typeof source.amount === "number" ? { amount: source.amount } : {})
+  });
+  if (!INVESTMENT_TARGETS.includes(normalized.target)) {
+    throw gameError(
+      "INVALID_INVESTMENT_TARGET",
+      "Investment target must be energy, water, or compute",
+      400
+    );
+  }
+  validateBalancedInvestment(normalized);
+  return {
+    target: normalized.target,
+    energy: normalized.energy,
+    water: normalized.water,
+    compute: normalized.compute
+  };
+}
+
+function setInvestSide(sides, kind, leg) {
+  if (!INVEST_KINDS.includes(kind)) {
+    throw gameError(
+      "INVALID_INVESTMENT",
+      "Investment capacity must be production or storage",
+      400
+    );
+  }
+  if (sides[kind]) {
+    throw gameError(
+      "INVALID_INVESTMENT",
+      `At most one ${kind} investment per turn`,
+      400
+    );
+  }
+  sides[kind] = leg;
+}
+
+/**
+ * Collect at most one production and one storage invest leg from an action payload.
+ */
+function collectInvestSides(action, typeHint = null) {
+  if (!action || typeof action !== "object") {
+    throw gameError("INVALID_INVESTMENT", "invest details required", 400);
+  }
+  const hint = typeHint || action.type;
+  const sides = { production: null, storage: null };
+
+  if (action.production) {
+    setInvestSide(sides, "production", extractInvestLeg(action.production));
+  }
+  if (action.storage) {
+    setInvestSide(sides, "storage", extractInvestLeg(action.storage));
+  }
+
+  if (action.invest) {
+    const kind = resolveInvestKind(action.invest, hint);
+    if (!INVEST_KINDS.includes(kind)) {
+      throw gameError(
+        "INVALID_INVESTMENT",
+        "Nested invest requires capacity: production|storage (or transfer_and_invest_production/storage type)",
+        400
+      );
+    }
+    setInvestSide(sides, kind, extractInvestLeg(action.invest));
+  }
+
+  const typeKind = investKindFromActionType(hint);
+  if (typeKind && !sides[typeKind]) {
+    const hasAmountTarget =
+      typeof action.amount === "number" && action.target != null;
+    const hasEqualEwc =
+      (action.energy || 0) > 0 &&
+      action.energy === action.water &&
+      action.water === action.compute;
+    // Combined aliases: only treat flat amount+target as invest (top-level EWC may be transfer).
+    const takeFlat = isCombinedActionType(hint)
+      ? hasAmountTarget
+      : hasAmountTarget || hasEqualEwc || action.target != null;
+    if (takeFlat) {
+      setInvestSide(sides, typeKind, extractInvestLeg(action));
+    }
+  }
+
+  if (!sides.production && !sides.storage) {
+    throw gameError(
+      "INVALID_INVESTMENT",
+      "Provide production and/or storage ({ production: { target, amount }, storage: { target, amount } }), or use invest_production / invest_storage",
+      400
+    );
+  }
+  return sides;
+}
+
+function executeInvestSides(state, payload, config) {
+  if (payload.production) {
+    const leg = extractInvestLeg(payload.production);
+    executeInvest(state, leg);
+    applyInvestmentCapacityGrowth(state, leg, config, "production");
+  }
+  if (payload.storage) {
+    const leg = extractInvestLeg(payload.storage);
+    executeInvest(state, leg);
+    applyInvestmentCapacityGrowth(state, leg, config, "storage");
+  }
 }
 
 /**
@@ -678,8 +851,7 @@ function isTurnAlreadyAdvanced(game) {
 async function submitAction(gameId, agentId, action) {
   const game = await requireRunningExecution(gameId);
   const agent = await requireLivingAgent(agentId, gameId);
-  const maxTransferRecipients =
-    game.config?.maxTransferRecipients ?? DEFAULT_GAME_CONFIG.maxTransferRecipients;
+  const maxTransferRecipients = resolveMaxTransferRecipients(game.config);
 
   let normalized = normalizeAction(action, { maxTransferRecipients });
   validateActionPayload(normalized, gameId);
@@ -698,16 +870,13 @@ async function submitAction(gameId, agentId, action) {
   }
 
   if (normalized.type === "invest" || normalized.type === "transfer_and_invest") {
-    const investPart =
-      normalized.type === "transfer_and_invest" ? normalized.invest : normalized;
-    if (!INVESTMENT_TARGETS.includes(investPart.target)) {
+    if (!normalized.production && !normalized.storage) {
       throw gameError(
-        "INVALID_INVESTMENT_TARGET",
-        "Investment target must be energy, water, or compute",
+        "INVALID_INVESTMENT",
+        "Invest actions require production and/or storage",
         400
       );
     }
-    validateBalancedInvestment(investPart);
   }
 
   const livingAgents = await repo.listAgents(gameId, { status: "alive" });
@@ -901,12 +1070,10 @@ async function executeTurn(gameId) {
       if (payload.type === "transfer") {
         executeTransfers(state, agentState, payload);
       } else if (payload.type === "invest") {
-        executeInvest(state, payload);
-        applyInvestmentCapacityGrowth(state, payload, config);
+        executeInvestSides(state, payload, config);
       } else if (payload.type === "transfer_and_invest") {
         executeTransfers(state, agentState, payload);
-        executeInvest(state, payload.invest);
-        applyInvestmentCapacityGrowth(state, payload.invest, config);
+        executeInvestSides(state, payload, config);
       }
       executeIntelligenceSpend(state, payload);
       await repo.markActionExecuted(actionRow.id, "executed");
@@ -1203,12 +1370,12 @@ function applyOutboundActionToState(state, action, config) {
       state.inventory = deduct(state.inventory, transfer);
     }
   }
-  if (action.type === "invest") {
-    executeInvest(state, action);
-    applyInvestmentCapacityGrowth(state, action, config);
-  } else if (action.type === "transfer_and_invest") {
-    executeInvest(state, action.invest);
-    applyInvestmentCapacityGrowth(state, action.invest, config);
+  if (action.type === "invest" || action.type === "transfer_and_invest") {
+    executeInvestSides(state, action, config);
+  } else if (isInvestActionType(action.type) || isCombinedActionType(action.type)) {
+    // Allow projecting pre-normalization aliases in unit tests
+    const sides = collectInvestSides(action, action.type);
+    executeInvestSides(state, sides, config);
   }
   executeIntelligenceSpend(state, action);
 }
@@ -1289,8 +1456,7 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
   );
   const maxIntelligenceCompute =
     maxIntelligenceComputeAfterSurvival(inventory, survivalCost, config);
-  const maxTransferRecipients =
-    config.maxTransferRecipients ?? DEFAULT_GAME_CONFIG.maxTransferRecipients;
+  const maxTransferRecipients = resolveMaxTransferRecipients(config);
   const intelligenceMemoryTurns =
     config.intelligenceMemoryTurns ?? DEFAULT_GAME_CONFIG.intelligenceMemoryTurns;
   const hiddenRivalCount = fog.hiddenRivalCount ?? 0;
@@ -1322,8 +1488,18 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     ? " Also present: wasteIfNotExportedByNextProduction, storageHeadroom, inventoryAtStorageCap."
     : "";
 
+  const nextTurnSurvivalCost = fog.nextTurnSurvivalCost
+    ? { ...fog.nextTurnSurvivalCost }
+    : null;
+  const survivalCostPerTurnIncrement = fog.survivalCostPerTurnIncrement
+    ? { ...fog.survivalCostPerTurnIncrement }
+    : null;
+  const risingNote = nextTurnSurvivalCost
+    ? " maxInvestAmountAfterSurvival reserves thisTurnSurvivalCost only — nextTurnSurvivalCost is higher when living count holds; survivalCostPerTurnIncrement is the per-turn climb at current livingCount."
+    : "";
+
   return {
-    allowedActionTypes: ["transfer", "invest", "transfer_and_invest", "none"],
+    allowedActionTypes: [...EXECUTION_ACTION_TYPES],
     maxInvestAmount,
     maxInvestAmountAfterSurvival,
     maxIntelligenceComputeAfterSurvival: maxIntelligenceCompute,
@@ -1336,9 +1512,14 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     energyAfterStorageIfNoSpend: noSpend.energyAfterStorage,
     storageEnergyCostIfMaxSafeInvest: afterSafeInvest.storageEnergyCost,
     energyAfterStorageIfMaxSafeInvest: afterSafeInvest.energyAfterStorage,
+    ...(nextTurnSurvivalCost ? { nextTurnSurvivalCost } : {}),
+    ...(survivalCostPerTurnIncrement ? { survivalCostPerTurnIncrement } : {}),
     ...(storageReadouts || {}),
     note:
-      "Read storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageEnergyCostRate × remaining water+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only (no transfers/hide/find/inbound). Cap hide+find at maxIntelligenceComputeAfterSurvival. Up to maxTransferRecipients peers per transfer. Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
+      "Read storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageEnergyCostRate × remaining water+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only for a single side (no transfers/hide/find/inbound); dual production+storage spends both." +
+      risingNote +
+      " Cap hide+find at maxIntelligenceComputeAfterSurvival. Up to maxTransferRecipients peers per transfer (defaults to maxAgents). Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
+      " invest may include production and/or storage (at most one of each); invest_production / invest_storage are aliases." +
       capacityNote +
       fogNote
   };
@@ -1373,10 +1554,13 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
     livingAgents,
     game
   });
-  const thisTurnSurvivalCost =
+  const survivalOutlook =
     game.status === "running" && livingAgents.length > 0
-      ? computeSurvivalCost(game.config, projectedSurvivalContext)
+      ? survivalCostOutlook(game.config, projectedSurvivalContext)
       : null;
+  const thisTurnSurvivalCost = survivalOutlook?.thisTurn ?? null;
+  const nextTurnSurvivalCost = survivalOutlook?.nextTurn ?? null;
+  const survivalCostPerTurnIncrement = survivalOutlook?.effectiveIncrementPerTurn ?? null;
   const projectedSurvival =
     thisTurnSurvivalCost != null
       ? Object.fromEntries(livingAgents.map((agent) => [agent.id, { ...thisTurnSurvivalCost }]))
@@ -1386,6 +1570,7 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
   const agentViews = agents.map((agent) =>
     publicAgentView(agent, viewerAgentId, intelligence, {
       thisTurnSurvivalCost,
+      nextTurnSurvivalCost,
       includeActionHints: false,
       config: game.config
     })
@@ -1402,7 +1587,9 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       hiddenRivalCount,
       livingRivalCount: livingRivals.length,
       productionCapacity: you.productionCapacity,
-      storageCapacity: you.storageCapacity
+      storageCapacity: you.storageCapacity,
+      nextTurnSurvivalCost,
+      survivalCostPerTurnIncrement
     });
   }
 
@@ -1445,15 +1632,22 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
 async function getTurnInvestmentSummary(gameId, turnNumber) {
   const actions = await repo.listTurnActions(gameId, turnNumber);
   return actions
-    .filter((a) => a.action_type === "invest" || a.action_type === "transfer_and_invest")
+    .filter(
+      (a) =>
+        a.action_type === "invest" ||
+        a.action_type === "transfer_and_invest" ||
+        isInvestActionType(a.action_type) ||
+        isCombinedActionType(a.action_type)
+    )
     .map((a) => {
       const payload = repo.parseJson(a.payload_json, {});
-      const invest =
-        payload.type === "transfer_and_invest" ? payload.invest || {} : payload;
       return {
         agentId: a.agent_id,
-        ...invest,
-        ...(payload.type === "transfer_and_invest" ? { combinedWithTransfer: true } : {})
+        production: payload.production || null,
+        storage: payload.storage || null,
+        ...(payload.type === "transfer_and_invest" || isCombinedActionType(payload.type)
+          ? { combinedWithTransfer: true }
+          : {})
       };
     });
 }
@@ -1461,6 +1655,8 @@ async function getTurnInvestmentSummary(gameId, turnNumber) {
 function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
   const {
     thisTurnSurvivalCost = null,
+    nextTurnSurvivalCost = null,
+    survivalCostPerTurnIncrement = null,
     includeActionHints = false,
     config = null
   } = options;
@@ -1489,6 +1685,9 @@ function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
     if (thisTurnSurvivalCost) {
       base.thisTurnSurvivalCost = { ...thisTurnSurvivalCost };
     }
+    if (nextTurnSurvivalCost) {
+      base.nextTurnSurvivalCost = { ...nextTurnSurvivalCost };
+    }
     if (includeActionHints && agent.inventory) {
       base.actionHints = buildActionHints(
         agent.inventory,
@@ -1496,7 +1695,9 @@ function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
         config || DEFAULT_GAME_CONFIG,
         {
           productionCapacity: agent.productionCapacity,
-          storageCapacity: agent.storageCapacity
+          storageCapacity: agent.storageCapacity,
+          nextTurnSurvivalCost,
+          survivalCostPerTurnIncrement
         }
       );
     }
@@ -1516,8 +1717,8 @@ function actionTransferPart(action) {
 }
 
 /**
- * Reject invalid transfer recipients. Do not silently downgrade transfer_and_invest → invest
- * or transfer → none — agents treat 201 as success and miss that the transfer never ran.
+ * Reject invalid transfer recipients. Do not silently drop the transfer half of a
+ * transfer_and_invest_* action — agents treat 201 as success and miss that the transfer never ran.
  */
 async function assertValidTransferRecipient(gameId, fromAgentId, toAgentId) {
   if (!toAgentId || typeof toAgentId !== "string") {
@@ -1564,21 +1765,33 @@ async function assertValidTransferRecipient(gameId, fromAgentId, toAgentId) {
 
 function actionInvestPart(action) {
   if (!action || typeof action !== "object") return null;
-  if (action.type === "transfer_and_invest") {
-    return action.invest || null;
+  if (action.type === "transfer_and_invest" || isCombinedActionType(action.type)) {
+    return action.production || action.storage || action.invest || null;
   }
-  if (action.type === "invest") {
-    return action;
+  if (action.type === "invest" || isInvestActionType(action.type)) {
+    return action.production || action.storage || action;
   }
   return null;
 }
 
 function isCombinedActionRequest(action) {
   if (!action || typeof action !== "object") return false;
-  if (action.type === "transfer_and_invest") return true;
-  if (action.type === "transfer" && action.invest) return true;
-  if (action.type === "invest" && (action.transfer || action.transfers)) return true;
-  if (action.transfers && action.invest) return true;
+  if (isCombinedActionType(action.type)) return true;
+  if (
+    action.type === "transfer" &&
+    (action.invest || action.production || action.storage)
+  ) {
+    return true;
+  }
+  if (isInvestActionType(action.type) && (action.transfer || action.transfers)) {
+    return true;
+  }
+  if (
+    action.transfers &&
+    (action.invest || action.production || action.storage)
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -1634,10 +1847,10 @@ function extractTransferLegs(source, { maxTransferRecipients } = {}) {
     throw gameError("INVALID_TRANSFER", "transfer details required", 400);
   }
 
-  const cap =
-    maxTransferRecipients ??
-    DEFAULT_GAME_CONFIG.maxTransferRecipients ??
-    5;
+  const cap = resolveMaxTransferRecipients({
+    maxTransferRecipients,
+    maxAgents: DEFAULT_GAME_CONFIG.maxAgents
+  });
 
   let rawLegs;
   if (Array.isArray(source.transfers)) {
@@ -1700,18 +1913,20 @@ function extractTransferLegs(source, { maxTransferRecipients } = {}) {
   return legs;
 }
 
-function extractInvestFields(source) {
+function extractInvestFields(source, { kind = null, typeHint = null } = {}) {
   if (!source || typeof source !== "object") {
     throw gameError("INVALID_INVESTMENT", "invest details required", 400);
   }
-  return normalizeInvestAction({
-    type: "invest",
-    target: source.target,
-    energy: source.energy,
-    water: source.water,
-    compute: source.compute,
-    ...(typeof source.amount === "number" ? { amount: source.amount } : {})
-  });
+  const resolvedKind = kind || resolveInvestKind(source, typeHint);
+  if (!INVEST_KINDS.includes(resolvedKind)) {
+    throw gameError(
+      "INVALID_INVESTMENT",
+      "Investment capacity must be production or storage",
+      400
+    );
+  }
+  const leg = extractInvestLeg(source);
+  return { capacity: resolvedKind, ...leg };
 }
 
 function resolveTransferSourceForCombined(action) {
@@ -1731,58 +1946,63 @@ function resolveTransferSourceForCombined(action) {
 
 function normalizeCombinedAction(action, options = {}) {
   let transferSource;
-  let investSource;
-  if (action.type === "transfer_and_invest") {
-    if (action.transfer && action.invest) {
+  const type = action.type;
+
+  if (type === "transfer_and_invest" || isCombinedActionType(type)) {
+    if (action.transfer || Array.isArray(action.transfers) || action.toAgentId) {
       transferSource = resolveTransferSourceForCombined(action);
-      investSource = action.invest;
-    } else if (Array.isArray(action.transfers) && action.invest) {
-      transferSource = action;
-      investSource = action.invest;
-    } else if (action.invest) {
+    } else if (action.invest && (action.invest.toAgentId || action.invest.transfers)) {
+      // Unusual: transfer nested under invest — reject
       transferSource = resolveTransferSourceForCombined(action);
-      investSource = action.invest;
-    } else if (action.transfer) {
-      transferSource = action.transfer;
-      investSource = action;
-    } else if (typeof action.amount === "number") {
-      // Flat: top-level EWC = transfer, amount+target = invest
-      transferSource = action;
-      investSource = action;
     } else {
       throw gameError(
         "INVALID_ACTION",
-        "transfer_and_invest requires nested { transfer, invest }, transfers[] + invest, or top-level amount for invest",
+        "transfer_and_invest requires transfer recipients plus production and/or storage invest",
         400
       );
     }
   } else if (action.type === "transfer") {
     transferSource = resolveTransferSourceForCombined(action);
-    investSource = action.invest;
   } else {
     transferSource = resolveTransferSourceForCombined(action);
-    investSource = action;
   }
 
   const legs = extractTransferLegs(transferSource, options);
-  const invest = extractInvestFields(investSource);
+  const sides = collectInvestSides(
+    {
+      type,
+      production: action.production,
+      storage: action.storage,
+      invest: action.invest,
+      ...(typeof action.amount === "number" && action.target
+        ? { target: action.target, amount: action.amount }
+        : {})
+    },
+    type
+  );
+
   const combined = {
     type: "transfer_and_invest",
-    transfers: legs,
-    invest: {
-      target: invest.target,
-      energy: invest.energy,
-      water: invest.water,
-      compute: invest.compute
-    }
+    transfers: legs
   };
-  // Single-leg mirror for older consumers that read payload.transfer.toAgentId
+  if (sides.production) combined.production = sides.production;
+  if (sides.storage) combined.storage = sides.storage;
   if (legs.length === 1) {
     combined.transfer = { ...legs[0] };
   }
   if (action.hide != null) combined.hide = action.hide;
   if (action.find != null) combined.find = action.find;
   return combined;
+}
+
+function normalizeInvestDualAction(action) {
+  const sides = collectInvestSides(action, action.type);
+  const normalized = { type: "invest" };
+  if (sides.production) normalized.production = sides.production;
+  if (sides.storage) normalized.storage = sides.storage;
+  if (action.hide != null) normalized.hide = action.hide;
+  if (action.find != null) normalized.find = action.find;
+  return normalized;
 }
 
 function normalizeTransferAction(action, options = {}) {
@@ -1807,8 +2027,8 @@ function normalizeAction(action, options = {}) {
     return normalizeCombinedAction(action, options);
   }
   const type = action.type || "none";
-  if (type === "invest") {
-    return normalizeInvestAction({ ...action, type });
+  if (isInvestActionType(type)) {
+    return normalizeInvestDualAction({ ...action, type });
   }
   if (type === "transfer") {
     return normalizeTransferAction(action, options);
@@ -1819,7 +2039,11 @@ function normalizeAction(action, options = {}) {
 function validateActionPayload(action) {
   const allowed = ["none", "transfer", "invest", "transfer_and_invest"];
   if (!allowed.includes(action.type)) {
-    throw gameError("INVALID_ACTION_TYPE", `Action type must be one of: ${allowed.join(", ")}`, 400);
+    throw gameError(
+      "INVALID_ACTION_TYPE",
+      `Action type must be one of: ${allowed.join(", ")} (aliases invest_production/invest_storage/transfer_and_invest_* normalize on submit)`,
+      400
+    );
   }
 }
 
