@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.11.0")) {
-    throw new Error("skill.md should be version 1.11.0");
+  if (!skill.includes("version: 1.11.1")) {
+    throw new Error("skill.md should be version 1.11.1");
   }
   if (!skill.includes("deadline_warning")) {
     throw new Error("skill.md should document deadline_warning webhook");
@@ -70,6 +70,9 @@ async function main() {
   }
   if (!skill.includes("Reply duty")) {
     throw new Error("skill.md should document reply duty");
+  }
+  if (!skill.includes("periodically re-check A2A, email")) {
+    throw new Error("skill.md should recommend periodically checking A2A, email, and other channels");
   }
   if (!skill.includes("message-report")) {
     throw new Error("skill.md should tell agents to refuse message-report caches");
@@ -172,6 +175,9 @@ async function main() {
   }
   if (!peerAuth.includes("Reply duty")) {
     throw new Error("peer-auth.md should document reply duty");
+  }
+  if (!peerAuth.includes("periodically re-check A2A, email")) {
+    throw new Error("peer-auth.md should recommend periodically checking A2A, email, and other channels");
   }
   if (peerAuth.includes("message-report") || peerAuth.includes("Message self-reports")) {
     throw new Error("peer-auth.md must not document removed message-report phase");
