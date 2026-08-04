@@ -22,7 +22,9 @@ const {
   normalizeTransferDisclosure,
   transferLegsFromPayload,
   lastResolvedTurnNumber,
-  transfersReceivedLastTurn
+  transfersReceivedLastTurn,
+  transfersReceivedHistory,
+  enrichTradesWithDisplayNames
 } = require("./trade-disclosure");
 const repo = require("./repository");
 const { notifyElimination } = require("./webhooks");
@@ -1607,13 +1609,31 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       nextTurnSurvivalCost,
       survivalCostPerTurnIncrement
     });
+  }
 
+  if (you) {
     const resolvedTurn = lastResolvedTurnNumber(game.current_turn);
-    const priorTrades =
-      resolvedTurn != null ? await repo.listPublicTrades(gameId, resolvedTurn) : [];
+    const displayNameByAgentId = new Map(
+      agents.map((agent) => [agent.id, agent.displayName || null])
+    );
+    const historyTrades =
+      resolvedTurn != null
+        ? await repo.listPublicTradesThroughTurn(gameId, resolvedTurn)
+        : [];
+    enrichTradesWithDisplayNames(historyTrades, displayNameByAgentId);
+
+    const lastTurnTrades =
+      resolvedTurn != null
+        ? historyTrades.filter((trade) => trade.turnNumber === resolvedTurn)
+        : [];
     you.transfersReceivedLastTurn = transfersReceivedLastTurn(
       resolvedTurn,
-      priorTrades,
+      lastTurnTrades,
+      viewerAgentId
+    );
+    you.transfersReceived = transfersReceivedHistory(
+      resolvedTurn,
+      historyTrades,
       viewerAgentId
     );
   }

@@ -269,7 +269,7 @@ router.get("/games/:gameId/players/:agentId/identity", async (req, res) => {
  *     summary: Get public game state
  *     description: >
  *       Optional Bearer JWT upgrades the response for joined players (`you` includes
- *       inventory/capacities and `you.transfersReceivedLastTurn`).
+ *       inventory/capacities, `you.transfersReceivedLastTurn`, and `you.transfersReceived`).
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -316,8 +316,9 @@ router.get("/games/:gameId/messages", async (req, res) => {
  *   get:
  *     summary: List transfer actions for a turn (with optional rationale and curated private-deal snippets)
  *     description: >
- *       Public transfer ledger for a turn. Query `turn` defaults to current_turn
- *       (often empty after resolve — use ?turn=<resolvedTurn> or you.transfersReceivedLastTurn).
+ *       Public transfer ledger. Query `turn` defaults to current_turn (often empty after resolve).
+ *       Use `?turn=<resolvedTurn>`, `?history=1` for all resolved turns, and/or `?toAgentId=` /
+ *       authenticated `you.transfersReceived` on state for inbound history with sender ids/names.
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -330,10 +331,51 @@ router.get("/games/:gameId/trades", async (req, res) => {
       return handleGameError(res, { code: "GAME_NOT_FOUND", message: "Game not found", statusCode: 404 }, requestId);
     }
 
-    const turnNumber = Number(req.query.turn) || game.current_turn || 0;
-    const trades = await repo.listPublicTrades(req.params.gameId, turnNumber);
+    const {
+      lastResolvedTurnNumber,
+      inboundTradesForRecipient,
+      enrichTradesWithDisplayNames
+    } = require("./trade-disclosure");
 
-    res.json({ trades, turnNumber, requestId });
+    const historyRequested =
+      req.query.history === "1" ||
+      req.query.history === "true" ||
+      String(req.query.turn || "").toLowerCase() === "all";
+    const toAgentId =
+      typeof req.query.toAgentId === "string" && req.query.toAgentId.trim()
+        ? req.query.toAgentId.trim()
+        : null;
+
+    let turnNumber;
+    let trades;
+    if (historyRequested) {
+      turnNumber = lastResolvedTurnNumber(game.current_turn);
+      trades =
+        turnNumber != null
+          ? await repo.listPublicTradesThroughTurn(req.params.gameId, turnNumber)
+          : [];
+    } else {
+      turnNumber = Number(req.query.turn) || game.current_turn || 0;
+      trades = await repo.listPublicTrades(req.params.gameId, turnNumber);
+    }
+
+    if (toAgentId) {
+      trades = inboundTradesForRecipient(trades, toAgentId);
+    }
+
+    const agents = await repo.listAgents(req.params.gameId);
+    enrichTradesWithDisplayNames(
+      trades,
+      new Map(agents.map((agent) => [agent.id, agent.displayName || null]))
+    );
+
+    res.json({
+      trades,
+      turnNumber: turnNumber == null ? 0 : turnNumber,
+      history: historyRequested,
+      toAgentId,
+      requestId
+    });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }

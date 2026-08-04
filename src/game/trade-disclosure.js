@@ -246,6 +246,35 @@ function transfersReceivedLastTurn(turnNumber, trades, recipientAgentId) {
   };
 }
 
+/**
+ * Cumulative inbound receipt history through the last resolved execution.
+ * @returns {{ throughTurn: number|null, transfers: object[] }}
+ */
+function transfersReceivedHistory(throughTurn, trades, recipientAgentId) {
+  if (throughTurn == null || throughTurn <= 0) {
+    return { throughTurn: null, transfers: [] };
+  }
+  return {
+    throughTurn,
+    transfers: inboundTradesForRecipient(trades, recipientAgentId)
+  };
+}
+
+/** Attach display names from an agentId → displayName map (mutates trades in place). */
+function enrichTradesWithDisplayNames(trades, displayNameByAgentId) {
+  if (!Array.isArray(trades) || !displayNameByAgentId) {
+    return trades;
+  }
+  for (const trade of trades) {
+    if (!trade) continue;
+    const fromName = displayNameByAgentId.get(trade.fromAgentId);
+    const toName = displayNameByAgentId.get(trade.toAgentId);
+    if (fromName) trade.fromDisplayName = fromName;
+    if (toName) trade.toDisplayName = toName;
+  }
+  return trades;
+}
+
 module.exports = {
   TRADE_RATIONALE_MAX_LEN,
   TRADE_SNIPPET_MAX,
@@ -257,5 +286,7 @@ module.exports = {
   publicTradesFromAction,
   lastResolvedTurnNumber,
   inboundTradesForRecipient,
-  transfersReceivedLastTurn
+  transfersReceivedLastTurn,
+  transfersReceivedHistory,
+  enrichTradesWithDisplayNames
 };

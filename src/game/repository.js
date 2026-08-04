@@ -734,6 +734,28 @@ async function listPublicTrades(gameId, turnNumber) {
     .filter((trade) => trade.status !== "skipped");
 }
 
+/**
+ * Public transfer legs for all turns with turn_number <= throughTurn (inclusive).
+ * Used for cumulative inbound history after resolve (throughTurn = currentTurn - 1).
+ */
+async function listPublicTradesThroughTurn(gameId, throughTurn) {
+  const { publicTradesFromAction } = require("./trade-disclosure");
+  const maxTurn = Number(throughTurn) || 0;
+  if (maxTurn <= 0) {
+    return [];
+  }
+  const database = await getDb();
+  const actions = await database.all(
+    `SELECT * FROM game_actions
+     WHERE game_id = ? AND turn_number <= ?
+     ORDER BY turn_number ASC, submitted_at ASC`,
+    [gameId, maxTurn]
+  );
+  return actions
+    .flatMap((row) => publicTradesFromAction(row, parseJson))
+    .filter((trade) => trade.status !== "skipped");
+}
+
 async function listGameActions(gameId) {
   const database = await getDb();
   return database.all(
@@ -1159,6 +1181,7 @@ module.exports = {
   markActionExecuted,
   listTurnInvestments,
   listPublicTrades,
+  listPublicTradesThroughTurn,
   listGameActions,
   listGameMessageReportsForGame,
   countPublicMessagesByAgent,

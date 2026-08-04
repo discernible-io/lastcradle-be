@@ -154,6 +154,20 @@ async function main() {
   if (inbound.transfers[0].energy !== 5) {
     throw new Error("recipient inbound energy mismatch");
   }
+  if (inbound.transfers[0].fromDisplayName !== agentA.displayName) {
+    throw new Error("recipient inbound should include fromDisplayName");
+  }
+
+  const history = recipientState.you?.transfersReceived;
+  if (!history || history.throughTurn !== turnNumber) {
+    throw new Error("recipient state missing transfersReceived history through resolved turn");
+  }
+  if (!history.transfers?.length || history.transfers[0].fromAgentId !== agentA.id) {
+    throw new Error("recipient history should include inbound transfer from sender");
+  }
+  if (history.transfers[0].fromDisplayName !== agentA.displayName) {
+    throw new Error("recipient history should include fromDisplayName");
+  }
 
   const senderState = await engine.getPublicState(game.id, { viewerAgentId: agentA.id });
   const senderInbound = senderState.you?.transfersReceivedLastTurn;
@@ -162,6 +176,9 @@ async function main() {
   }
   if (senderInbound.transfers?.length) {
     throw new Error("sender should not see own outbound as transfersReceived");
+  }
+  if (!senderState.you?.transfersReceived || senderState.you.transfersReceived.transfers?.length) {
+    throw new Error("sender transfersReceived history should be empty");
   }
 
   const wakePayloads = [];
@@ -225,6 +242,27 @@ async function main() {
     const res = await requestJson(port, `/api/game/games/${game.id}/trades?turn=${turnNumber}`);
     if (res.status !== 200 || !res.body.trades?.[0]?.privateDealSnippets?.length) {
       throw new Error("spectator trades route failed");
+    }
+    if (res.body.trades[0].fromDisplayName !== agentA.displayName) {
+      throw new Error("spectator trades should include fromDisplayName");
+    }
+
+    const historyRes = await requestJson(
+      port,
+      `/api/game/games/${game.id}/trades?history=1&toAgentId=${agentB.id}`
+    );
+    if (historyRes.status !== 200 || historyRes.body.history !== true) {
+      throw new Error("trades?history=1 should set history=true");
+    }
+    if (historyRes.body.toAgentId !== agentB.id) {
+      throw new Error("trades?history=1&toAgentId should echo toAgentId");
+    }
+    if (
+      !historyRes.body.trades?.length ||
+      historyRes.body.trades[0].fromAgentId !== agentA.id ||
+      historyRes.body.trades[0].fromDisplayName !== agentA.displayName
+    ) {
+      throw new Error("trades?history=1&toAgentId should return inbound legs with sender name");
     }
     console.log("✓ Trade disclosure validation and public trades route work");
   } finally {
