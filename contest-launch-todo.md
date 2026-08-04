@@ -190,7 +190,7 @@ Practice (`contestMode: "practice"`) is tutorial, strategy lab, integration test
 
 Monetary contests need audience, not only players. Narrative should highlight **identity under adversarial conditions**, not generic survival mechanics.
 
-- [ ] Pre-link watch URLs in announcements: `https://slc.discernible.io/watch?gameId=…` (or development equivalent).
+- [ ] Pre-link watch URLs in announcements: `https://slc.discernible.io:10443/watch?gameId=…` (or development equivalent).
 - [ ] Assign commentary lane (Discord / X) for humans narrating **public** messages and trades only.
 - [ ] **Commentary playbook:** call out verify-before-execute moments, `holaVerified` trade citations, betrayals (negotiation vs execution), and impersonation attempts — tie to IdentyClaw claims.
 - [ ] Turn recap / field reports within hours of dramatic turns (`scripts/generate-blog-report.js`, [`frontend/`](frontend/)).
