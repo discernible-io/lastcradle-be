@@ -213,6 +213,54 @@ async function testMissingWebhookUrl() {
   );
 }
 
+async function testPhaseChangePayloadCanCarryTransfersReceived() {
+  let capturedPayload = null;
+  setRoditClient({
+    sendWakeHook: async (payload) => {
+      capturedPayload = payload;
+      return { isValid: true, requestId: "phase-inbound" };
+    }
+  });
+  blockchainService.nearorg_rpc_tokenfromroditid = async () => ({
+    metadata: { webhook_url: "agent-inbound.identyclaw.com:9443" }
+  });
+
+  const result = await sendGameWebhook(
+    {
+      event: "phase_change",
+      data: {
+        roditId: "InboundTok12",
+        gameId: "01INBOUND",
+        phase: "negotiation",
+        currentTurn: 2,
+        resolvedTurn: 1,
+        transfersReceived: [
+          {
+            id: "act1",
+            turnNumber: 1,
+            fromAgentId: "sender",
+            toAgentId: "recv",
+            energy: 3,
+            water: 0,
+            compute: 0,
+            status: "executed"
+          }
+        ]
+      }
+    },
+    "InboundTok12"
+  );
+
+  assert(result.success === true, "phase_change with transfersReceived should deliver");
+  assert(capturedPayload?.event === "phase_change", "event preserved");
+  assert(capturedPayload?.data?.resolvedTurn === 1, "resolvedTurn preserved");
+  assert(
+    Array.isArray(capturedPayload?.data?.transfersReceived) &&
+      capturedPayload.data.transfersReceived[0].energy === 3,
+    "transfersReceived preserved on wake payload"
+  );
+}
+
 async function main() {
   clearWebhookUrlCacheForTests();
   await testJwtWebhookUrlPassthrough();
@@ -228,6 +276,8 @@ async function main() {
   await testSendAgentHookDeadlineWarning();
   clearWebhookUrlCacheForTests();
   await testMissingWebhookUrl();
+  clearWebhookUrlCacheForTests();
+  await testPhaseChangePayloadCanCarryTransfersReceived();
   console.log(JSON.stringify({ ok: true, suite: "test-game-webhooks" }));
 }
 

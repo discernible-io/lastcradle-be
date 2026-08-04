@@ -20,7 +20,9 @@ const {
 const { getGameNarrative, buildSurvivalNarrative } = require("./narrative");
 const {
   normalizeTransferDisclosure,
-  transferLegsFromPayload
+  transferLegsFromPayload,
+  lastResolvedTurnNumber,
+  transfersReceivedLastTurn
 } = require("./trade-disclosure");
 const repo = require("./repository");
 const { notifyElimination } = require("./webhooks");
@@ -1605,6 +1607,15 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       nextTurnSurvivalCost,
       survivalCostPerTurnIncrement
     });
+
+    const resolvedTurn = lastResolvedTurnNumber(game.current_turn);
+    const priorTrades =
+      resolvedTurn != null ? await repo.listPublicTrades(gameId, resolvedTurn) : [];
+    you.transfersReceivedLastTurn = transfersReceivedLastTurn(
+      resolvedTurn,
+      priorTrades,
+      viewerAgentId
+    );
   }
 
   return {

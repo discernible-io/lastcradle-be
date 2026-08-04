@@ -267,6 +267,9 @@ router.get("/games/:gameId/players/:agentId/identity", async (req, res) => {
  * /api/game/games/{gameId}/state:
  *   get:
  *     summary: Get public game state
+ *     description: >
+ *       Optional Bearer JWT upgrades the response for joined players (`you` includes
+ *       inventory/capacities and `you.transfersReceivedLastTurn`).
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -312,6 +315,9 @@ router.get("/games/:gameId/messages", async (req, res) => {
  * /api/game/games/{gameId}/trades:
  *   get:
  *     summary: List transfer actions for a turn (with optional rationale and curated private-deal snippets)
+ *     description: >
+ *       Public transfer ledger for a turn. Query `turn` defaults to current_turn
+ *       (often empty after resolve — use ?turn=<resolvedTurn> or you.transfersReceivedLastTurn).
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
