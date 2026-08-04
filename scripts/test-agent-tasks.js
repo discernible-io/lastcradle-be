@@ -38,11 +38,17 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.12.1")) {
-    throw new Error("skill.md should be version 1.12.1");
+  if (!skill.includes("version: 1.12.2")) {
+    throw new Error("skill.md should be version 1.12.2");
   }
   if (!skill.includes("transfersReceivedLastTurn")) {
     throw new Error("skill.md should document you.transfersReceivedLastTurn");
+  }
+  if (!skill.includes("you.transfersReceived")) {
+    throw new Error("skill.md should document you.transfersReceived cumulative inbound history");
+  }
+  if (!skill.includes("history=1")) {
+    throw new Error("skill.md should document GET .../trades?history=1 inbound ledger");
   }
   if (!skill.includes("Inbound receipts")) {
     throw new Error("skill.md should document Inbound receipts constraint");
@@ -190,6 +196,12 @@ async function main() {
   }
   if (!peerAuth.includes("transfersReceivedLastTurn")) {
     throw new Error("peer-auth.md should document you.transfersReceivedLastTurn for inbound confirm");
+  }
+  if (!peerAuth.includes("you.transfersReceived")) {
+    throw new Error("peer-auth.md should document you.transfersReceived cumulative history");
+  }
+  if (!peerAuth.includes("history=1")) {
+    throw new Error("peer-auth.md should document trades?history=1 inbound ledger");
   }
   if (peerAuth.includes("message-report") || peerAuth.includes("Message self-reports")) {
     throw new Error("peer-auth.md must not document removed message-report phase");

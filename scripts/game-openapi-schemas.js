@@ -234,9 +234,21 @@ const gameSchemas = {
       transfersReceivedLastTurn: {
         type: "object",
         description:
-          "Present on authenticated self view (alive with inventory): inbound public trade legs from the last resolved execution turn (currentTurn - 1 when currentTurn > 1). turnNumber is null and transfers is [] when no prior execution has resolved.",
+          "Present on authenticated self view: inbound public trade legs from the last resolved execution turn (currentTurn - 1 when currentTurn > 1). turnNumber is null and transfers is [] when no prior execution has resolved.",
         properties: {
           turnNumber: { type: "integer", nullable: true },
+          transfers: {
+            type: "array",
+            items: { $ref: "#/components/schemas/GamePublicTrade" }
+          }
+        }
+      },
+      transfersReceived: {
+        type: "object",
+        description:
+          "Present on authenticated self view: cumulative inbound public trade legs through the last resolved execution (throughTurn = currentTurn - 1 when currentTurn > 1). Each leg includes fromAgentId and fromDisplayName when known. Empty when no prior execution has resolved.",
+        properties: {
+          throughTurn: { type: "integer", nullable: true },
           transfers: {
             type: "array",
             items: { $ref: "#/components/schemas/GamePublicTrade" }
@@ -342,7 +354,7 @@ const gameSchemas = {
       you: {
         oneOf: [{ $ref: "#/components/schemas/GameAgentPublic" }, { type: "null" }],
         description:
-          "Joined viewer's own agent entry when authenticated; null for spectators. Alive self views include transfersReceivedLastTurn (inbound public trade legs from the last resolved execution)."
+          "Joined viewer's own agent entry when authenticated; null for spectators. Self views include transfersReceivedLastTurn (last resolved execution) and transfersReceived (cumulative inbound history with fromAgentId / fromDisplayName)."
       },
       turnInvestments: {
         type: "array",
@@ -660,7 +672,15 @@ const gameSchemas = {
       id: { type: "string" },
       turnNumber: { type: "integer" },
       fromAgentId: { type: "string" },
+      fromDisplayName: {
+        type: "string",
+        description: "Sender cradle display name when known"
+      },
       toAgentId: { type: "string" },
+      toDisplayName: {
+        type: "string",
+        description: "Recipient cradle display name when known"
+      },
       energy: { type: "number" },
       water: { type: "number" },
       compute: { type: "number" },
@@ -702,7 +722,16 @@ const gameSchemas = {
       turnNumber: {
         type: "integer",
         description:
-          "Turn whose trades are listed. Query `turn` defaults to game.current_turn — after execution resolves, current_turn has already advanced, so use ?turn=<resolvedTurn> (or read you.transfersReceivedLastTurn on authenticated state)."
+          "Turn whose trades are listed, or the inclusive through-turn when history=1. Query `turn` defaults to game.current_turn — after execution resolves, current_turn has already advanced, so use ?turn=<resolvedTurn>, ?history=1, or authenticated you.transfersReceived / you.transfersReceivedLastTurn."
+      },
+      history: {
+        type: "boolean",
+        description: "True when the response covers all resolved turns through turnNumber"
+      },
+      toAgentId: {
+        type: "string",
+        nullable: true,
+        description: "Present when filtered to inbound legs for this recipient agent ULID"
       },
       requestId: { type: "string" }
     }
