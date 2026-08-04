@@ -152,11 +152,17 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
   const actions = await repo.listTurnActions(gameId, turnNumber);
   for (const row of actions) {
     const payload = repo.parseJson(row.payload_json, {});
-    if (row.action_type === "transfer" && row.status === "executed") {
-      flow.transferActions += 1;
+    if (
+      (row.action_type === "transfer" ||
+        row.action_type === "transfer_and_invest" ||
+        row.action_type === "transfer_and_invest_production" ||
+        row.action_type === "transfer_and_invest_storage") &&
+      row.status === "executed"
+    ) {
       const { transferLegsFromPayload } = require("../src/game/trade-disclosure");
       const legs = transferLegsFromPayload(payload);
       if (legs.length) {
+        flow.transferActions += 1;
         for (const leg of legs) {
           addR(flow.traded, leg);
           metrics.tradeLog.push({
@@ -166,7 +172,8 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
             volume: fmtR(leg)
           });
         }
-      } else {
+      } else if (row.action_type === "transfer") {
+        flow.transferActions += 1;
         addR(flow.traded, payload);
         metrics.tradeLog.push({
           turn: turnNumber,
@@ -185,12 +192,31 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
         row.action_type === "transfer_and_invest_storage") &&
       row.status === "executed"
     ) {
-      flow.investActions += 1;
-      for (const side of [payload.production, payload.storage, payload.invest]) {
-        if (side) addR(flow.invested, side);
+      const sides = [];
+      if (payload.production) sides.push({ kind: "production", ...payload.production });
+      if (payload.storage) sides.push({ kind: "storage", ...payload.storage });
+      if (payload.invest) {
+        const kind =
+          payload.invest.capacity ||
+          (row.action_type.includes("storage") ? "storage" : "production");
+        sides.push({ kind, ...payload.invest });
       }
-      if (!payload.production && !payload.storage && !payload.invest) {
-        addR(flow.invested, payload);
+      if (!sides.length && (payload.target || payload.energy)) {
+        const kind = row.action_type.includes("storage") ? "storage" : "production";
+        sides.push({ kind, ...payload });
+      }
+      if (sides.length) {
+        flow.investActions += 1;
+        for (const side of sides) {
+          addR(flow.invested, side);
+          flow.investSides = flow.investSides || [];
+          flow.investSides.push({
+            agent: agentName(agents, row.agent_id),
+            kind: side.kind,
+            target: side.target,
+            amount: side.energy || side.amount || 0
+          });
+        }
       }
     }
   }
@@ -216,6 +242,34 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
   addR(metrics.totalTraded, flow.traded);
   metrics.totalIntelHide = (metrics.totalIntelHide || 0) + flow.intelHide;
   metrics.totalIntelFind = (metrics.totalIntelFind || 0) + flow.intelFind;
+
+  metrics.storageByTurn = metrics.storageByTurn || {};
+  metrics.storageByTurn[turnNumber] = fullAgents
+    .slice()
+    .sort((a, b) => String(a.displayName).localeCompare(String(b.displayName)))
+    .map((a) => ({
+      name: a.displayName,
+      status: a.status,
+      diedAtTurn: a.diedAtTurn,
+      inventory: a.inventory ? { ...a.inventory } : null,
+      storage: a.storageCapacity ? { ...a.storageCapacity } : null,
+      production: a.productionCapacity ? { ...a.productionCapacity } : null
+    }));
+
+  const turnTrades = metrics.tradeLog.filter((t) => t.turn === turnNumber);
+  metrics.detailByTurn = metrics.detailByTurn || {};
+  metrics.detailByTurn[turnNumber] = {
+    living: flow.living,
+    tradeVolume: { ...flow.traded },
+    tradeActions: flow.transferActions,
+    trades: turnTrades,
+    investVolume: { ...flow.invested },
+    investActions: flow.investActions,
+    investSides: flow.investSides || [],
+    intelHide: flow.intelHide,
+    intelFind: flow.intelFind,
+    messages: flow.msgsPublished
+  };
 
   // Milestone highlights
   if (turnNumber === 1) {
@@ -391,12 +445,68 @@ function printFinalReport(metrics, state, playerCount) {
   }
 }
 
+function printPerTurnBreakdown(metrics) {
+  const turns = Object.keys(metrics.detailByTurn || {})
+    .map(Number)
+    .sort((a, b) => a - b);
+  if (!turns.length) return;
+
+  console.log(`\n${"═".repeat(78)}`);
+  console.log("PER-TURN BREAKDOWN — trade / espionage / investment");
+  console.log(`${"═".repeat(78)}`);
+
+  for (const t of turns) {
+    const d = metrics.detailByTurn[t];
+    console.log(`\n── Turn ${t}  (${d.living} alive) ──`);
+    console.log(
+      `  Trade:      actions=${d.tradeActions}  volume=${fmtR(d.tradeVolume)}` +
+        (d.trades.length
+          ? `\n             ${d.trades.map((x) => `${x.from}→${x.to} ${x.volume}`).join("; ")}`
+          : "")
+    );
+    console.log(
+      `  Espionage:  hide=${fmt(d.intelHide)} find=${fmt(d.intelFind)} compute`
+    );
+    const sideSummary = (d.investSides || [])
+      .map((s) => `${s.agent} ${s.kind}/${s.target}=${s.amount}`)
+      .join("; ");
+    console.log(
+      `  Invest:     actions=${d.investActions}  spend=${fmtR(d.investVolume)}` +
+        (sideSummary ? `\n             ${sideSummary}` : "")
+    );
+    console.log(`  Messages:   ${d.messages}`);
+  }
+
+  console.log(`\n${"═".repeat(78)}`);
+  console.log("STORAGE CAPACITY EVOLUTION (per agent, end of turn)");
+  console.log(`${"═".repeat(78)}`);
+  for (const t of turns) {
+    const rows = metrics.storageByTurn[t] || [];
+    console.log(`\n── Turn ${t} storage / inventory ──`);
+    for (const row of rows) {
+      const tag = row.status === "alive" ? "alive" : `dead@${row.diedAtTurn ?? "?"}`;
+      const st = row.storage
+        ? `stor E${fmt(row.storage.energy)} W${fmt(row.storage.water)} C${fmt(row.storage.compute)}`
+        : "stor —";
+      const inv = row.inventory
+        ? `inv E${fmt(row.inventory.energy)} W${fmt(row.inventory.water)} C${fmt(row.inventory.compute)}`
+        : "inv —";
+      const pr = row.production
+        ? `prod E${fmt(row.production.energy)} W${fmt(row.production.water)} C${fmt(row.production.compute)}`
+        : "prod —";
+      console.log(`  ${String(row.name).padEnd(4)} [${tag}]  ${st}  |  ${inv}  |  ${pr}`);
+    }
+  }
+}
+
 async function main() {
   await repo.initializeDatabase();
 
   const metrics = {
     highlights: [],
     flowByTurn: {},
+    detailByTurn: {},
+    storageByTurn: {},
     tradeLog: [],
     eliminations: [],
     totalMessages: 0,
@@ -453,6 +563,39 @@ async function main() {
   }
 
   printFinalReport(metrics, state, PLAYER_COUNT);
+  printPerTurnBreakdown(metrics);
+
+  const reportPath = path.join(
+    __dirname,
+    "..",
+    "data",
+    `sim-${PLAYER_COUNT}p-turn-report.json`
+  );
+  fs.writeFileSync(
+    reportPath,
+    JSON.stringify(
+      {
+        playerCount: PLAYER_COUNT,
+        turnsPlayed: metrics.turnsPlayed,
+        status: state.game.status,
+        survivors: state.livingAgentCount,
+        totals: {
+          messages: metrics.totalMessages,
+          invested: metrics.totalInvested,
+          traded: metrics.totalTraded,
+          intelHide: metrics.totalIntelHide,
+          intelFind: metrics.totalIntelFind
+        },
+        eliminations: metrics.eliminations,
+        detailByTurn: metrics.detailByTurn,
+        storageByTurn: metrics.storageByTurn
+      },
+      null,
+      2
+    )
+  );
+  console.log(`\nWrote detailed JSON report: ${reportPath}`);
+
   await repo.closeDatabase();
 }
 
