@@ -215,6 +215,37 @@ function publicTradesFromAction(actionRow, parseJson) {
   return legs.map((leg, index) => publicTradeFromLeg(actionRow, payload, leg, index, legs.length));
 }
 
+/**
+ * After execution of turn T resolves, current_turn becomes T+1.
+ * Inbound receipts for the just-resolved execution therefore live at currentTurn - 1
+ * whenever currentTurn > 1 (negotiation or execution of the following turn).
+ */
+function lastResolvedTurnNumber(currentTurn) {
+  const n = Number(currentTurn) || 0;
+  return n > 1 ? n - 1 : null;
+}
+
+function inboundTradesForRecipient(trades, recipientAgentId) {
+  if (!recipientAgentId || !Array.isArray(trades)) {
+    return [];
+  }
+  return trades.filter((trade) => trade && trade.toAgentId === recipientAgentId);
+}
+
+/**
+ * Durable receipt block for authenticated state / phase_change wakes.
+ * @returns {{ turnNumber: number|null, transfers: object[] }}
+ */
+function transfersReceivedLastTurn(turnNumber, trades, recipientAgentId) {
+  if (turnNumber == null || turnNumber <= 0) {
+    return { turnNumber: null, transfers: [] };
+  }
+  return {
+    turnNumber,
+    transfers: inboundTradesForRecipient(trades, recipientAgentId)
+  };
+}
+
 module.exports = {
   TRADE_RATIONALE_MAX_LEN,
   TRADE_SNIPPET_MAX,
@@ -223,5 +254,8 @@ module.exports = {
   transferLegsFromPayload,
   transferPayloadFromAction,
   publicTradeFromAction,
-  publicTradesFromAction
+  publicTradesFromAction,
+  lastResolvedTurnNumber,
+  inboundTradesForRecipient,
+  transfersReceivedLastTurn
 };

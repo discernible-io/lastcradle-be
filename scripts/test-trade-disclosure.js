@@ -18,7 +18,18 @@ const express = require("express");
 const engine = require("../src/game/engine");
 const repo = require("../src/game/repository");
 const spectatorRoutes = require("../src/game/spectator-routes");
-const { normalizeTransferDisclosure } = require("../src/game/trade-disclosure");
+const {
+  normalizeTransferDisclosure,
+  lastResolvedTurnNumber,
+  inboundTradesForRecipient,
+  transfersReceivedLastTurn
+} = require("../src/game/trade-disclosure");
+const {
+  notifyPhaseChange,
+  setRoditClient,
+  clearWebhookUrlCacheForTests
+} = require("../src/game/webhooks");
+const { blockchainService } = require("@rodit/rodit-auth-be");
 
 function assertThrows(fn, code) {
   try {
@@ -36,6 +47,24 @@ async function requestJson(port, path) {
 }
 
 async function main() {
+  if (lastResolvedTurnNumber(1) !== null) throw new Error("turn 1 has no resolved prior turn");
+  if (lastResolvedTurnNumber(2) !== 1) throw new Error("turn 2 resolves receipts from turn 1");
+  if (
+    inboundTradesForRecipient(
+      [
+        { toAgentId: "a", energy: 1 },
+        { toAgentId: "b", energy: 2 }
+      ],
+      "b"
+    ).length !== 1
+  ) {
+    throw new Error("inbound filter failed");
+  }
+  const emptyReceipt = transfersReceivedLastTurn(null, [], "x");
+  if (emptyReceipt.turnNumber !== null || emptyReceipt.transfers.length !== 0) {
+    throw new Error("null turn receipt should be empty");
+  }
+
   assertThrows(
     () =>
       normalizeTransferDisclosure({
@@ -72,12 +101,12 @@ async function main() {
       joiningWindowDurationMs: 0
     }
   });
-  await engine.joinGame(game.id, { roditId: "trader-a", displayName: "Cradle A" });
-  const agentB = await engine.joinGame(game.id, { roditId: "trader-b", displayName: "Cradle B" });
+  await engine.joinGame(game.id, { roditId: "TraderToknA1", displayName: "Cradle A" });
+  const agentB = await engine.joinGame(game.id, { roditId: "TraderToknB1", displayName: "Cradle B" });
   await engine.startGame(game.id);
 
   const agents = await repo.listAgents(game.id);
-  const agentA = agents.find((a) => a.roditId === "trader-a");
+  const agentA = agents.find((a) => a.roditId === "TraderToknA1");
 
   await engine.beginExecutionPhase(game.id);
 
@@ -108,6 +137,77 @@ async function main() {
   if (!trades.length || trades[0].rationale !== "Water alliance installment") {
     throw new Error("expected public trade with rationale");
   }
+
+  const after = await repo.getGameById(game.id);
+  if (after.current_turn !== turnNumber + 1 || after.phase !== "negotiation") {
+    throw new Error(`expected post-resolve negotiation turn ${turnNumber + 1}, got ${after.phase}/${after.current_turn}`);
+  }
+
+  const recipientState = await engine.getPublicState(game.id, { viewerAgentId: agentB.id });
+  const inbound = recipientState.you?.transfersReceivedLastTurn;
+  if (!inbound || inbound.turnNumber !== turnNumber) {
+    throw new Error("recipient state missing transfersReceivedLastTurn for resolved turn");
+  }
+  if (!inbound.transfers?.length || inbound.transfers[0].fromAgentId !== agentA.id) {
+    throw new Error("recipient should see inbound transfer from sender");
+  }
+  if (inbound.transfers[0].energy !== 5) {
+    throw new Error("recipient inbound energy mismatch");
+  }
+
+  const senderState = await engine.getPublicState(game.id, { viewerAgentId: agentA.id });
+  const senderInbound = senderState.you?.transfersReceivedLastTurn;
+  if (!senderInbound || senderInbound.turnNumber !== turnNumber) {
+    throw new Error("sender state should still expose transfersReceivedLastTurn block");
+  }
+  if (senderInbound.transfers?.length) {
+    throw new Error("sender should not see own outbound as transfersReceived");
+  }
+
+  const wakePayloads = [];
+  clearWebhookUrlCacheForTests();
+  setRoditClient({
+    sendWakeHook: async (payload) => {
+      wakePayloads.push(payload);
+      return { isValid: true, requestId: "trade-wake" };
+    }
+  });
+  blockchainService.nearorg_rpc_tokenfromroditid = async () => ({
+    metadata: { webhook_url: "agent-trade.identyclaw.com:9443" }
+  });
+
+  await notifyPhaseChange(game.id, {
+    status: after.status,
+    phase: after.phase,
+    currentTurn: after.current_turn,
+    negotiationEndsAt: after.negotiation_ends_at,
+    executionEndsAt: after.execution_ends_at
+  });
+
+  const recipientWake = wakePayloads.find((p) => p.data?.agentId === agentB.id);
+  if (!recipientWake || recipientWake.event !== "phase_change") {
+    throw new Error("expected phase_change wake for recipient");
+  }
+  if (recipientWake.data.resolvedTurn !== turnNumber) {
+    throw new Error("phase_change should include resolvedTurn");
+  }
+  if (!recipientWake.data.transfersReceived?.length) {
+    throw new Error("phase_change should include transfersReceived for recipient");
+  }
+  if (recipientWake.data.transfersReceived[0].fromAgentId !== agentA.id) {
+    throw new Error("phase_change transfersReceived fromAgentId mismatch");
+  }
+
+  const senderWake = wakePayloads.find((p) => p.data?.agentId === agentA.id);
+  if (!senderWake || !Array.isArray(senderWake.data.transfersReceived)) {
+    throw new Error("phase_change should include transfersReceived array for sender");
+  }
+  if (senderWake.data.transfersReceived.length !== 0) {
+    throw new Error("sender phase_change transfersReceived should be empty");
+  }
+
+  setRoditClient(null);
+  clearWebhookUrlCacheForTests();
 
   const app = express();
   app.use((req, _res, next) => {

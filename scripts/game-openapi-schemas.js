@@ -230,6 +230,18 @@ const gameSchemas = {
       intelligenceHidden: {
         type: "boolean",
         description: "True when capacities are concealed from the viewer"
+      },
+      transfersReceivedLastTurn: {
+        type: "object",
+        description:
+          "Present on authenticated self view (alive with inventory): inbound public trade legs from the last resolved execution turn (currentTurn - 1 when currentTurn > 1). turnNumber is null and transfers is [] when no prior execution has resolved.",
+        properties: {
+          turnNumber: { type: "integer", nullable: true },
+          transfers: {
+            type: "array",
+            items: { $ref: "#/components/schemas/GamePublicTrade" }
+          }
+        }
       }
     }
   },
@@ -329,7 +341,8 @@ const gameSchemas = {
       agents: { type: "array", items: { $ref: "#/components/schemas/GameAgentPublic" } },
       you: {
         oneOf: [{ $ref: "#/components/schemas/GameAgentPublic" }, { type: "null" }],
-        description: "Joined viewer's own agent entry when authenticated; null for spectators"
+        description:
+          "Joined viewer's own agent entry when authenticated; null for spectators. Alive self views include transfersReceivedLastTurn (inbound public trade legs from the last resolved execution)."
       },
       turnInvestments: {
         type: "array",
@@ -686,7 +699,11 @@ const gameSchemas = {
     required: ["trades", "turnNumber", "requestId"],
     properties: {
       trades: { type: "array", items: { $ref: "#/components/schemas/GamePublicTrade" } },
-      turnNumber: { type: "integer" },
+      turnNumber: {
+        type: "integer",
+        description:
+          "Turn whose trades are listed. Query `turn` defaults to game.current_turn — after execution resolves, current_turn has already advanced, so use ?turn=<resolvedTurn> (or read you.transfersReceivedLastTurn on authenticated state)."
+      },
       requestId: { type: "string" }
     }
   },

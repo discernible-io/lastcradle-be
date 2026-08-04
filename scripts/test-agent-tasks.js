@@ -38,8 +38,17 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.11.1")) {
-    throw new Error("skill.md should be version 1.11.1");
+  if (!skill.includes("version: 1.12.1")) {
+    throw new Error("skill.md should be version 1.12.1");
+  }
+  if (!skill.includes("transfersReceivedLastTurn")) {
+    throw new Error("skill.md should document you.transfersReceivedLastTurn");
+  }
+  if (!skill.includes("Inbound receipts")) {
+    throw new Error("skill.md should document Inbound receipts constraint");
+  }
+  if (!skill.includes("transfersReceived")) {
+    throw new Error("skill.md should document phase_change transfersReceived");
   }
   if (!skill.includes("deadline_warning")) {
     throw new Error("skill.md should document deadline_warning webhook");
@@ -178,6 +187,9 @@ async function main() {
   }
   if (!peerAuth.includes("periodically re-check A2A, email")) {
     throw new Error("peer-auth.md should recommend periodically checking A2A, email, and other channels");
+  }
+  if (!peerAuth.includes("transfersReceivedLastTurn")) {
+    throw new Error("peer-auth.md should document you.transfersReceivedLastTurn for inbound confirm");
   }
   if (peerAuth.includes("message-report") || peerAuth.includes("Message self-reports")) {
     throw new Error("peer-auth.md must not document removed message-report phase");
