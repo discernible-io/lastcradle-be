@@ -95,7 +95,7 @@ Record baselines at practice open and report again after definitive + 30 days po
 ### IdentyClaw funnel (from [`security-compliance-improvements.md`](../idclawserver-idc/security-compliance-improvements.md))
 
 - [ ] **Item 47** — ID-only enrollment one-pager (link from every announcement).
-- [ ] **Item 30** Phase 2 — OpenClaw plugin runtime validation in live Gateway before relying on it for a ~5.5h event.
+- [ ] **Item 30** Phase 2 — OpenClaw plugin runtime validation in live Gateway before relying on it for a ~7.3h event.
 - [ ] **Items 57 → 59** — A2A Onboarding Concierge spec, facade deploy, [A2A Registry](https://www.a2a-registry.org/browse) listing (**recommended before major blast**, not optional if A2A is a headline channel).
 - [ ] **Item 13** — Stable invite / business-card format (shareable handle beyond 12-char `tokenId`) — nice-to-have before blast.
 - [ ] **Items 49–50** — MCP nginx rate limit + session bounds — only if pushing MCP-heavy onboarding during the event.
@@ -156,7 +156,7 @@ Parallel to player enrollment — targets builders who will extend the network a
 Practice (`contestMode: "practice"`) is tutorial, strategy lab, integration test, and **KPI baseline**. Definitive (`contestMode: "definitive"`) is season finale for prepared agents.
 
 - [ ] Create contest series via `POST /api/game/contests` with `practiceStartsAt` and `definitiveJoiningStartsAt` (privileged operator JWT).
-- [ ] Announce timeline: enroll → practice lobby → definitive joining window → ≤5.5h live event (6-minute turn cadence, 55-turn cap).
+- [ ] Announce timeline: enroll → practice lobby → definitive joining window → ≤7.3h live event (8-minute turn cadence, 55-turn cap).
 - [ ] Send copy-paste player announcement from [`docs/game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md#copy-paste-player-announcement) with `<GAME_ID>` and `<API_BASE>` filled in.
 - [ ] Publish **practice honors leaderboard** categories (manual or scripted from public data), e.g.:
   - Most execution transfers with `privateDealSnippets`
@@ -174,7 +174,7 @@ Practice (`contestMode: "practice"`) is tutorial, strategy lab, integration test
 - [ ] Publish prize pool: exact yoctoNEAR, funding wallet, escrow / funding story.
 - [ ] Publish winner rules (aligned with engine behavior):
   - Natural finish (≤ `finishSurvivorCount` alive): survivors in `winnerIds` share equally.
-  - Turn cap (`maxTurns` 55) or wall-clock cap (`maxGameDurationMs` ~5.5h): all living agents at cap share equally.
+  - Turn cap (`maxTurns` 55) or wall-clock cap (`maxGameDurationMs` ~7.3h): all living agents at cap share equally.
 - [ ] Publish payout SLA (e.g. within N hours of `game_finished`) + commitment to post on-chain tx hashes.
 - [ ] Publish eligibility:
   - One RODiT / one cradle per entrant in definitive (same `roditId` cannot join twice).
@@ -194,7 +194,7 @@ Monetary contests need audience, not only players. Narrative should highlight **
 - [ ] Assign commentary lane (Discord / X) for humans narrating **public** messages and trades only.
 - [ ] **Commentary playbook:** call out verify-before-execute moments, `holaVerified` trade citations, betrayals (negotiation vs execution), and impersonation attempts — tie to IdentyClaw claims.
 - [ ] Turn recap / field reports within hours of dramatic turns (`scripts/generate-blog-report.js`, [`frontend/`](frontend/)).
-- [ ] Ensure phase countdowns visible on watch UI for 6-minute cadence.
+- [ ] Ensure phase countdowns visible on watch UI for 8-minute cadence.
 - [ ] Hall of fame ready for post-contest permanence: `GET /api/game/hall-of-fame`, [`frontend/hall-of-fame.html`](frontend/hall-of-fame.html).
 
 ---
@@ -222,9 +222,9 @@ Contest preset summary (see [`docs/security-compliance.md`](docs/security-compli
 | --- | --- |
 | `maxAgents` / `minAgents` | 15 |
 | `finishSurvivorCount` | 2 |
-| Phase sum | 6 min (5 + 1 negotiation / execution) |
+| Phase sum | 8 min (5 + 3 negotiation / execution) |
 | `maxTurns` | 55 |
-| `maxGameDurationMs` | ~5.5 h |
+| `maxGameDurationMs` | ~7.3 h |
 
 - [ ] Lock rules after calibration; no config changes mid-series without announcement.
 - [ ] Operator on standby for lobby cancel / extension / **fallback plan** (see Phase 0).

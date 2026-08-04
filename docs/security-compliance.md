@@ -307,7 +307,7 @@ Branches ([`BRANCHING.md`](BRANCHING.md)):
 
 ## Contest game requirements (15-player timed event)
 
-Target format: ~15 participants, one practice week, one definitive prize game, turns on a **6-minute cadence**, **55-turn** cap (~5.5 hours wall-clock), live online following.
+Target format: ~15 participants, one practice week, one definitive prize game, turns on an **8-minute cadence**, **55-turn** cap (~7.3 hours wall-clock), live online following.
 
 ### Summary matrix
 
@@ -315,7 +315,7 @@ Target format: ~15 participants, one practice week, one definitive prize game, t
 |------|--------|------------------|
 | Phase timers (negotiation → execution) | **Met** | Timers when duration &gt; 0; `scheduler.js` wires all phases |
 | Absent-player auto-defaults on phase timeout | **Met** | `{ type: "none" }` actions |
-| `executionDurationMs` enforcement | **Met** | Enforced when &gt; 0 (casual defaults use ~1 min AFK caps; 0 remains submission-gated if overridden) |
+| `executionDurationMs` enforcement | **Met** | Enforced when &gt; 0 (casual defaults use ~3 min AFK caps; 0 remains submission-gated if overridden) |
 | Max turns / max game duration | **Met** | `maxTurns`, `maxGameDurationMs`, `ends_at`; forced finish lists all living in `winnerIds` |
 | 15-player contest config preset | **Met** | `CONTEST_GAME_CONFIG` / `PRACTICE_GAME_CONFIG`; `GET /api/game/defaults/contest` |
 | Practice vs definitive contest mode | **Met** | `contestMode`; `POST /api/game/contest-series` + lobby auto-start |
@@ -332,10 +332,10 @@ Target format: ~15 participants, one practice week, one definitive prize game, t
 | `maxAgents` / `minAgents` | 15 | Full lobby |
 | `finishSurvivorCount` | 2 | Natural end when ≤2 alive; those two share if game ends organically |
 | `negotiationDurationMs` | 5 min | Main trading window |
-| `executionDurationMs` | 1 min | Action window (6 min total per turn) |
-| `turnIntervalMs` | 6 min | Documented cadence target (phase sum) |
-| `maxTurns` | 55 | 55 × 6 min; at cap all living agents share prize equally |
-| `maxGameDurationMs` | ~5.5 h | Hard wall-clock cap (same all-living prize split) |
+| `executionDurationMs` | 3 min | Action window (8 min total per turn) |
+| `turnIntervalMs` | 8 min | Documented cadence target (phase sum) |
+| `maxTurns` | 55 | 55 × 8 min; at cap all living agents share prize equally |
+| `maxGameDurationMs` | ~7.3 h | Hard wall-clock cap (same all-living prize split) |
 | `survivalCostPlayerReference` | 3 (default) | Inherited from `DEFAULT_GAME_CONFIG`; survival pacing validated at ~15 players with increment 0.96 |
 
 ### Implementation files
