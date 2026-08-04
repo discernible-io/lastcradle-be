@@ -203,7 +203,7 @@ router.get("/.well-known/mcp", (req, res) => {
     ],
     agentGuide: {
       summary:
-        "OpenClaw + IdentyClaw: ensure_session, read skill.md + state, choose none|transfer|invest|transfer_and_invest from state, then identyclaw_game_tick / POST /api/game/tick with that action body (empty tick returns action_required — AFK timeout alone submits none). Other skill paths via identyclaw_request (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize when the client can attach it. Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :9443.",
+        "OpenClaw + IdentyClaw: ensure_session, read skill.md + state, choose none|transfer|invest_production|invest_storage|transfer_and_invest_production|transfer_and_invest_storage from state, then identyclaw_game_tick / POST /api/game/tick with that action body (empty tick returns action_required — AFK timeout alone submits none). Other skill paths via identyclaw_request (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize when the client can attach it. Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :9443.",
       apiBase: "https://slcapi.discernible.io:9443",
       tlsNote: "Self-signed TLS — use curl -sk",
       login: {

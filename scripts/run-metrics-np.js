@@ -343,13 +343,22 @@ async function runTurn(gameId, agents, turnNumber, plan, metrics, gameRowBefore)
       });
     }
 
-    if (row.action_type === "invest" && row.status === "executed") {
-      addR(flow.invested, payload);
-      addR(ensurePlayerTurn(metrics, turnNumber, name).invested, payload);
+    if (
+      (row.action_type === "invest_production" ||
+        row.action_type === "invest_storage" ||
+        row.action_type === "invest" ||
+        row.action_type === "transfer_and_invest_production" ||
+        row.action_type === "transfer_and_invest_storage") &&
+      row.status === "executed"
+    ) {
+      const investPayload =
+        row.action_type.startsWith("transfer_and_invest") ? payload.invest || {} : payload;
+      addR(flow.invested, investPayload);
+      addR(ensurePlayerTurn(metrics, turnNumber, name).invested, investPayload);
       metrics.investmentByPlayer[name] = metrics.investmentByPlayer[name] || emptyInvest();
-      addInvest(metrics.investmentByPlayer[name], payload);
+      addInvest(metrics.investmentByPlayer[name], investPayload);
       metrics.investmentByTurn[turnNumber] = metrics.investmentByTurn[turnNumber] || emptyInvest();
-      addInvest(metrics.investmentByTurn[turnNumber], payload);
+      addInvest(metrics.investmentByTurn[turnNumber], investPayload);
     }
   }
 

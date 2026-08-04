@@ -37,21 +37,44 @@ function summarizeAction(actionRow, agentById) {
     : actionRow.payload_json || actionRow.payload || {};
   const from = agentName(agentById, actionRow.agent_id);
   const type = payload.type || actionRow.action_type || "none";
+  const isCombined =
+    type === "transfer_and_invest" ||
+    type === "transfer_and_invest_production" ||
+    type === "transfer_and_invest_storage";
+  const isInvest =
+    type === "invest" ||
+    type === "invest_production" ||
+    type === "invest_storage";
 
-  if (type === "transfer" || type === "transfer_and_invest") {
+  function summarizeInvestPayload(p) {
+    const bits = [];
+    if (p.production) {
+      const amt = p.production.energy || p.production.amount;
+      bits.push(`${amt} into ${p.production.target} production`);
+    }
+    if (p.storage) {
+      const amt = p.storage.energy || p.storage.amount;
+      bits.push(`${amt} into ${p.storage.target} storage`);
+    }
+    if (!bits.length && (p.target || p.energy || p.invest)) {
+      const kind =
+        type === "invest_storage" || type === "transfer_and_invest_storage"
+          ? "storage"
+          : "production";
+      const invest = p.invest || p;
+      const amt = invest.energy || invest.amount;
+      if (amt && invest.target) bits.push(`${amt} into ${invest.target} ${kind}`);
+    }
+    return bits.length ? `${from} invested ${bits.join("; ")}` : `${from} invested`;
+  }
+
+  if (type === "transfer" || isCombined) {
     const { transferLegsFromPayload } = require("./trade-disclosure");
     const legs = transferLegsFromPayload(payload);
     const transferParts = legs.map((leg) => summarizeTransferLeg(from, leg, agentById));
 
-    if (type === "transfer_and_invest") {
-      const investParts = [];
-      const invest = payload.invest || {};
-      if (invest.energy) investParts.push(`${invest.energy} into energy production`);
-      if (invest.water) investParts.push(`${invest.water} into water production`);
-      if (invest.compute) investParts.push(`${invest.compute} into compute production`);
-      const investText = investParts.length
-        ? `${from} invested ${investParts.join(", ")}`
-        : `${from} invested`;
+    if (isCombined) {
+      const investText = summarizeInvestPayload(payload);
       if (transferParts.length) {
         return `${transferParts.join("; ")}; then ${investText.replace(`${from} `, "")}`;
       }
@@ -63,14 +86,8 @@ function summarizeAction(actionRow, agentById) {
     }
   }
 
-  if (type === "invest") {
-    const parts = [];
-    if (payload.energy) parts.push(`${payload.energy} into energy production`);
-    if (payload.water) parts.push(`${payload.water} into water production`);
-    if (payload.compute) parts.push(`${payload.compute} into compute production`);
-    if (parts.length) {
-      return `${from} invested ${parts.join(", ")}`;
-    }
+  if (isInvest) {
+    return summarizeInvestPayload(payload);
   }
 
   if (type === "none") {

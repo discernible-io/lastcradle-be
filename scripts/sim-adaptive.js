@@ -93,10 +93,16 @@ function chooseInvest(agent, profile, game, living, turnNumber) {
   const amount = investAmountFor(margin, pressure, { aggressive });
   if (amount <= 0) return { type: "none" };
 
-  if (pressure.crowded && !pressure.earlyGame && amount > 6) {
-    return buildInvestAction(target, Math.max(4, Math.floor(amount * 0.6)));
-  }
-  return buildInvestAction(target, amount);
+  const prod = agent.productionCapacity?.[target] ?? 0;
+  const storage = agent.storageCapacity?.[target] ?? 0;
+  // Specialty surplus → grow storage (stop waste). Secondary deficit → grow production.
+  const capacity = prod > storage ? "storage" : "production";
+
+  const spend =
+    pressure.crowded && !pressure.earlyGame && amount > 6
+      ? Math.max(4, Math.floor(amount * 0.6))
+      : amount;
+  return buildInvestAction(target, spend, capacity);
 }
 
 function transferPackFor(specialty, amount) {

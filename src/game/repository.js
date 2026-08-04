@@ -710,7 +710,16 @@ async function listTurnInvestments(gameId, turnNumber) {
   const database = await getDb();
   const actions = await listTurnActions(gameId, turnNumber);
   return actions
-    .filter((a) => a.action_type === "invest" && a.status !== "failed")
+    .filter(
+      (a) =>
+        (a.action_type === "invest" ||
+          a.action_type === "invest_production" ||
+          a.action_type === "invest_storage" ||
+          a.action_type === "transfer_and_invest" ||
+          a.action_type === "transfer_and_invest_production" ||
+          a.action_type === "transfer_and_invest_storage") &&
+        a.status !== "failed"
+    )
     .map((a) => ({
       agentId: a.agent_id,
       payload: parseJson(a.payload_json, {})

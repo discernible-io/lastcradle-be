@@ -225,7 +225,9 @@ async function runTurn(gameId, agents, turnNumber, plan) {
       const label =
         action.type === "transfer"
           ? `transfer → ${agents.find((a) => a.id === action.toAgentId)?.displayName}`
-          : action.type === "invest"
+          : action.type === "invest_production" ||
+              action.type === "invest_storage" ||
+              action.type === "invest"
             ? `invest ${action.target} (E/W/C ${action.energy})`
             : "hold";
       console.log(`  [action] ${agent.displayName}: ${label}`);

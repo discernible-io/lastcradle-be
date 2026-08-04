@@ -116,6 +116,12 @@ async function main() {
     production: oneRefreshed.productionCapacity,
     storage: oneRefreshed.storageCapacity
   });
+  if (oneRefreshed.productionCapacity.water !== one.productionCapacity.water + 10) {
+    throw new Error("invest_production should grow water production by 10");
+  }
+  if (oneRefreshed.storageCapacity.water !== one.storageCapacity.water) {
+    throw new Error("invest_production must not change storage");
+  }
 
   const hiddenFromTwo = await engine.getPublicState(game.id, { viewerAgentId: two.id });
   const viewOfOne = hiddenFromTwo.agents.find((a) => a.id === one.id);
@@ -142,10 +148,125 @@ async function main() {
 
   await testIntelligenceMemoryWindow();
   await testSpecializedCradlesAndCombinedAction();
+  await testSeparateStorageInvest();
+  await testDualProductionAndStorageInvest();
   await testInvalidTransferRejected();
   await testMultiRecipientTransfers();
 
   await repo.closeDatabase();
+}
+
+async function testSeparateStorageInvest() {
+  const game = await engine.createGame({
+    config: {
+      useRandomStartingInventory: false,
+      startingInventory: { energy: 80, water: 80, compute: 80 },
+      cradleCapacityMin: 100,
+      cradleCapacityMax: 100,
+      useSpecializedCradles: false,
+      minAgents: 3,
+      joiningWindowDurationMs: 0,
+      productionWaterCostRate: 0,
+      storageEnergyCostRate: 0,
+      investProductionGainPerUnit: 1,
+      investStorageGainPerUnit: 2,
+      survivalCost: { energy: 1, water: 1, compute: 1 }
+    }
+  });
+
+  await engine.joinGame(game.id, { roditId: "st1", displayName: "StOne" });
+  await engine.joinGame(game.id, { roditId: "st2", displayName: "StTwo" });
+  await engine.joinGame(game.id, { roditId: "st3", displayName: "StThree" });
+  await engine.startGame(game.id);
+
+  const agents = await repo.listAgents(game.id);
+  const one = agents.find((a) => a.roditId === "st1");
+  const two = agents.find((a) => a.roditId === "st2");
+  const three = agents.find((a) => a.roditId === "st3");
+
+  await engine.beginExecutionPhase(game.id);
+  await engine.submitAction(game.id, one.id, buildInvestAction("energy", 5, "storage"));
+  await engine.submitAction(game.id, two.id, { type: "none" });
+  const completion = await engine.submitAction(game.id, three.id, { type: "none" });
+  if (!completion.turnCompleted) throw new Error("storage invest turn did not complete");
+
+  const oneAfter = await repo.getAgentById(one.id);
+  if (oneAfter.storageCapacity.energy !== one.storageCapacity.energy + 10) {
+    throw new Error(
+      `invest_storage should grow energy storage by 10, got ${oneAfter.storageCapacity.energy}`
+    );
+  }
+  if (oneAfter.productionCapacity.energy !== one.productionCapacity.energy) {
+    throw new Error("invest_storage must not change production");
+  }
+
+  console.log("Separate storage invest test passed.");
+}
+
+async function testDualProductionAndStorageInvest() {
+  const { buildDualInvestAction } = require("../src/game/defaults");
+  const game = await engine.createGame({
+    config: {
+      useRandomStartingInventory: false,
+      startingInventory: { energy: 100, water: 100, compute: 100 },
+      cradleCapacityMin: 100,
+      cradleCapacityMax: 100,
+      useSpecializedCradles: false,
+      minAgents: 3,
+      joiningWindowDurationMs: 0,
+      productionWaterCostRate: 0,
+      storageEnergyCostRate: 0,
+      investProductionGainPerUnit: 1,
+      investStorageGainPerUnit: 2,
+      survivalCost: { energy: 1, water: 1, compute: 1 }
+    }
+  });
+
+  await engine.joinGame(game.id, { roditId: "du1", displayName: "DuOne" });
+  await engine.joinGame(game.id, { roditId: "du2", displayName: "DuTwo" });
+  await engine.joinGame(game.id, { roditId: "du3", displayName: "DuThree" });
+  await engine.startGame(game.id);
+
+  const agents = await repo.listAgents(game.id);
+  const one = agents.find((a) => a.roditId === "du1");
+  const two = agents.find((a) => a.roditId === "du2");
+  const three = agents.find((a) => a.roditId === "du3");
+
+  await engine.beginExecutionPhase(game.id);
+  await engine.submitAction(
+    game.id,
+    one.id,
+    buildDualInvestAction({
+      production: { target: "water", amount: 4 },
+      storage: { target: "energy", amount: 3 }
+    })
+  );
+  await engine.submitAction(game.id, two.id, { type: "none" });
+  const completion = await engine.submitAction(game.id, three.id, { type: "none" });
+  if (!completion.turnCompleted) throw new Error("dual invest turn did not complete");
+
+  const oneAfter = await repo.getAgentById(one.id);
+  if (oneAfter.productionCapacity.water !== one.productionCapacity.water + 4) {
+    throw new Error("dual invest should grow water production by 4");
+  }
+  if (oneAfter.storageCapacity.water !== one.storageCapacity.water) {
+    throw new Error("water storage must be unchanged when only water production was invested");
+  }
+  if (oneAfter.storageCapacity.energy !== one.storageCapacity.energy + 6) {
+    throw new Error("dual invest should grow energy storage by 6 (3×2)");
+  }
+  if (oneAfter.productionCapacity.energy !== one.productionCapacity.energy) {
+    throw new Error("energy production must be unchanged when only energy storage was invested");
+  }
+
+  const actions = await repo.listTurnActions(game.id, 1);
+  const row = actions.find((a) => a.agent_id === one.id);
+  const payload = repo.parseJson(row.payload_json, {});
+  if (payload.type !== "invest" || !payload.production || !payload.storage) {
+    throw new Error(`Expected dual invest payload, got ${JSON.stringify(payload)}`);
+  }
+
+  console.log("Dual production+storage invest test passed.");
 }
 
 async function testIntelligenceMemoryWindow() {
@@ -324,7 +445,7 @@ async function testSpecializedCradlesAndCombinedAction() {
 
   await engine.beginExecutionPhase(game.id);
   await engine.submitAction(game.id, one.id, {
-    type: "transfer_and_invest",
+    type: "transfer_and_invest_production",
     transfer: { toAgentId: two.id, energy: 10, water: 0, compute: 0 },
     invest: { target: "water", amount: 5 }
   });
@@ -337,7 +458,11 @@ async function testSpecializedCradlesAndCombinedAction() {
   const oneAfter = await repo.getAgentById(one.id);
   const actions = await repo.listTurnActions(game.id, 1);
   const combined = actions.find((a) => a.agent_id === one.id);
-  if (!combined || combined.action_type !== "transfer_and_invest" || combined.status !== "executed") {
+  if (
+    !combined ||
+    combined.action_type !== "transfer_and_invest" ||
+    combined.status !== "executed"
+  ) {
     throw new Error(`Expected executed transfer_and_invest, got ${JSON.stringify(combined)}`);
   }
   const payload = repo.parseJson(combined.payload_json, {});
@@ -347,18 +472,18 @@ async function testSpecializedCradlesAndCombinedAction() {
   if (!Array.isArray(payload.transfers) || payload.transfers.length !== 1) {
     throw new Error(`Expected transfers[] mirror, got ${JSON.stringify(payload.transfers)}`);
   }
-  if (payload.invest?.target !== "water" || payload.invest?.energy !== 5) {
-    throw new Error(`Unexpected invest payload: ${JSON.stringify(payload.invest)}`);
+  if (payload.production?.target !== "water" || payload.production?.energy !== 5) {
+    throw new Error(`Unexpected production invest: ${JSON.stringify(payload.production)}`);
   }
   // Turn advances and applies next-turn production before we read; capacity growth is the stable signal.
   if (oneAfter.productionCapacity.water !== one.productionCapacity.water + 5) {
-    throw new Error("Invest portion should grow water production by 5");
+    throw new Error("Production invest should grow water production by 5");
   }
-  if (oneAfter.storageCapacity.water !== one.storageCapacity.water + 5) {
-    throw new Error("Invest portion should grow water storage by 5");
+  if (oneAfter.storageCapacity.water !== one.storageCapacity.water) {
+    throw new Error("Production invest must not change water storage");
   }
 
-  console.log("Specialized cradles + transfer_and_invest test passed.");
+  console.log("Specialized cradles + transfer_and_invest (production) test passed.");
 }
 
 async function testInvalidTransferRejected() {
@@ -433,8 +558,8 @@ async function testInvalidTransferRejected() {
     compute: 0
   });
 
-  await expectInvalidTransfer("bad ULID on transfer_and_invest (must not downgrade to invest)", {
-    type: "transfer_and_invest",
+  await expectInvalidTransfer("bad ULID on transfer_and_invest_production (must not downgrade to invest)", {
+    type: "transfer_and_invest_production",
     transfer: { toAgentId: "01FAKEINVALIDTRANSFERULIDXX", energy: 10, water: 0, compute: 0 },
     invest: { target: "water", amount: 5 }
   });
@@ -530,7 +655,7 @@ async function testMultiRecipientTransfers() {
   }
 
   await engine.submitAction(game.id, one.id, {
-    type: "transfer_and_invest",
+    type: "transfer_and_invest_production",
     transfers: [
       { toAgentId: two.id, energy: 10, water: 0, compute: 0 },
       { toAgentId: three.id, energy: 0, water: 7, compute: 0 }
@@ -565,6 +690,9 @@ async function testMultiRecipientTransfers() {
   const oneAfter = await repo.getAgentById(one.id);
   if (oneAfter.productionCapacity.compute !== one.productionCapacity.compute + 3) {
     throw new Error("Invest after multi-transfer should grow compute production by 3");
+  }
+  if (oneAfter.storageCapacity.compute !== one.storageCapacity.compute) {
+    throw new Error("Production invest must not change compute storage");
   }
 
   console.log("Multi-recipient transfer test passed.");

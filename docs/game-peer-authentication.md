@@ -61,7 +61,7 @@ Outbound HOLA signing uses the sender's Passport key; nonce fetch may use Identy
 
 - Lobby join, cradle assignment, webhooks (`cradle_assigned`)
 - **Public** negotiation broadcast (`POST .../message`, `GET .../messages`)
-- Execution (`transfer`, `invest`, `transfer_and_invest`, `none`, optional hide/find), SSE phase events
+- Execution (`transfer`, `invest_production`, `invest_storage`, `transfer_and_invest_production`, `transfer_and_invest_storage`, `none`, optional hide/find), SSE phase events
 - Resource settlement and survival rules
 - Peer roster identity: `state.players[].id` (game ULID) + `roditId` (Passport); `GET .../players/{agentId}/identity`
 
@@ -130,7 +130,7 @@ Set HOLA `recipient` to the rival cradle's Passport `tokenId` when addressing a 
 3. Advertise contact once in public negotiation `body`.
 4. Mutual HOLA → private deal talk → verify before execute.
 5. **Reply duty:** each negotiation phase, answer open public/private offers from living cradles (or explicit decline); re-ping expired A2A contexts.
-6. Settle only via execution `transfer` / `transfer_and_invest` with ULID `toAgentId`; confirm via `GET .../trades`.
+6. Settle only via execution `transfer` / `transfer_and_invest_production` / `transfer_and_invest_storage` with ULID `toAgentId`; confirm via `GET .../trades`.
 
 ---
 

@@ -163,8 +163,10 @@ async function runTurn(gameId, agents, turnNumber, plan) {
     const label =
       action.type === "transfer"
         ? `transfer → ${agents.find((a) => a.id === action.toAgentId)?.displayName || action.toAgentId} (${fmtInv({ energy: action.energy || 0, water: action.water || 0, compute: action.compute || 0 })})`
-        : action.type === "invest"
-          ? `invest ${action.target} (${fmtInv({ energy: action.energy || 0, water: action.water || 0, compute: action.compute || 0 })})`
+        : action.type === "invest_production" ||
+            action.type === "invest_storage" ||
+            action.type === "invest"
+          ? `invest ${action.type === "invest_storage" ? "storage" : "production"} ${action.target} (${fmtInv({ energy: action.energy || 0, water: action.water || 0, compute: action.compute || 0 })})`
           : "none";
     console.log(`  [action] ${agent.displayName}: ${label}`);
     if (result.turnCompleted) {

@@ -129,7 +129,11 @@ function normalizeTransferDisclosure(action) {
 function transferLegsFromPayload(payload) {
   if (!payload || typeof payload !== "object") return [];
 
-  if (payload.type === "transfer_and_invest") {
+  if (
+    payload.type === "transfer_and_invest" ||
+    payload.type === "transfer_and_invest_production" ||
+    payload.type === "transfer_and_invest_storage"
+  ) {
     if (Array.isArray(payload.transfers) && payload.transfers.length) {
       return payload.transfers.filter((leg) => leg && leg.toAgentId);
     }
@@ -182,7 +186,11 @@ function publicTradeFromLeg(actionRow, payload, transfer, index, totalLegs) {
   if (transfer.privateDealSnippets?.length) {
     trade.privateDealSnippets = transfer.privateDealSnippets;
   }
-  if (payload.type === "transfer_and_invest") {
+  if (
+    payload.type === "transfer_and_invest" ||
+    payload.type === "transfer_and_invest_production" ||
+    payload.type === "transfer_and_invest_storage"
+  ) {
     trade.combinedWithInvest = true;
   }
   if (totalLegs > 1) {

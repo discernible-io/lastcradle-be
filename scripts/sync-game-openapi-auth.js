@@ -446,7 +446,7 @@ function main() {
       type: "object",
       required: ["type"],
       properties: {
-        type: { type: "string", enum: ["none", "transfer", "invest", "transfer_and_invest"] },
+        type: { type: "string", enum: ["none", "transfer", "invest", "invest_production", "invest_storage", "transfer_and_invest", "transfer_and_invest_production", "transfer_and_invest_storage"] },
         toAgentId: { type: "string", description: "Recipient agent id (transfer)" },
         energy: { type: "number" },
         water: { type: "number" },
@@ -454,9 +454,33 @@ function main() {
         target: {
           type: "string",
           enum: ["energy", "water", "compute"],
-          description: "Capacity target (invest; energy, water, compute must be equal)"
+          description: "Flat-shorthand capacity target for invest_production / invest_storage aliases"
         },
-        amount: { type: "number", description: "Shorthand for equal E/W/C invest amount" },
+        amount: { type: "number", description: "Shorthand for equal E/W/C invest amount on one side" },
+        production: {
+          type: "object",
+          description:
+            "Production invest side (preferred). At most one per turn: { target, amount } or equal energy/water/compute.",
+          properties: {
+            target: { type: "string", enum: ["energy", "water", "compute"] },
+            amount: { type: "number" },
+            energy: { type: "number" },
+            water: { type: "number" },
+            compute: { type: "number" }
+          }
+        },
+        storage: {
+          type: "object",
+          description:
+            "Storage invest side (preferred). At most one per turn: { target, amount } or equal energy/water/compute.",
+          properties: {
+            target: { type: "string", enum: ["energy", "water", "compute"] },
+            amount: { type: "number" },
+            energy: { type: "number" },
+            water: { type: "number" },
+            compute: { type: "number" }
+          }
+        },
         transfer: {
           type: "object",
           description: "Nested transfer for transfer_and_invest (or type invest + transfer)",
@@ -471,8 +495,10 @@ function main() {
         },
         invest: {
           type: "object",
-          description: "Nested invest for transfer_and_invest (or type transfer + invest)",
+          description:
+            "Legacy single-side nest for transfer_and_invest_* aliases; prefer production/storage. Include capacity: production|storage when type is transfer.",
           properties: {
+            capacity: { type: "string", enum: ["production", "storage"] },
             target: { type: "string", enum: ["energy", "water", "compute"] },
             amount: { type: "number" },
             energy: { type: "number" },

@@ -73,9 +73,19 @@ function describeAction(action, agents) {
     if (action.find?.length) intel.push(`find ${action.find.reduce((s, f) => s + f.compute, 0)}`);
     return `transfer → ${to} (${vol})${intel.length ? ` [${intel.join(", ")}]` : ""}`;
   }
-  if (action.type === "invest") {
+  if (
+    action.type === "invest_production" ||
+    action.type === "invest_storage" ||
+    action.type === "invest"
+  ) {
     const intel = action.hide ? ` [hide ${action.hide}]` : action.find?.length ? " [find]" : "";
-    return `invest ${action.target} (E/W/C ${action.energy})${intel}`;
+    const kind =
+      action.type === "invest_storage"
+        ? "storage"
+        : action.type === "invest_production"
+          ? "production"
+          : "capacity";
+    return `invest ${kind} ${action.target} (E/W/C ${action.energy})${intel}`;
   }
   if (action.hide || action.find?.length) {
     const parts = [];

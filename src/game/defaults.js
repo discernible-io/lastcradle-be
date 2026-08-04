@@ -70,10 +70,10 @@ const DEFAULT_GAME_CONFIG = {
   /** Energy consumed as a fraction of water + compute held in storage each turn */
   storageEnergyCostRate: 0.1,
 
-  /** Per-unit EWC invested toward a resource adds this much production capacity */
+  /** Per-unit EWC invested via invest_production toward a resource adds this much production capacity */
   investProductionGainPerUnit: 0.7,
 
-  /** Per-unit EWC invested toward a resource adds this much storage capacity */
+  /** Per-unit EWC invested via invest_storage toward a resource adds this much storage capacity */
   investStorageGainPerUnit: 0.7,
 
   maxProductionCapacity: { energy: 700, water: 700, compute: 700 },
@@ -143,10 +143,10 @@ const DEFAULT_GAME_CONFIG = {
   maxAgents: 10,
 
   /**
-   * Max distinct transfer recipients in one execution action (transfer / transfer_and_invest).
-   * Keeps multi-party splits bounded in large contests (e.g. 15 seats) without allowing spray-everyone.
+   * Max distinct transfer recipients in one execution action.
+   * Defaults to maxAgents when null/omitted so a cradle can trade with every other seat.
    */
-  maxTransferRecipients: 5,
+  maxTransferRecipients: null,
 
   /**
    * How many completed turns of hide/find outcomes stay "in memory" for fog-of-war.
@@ -194,9 +194,47 @@ function resolvePresetConfig(body = {}) {
   return body.config || {};
 }
 
-/** Balanced invest: same amount of energy, water, and compute toward target resource capacity. */
-function buildInvestAction(target, amount) {
-  return { type: "invest", target, energy: amount, water: amount, compute: amount };
+/**
+ * Balanced invest: same amount of energy, water, and compute toward one capacity kind.
+ * @param {"energy"|"water"|"compute"} target resource whose capacity grows
+ * @param {number} amount equal E/W/C spend
+ * @param {"production"|"storage"} [capacity="production"] which capacity grows
+ */
+function buildInvestAction(target, amount, capacity = "production") {
+  const kind = capacity === "storage" ? "storage" : "production";
+  return {
+    type: "invest",
+    [kind]: { target, amount }
+  };
+}
+
+/**
+ * Same-turn production and/or storage invest (at most one of each).
+ * @param {{ production?: { target: string, amount: number }, storage?: { target: string, amount: number } }} sides
+ */
+function buildDualInvestAction(sides = {}) {
+  const action = { type: "invest" };
+  if (sides.production) {
+    action.production = {
+      target: sides.production.target,
+      amount: sides.production.amount
+    };
+  }
+  if (sides.storage) {
+    action.storage = {
+      target: sides.storage.target,
+      amount: sides.storage.amount
+    };
+  }
+  return action;
+}
+
+/** Transfer recipient cap: explicit maxTransferRecipients, else maxAgents. */
+function resolveMaxTransferRecipients(config = {}) {
+  if (config.maxTransferRecipients != null) {
+    return config.maxTransferRecipients;
+  }
+  return config.maxAgents ?? DEFAULT_GAME_CONFIG.maxAgents ?? 10;
 }
 
 function randomInt(min, max) {
@@ -309,6 +347,8 @@ module.exports = {
   resolvePresetConfig,
   publicGameConfig,
   buildInvestAction,
+  buildDualInvestAction,
+  resolveMaxTransferRecipients,
   randomInt,
   randomFloat,
   clampInventoryToCradle,

@@ -12,7 +12,16 @@ const scheduler = require("./scheduler");
 const { onGamePhaseUpdated } = require("./webhooks");
 const { listTasksInboxForRodit, TASK_TYPES } = require("./agent-tasks");
 
-const EXECUTION_ACTION_TYPES = new Set(["none", "transfer", "invest", "transfer_and_invest"]);
+const EXECUTION_ACTION_TYPES = new Set([
+  "none",
+  "transfer",
+  "invest",
+  "invest_production",
+  "invest_storage",
+  "transfer_and_invest",
+  "transfer_and_invest_production",
+  "transfer_and_invest_storage"
+]);
 
 function applyActionSideEffects(result) {
   if (result?.turnCompleted && result.game) {
@@ -86,7 +95,7 @@ async function runAgentTick(roditId, opts = {}) {
         tasks: inbox.tasks,
         waitingOn: inbox.waitingOn,
         note:
-          "Conscious tick requires an explicit execution action (none|transfer|invest|transfer_and_invest) from current state. AFK timeout submits none automatically; empty tick bodies do not."
+          "Conscious tick requires an explicit execution action (none|transfer|invest|invest_production|invest_storage|transfer_and_invest|…) from current state. AFK timeout submits none automatically; empty tick bodies do not."
       };
     }
 

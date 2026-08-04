@@ -154,17 +154,44 @@ async function runTurn(gameId, agents, turnNumber, gameRow, metrics) {
     const payload = repo.parseJson(row.payload_json, {});
     if (row.action_type === "transfer" && row.status === "executed") {
       flow.transferActions += 1;
-      addR(flow.traded, payload);
-      metrics.tradeLog.push({
-        turn: turnNumber,
-        from: agentName(agents, row.agent_id),
-        to: agentName(agents, payload.toAgentId),
-        volume: fmtR(payload)
-      });
+      const { transferLegsFromPayload } = require("../src/game/trade-disclosure");
+      const legs = transferLegsFromPayload(payload);
+      if (legs.length) {
+        for (const leg of legs) {
+          addR(flow.traded, leg);
+          metrics.tradeLog.push({
+            turn: turnNumber,
+            from: agentName(agents, row.agent_id),
+            to: agentName(agents, leg.toAgentId),
+            volume: fmtR(leg)
+          });
+        }
+      } else {
+        addR(flow.traded, payload);
+        metrics.tradeLog.push({
+          turn: turnNumber,
+          from: agentName(agents, row.agent_id),
+          to: agentName(agents, payload.toAgentId),
+          volume: fmtR(payload)
+        });
+      }
     }
-    if (row.action_type === "invest" && row.status === "executed") {
+    if (
+      (row.action_type === "invest" ||
+        row.action_type === "invest_production" ||
+        row.action_type === "invest_storage" ||
+        row.action_type === "transfer_and_invest" ||
+        row.action_type === "transfer_and_invest_production" ||
+        row.action_type === "transfer_and_invest_storage") &&
+      row.status === "executed"
+    ) {
       flow.investActions += 1;
-      addR(flow.invested, payload);
+      for (const side of [payload.production, payload.storage, payload.invest]) {
+        if (side) addR(flow.invested, side);
+      }
+      if (!payload.production && !payload.storage && !payload.invest) {
+        addR(flow.invested, payload);
+      }
     }
   }
 

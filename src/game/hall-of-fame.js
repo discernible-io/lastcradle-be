@@ -42,8 +42,24 @@ function transferAmount(payload) {
 }
 
 function investAmount(payload) {
+  if (!payload || typeof payload !== "object") return 0;
+  let total = 0;
+  for (const side of [payload.production, payload.storage]) {
+    if (side) {
+      total += (side.energy || 0) + (side.water || 0) + (side.compute || 0);
+    }
+  }
+  if (total > 0) return total;
   const invest =
-    payload?.type === "transfer_and_invest" ? payload.invest || {} : payload || {};
+    payload.type === "transfer_and_invest" ||
+    payload.type === "transfer_and_invest_production" ||
+    payload.type === "transfer_and_invest_storage"
+      ? payload.invest || {}
+      : payload.type === "invest" ||
+          payload.type === "invest_production" ||
+          payload.type === "invest_storage"
+        ? payload
+        : {};
   return (invest.energy || 0) + (invest.water || 0) + (invest.compute || 0);
 }
 
@@ -175,7 +191,9 @@ async function collectActivityMetrics(gameId, agents) {
 
     if (
       payload.type === "transfer" ||
-      payload.type === "transfer_and_invest"
+      payload.type === "transfer_and_invest" ||
+      payload.type === "transfer_and_invest_production" ||
+      payload.type === "transfer_and_invest_storage"
     ) {
       const { transferLegsFromPayload } = require("./trade-disclosure");
       const legs = transferLegsFromPayload(payload);
@@ -194,7 +212,14 @@ async function collectActivityMetrics(gameId, agents) {
       }
     }
 
-    if (payload.type === "invest" || payload.type === "transfer_and_invest") {
+    if (
+      payload.type === "invest" ||
+      payload.type === "invest_production" ||
+      payload.type === "invest_storage" ||
+      payload.type === "transfer_and_invest" ||
+      payload.type === "transfer_and_invest_production" ||
+      payload.type === "transfer_and_invest_storage"
+    ) {
       metrics.investmentsExecuted += 1;
       metrics.investmentVolume += investAmount(payload);
     }

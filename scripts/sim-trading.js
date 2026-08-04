@@ -28,8 +28,17 @@ const FIND_COMPUTE = 11;
 
 function computeAvailableAfterAction(agent, action) {
   let compute = agent.inventory?.compute ?? 0;
-  if (action.type === "invest") {
-    compute -= action.compute || action.energy || 0;
+  if (
+    action.type === "invest" ||
+    action.type === "invest_production" ||
+    action.type === "invest_storage"
+  ) {
+    for (const side of [action.production, action.storage]) {
+      if (side) compute -= side.compute || side.energy || side.amount || 0;
+    }
+    if (!action.production && !action.storage) {
+      compute -= action.compute || action.energy || 0;
+    }
   }
   return compute;
 }
@@ -42,13 +51,17 @@ function withIntelligence(action, agent, { profiles, living, turnNumber }) {
   const next = { ...action };
   const specialty = profiles.find((p) => p.roditId === agent.roditId)?.specialty;
   let intelSpend = 0;
+  const isInvest =
+    next.type === "invest" ||
+    next.type === "invest_production" ||
+    next.type === "invest_storage";
 
   if (next.type === "transfer" && next.toAgentId) {
     if (computeAvailableAfterAction(agent, next) >= intelSpend + FIND_COMPUTE) {
       next.find = [{ targetAgentId: next.toAgentId, compute: FIND_COMPUTE }];
       intelSpend += FIND_COMPUTE;
     }
-  } else if (next.type === "invest" || (next.type === "none" && specialty === null)) {
+  } else if (isInvest || (next.type === "none" && specialty === null)) {
     if (computeAvailableAfterAction(agent, next) >= intelSpend + HIDE_COMPUTE) {
       next.hide = HIDE_COMPUTE;
       intelSpend += HIDE_COMPUTE;
