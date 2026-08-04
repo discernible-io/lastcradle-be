@@ -27,7 +27,7 @@ const {
   enrichTradesWithDisplayNames
 } = require("./trade-disclosure");
 const repo = require("./repository");
-const { notifyElimination } = require("./webhooks");
+const { notifyElimination, notifyActionSubmitted } = require("./webhooks");
 
 const RESOURCE_KEYS = ["energy", "water", "compute"];
 const INVESTMENT_TARGETS = ["energy", "water", "compute"];
@@ -223,6 +223,64 @@ function normalizeHideSpend(hide) {
     return hide.compute;
   }
   throw gameError("INVALID_HIDE", "hide must be a positive number or { compute }", 400);
+}
+
+/**
+ * Free warehouse shrink: positive per-resource reductions to storageCapacity.
+ * Inventory above the new caps is clamped away (overflow waste) — no E/W/C cost.
+ */
+function normalizeReduceStorage(reduceStorage) {
+  if (reduceStorage == null) return null;
+  if (typeof reduceStorage !== "object" || Array.isArray(reduceStorage)) {
+    throw gameError(
+      "INVALID_REDUCE_STORAGE",
+      "reduceStorage must be an object { energy?, water?, compute? } with positive amounts",
+      400
+    );
+  }
+  const result = {};
+  let any = false;
+  for (const key of RESOURCE_KEYS) {
+    const raw = reduceStorage[key];
+    if (raw == null) continue;
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) {
+      throw gameError(
+        "INVALID_REDUCE_STORAGE",
+        `reduceStorage.${key} must be a positive number`,
+        400
+      );
+    }
+    result[key] = raw;
+    any = true;
+  }
+  if (!any) {
+    throw gameError(
+      "INVALID_REDUCE_STORAGE",
+      "reduceStorage requires at least one positive energy, water, or compute amount",
+      400
+    );
+  }
+  return result;
+}
+
+function executeReduceStorage(state, payload) {
+  const reductions = payload?.reduceStorage;
+  if (!reductions) return;
+  for (const key of RESOURCE_KEYS) {
+    const amount = reductions[key] || 0;
+    if (amount <= 0) continue;
+    state.storageCapacity[key] = Math.max(0, (state.storageCapacity[key] || 0) - amount);
+  }
+  state.inventory = clampInventoryToStorage(state.inventory, state.storageCapacity);
+}
+
+function attachOptionalExecutionExtras(source, target) {
+  if (source.hide != null) target.hide = source.hide;
+  if (source.find != null) target.find = source.find;
+  if (source.reduceStorage != null) {
+    target.reduceStorage = normalizeReduceStorage(source.reduceStorage);
+  }
+  return target;
 }
 
 function applyInvestmentCapacityGrowth(state, payload, config, kind) {
@@ -730,14 +788,42 @@ async function applyDefaultActionsForPendingAgents(gameId) {
   if (!game || game.phase !== "execution") return;
 
   const status = await repo.getExecutionSubmissionStatus(gameId, game.current_turn);
+  if (!status.pendingAgentIds.length) return;
+
+  const livingAgents = await repo.listAgents(gameId, { status: "alive" });
+  const survivalContext = buildSurvivalContext({
+    turnNumber: game.current_turn,
+    livingAgents,
+    game
+  });
+  const thisTurnSurvivalCost = computeSurvivalCost(game.config, survivalContext);
+
   for (const agentId of status.pendingAgentIds) {
-    await repo.upsertAction({
+    const agent = await repo.getAgentById(agentId);
+    const payload = { type: "none" };
+    const record = await repo.upsertAction({
       gameId,
       turnNumber: game.current_turn,
       agentId,
       actionType: "none",
-      payload: { type: "none" }
+      payload
     });
+    if (agent) {
+      const projection = projectActionOutcome(
+        agent,
+        payload,
+        game.config,
+        thisTurnSurvivalCost
+      );
+      notifyActionSubmitted({
+        gameId,
+        agent,
+        turnNumber: game.current_turn,
+        action: record,
+        projection,
+        source: "afk_timeout"
+      }).catch(() => {});
+    }
   }
 }
 
@@ -919,6 +1005,15 @@ async function submitAction(gameId, agentId, action) {
     payload: normalized
   });
 
+  notifyActionSubmitted({
+    gameId,
+    agent,
+    turnNumber: game.current_turn,
+    action: record,
+    projection,
+    source: "submit"
+  }).catch(() => {});
+
   const completion = await tryCompleteTurn(gameId);
   return { action: record, agentId, projection, ...completion };
 }
@@ -1093,6 +1188,7 @@ async function executeTurn(gameId) {
         executeTransfers(state, agentState, payload);
         executeInvestSides(state, payload, config);
       }
+      executeReduceStorage(state, payload);
       executeIntelligenceSpend(state, payload);
       await repo.markActionExecuted(actionRow.id, "executed");
     } catch (err) {
@@ -1395,7 +1491,83 @@ function applyOutboundActionToState(state, action, config) {
     const sides = collectInvestSides(action, action.type);
     executeInvestSides(state, sides, config);
   }
+  executeReduceStorage(state, action);
   executeIntelligenceSpend(state, action);
+}
+
+/**
+ * Summarize equal-invest triple drain: amount N spends N of EACH resource (3N total) per side.
+ */
+function summarizeEqualInvestCost(action) {
+  if (!action || typeof action !== "object") return null;
+  const sides = [];
+  let energy = 0;
+  let water = 0;
+  let compute = 0;
+
+  for (const kind of INVEST_KINDS) {
+    const leg = action[kind];
+    if (!leg || typeof leg !== "object") continue;
+    const n =
+      typeof leg.amount === "number"
+        ? leg.amount
+        : typeof leg.energy === "number"
+          ? leg.energy
+          : 0;
+    if (!(n > 0)) continue;
+    sides.push({
+      kind,
+      target: leg.target,
+      amount: n,
+      energy: n,
+      water: n,
+      compute: n,
+      totalResources: n * 3
+    });
+    energy += n;
+    water += n;
+    compute += n;
+  }
+
+  if (!sides.length) return null;
+  return {
+    note:
+      "Equal invest is triple-cost: amount N spends N energy + N water + N compute (3N total resources) per side. Dual production+storage spends both sides.",
+    sides,
+    energy,
+    water,
+    compute,
+    totalResources: energy + water + compute
+  };
+}
+
+/**
+ * True when current holdings cannot pay thisTurnSurvivalCost after storage energy tax (no-spend path).
+ */
+function assessSurvivalRisk(inventory, storageCapacity, survivalCost, config = {}) {
+  const storageTax = projectStorageEnergy(inventory, config);
+  const afterStorage = applyStorageCost(inventory, storageCapacity, config);
+  const canPaySurvival = hasSufficient(afterStorage, survivalCost);
+  const shortfalls = {};
+  for (const key of RESOURCE_KEYS) {
+    const need = survivalCost?.[key] ?? 0;
+    const have = afterStorage[key] ?? 0;
+    if (have < need) {
+      shortfalls[key] = need - have;
+    }
+  }
+  return {
+    atRisk: !canPaySurvival,
+    canPaySurvival,
+    thisTurnSurvivalCost: survivalCost ? { ...survivalCost } : null,
+    storageEnergyCost: storageTax.storageEnergyCost,
+    energyAfterStorage: storageTax.energyAfterStorage,
+    inventoryAfterStorage: cloneInventory(afterStorage),
+    shortfalls: Object.keys(shortfalls).length ? shortfalls : null,
+    message: canPaySurvival
+      ? null
+      : "Survival risk: current stock cannot pay thisTurnSurvivalCost after storage energy tax if you make no helpful transfers/invests."
+  };
 }
 
 function snapshotProjectedHoldings(state) {
@@ -1422,12 +1594,15 @@ function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
     storageCapacity: cloneCapacities(agent.storageCapacity)
   };
 
+  const equalInvestCost = summarizeEqualInvestCost(action);
+
   try {
     applyOutboundActionToState(state, action, config);
   } catch (err) {
     return {
       ok: false,
       error: err.message,
+      ...(equalInvestCost ? { equalInvestCost } : {}),
       note: "Could not project this action against current holdings."
     };
   }
@@ -1442,6 +1617,7 @@ function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
 
   return {
     ok: true,
+    ...(equalInvestCost ? { equalInvestCost } : {}),
     afterAction,
     afterStorageAndSurvival: {
       inventory: cloneInventory(afterSurvivalInv),
@@ -1458,7 +1634,7 @@ function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
       )
     },
     note:
-      "Outbound-only projection of your submit (transfer out, invest capacity growth, hide/find). Inbound peer transfers are not modeled. Fields: afterAction and afterStorageAndSurvival inventory, capacities, wasteIfNotExportedByNextProduction."
+      "Outbound-only projection of your submit (transfer out, invest capacity growth, reduceStorage, hide/find). Equal invest amount N spends N of each E/W/C (see equalInvestCost). Inbound peer transfers are not modeled. Fields: afterAction and afterStorageAndSurvival inventory, capacities, wasteIfNotExportedByNextProduction."
   };
 }
 
@@ -1525,6 +1701,14 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     intelligenceMemoryTurns,
     hiddenRivalCount,
     livingRivalCount,
+    equalInvestUnitCost: {
+      energy: 1,
+      water: 1,
+      compute: 1,
+      totalResources: 3,
+      note:
+        "Equal invest amount N spends N energy + N water + N compute (3N total resources) per side. Dual production+storage spends both sides."
+    },
     storageEnergyCostRate: noSpend.storageEnergyCostRate,
     storageEnergyCostIfNoSpend: noSpend.storageEnergyCost,
     energyAfterStorageIfNoSpend: noSpend.energyAfterStorage,
@@ -1534,9 +1718,9 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     ...(survivalCostPerTurnIncrement ? { survivalCostPerTurnIncrement } : {}),
     ...(storageReadouts || {}),
     note:
-      "Read storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageEnergyCostRate × remaining water+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only for a single side (no transfers/hide/find/inbound); dual production+storage spends both." +
+      "Equal invest is triple-cost: amount N = N of each E/W/C (see equalInvestUnitCost). Read storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageEnergyCostRate × remaining water+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only for a single side (no transfers/hide/find/inbound/reduceStorage); dual production+storage spends both." +
       risingNote +
-      " Cap hide+find at maxIntelligenceComputeAfterSurvival. Up to maxTransferRecipients peers per transfer (defaults to maxAgents). Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
+      " Cap hide+find at maxIntelligenceComputeAfterSurvival. Optional free reduceStorage:{ energy?, water?, compute? } shrinks warehouse caps (overflow inventory clamped). Up to maxTransferRecipients peers per transfer (defaults to maxAgents). Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
       " invest may include production and/or storage (at most one of each); invest_production / invest_storage are aliases." +
       capacityNote +
       fogNote
@@ -2035,9 +2219,7 @@ function normalizeCombinedAction(action, options = {}) {
   if (legs.length === 1) {
     combined.transfer = { ...legs[0] };
   }
-  if (action.hide != null) combined.hide = action.hide;
-  if (action.find != null) combined.find = action.find;
-  return combined;
+  return attachOptionalExecutionExtras(action, combined);
 }
 
 function normalizeInvestDualAction(action) {
@@ -2045,9 +2227,7 @@ function normalizeInvestDualAction(action) {
   const normalized = { type: "invest" };
   if (sides.production) normalized.production = sides.production;
   if (sides.storage) normalized.storage = sides.storage;
-  if (action.hide != null) normalized.hide = action.hide;
-  if (action.find != null) normalized.find = action.find;
-  return normalized;
+  return attachOptionalExecutionExtras(action, normalized);
 }
 
 function normalizeTransferAction(action, options = {}) {
@@ -2059,9 +2239,7 @@ function normalizeTransferAction(action, options = {}) {
   if (legs.length === 1) {
     Object.assign(normalized, legs[0]);
   }
-  if (action.hide != null) normalized.hide = action.hide;
-  if (action.find != null) normalized.find = action.find;
-  return normalized;
+  return attachOptionalExecutionExtras(action, normalized);
 }
 
 function normalizeAction(action, options = {}) {
@@ -2078,7 +2256,7 @@ function normalizeAction(action, options = {}) {
   if (type === "transfer") {
     return normalizeTransferAction(action, options);
   }
-  return { ...action, type };
+  return attachOptionalExecutionExtras(action, { ...action, type });
 }
 
 function validateActionPayload(action) {
@@ -2169,6 +2347,9 @@ module.exports = {
   validateBalancedInvestment,
   normalizeFindTargets,
   normalizeHideSpend,
+  normalizeReduceStorage,
+  assessSurvivalRisk,
+  summarizeEqualInvestCost,
   canViewerSeeCapacities,
   collectIntelligenceFromActions,
   loadIntelligenceMemory,

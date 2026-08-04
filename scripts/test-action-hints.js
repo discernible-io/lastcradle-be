@@ -9,7 +9,8 @@ const {
   maxEqualInvestPreservingSurvival,
   applyStorageCost,
   projectActionOutcome,
-  normalizeInvestAction
+  normalizeInvestAction,
+  assessSurvivalRisk
 } = require("../src/game/engine");
 const { DEFAULT_GAME_CONFIG } = require("../src/game/defaults");
 
@@ -198,6 +199,28 @@ function main() {
   const dualProj = projectActionOutcome(agent, dualInvest, config, survival);
   assert(dualProj.ok === true, "dual invest projection should succeed");
   assert(
+    dualProj.equalInvestCost?.totalResources === 6,
+    `dual equalInvestCost totalResources expected 6, got ${dualProj.equalInvestCost?.totalResources}`
+  );
+  assert(
+    dualProj.equalInvestCost?.energy === 2 &&
+      dualProj.equalInvestCost?.water === 2 &&
+      dualProj.equalInvestCost?.compute === 2,
+    "dual equalInvestCost must spend 2 of each resource across sides"
+  );
+  assert(
+    investProj.equalInvestCost?.totalResources === 6,
+    `single-side amount 2 → totalResources 6, got ${investProj.equalInvestCost?.totalResources}`
+  );
+  assert(
+    hints.equalInvestUnitCost?.totalResources === 3,
+    "actionHints.equalInvestUnitCost must be 1+1+1=3"
+  );
+  assert(
+    hints.note.includes("triple-cost") || hints.note.includes("Equal invest"),
+    "hint note should spell out equal-invest triple-cost"
+  );
+  assert(
     dualProj.afterAction.productionCapacity.water > productionCapacity.water,
     "dual invest must raise water production"
   );
@@ -205,6 +228,42 @@ function main() {
     dualProj.afterAction.storageCapacity.energy > storageCapacity.energy,
     "dual invest must raise energy storage"
   );
+
+  const reduceProj = projectActionOutcome(
+    {
+      inventory: { energy: 50, water: 200, compute: 40 },
+      productionCapacity,
+      storageCapacity: { energy: 80, water: 229, compute: 80 }
+    },
+    { type: "none", reduceStorage: { water: 150 } },
+    config,
+    survival
+  );
+  assert(reduceProj.ok === true, "reduceStorage projection should succeed");
+  assert(
+    reduceProj.afterAction.storageCapacity.water === 79,
+    `reduceStorage water 229-150=79, got ${reduceProj.afterAction.storageCapacity.water}`
+  );
+  assert(
+    reduceProj.afterAction.inventory.water === 79,
+    `overflow water must clamp to new cap 79, got ${reduceProj.afterAction.inventory.water}`
+  );
+  assert(
+    reduceProj.afterAction.inventory.energy === 50,
+    "reduceStorage must not spend energy"
+  );
+
+  const atRisk = assessSurvivalRisk(
+    { energy: 5, water: 80, compute: 80 },
+    { energy: 100, water: 100, compute: 100 },
+    survival,
+    config
+  );
+  assert(atRisk.atRisk === true, "low energy after storage tax must be at risk");
+  assert(atRisk.shortfalls?.energy > 0, "shortfalls.energy expected");
+
+  const safeRisk = assessSurvivalRisk(inventory, storageCapacity, survival, config);
+  assert(safeRisk.atRisk === false, "fixture inventory should not be at risk");
 
   assert(investProj.afterStorageAndSurvival.survives === true, "safe invest must survive");
   assert(storageProj.afterStorageAndSurvival.survives === true, "safe storage invest must survive");

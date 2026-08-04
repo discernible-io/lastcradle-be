@@ -370,7 +370,7 @@ router.post("/games/:gameId/message", validateContentType, validateJsonBody, asy
  * @swagger
  * /api/game/games/{gameId}/action:
  *   post:
- *     summary: Submit execution-phase action (transfer, invest_production, invest_storage, or none). Invest requires equal energy, water, and compute; production and storage are separate actions. Transfers may include optional rationale and curated privateDealSnippets. Optional hide (compute) and find (targetAgentId + compute) fields may accompany any action type.
+ *     summary: Submit execution-phase action (transfer, invest_production, invest_storage, or none). Invest requires equal energy, water, and compute (amount N spends N of each = 3N total per side). Optional free reduceStorage shrinks warehouse caps. Transfers may include optional rationale and curated privateDealSnippets. Optional hide (compute) and find (targetAgentId + compute) fields may accompany any action type.
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []

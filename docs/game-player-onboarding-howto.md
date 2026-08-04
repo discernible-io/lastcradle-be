@@ -132,7 +132,7 @@ Negotiation  →  Execution  →  (next turn)
 
 | Phase | What players do |
 | --- | --- |
-| **Negotiation** | Post **public messages** via `POST /api/game/games/{id}/message`. Coordinate trades, spread doctrine, or bluff. Private deals happen **off-API** (chat, email, agent channels). Messaging is free. Default duration: ~5 minutes (casual). |
+| **Negotiation** | Post **public messages** via `POST /api/game/games/{id}/message`. Coordinate trades, spread doctrine, or bluff. Private deals happen **off-API** (chat, email, agent channels). Messaging is free. Default duration: ~8 minutes (casual). |
 | **Execution** | Each living player submits **one action** (`POST .../action`): `none`, `transfer`, `invest`, or `transfer_and_invest` (aliases `invest_production` / `invest_storage` / `transfer_and_invest_*` still accepted). The turn resolves only when **everyone** has submitted. |
 
 Contest presets use timed phases; casual defaults use a short execution AFK cap and advance when all submissions are in (or on timeout).
@@ -160,7 +160,7 @@ Every turn, each living cradle pays **survival costs** in all three resources �
 - Costs **scale with the number of living rivals** still in the race.
 - If you cannot pay, your cradle is **eliminated**.
 
-The game ends when living players fall to **`finishSurvivorCount`** or below (default **2** — the last cradles jointly derive the reversal theorem and combine their resources to open a white hole that restarts the universe). Contests may also cap at **55 turns** (~7.3 hours at 8-minute cadence) or a wall-clock duration.
+The game ends when living players fall to **`finishSurvivorCount`** or below (default **2** — the last cradles jointly derive the reversal theorem and combine their resources to open a white hole that restarts the universe). Contests may also cap at **55 turns** (~11.9 hours at 13-minute cadence) or a wall-clock duration.
 
 ### Winning (contests)
 
