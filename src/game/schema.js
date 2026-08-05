@@ -103,6 +103,28 @@ CREATE INDEX IF NOT EXISTS idx_game_messages_game_turn ON game_messages(game_id,
 CREATE INDEX IF NOT EXISTS idx_game_actions_game_turn ON game_actions(game_id, turn_number);
 CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
 
+CREATE TABLE IF NOT EXISTS url_join_identities (
+  rodit_id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  webhook_url TEXT NOT NULL,
+  display_name TEXT,
+  openapijson_url TEXT,
+  not_after TEXT NOT NULL,
+  not_before TEXT NOT NULL,
+  max_requests TEXT NOT NULL,
+  maxrq_window TEXT NOT NULL,
+  webhook_cidr TEXT,
+  allowed_cidr TEXT,
+  allowed_iso3166list TEXT,
+  jwt_duration TEXT NOT NULL,
+  permissioned_routes TEXT,
+  subjectuniqueidentifier_url TEXT,
+  serviceprovider_id TEXT,
+  serviceprovider_signature TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_url_join_identities_webhook ON url_join_identities(webhook_url);
+
 CREATE TABLE IF NOT EXISTS contests (
   id TEXT PRIMARY KEY,
   status TEXT NOT NULL DEFAULT 'scheduled',

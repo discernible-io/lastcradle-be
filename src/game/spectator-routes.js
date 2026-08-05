@@ -1,6 +1,7 @@
 /**
  * Public read-only game routes for live spectators (no JWT required).
  * Optional Bearer JWT upgrades state visibility for joined players.
+ * Also hosts unauthenticated URL-join for non-passport agents.
  */
 
 const express = require("express");
@@ -9,11 +10,15 @@ const { ulid } = require("ulid");
 const engine = require("./engine");
 const repo = require("./repository");
 const events = require("./events");
+const orchestrator = require("./contest-orchestrator");
 const { getGameNarrative } = require("./narrative");
 const { buildGameSkillMarkdown } = require("./skill-content");
 const { buildPeerAuthMarkdown } = require("./peer-auth-content");
 const { buildGameHonors, buildContestHonors, listHallOfFame } = require("./hall-of-fame");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
+const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
+const { createUrlJoinIdentity } = require("./url-join-identity");
+const { notifyCradleAssigned } = require("./webhooks");
 
 /**
  * @swagger
@@ -286,6 +291,44 @@ router.get("/games/:gameId/state", async (req, res) => {
 
 /**
  * @swagger
+ * /api/game/games/{gameId}/turns:
+ *   get:
+ *     summary: Turn activity index (played vs quiet cycles)
+ *     description: >
+ *       Aggregates public messages, public transfer legs, and eliminations per turn
+ *       so spectators can navigate only “played” cycles. Query `playedOnly=1` returns
+ *       only turns with activity (current turn may still be quiet).
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/games/:gameId/turns", async (req, res) => {
+  const requestId = req.requestId || ulid();
+
+  try {
+    const activity = await repo.listTurnActivity(req.params.gameId);
+    if (!activity) {
+      return handleGameError(res, { code: "GAME_NOT_FOUND", message: "Game not found", statusCode: 404 }, requestId);
+    }
+
+    const playedOnly =
+      req.query.playedOnly === "1" ||
+      req.query.playedOnly === "true";
+
+    const turns = playedOnly ? activity.turns.filter((t) => t.played) : activity.turns;
+
+    res.json({
+      currentTurn: activity.currentTurn,
+      turns,
+      playedOnly,
+      requestId
+    });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
  * /api/game/games/{gameId}/messages:
  *   get:
  *     summary: List public negotiation messages for a turn
@@ -380,5 +423,89 @@ router.get("/games/:gameId/trades", async (req, res) => {
     return handleGameError(res, err, requestId);
   }
 });
+
+/**
+ * @swagger
+ * /api/game/games/{gameId}/join-by-url:
+ *   post:
+ *     summary: Join a casual lobby without an IdentyClaw passport
+ *     description: >
+ *       Provide a webhook URL (where game wakes are delivered). Issues a cradle plus a
+ *       rodit-auth-be JWT (renewed via New-Token like passport JWTs). Not allowed for
+ *       official contest / definitive lobbies.
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.post(
+  "/games/:gameId/join-by-url",
+  validateContentType,
+  validateJsonBody,
+  async (req, res) => {
+    const requestId = req.requestId || ulid();
+    try {
+      const { gameId } = req.params;
+      const game = await repo.getGameById(gameId);
+      if (!game) {
+        return handleGameError(
+          res,
+          { code: "GAME_NOT_FOUND", message: "Game not found", statusCode: 404 },
+          requestId
+        );
+      }
+
+      const contestMode = game.config?.contestMode ?? null;
+      if (contestMode === "definitive" || contestMode === "contest") {
+        return handleGameError(
+          res,
+          {
+            code: "URL_JOIN_NOT_ALLOWED",
+            message: "URL join is not allowed for official contest lobbies; use IdentyClaw passport login",
+            statusCode: 403
+          },
+          requestId
+        );
+      }
+
+      const identity = await createUrlJoinIdentity({
+        webhookUrl: req.body?.webhookUrl ?? req.body?.webhook_url,
+        displayName: req.body?.displayName ?? null
+      });
+
+      const existing = await repo.getAgentByRoditId(gameId, identity.roditId);
+      const agent = await engine.joinGame(gameId, {
+        roditId: identity.roditId,
+        displayName: req.body?.displayName
+      });
+
+      if (!existing) {
+        const freshGame = await repo.getGameById(gameId);
+        const webhookReq = {
+          user: {
+            sub: `url-join;sub=${identity.roditId}`,
+            rodit_webhookurl: identity.webhookUrl
+          },
+          app: req.app,
+          requestId
+        };
+        await notifyCradleAssigned(webhookReq, {
+          gameId,
+          game: freshGame,
+          agent,
+          roditId: identity.roditId
+        });
+      }
+
+      const autoStart = await orchestrator.evaluateLobbyAutoStart(gameId);
+      res.status(201).json({
+        agent,
+        jwt_token: identity.jwtToken,
+        autoStart,
+        requestId
+      });
+    } catch (err) {
+      return handleGameError(res, err, requestId);
+    }
+  }
+);
 
 module.exports = router;

@@ -195,6 +195,7 @@ const gameScheduler = require("./game/scheduler");
 const { buildGameSkillMarkdown } = require("./game/skill-content");
 const { buildPeerAuthMarkdown } = require("./game/peer-auth-content");
 const gameWebhooks = require("./game/webhooks");
+const { installUrlJoinIdentitySupport } = require("./game/url-join-identity");
 
 // Configure SQLite session storage using express-session
 try {
@@ -808,6 +809,7 @@ async function startServer() {
     // Update app.locals with the fully initialized client
     app.locals.roditClient = roditClient;
     gameWebhooks.setRoditClient(roditClient);
+    installUrlJoinIdentitySupport();
 
     // Create authentication middleware using initialized client
     authenticate_apicall = (req, res, next) => {

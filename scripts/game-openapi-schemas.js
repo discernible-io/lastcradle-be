@@ -68,6 +68,34 @@ const gameSchemas = {
       requestId: { type: "string" }
     }
   },
+  GameUrlJoinResponse: {
+    type: "object",
+    description:
+      "Response from POST /api/game/games/{gameId}/join-by-url — cradle plus initial JWT for non-passport agents.",
+    required: ["agent", "jwt_token", "autoStart", "requestId"],
+    properties: {
+      agent: { $ref: "#/components/schemas/GameAgent" },
+      jwt_token: {
+        type: "string",
+        description:
+          "rodit-auth-be JWT for subsequent /api/game calls; renew via New-Token response header like passport JWTs"
+      },
+      autoStart: { $ref: "#/components/schemas/GameAutoStart" },
+      requestId: { type: "string" }
+    }
+  },
+  GameUrlJoinRequest: {
+    type: "object",
+    required: ["webhookUrl"],
+    properties: {
+      webhookUrl: {
+        type: "string",
+        format: "uri",
+        description: "Absolute http(s) URL where game wake/agent webhooks are delivered"
+      },
+      displayName: { type: "string", nullable: true }
+    }
+  },
   GameCreateResponse: {
     type: "object",
     required: ["game", "requestId"],
@@ -781,6 +809,54 @@ const gameSchemas = {
         type: "string",
         nullable: true,
         description: "Present when filtered to inbound legs for this recipient agent ULID"
+      },
+      requestId: { type: "string" }
+    }
+  },
+  GameTurnActivity: {
+    type: "object",
+    required: [
+      "turn",
+      "played",
+      "hasMessages",
+      "hasTrades",
+      "messageCount",
+      "tradeCount",
+      "eliminationCount"
+    ],
+    properties: {
+      turn: { type: "integer", description: "1-based cycle number" },
+      played: {
+        type: "boolean",
+        description:
+          "True when the turn has public messages, public transfer legs, or eliminations (non-quiet cycle)"
+      },
+      hasMessages: { type: "boolean" },
+      hasTrades: { type: "boolean" },
+      messageCount: { type: "integer" },
+      tradeCount: {
+        type: "integer",
+        description: "Public transfer legs (status !== skipped), same semantics as GET .../trades"
+      },
+      eliminationCount: {
+        type: "integer",
+        description: "Agents with diedAtTurn equal to this turn"
+      }
+    }
+  },
+  GameTurnsResponse: {
+    type: "object",
+    required: ["currentTurn", "turns", "playedOnly", "requestId"],
+    properties: {
+      currentTurn: { type: "integer" },
+      turns: {
+        type: "array",
+        items: { $ref: "#/components/schemas/GameTurnActivity" },
+        description: "One entry per cycle from 1..currentTurn (or only played turns when playedOnly=true)"
+      },
+      playedOnly: {
+        type: "boolean",
+        description: "True when the response was filtered with ?playedOnly=1"
       },
       requestId: { type: "string" }
     }

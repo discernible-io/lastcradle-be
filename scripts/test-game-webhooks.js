@@ -66,6 +66,13 @@ async function testCompoundSubjectUsesTokenLookupNotAccount() {
   assert(extractPassportTokenId(COMPOUND_SUB) === "lflvlnbrsfcq", "should parse sub= passport id");
   assert(isNearAccountId(COMPOUND_SUB) === false, "compound subject must not be a NEAR account id");
   assert(canonicalRoditId(COMPOUND_SUB) === "lflvlnbrsfcq", "canonical id is passport token");
+  assert(
+    roditIdFromUser({
+      sub: "bc=near.org;sc=x.near;id=abcdefghijkl;sub=guest_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      rodit_id: "ServerToknId"
+    }) === "guest_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "roditIdFromUser should prefer guest subject over server rodit_id"
+  );
 
   const url = await lookupWebhookUrlFromChain(COMPOUND_SUB);
   assert(accountLookupCalled === false, "must not call tokensfromaccountid for compound subjects");

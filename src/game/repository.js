@@ -71,6 +71,28 @@ async function migrateSchema(database) {
       FOREIGN KEY (definitive_game_id) REFERENCES games(id)
     );
     CREATE INDEX IF NOT EXISTS idx_contests_status ON contests(status);
+
+    CREATE TABLE IF NOT EXISTS url_join_identities (
+      rodit_id TEXT PRIMARY KEY,
+      owner_id TEXT NOT NULL,
+      webhook_url TEXT NOT NULL,
+      display_name TEXT,
+      openapijson_url TEXT,
+      not_after TEXT NOT NULL,
+      not_before TEXT NOT NULL,
+      max_requests TEXT NOT NULL,
+      maxrq_window TEXT NOT NULL,
+      webhook_cidr TEXT,
+      allowed_cidr TEXT,
+      allowed_iso3166list TEXT,
+      jwt_duration TEXT NOT NULL,
+      permissioned_routes TEXT,
+      subjectuniqueidentifier_url TEXT,
+      serviceprovider_id TEXT,
+      serviceprovider_signature TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_url_join_identities_webhook ON url_join_identities(webhook_url);
   `);
 
   const agentCols = await database.all(`PRAGMA table_info(game_agents)`);
@@ -138,9 +160,52 @@ async function resetGameData() {
     DELETE FROM game_actions;
     DELETE FROM game_messages;
     DELETE FROM game_agents;
+    DELETE FROM url_join_identities;
     DELETE FROM contests;
     DELETE FROM games;
   `);
+}
+
+async function insertUrlJoinIdentity(fields) {
+  const database = await getDb();
+  await database.run(
+    `INSERT INTO url_join_identities (
+      rodit_id, owner_id, webhook_url, display_name,
+      openapijson_url, not_after, not_before, max_requests, maxrq_window,
+      webhook_cidr, allowed_cidr, allowed_iso3166list, jwt_duration,
+      permissioned_routes, subjectuniqueidentifier_url,
+      serviceprovider_id, serviceprovider_signature
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      fields.roditId,
+      fields.ownerId,
+      fields.webhookUrl,
+      fields.displayName ?? null,
+      fields.openapijsonUrl ?? "",
+      fields.notAfter,
+      fields.notBefore,
+      fields.maxRequests,
+      fields.maxrqWindow,
+      fields.webhookCidr ?? "",
+      fields.allowedCidr ?? "",
+      fields.allowedIso3166list ?? "",
+      fields.jwtDuration,
+      fields.permissionedRoutes ?? "",
+      fields.subjectuniqueidentifierUrl ?? "",
+      fields.serviceproviderId ?? "",
+      fields.serviceproviderSignature ?? ""
+    ]
+  );
+  return getUrlJoinIdentity(fields.roditId);
+}
+
+async function getUrlJoinIdentity(roditId) {
+  const database = await getDb();
+  const canonical = canonicalRoditId(roditId);
+  if (!canonical) {
+    return null;
+  }
+  return database.get(`SELECT * FROM url_join_identities WHERE rodit_id = ?`, [canonical]);
 }
 
 function parseJson(value, fallback = null) {
@@ -635,6 +700,101 @@ async function listPublicMessages(gameId, turnNumber) {
      ORDER BY created_at ASC`,
     [gameId, turnNumber]
   );
+}
+
+/**
+ * Per-turn activity index for spectator navigation (played vs quiet cycles).
+ * A turn is played when it has public messages, public transfer legs, or eliminations.
+ */
+async function listTurnActivity(gameId, { throughTurn } = {}) {
+  const database = await getDb();
+  const game = await getGameById(gameId);
+  if (!game) {
+    return null;
+  }
+
+  const maxTurn = Math.max(
+    0,
+    throughTurn != null ? Number(throughTurn) || 0 : Number(game.current_turn) || 0
+  );
+
+  if (maxTurn <= 0) {
+    return { currentTurn: Number(game.current_turn) || 0, turns: [] };
+  }
+
+  const { publicTradesFromAction } = require("./trade-disclosure");
+
+  const [messageRows, actionRows, eliminationRows] = await Promise.all([
+    database.all(
+      `SELECT turn_number AS turn, COUNT(*) AS messageCount
+       FROM game_messages
+       WHERE game_id = ? AND is_public = 1 AND turn_number BETWEEN 1 AND ?
+       GROUP BY turn_number`,
+      [gameId, maxTurn]
+    ),
+    database.all(
+      `SELECT * FROM game_actions
+       WHERE game_id = ? AND turn_number BETWEEN 1 AND ?
+       ORDER BY turn_number ASC, submitted_at ASC`,
+      [gameId, maxTurn]
+    ),
+    database.all(
+      `SELECT died_at_turn AS turn, COUNT(*) AS eliminationCount
+       FROM game_agents
+       WHERE game_id = ? AND died_at_turn IS NOT NULL
+         AND died_at_turn BETWEEN 1 AND ?
+       GROUP BY died_at_turn`,
+      [gameId, maxTurn]
+    )
+  ]);
+
+  const byTurn = new Map();
+  for (let turn = 1; turn <= maxTurn; turn += 1) {
+    byTurn.set(turn, {
+      turn,
+      messageCount: 0,
+      tradeCount: 0,
+      eliminationCount: 0,
+      hasMessages: false,
+      hasTrades: false,
+      played: false
+    });
+  }
+
+  for (const row of messageRows) {
+    const entry = byTurn.get(Number(row.turn));
+    if (!entry) continue;
+    entry.messageCount = Number(row.messageCount) || 0;
+    entry.hasMessages = entry.messageCount > 0;
+  }
+
+  for (const row of actionRows) {
+    const entry = byTurn.get(Number(row.turn_number));
+    if (!entry) continue;
+    const trades = publicTradesFromAction(row, parseJson).filter((trade) => trade.status !== "skipped");
+    if (trades.length) {
+      entry.tradeCount += trades.length;
+      entry.hasTrades = true;
+    }
+  }
+
+  for (const row of eliminationRows) {
+    const entry = byTurn.get(Number(row.turn));
+    if (!entry) continue;
+    entry.eliminationCount = Number(row.eliminationCount) || 0;
+  }
+
+  const turns = [];
+  for (let turn = 1; turn <= maxTurn; turn += 1) {
+    const entry = byTurn.get(turn);
+    entry.played = entry.hasMessages || entry.hasTrades || entry.eliminationCount > 0;
+    turns.push(entry);
+  }
+
+  return {
+    currentTurn: Number(game.current_turn) || 0,
+    turns
+  };
 }
 
 async function listMessages(gameId, turnNumber, { agentId, includePrivate = false }) {
@@ -1151,6 +1311,8 @@ module.exports = {
   initializeDatabase,
   closeDatabase,
   resetGameData,
+  insertUrlJoinIdentity,
+  getUrlJoinIdentity,
   createGame,
   getGameById,
   updateGame,
@@ -1174,6 +1336,7 @@ module.exports = {
   killAgent,
   addMessage,
   listPublicMessages,
+  listTurnActivity,
   listMessages,
   upsertAction,
   getAction,
