@@ -15,6 +15,7 @@ const {
   canonicalRoditId,
   roditIdFromUser
 } = require("./rodit-id");
+const { lookupUrlJoinWebhookUrl } = require("./url-join-identity");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -98,6 +99,12 @@ async function resolveRecipientWebhookUrl(reqOrRoditId) {
   if (!roditId) {
     return null;
   }
+
+  const fromUrlJoin = await lookupUrlJoinWebhookUrl(roditId);
+  if (fromUrlJoin) {
+    return fromUrlJoin;
+  }
+
   return lookupWebhookUrlFromChain(roditId);
 }
 

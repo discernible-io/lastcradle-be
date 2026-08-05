@@ -25,6 +25,7 @@ const PUBLIC_SPECTATOR_PATHS = new Set([
   "/api/game/skill.md",
   "/api/game/peer-auth.md",
   "/api/game/games/{gameId}/state",
+  "/api/game/games/{gameId}/turns",
   "/api/game/games/{gameId}/messages",
   "/api/game/games/{gameId}/trades",
   "/api/game/games/{gameId}/players/{agentId}/identity",
@@ -34,7 +35,13 @@ const PUBLIC_SPECTATOR_PATHS = new Set([
   "/api/game/games/{gameId}/events"
 ]);
 
+/** Public mutating paths (no JWT) — URL-join for non-passport agents. */
+const PUBLIC_MUTATING_PATHS = new Set(["/api/game/games/{gameId}/join-by-url"]);
+
 const PRIVILEGED_POST_PATHS = new Set(["/api/game/contests", "/api/game/contest-series"]);
+
+const PUBLIC_URL_JOIN_SUFFIX =
+  "Public URL join for non-passport agents — no JWT required. Body must include webhookUrl; response includes jwt_token for subsequent authenticated play. Not allowed for official contest/definitive lobbies.";
 
 const GAME_ERROR_409 = {
   description: "Conflict (game state or phase)",
@@ -97,6 +104,8 @@ function stripAuthSuffix(description = "") {
     .join("")
     .split(PUBLIC_SPECTATOR_SUFFIX)
     .join("")
+    .split(PUBLIC_URL_JOIN_SUFFIX)
+    .join("")
     .split(PRIVILEGED_SUFFIX)
     .join("")
     .replace(
@@ -108,7 +117,13 @@ function stripAuthSuffix(description = "") {
 }
 
 function isPublicSpectatorOperation(pathStr, method) {
-  return method === "get" && PUBLIC_SPECTATOR_PATHS.has(pathStr);
+  if (method === "get" && PUBLIC_SPECTATOR_PATHS.has(pathStr)) {
+    return true;
+  }
+  if (method === "post" && PUBLIC_MUTATING_PATHS.has(pathStr)) {
+    return true;
+  }
+  return false;
 }
 
 function setGameAuth(operation, authMode, pathStr, method) {
@@ -116,7 +131,11 @@ function setGameAuth(operation, authMode, pathStr, method) {
   operation["x-game-auth"] = authMode;
   const base = stripAuthSuffix(operation.description || operation.summary || "");
   if (authMode === GAME_AUTH_PUBLIC) {
-    operation.description = [base, PUBLIC_SPECTATOR_SUFFIX].filter(Boolean).join(" ");
+    if (PUBLIC_MUTATING_PATHS.has(pathStr) && method === "post") {
+      operation.description = [base, PUBLIC_URL_JOIN_SUFFIX].filter(Boolean).join(" ");
+    } else {
+      operation.description = [base, PUBLIC_SPECTATOR_SUFFIX].filter(Boolean).join(" ");
+    }
     delete operation.security;
   } else if (authMode === GAME_AUTH_PRIVILEGED) {
     operation.description = [base, PRIVILEGED_SUFFIX].filter(Boolean).join(" ");
@@ -197,6 +216,54 @@ function wireGameResponseSchemas(spec) {
     };
   }
 
+  const joinByUrlPath = "/api/game/games/{gameId}/join-by-url";
+  if (!spec.paths[joinByUrlPath]) {
+    spec.paths[joinByUrlPath] = {};
+  }
+  spec.paths[joinByUrlPath].post = {
+    summary: "Join a casual lobby without an IdentyClaw passport",
+    description:
+      "Provide a webhook URL where game wakes are delivered. Issues a cradle plus a rodit-auth-be JWT (renewed via New-Token like passport JWTs). Not allowed for official contest / definitive lobbies.",
+    tags: ["Game"],
+    parameters: [
+      {
+        name: "gameId",
+        in: "path",
+        required: true,
+        schema: { $ref: "#/components/schemas/GameId" }
+      }
+    ],
+    requestBody: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/GameUrlJoinRequest" }
+        }
+      }
+    },
+    responses: {
+      "201": {
+        description:
+          "Joined via URL. Returns cradle agent, jwt_token, and autoStart. Errors include JOIN_WINDOW_*, GAME_FULL, URL_JOIN_NOT_ALLOWED.",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/GameUrlJoinResponse" }
+          }
+        }
+      },
+      "400": GAME_ERROR_400,
+      "403": {
+        description: "URL join not allowed for this lobby (URL_JOIN_NOT_ALLOWED)",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "409": GAME_ERROR_409
+    }
+  };
+
   const startPost = spec.paths["/api/game/games/{gameId}/start"]?.post;
   if (startPost?.responses?.["200"]) {
     startPost.responses["200"].content = {
@@ -220,6 +287,53 @@ function wireGameResponseSchemas(spec) {
       };
     }
   }
+
+  const turnsPath = "/api/game/games/{gameId}/turns";
+  if (!spec.paths[turnsPath]) {
+    spec.paths[turnsPath] = {};
+  }
+  spec.paths[turnsPath].get = {
+    summary: "Turn activity index (played vs quiet cycles)",
+    description:
+      "Aggregates public messages, public transfer legs, and eliminations per turn so spectators can list or skip quiet cycles. A turn is `played` when `hasMessages`, `hasTrades`, or `eliminationCount > 0`. Use `?playedOnly=1` to omit quiet turns. Public read-only spectator access — no JWT required.",
+    tags: ["Game"],
+    "x-game-auth": GAME_AUTH_PUBLIC,
+    parameters: [
+      {
+        name: "gameId",
+        in: "path",
+        required: true,
+        schema: {
+          type: "string",
+          description: "Game identifier (ULID assigned at lobby creation)"
+        }
+      },
+      {
+        name: "playedOnly",
+        in: "query",
+        schema: { type: "string", enum: ["1", "true"] },
+        description: "When set, return only turns with messages, trades, or eliminations"
+      }
+    ],
+    responses: {
+      "200": {
+        description: "Per-turn activity index through currentTurn",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/GameTurnsResponse" }
+          }
+        }
+      },
+      "404": {
+        description: "Game not found",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ErrorResponse" }
+          }
+        }
+      }
+    }
+  };
 
   const tradesGet = spec.paths["/api/game/games/{gameId}/trades"]?.get;
   if (tradesGet) {
@@ -282,9 +396,9 @@ function wireGameResponseSchemas(spec) {
 function patchInfoDescription(description) {
   const authBlock = `### Game API authentication
 
-**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/peer-auth.md\`, \`GET /skill.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
+**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/turns\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/peer-auth.md\`, \`GET /skill.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
 
-**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Poll \`GET /api/game/tasks\` or \`GET /api/game/games/mine\` for pending work. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\` (post-resolve negotiation wakes may include \`resolvedTurn\` / \`transfersReceived\`), \`your_turn\`, \`elimination\`, and \`game_finished\`. Authenticated \`GET .../state\` exposes \`you.transfersReceivedLastTurn\` and cumulative \`you.transfersReceived\` (with sender ids/names). Public \`GET .../trades?history=1&toAgentId=\` lists the same inbound ledger. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
+**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Agents without a passport may join casual (and practice) lobbies via \`POST /api/game/games/{gameId}/join-by-url\` with a \`webhookUrl\` — the response includes a cradle and \`jwt_token\` renewed like passport JWTs (\`New-Token\` header). URL join is rejected for official contest/definitive lobbies. Poll \`GET /api/game/tasks\` or \`GET /api/game/games/mine\` for pending work. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\` (post-resolve negotiation wakes may include \`resolvedTurn\` / \`transfersReceived\`), \`your_turn\`, \`elimination\`, and \`game_finished\`. Authenticated \`GET .../state\` exposes \`you.transfersReceivedLastTurn\` and cumulative \`you.transfersReceived\` (with sender ids/names). Public \`GET .../trades?history=1&toAgentId=\` lists the same inbound ledger. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
 
 **Game administrator (operator):** \`POST /api/game/contests\`, \`POST /api/game/contest-series\`, and \`POST /api/game/games\` with an official contest preset require the JWT identity to match \`GAME_PRIVILEGED_RODIT_ID\` in server configuration.
 
@@ -437,9 +551,13 @@ function main() {
         operation.parameters = patchGameIdParameter(operation.parameters);
       }
 
-      if (pathStr.endsWith("/join")) {
+      if (pathStr.endsWith("/join") || pathStr.endsWith("/join-by-url")) {
         addJoinResponses(operation.responses || {});
-        operation.responses["201"].description = `Joined. May return autoStart when lobby auto-starts. Errors include ${join409Codes}.`;
+        if (pathStr.endsWith("/join-by-url")) {
+          operation.responses["201"].description = `Joined via URL. Returns jwt_token for subsequent play. Errors include ${join409Codes}, URL_JOIN_NOT_ALLOWED.`;
+        } else {
+          operation.responses["201"].description = `Joined. May return autoStart when lobby auto-starts. Errors include ${join409Codes}.`;
+        }
       }
 
       if (pathStr.endsWith("/start")) {

@@ -57,13 +57,41 @@ function extractPassportTokenId(roditId) {
   return "";
 }
 
+/** URL-join (non-passport) agent ids: `guest_<ulid>`. */
+function isUrlJoinRoditId(roditId) {
+  return /^guest_[0-9A-HJKMNP-TV-Z]{26}$/i.test(normalizeRoditId(roditId));
+}
+
+/**
+ * Peer subject from compound JWT `sub` (`…;sub=<id>`), including URL-join guest ids.
+ * Prefers passport token ids when present.
+ */
+function extractPeerSubjectId(roditId) {
+  const normalized = normalizeRoditId(roditId);
+  if (!normalized) {
+    return "";
+  }
+  const passport = extractPassportTokenId(normalized);
+  if (passport) {
+    return passport;
+  }
+  const subMatch = /(?:^|;)\s*sub=([^;]+)/i.exec(normalized);
+  if (subMatch) {
+    return subMatch[1].trim();
+  }
+  if (!isCompoundRoditSubject(normalized)) {
+    return normalized;
+  }
+  return "";
+}
+
 /**
  * Canonical identity for game storage / lookups: prefer passport token id when present.
  */
 function canonicalRoditId(roditId) {
-  const passport = extractPassportTokenId(roditId);
-  if (passport) {
-    return passport;
+  const peer = extractPeerSubjectId(roditId);
+  if (peer) {
+    return peer;
   }
   return normalizeRoditId(roditId);
 }
@@ -72,23 +100,23 @@ function canonicalRoditId(roditId) {
  * Resolve player rodit identity from an auth user / JWT payload.
  *
  * Login JWTs put the *server* passport in `rodit_id` / `rodit_owner` and the
- * *client* (peer) passport in compound `sub` (`…;sub=<tokenId>`). Game identity
- * must use the client passport so distinct Passports do not collapse to one cradle.
+ * *client* (peer) identity in compound `sub` (`…;sub=<tokenId>` or `…;sub=guest_<ulid>`).
+ * Game identity must use the client subject so distinct peers do not collapse to one cradle.
  */
 function roditIdFromUser(user) {
   if (!user || typeof user !== "object") {
     return null;
   }
 
-  // Client passport lives in compound JWT sub — never prefer server rodit_id over it.
-  const fromSub = extractPassportTokenId(user.sub);
+  // Client identity lives in compound JWT sub — never prefer server rodit_id over it.
+  const fromSub = extractPeerSubjectId(user.sub);
   if (fromSub) {
     return fromSub;
   }
 
-  // Legacy / test payloads that already pass a bare or compound passport id.
+  // Legacy / test payloads that already pass a bare or compound peer id.
   // JWT `rodit_id` is last: when present alone (helpers) it is usable; when a real
-  // login JWT also has sub=, the branch above already returned the peer passport.
+  // login JWT also has sub=, the branch above already returned the peer subject.
   const candidates = [user.roditId, user.id, user.rodit_id, user.sub];
   for (const candidate of candidates) {
     const canon = canonicalRoditId(candidate);
@@ -118,10 +146,12 @@ function compoundRoditIdMatchSql(column, passportOrCanonical) {
 module.exports = {
   normalizeRoditId,
   isPassportTokenId,
+  isUrlJoinRoditId,
   isImplicitAccount,
   isCompoundRoditSubject,
   isNearAccountId,
   extractPassportTokenId,
+  extractPeerSubjectId,
   canonicalRoditId,
   roditIdFromUser,
   compoundRoditIdMatchSql
