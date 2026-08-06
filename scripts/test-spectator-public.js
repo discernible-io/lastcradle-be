@@ -69,6 +69,23 @@ async function main() {
       throw new Error("expected public messages without auth");
     }
 
+    const turns = await requestJson(port, `/api/game/games/${game.id}/turns`);
+    if (turns.status !== 200 || !Array.isArray(turns.body.turns)) {
+      throw new Error("expected turn activity index without auth");
+    }
+    const turn1 = turns.body.turns.find((t) => t.turn === 1);
+    if (!turn1?.played || !turn1.hasMessages) {
+      throw new Error("expected turn 1 to be played with messages");
+    }
+
+    const playedOnly = await requestJson(port, `/api/game/games/${game.id}/turns?playedOnly=1`);
+    if (playedOnly.status !== 200 || !playedOnly.body.playedOnly) {
+      throw new Error("expected playedOnly flag");
+    }
+    if (!playedOnly.body.turns.every((t) => t.played)) {
+      throw new Error("playedOnly must return only played turns");
+    }
+
     console.log("✓ Public spectator routes work without JWT");
   } finally {
     await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));

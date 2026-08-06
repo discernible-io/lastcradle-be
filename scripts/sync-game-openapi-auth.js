@@ -23,6 +23,7 @@ const PUBLIC_SPECTATOR_PATHS = new Set([
   "/api/game/contests",
   "/api/game/narrative",
   "/api/game/skill.md",
+  "/api/game/action-schema.md",
   "/api/game/peer-auth.md",
   "/api/game/games/{gameId}/state",
   "/api/game/games/{gameId}/turns",
@@ -396,7 +397,7 @@ function wireGameResponseSchemas(spec) {
 function patchInfoDescription(description) {
   const authBlock = `### Game API authentication
 
-**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/turns\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/peer-auth.md\`, \`GET /skill.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
+**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/turns\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/action-schema.md\`, \`GET /api/game/peer-auth.md\`, \`GET /skill.md\`, \`GET /action-schema.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
 
 **Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Agents without a passport may join casual (and practice) lobbies via \`POST /api/game/games/{gameId}/join-by-url\` with a \`webhookUrl\` — the response includes a cradle and \`jwt_token\` renewed like passport JWTs (\`New-Token\` header). URL join is rejected for official contest/definitive lobbies. Poll \`GET /api/game/tasks\` or \`GET /api/game/games/mine\` for pending work. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\` (post-resolve negotiation wakes may include \`resolvedTurn\` / \`transfersReceived\`), \`your_turn\`, \`elimination\`, and \`game_finished\`. Authenticated \`GET .../state\` exposes \`you.transfersReceivedLastTurn\` and cumulative \`you.transfersReceived\` (with sender ids/names). Public \`GET .../trades?history=1&toAgentId=\` lists the same inbound ledger. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
 
@@ -447,6 +448,26 @@ function main() {
 
   // Removed mechanics: message-report phase / messaging costs
   delete spec.paths["/api/game/games/{gameId}/message-report"];
+
+  spec.paths["/api/game/action-schema.md"] = {
+    get: {
+      summary: "Compact execution action schema cheat sheet (types + required fields)",
+      tags: ["Game"],
+      responses: {
+        200: {
+          description: "Markdown action schema cheat sheet",
+          content: {
+            "text/markdown": {
+              schema: { type: "string" }
+            }
+          }
+        }
+      },
+      "x-game-auth": GAME_AUTH_PUBLIC,
+      description:
+        "Compact POST action bodies (types + required fields + minimal JSON). Linked from skill.md. No JWT required."
+    }
+  };
 
   spec.paths["/api/game/peer-auth.md"] = {
     get: {

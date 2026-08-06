@@ -167,6 +167,7 @@ const app = {
   state: null,
   messages: [],
   trades: [],
+  turnActivity: [],
   selectedTurn: null,
   sse: null,
   countdownTimer: null,
@@ -256,18 +257,82 @@ async function openGame(gameId) {
 }
 
 async function refreshAll() {
-  const [stateBody, messagesBody, tradesBody] = await Promise.all([
+  const [stateBody, messagesBody, tradesBody, turnsBody] = await Promise.all([
     apiFetch(`/api/game/games/${app.gameId}/state`),
     fetchMessagesForTurn(app.selectedTurn),
-    fetchTradesForTurn(app.selectedTurn)
+    fetchTradesForTurn(app.selectedTurn),
+    fetchTurnActivity()
   ]);
   app.state = stateBody;
   app.messages = messagesBody.messages || [];
   app.trades = tradesBody.trades || [];
+  app.turnActivity = turnsBody.turns || [];
   if (app.selectedTurn == null) {
     app.selectedTurn = stateBody.game?.currentTurn || 0;
   }
+  snapSelectedTurnToVisible();
+  // Re-fetch feeds if snap changed the selected turn before first paint
+  if (app.selectedTurn !== (messagesBody.turnNumber ?? app.selectedTurn)) {
+    const [msgs, trades] = await Promise.all([
+      fetchMessagesForTurn(app.selectedTurn),
+      fetchTradesForTurn(app.selectedTurn)
+    ]);
+    app.messages = msgs.messages || [];
+    app.trades = trades.trades || [];
+  }
   renderAll();
+}
+
+async function fetchTurnActivity() {
+  return apiFetch(`/api/game/games/${app.gameId}/turns`);
+}
+
+async function refreshTurnActivity() {
+  try {
+    const body = await fetchTurnActivity();
+    app.turnActivity = body.turns || [];
+    snapSelectedTurnToVisible();
+    renderTurnPicker(app.state?.game);
+  } catch (err) {
+    showError(`Turns: ${err.message}`);
+  }
+}
+
+/**
+ * Visible cycles: played turns plus the live current turn (may still be quiet).
+ */
+function visibleTurnNumbers(game = app.state?.game) {
+  const currentTurn = game?.currentTurn || 0;
+  const activity = app.turnActivity || [];
+  if (!activity.length && currentTurn > 0) {
+    return [currentTurn];
+  }
+  return activity
+    .filter((t) => t.played || t.turn === currentTurn)
+    .map((t) => t.turn);
+}
+
+function snapSelectedTurnToVisible(game = app.state?.game) {
+  const visible = visibleTurnNumbers(game);
+  if (!visible.length) return;
+  if (visible.includes(app.selectedTurn)) return;
+  const current = game?.currentTurn;
+  if (visible.includes(current)) {
+    app.selectedTurn = current;
+    return;
+  }
+  const below = [...visible].reverse().find((t) => t < app.selectedTurn);
+  app.selectedTurn = below ?? visible[visible.length - 1];
+}
+
+function nearestPlayedTurn(fromTurn, direction) {
+  const visible = visibleTurnNumbers();
+  if (direction < 0) {
+    const prev = [...visible].reverse().find((t) => t < fromTurn);
+    return prev ?? fromTurn;
+  }
+  const next = visible.find((t) => t > fromTurn);
+  return next ?? fromTurn;
 }
 
 async function fetchMessagesForTurn(turn) {
@@ -285,6 +350,9 @@ async function refreshMessages() {
     const body = await fetchMessagesForTurn(app.selectedTurn);
     app.messages = body.messages || [];
     renderMessages(buildAgentMap(app.state?.agents || []));
+    if (app.selectedTurn === app.state?.game?.currentTurn) {
+      await refreshTurnActivity();
+    }
   } catch (err) {
     showError(`Messages: ${err.message}`);
   }
@@ -295,6 +363,9 @@ async function refreshTrades() {
     const body = await fetchTradesForTurn(app.selectedTurn);
     app.trades = body.trades || [];
     renderTrades(buildAgentMap(app.state?.agents || []));
+    if (app.selectedTurn === app.state?.game?.currentTurn) {
+      await refreshTurnActivity();
+    }
   } catch (err) {
     showError(`Trades: ${err.message}`);
   }
@@ -308,6 +379,8 @@ async function refreshState() {
     if (app.selectedTurn == null || app.selectedTurn === prevTurn) {
       app.selectedTurn = stateBody.game?.currentTurn || app.selectedTurn;
     }
+    await refreshTurnActivity();
+    snapSelectedTurnToVisible(stateBody.game);
     renderAll();
   } catch (err) {
     setConnectionStatus("Error", "error");
@@ -328,6 +401,7 @@ function startSse() {
         refreshState();
         if (payload.type === "turn_advanced" || payload.type === "phase_change") {
           app.selectedTurn = payload.currentTurn ?? app.selectedTurn;
+          refreshTurnActivity();
           refreshMessages();
           refreshTrades();
         }
@@ -531,11 +605,37 @@ function renderCradles(state, agentById) {
 function renderTurnPicker(game) {
   const nav = document.getElementById("turn-picker");
   nav.replaceChildren();
-  const maxTurn = Math.max(game.currentTurn || 0, 1);
-  if (game.status === "lobby") return;
+  if (!game || game.status === "lobby") return;
 
-  for (let t = 1; t <= maxTurn; t += 1) {
-    const btn = el("button", t === app.selectedTurn ? "active" : "", String(t));
+  const visible = visibleTurnNumbers(game);
+  if (!visible.length) return;
+
+  const prevBtn = el("button", "turn-nav-btn", "Prev");
+  prevBtn.type = "button";
+  prevBtn.disabled = visible[0] === app.selectedTurn;
+  prevBtn.addEventListener("click", async () => {
+    const target = nearestPlayedTurn(app.selectedTurn, -1);
+    if (target === app.selectedTurn) return;
+    app.selectedTurn = target;
+    renderTurnPicker(game);
+    await Promise.all([refreshMessages(), refreshTrades()]);
+  });
+  nav.append(prevBtn);
+
+  for (const t of visible) {
+    const activity = (app.turnActivity || []).find((row) => row.turn === t);
+    const quietCurrent = t === game.currentTurn && activity && !activity.played;
+    const btn = el(
+      "button",
+      `${t === app.selectedTurn ? "active" : ""}${quietCurrent ? " quiet" : ""}`.trim(),
+      String(t)
+    );
+    btn.type = "button";
+    btn.title = quietCurrent
+      ? `Cycle ${t} (live — quiet so far)`
+      : activity
+        ? `Cycle ${t}${activity.hasMessages ? " · messages" : ""}${activity.hasTrades ? " · trades" : ""}${activity.eliminationCount ? ` · ${activity.eliminationCount} eliminated` : ""}`
+        : `Cycle ${t}`;
     btn.addEventListener("click", async () => {
       app.selectedTurn = t;
       renderTurnPicker(game);
@@ -543,6 +643,18 @@ function renderTurnPicker(game) {
     });
     nav.append(btn);
   }
+
+  const nextBtn = el("button", "turn-nav-btn", "Next");
+  nextBtn.type = "button";
+  nextBtn.disabled = visible[visible.length - 1] === app.selectedTurn;
+  nextBtn.addEventListener("click", async () => {
+    const target = nearestPlayedTurn(app.selectedTurn, 1);
+    if (target === app.selectedTurn) return;
+    app.selectedTurn = target;
+    renderTurnPicker(game);
+    await Promise.all([refreshMessages(), refreshTrades()]);
+  });
+  nav.append(nextBtn);
 }
 
 function renderMessages(agentById) {

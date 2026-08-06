@@ -194,6 +194,7 @@ const gameSpectatorRoutes = require("./game/spectator-routes");
 const gameScheduler = require("./game/scheduler");
 const { buildGameSkillMarkdown } = require("./game/skill-content");
 const { buildPeerAuthMarkdown } = require("./game/peer-auth-content");
+const { buildActionSchemaMarkdown } = require("./game/action-schema-content");
 const gameWebhooks = require("./game/webhooks");
 const { installUrlJoinIdentitySupport } = require("./game/url-join-identity");
 
@@ -860,6 +861,9 @@ async function startServer() {
 
     app.get("/skill.md", (req, res) => {
       res.type("text/markdown; charset=utf-8").send(buildGameSkillMarkdown(req));
+    });
+    app.get("/action-schema.md", (req, res) => {
+      res.type("text/markdown; charset=utf-8").send(buildActionSchemaMarkdown(req));
     });
     app.get("/peer-auth.md", (req, res) => {
       res.type("text/markdown; charset=utf-8").send(buildPeerAuthMarkdown(req));

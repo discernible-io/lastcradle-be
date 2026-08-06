@@ -132,6 +132,11 @@ async function migrateSchema(database) {
          AND (energy_capacity > 0 OR water_capacity > 0 OR compute_capacity > 0)`
     );
   }
+
+  refreshedAgentCols = await database.all(`PRAGMA table_info(game_agents)`);
+  if (!refreshedAgentCols.some((c) => c.name === "death_reason_json")) {
+    await database.run(`ALTER TABLE game_agents ADD COLUMN death_reason_json TEXT`);
+  }
 }
 
 async function initializeDatabase() {
@@ -255,6 +260,7 @@ function rowToAgent(row) {
     },
     waterProductionInvestment: row.water_production_investment ?? 0,
     diedAtTurn: row.died_at_turn,
+    deathReason: parseJson(row.death_reason_json, null),
     joinedAt: row.joined_at
   };
 }
@@ -557,7 +563,7 @@ async function listMembershipsByRoditId(roditId, { gameStatuses = ["lobby", "run
             a.energy_storage_capacity, a.water_storage_capacity, a.compute_storage_capacity,
             a.energy_capacity, a.water_capacity, a.compute_capacity,
             a.energy_development, a.water_development, a.compute_development,
-            a.water_production_investment, a.died_at_turn, a.joined_at
+            a.water_production_investment, a.died_at_turn, a.death_reason_json, a.joined_at
      FROM game_agents a
      INNER JOIN games g ON g.id = a.game_id
      WHERE (a.rodit_id = ?${legacy.sql}) AND g.status IN (${placeholders})
@@ -590,6 +596,7 @@ async function listMembershipsByRoditId(roditId, { gameStatuses = ["lobby", "run
       compute_development: row.compute_development,
       water_production_investment: row.water_production_investment,
       died_at_turn: row.died_at_turn,
+      death_reason_json: row.death_reason_json,
       joined_at: row.joined_at
     });
     return { game, agent };
@@ -649,7 +656,7 @@ async function updateAgentCapacities(agentId, productionCapacity, storageCapacit
   );
 }
 
-async function killAgent(agentId, turnNumber) {
+async function killAgent(agentId, turnNumber, deathReason = null) {
   const database = await getDb();
   await database.run(
     `UPDATE game_agents SET
@@ -666,9 +673,10 @@ async function killAgent(agentId, turnNumber) {
       energy_capacity = 0,
       water_capacity = 0,
       compute_capacity = 0,
-      died_at_turn = ?
+      died_at_turn = ?,
+      death_reason_json = ?
     WHERE id = ?`,
-    [turnNumber, agentId]
+    [turnNumber, deathReason ? JSON.stringify(deathReason) : null, agentId]
   );
 }
 
