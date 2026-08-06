@@ -137,6 +137,27 @@ async function migrateSchema(database) {
   if (!refreshedAgentCols.some((c) => c.name === "death_reason_json")) {
     await database.run(`ALTER TABLE game_agents ADD COLUMN death_reason_json TEXT`);
   }
+
+  await database.exec(`
+    CREATE TABLE IF NOT EXISTS game_recollections (
+      id TEXT PRIMARY KEY,
+      game_id TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      context TEXT NOT NULL,
+      relationships TEXT,
+      espionage TEXT,
+      investment TEXT,
+      trade TEXT,
+      incidents TEXT,
+      overview TEXT,
+      submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (game_id) REFERENCES games(id),
+      FOREIGN KEY (agent_id) REFERENCES game_agents(id),
+      UNIQUE (game_id, agent_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_game_recollections_game ON game_recollections(game_id);
+  `);
 }
 
 async function initializeDatabase() {
@@ -161,6 +182,7 @@ async function closeDatabase() {
 async function resetGameData() {
   const database = await getDb();
   await database.exec(`
+    DELETE FROM game_recollections;
     DELETE FROM game_message_reports;
     DELETE FROM game_actions;
     DELETE FROM game_messages;
@@ -1314,6 +1336,88 @@ function sumWaterProductionInvestment(agents) {
   return agents.reduce((sum, agent) => sum + (agent.waterProductionInvestment || 0), 0);
 }
 
+async function getRecollection(gameId, agentId) {
+  const database = await getDb();
+  return database.get(
+    `SELECT * FROM game_recollections WHERE game_id = ? AND agent_id = ?`,
+    [gameId, agentId]
+  );
+}
+
+async function listRecollections(gameId) {
+  const database = await getDb();
+  return database.all(
+    `SELECT * FROM game_recollections WHERE game_id = ? ORDER BY submitted_at ASC`,
+    [gameId]
+  );
+}
+
+async function upsertRecollection({
+  id,
+  gameId,
+  agentId,
+  context,
+  relationships = null,
+  espionage = null,
+  investment = null,
+  trade = null,
+  incidents = null,
+  overview = null
+}) {
+  const database = await getDb();
+  const existing = await database.get(
+    `SELECT id FROM game_recollections WHERE game_id = ? AND agent_id = ?`,
+    [gameId, agentId]
+  );
+
+  if (existing) {
+    await database.run(
+      `UPDATE game_recollections SET
+        context = ?,
+        relationships = ?,
+        espionage = ?,
+        investment = ?,
+        trade = ?,
+        incidents = ?,
+        overview = ?,
+        updated_at = datetime('now')
+       WHERE game_id = ? AND agent_id = ?`,
+      [
+        context,
+        relationships,
+        espionage,
+        investment,
+        trade,
+        incidents,
+        overview,
+        gameId,
+        agentId
+      ]
+    );
+    return database.get(`SELECT * FROM game_recollections WHERE id = ?`, [existing.id]);
+  }
+
+  await database.run(
+    `INSERT INTO game_recollections (
+      id, game_id, agent_id, context,
+      relationships, espionage, investment, trade, incidents, overview
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      gameId,
+      agentId,
+      context,
+      relationships,
+      espionage,
+      investment,
+      trade,
+      incidents,
+      overview
+    ]
+  );
+  return database.get(`SELECT * FROM game_recollections WHERE id = ?`, [id]);
+}
+
 module.exports = {
   getDb,
   initializeDatabase,
@@ -1371,6 +1475,9 @@ module.exports = {
   halveAggregateWaterConsumed,
   addWaterProductionInvestment,
   sumWaterProductionInvestment,
+  getRecollection,
+  listRecollections,
+  upsertRecollection,
   parseJson,
   rowToAgent,
   rowToGame

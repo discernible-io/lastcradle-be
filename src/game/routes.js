@@ -413,6 +413,45 @@ router.post("/games/:gameId/action", validateContentType, validateJsonBody, asyn
 
 /**
  * @swagger
+ * /api/game/games/{gameId}/recollection:
+ *   post:
+ *     summary: Submit or update a public post-elim / post-finish recollection for spectators
+ *     description: >
+ *       Optional agent-authored memoir after deathReason (elimination) or winReport / gameOverReport
+ *       (finished game). Topics include relationships, espionage, investment, trade, incidents, and overview.
+ *       Public once submitted via GET .../recollections.
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-game-auth: jwt-passport
+ */
+router.post("/games/:gameId/recollection", validateContentType, validateJsonBody, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const roditId = resolveRoditId(req);
+  if (!roditId) {
+    return sendError(res, { statusCode: 401, requestId, code: "AUTH_REQUIRED", message: "Authentication required" });
+  }
+
+  try {
+    const agent = await repo.getAgentByRoditId(req.params.gameId, roditId);
+    if (!agent) {
+      return sendError(res, {
+        statusCode: 404,
+        requestId,
+        code: "AGENT_NOT_IN_GAME",
+        message: "You must join the game before submitting a recollection"
+      });
+    }
+    const { submitRecollection } = require("./recollection");
+    const result = await submitRecollection(req.params.gameId, agent.id, req.body);
+    res.status(result.created ? 201 : 200).json({ ...result, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
  * /api/game/defaults:
  *   get:
  *     summary: Get default game configuration parameters

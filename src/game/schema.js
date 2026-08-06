@@ -104,6 +104,25 @@ CREATE INDEX IF NOT EXISTS idx_game_messages_game_turn ON game_messages(game_id,
 CREATE INDEX IF NOT EXISTS idx_game_actions_game_turn ON game_actions(game_id, turn_number);
 CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
 
+CREATE TABLE IF NOT EXISTS game_recollections (
+  id TEXT PRIMARY KEY,
+  game_id TEXT NOT NULL,
+  agent_id TEXT NOT NULL,
+  context TEXT NOT NULL,
+  relationships TEXT,
+  espionage TEXT,
+  investment TEXT,
+  trade TEXT,
+  incidents TEXT,
+  overview TEXT,
+  submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (game_id) REFERENCES games(id),
+  FOREIGN KEY (agent_id) REFERENCES game_agents(id),
+  UNIQUE (game_id, agent_id)
+);
+CREATE INDEX IF NOT EXISTS idx_game_recollections_game ON game_recollections(game_id);
+
 CREATE TABLE IF NOT EXISTS url_join_identities (
   rodit_id TEXT PRIMARY KEY,
   owner_id TEXT NOT NULL,

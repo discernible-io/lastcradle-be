@@ -439,6 +439,29 @@ router.get("/games/:gameId/trades", async (req, res) => {
 
 /**
  * @swagger
+ * /api/game/games/{gameId}/recollections:
+ *   get:
+ *     summary: List public agent recollections for a game
+ *     description: >
+ *       Agent-authored memoirs submitted after elimination (death report) or finish
+ *       (success / game-over report). Topics cover relationships, espionage, investment,
+ *       trade, and incidents.
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/games/:gameId/recollections", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  try {
+    const { listPublicRecollections } = require("./recollection");
+    const recollections = await listPublicRecollections(req.params.gameId);
+    res.json({ recollections, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
  * /api/game/games/{gameId}/join-by-url:
  *   post:
  *     summary: Join a casual lobby without an IdentyClaw passport

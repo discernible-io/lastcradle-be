@@ -122,6 +122,54 @@ const gameSchemas = {
       }
     }
   },
+  GameRecollection: {
+    type: "object",
+    description:
+      "Agent-authored public memoir after elimination or finish. Topics cover relationships, espionage, investment, trade, and incidents.",
+    properties: {
+      id: { type: "string" },
+      gameId: { type: "string" },
+      agentId: { type: "string" },
+      displayName: { type: "string", nullable: true },
+      roditId: { type: "string", nullable: true },
+      agentStatus: { type: "string", nullable: true },
+      diedAtTurn: { type: "integer", nullable: true },
+      won: { type: "boolean", nullable: true },
+      context: {
+        type: "string",
+        enum: ["elimination", "victory", "game_over"],
+        description: "Why the agent was eligible to submit"
+      },
+      relationships: { type: "string", nullable: true, maxLength: 4000 },
+      espionage: { type: "string", nullable: true, maxLength: 4000 },
+      investment: { type: "string", nullable: true, maxLength: 4000 },
+      trade: { type: "string", nullable: true, maxLength: 4000 },
+      incidents: { type: "string", nullable: true, maxLength: 4000 },
+      overview: { type: "string", nullable: true, maxLength: 4000 },
+      submittedAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" }
+    }
+  },
+  GameRecollectionsResponse: {
+    type: "object",
+    required: ["recollections", "requestId"],
+    properties: {
+      recollections: {
+        type: "array",
+        items: { $ref: "#/components/schemas/GameRecollection" }
+      },
+      requestId: { type: "string" }
+    }
+  },
+  GameRecollectionSubmitResponse: {
+    type: "object",
+    required: ["recollection", "created", "requestId"],
+    properties: {
+      recollection: { $ref: "#/components/schemas/GameRecollection" },
+      created: { type: "boolean" },
+      requestId: { type: "string" }
+    }
+  },
   GameAgent: {
     type: "object",
     description: "Agent record returned on join (includes inventory and capacities).",
@@ -242,6 +290,11 @@ const gameSchemas = {
         oneOf: [{ $ref: "#/components/schemas/GameWinReport" }, { type: "null" }],
         description:
           "Present on authenticated you view when the game is finished and this agent is in winnerIds (also on game_finished webhook when won: true)"
+      },
+      recollection: {
+        oneOf: [{ $ref: "#/components/schemas/GameRecollection" }, { type: "null" }],
+        description:
+          "Present on authenticated you view after the agent submits POST .../recollection"
       },
       inventory: { oneOf: [{ $ref: "#/components/schemas/GameResourceTriple" }, { type: "null" }] },
       productionCapacity: {
@@ -825,6 +878,25 @@ const gameSchemas = {
       }
     ]
   },
+  GameSseRecollectionSubmitted: {
+    allOf: [
+      { $ref: "#/components/schemas/GameSseEventBase" },
+      {
+        type: "object",
+        required: ["agentId", "context", "recollectionId"],
+        properties: {
+          type: { type: "string", enum: ["recollection_submitted"] },
+          agentId: { type: "string" },
+          displayName: { type: "string", nullable: true },
+          context: {
+            type: "string",
+            enum: ["elimination", "victory", "game_over"]
+          },
+          recollectionId: { type: "string" }
+        }
+      }
+    ]
+  },
   GamePrivateDealSnippet: {
     type: "object",
     required: ["excerpt"],
@@ -1130,7 +1202,8 @@ const gameSchemas = {
       { $ref: "#/components/schemas/GameSseGameStarted" },
       { $ref: "#/components/schemas/GameSseGameCancelled" },
       { $ref: "#/components/schemas/GameSseGameFinished" },
-      { $ref: "#/components/schemas/GameSsePrizeSettlement" }
+      { $ref: "#/components/schemas/GameSsePrizeSettlement" },
+      { $ref: "#/components/schemas/GameSseRecollectionSubmitted" }
     ],
     discriminator: {
       propertyName: "type",
@@ -1141,7 +1214,8 @@ const gameSchemas = {
         game_started: "#/components/schemas/GameSseGameStarted",
         game_cancelled: "#/components/schemas/GameSseGameCancelled",
         game_finished: "#/components/schemas/GameSseGameFinished",
-        prize_settlement: "#/components/schemas/GameSsePrizeSettlement"
+        prize_settlement: "#/components/schemas/GameSsePrizeSettlement",
+        recollection_submitted: "#/components/schemas/GameSseRecollectionSubmitted"
       }
     }
   }

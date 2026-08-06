@@ -10,7 +10,8 @@ const SSE_EVENT_TYPES = [
   "game_started",
   "game_finished",
   "game_cancelled",
-  "prize_settlement"
+  "prize_settlement",
+  "recollection_submitted"
 ];
 
 const PHASE_LABELS = {
@@ -167,6 +168,7 @@ const app = {
   state: null,
   messages: [],
   trades: [],
+  recollections: [],
   turnActivity: [],
   selectedTurn: null,
   sse: null,
@@ -257,15 +259,17 @@ async function openGame(gameId) {
 }
 
 async function refreshAll() {
-  const [stateBody, messagesBody, tradesBody, turnsBody] = await Promise.all([
+  const [stateBody, messagesBody, tradesBody, turnsBody, recollectionsBody] = await Promise.all([
     apiFetch(`/api/game/games/${app.gameId}/state`),
     fetchMessagesForTurn(app.selectedTurn),
     fetchTradesForTurn(app.selectedTurn),
-    fetchTurnActivity()
+    fetchTurnActivity(),
+    fetchRecollections()
   ]);
   app.state = stateBody;
   app.messages = messagesBody.messages || [];
   app.trades = tradesBody.trades || [];
+  app.recollections = recollectionsBody.recollections || [];
   app.turnActivity = turnsBody.turns || [];
   if (app.selectedTurn == null) {
     app.selectedTurn = stateBody.game?.currentTurn || 0;
@@ -285,6 +289,20 @@ async function refreshAll() {
 
 async function fetchTurnActivity() {
   return apiFetch(`/api/game/games/${app.gameId}/turns`);
+}
+
+async function fetchRecollections() {
+  return apiFetch(`/api/game/games/${app.gameId}/recollections`);
+}
+
+async function refreshRecollections() {
+  try {
+    const body = await fetchRecollections();
+    app.recollections = body.recollections || [];
+    renderRecollections();
+  } catch (err) {
+    showError(`Recollections: ${err.message}`);
+  }
 }
 
 async function refreshTurnActivity() {
@@ -393,6 +411,10 @@ function startSse() {
     gameId: app.gameId,
     onEvent: (_type, payload) => {
       if (payload.type === "connected") return;
+      if (payload.type === "recollection_submitted") {
+        refreshRecollections();
+        return;
+      }
       if (
         ["phase_change", "turn_advanced", "game_started", "game_finished", "game_cancelled", "prize_settlement"].includes(
           payload.type
@@ -404,6 +426,9 @@ function startSse() {
           refreshTurnActivity();
           refreshMessages();
           refreshTrades();
+        }
+        if (payload.type === "game_finished" || payload.type === "game_cancelled") {
+          refreshRecollections();
         }
       }
     },
@@ -470,6 +495,7 @@ function renderAll() {
   renderTurnPicker(game);
   renderMessages(agentById);
   renderTrades(agentById);
+  renderRecollections();
   renderFinale(state, agentById);
   updateCountdown();
 
@@ -738,6 +764,61 @@ function renderTrades(agentById) {
         list.append(li);
       }
       card.append(list);
+    }
+
+    feed.append(card);
+  }
+}
+
+const RECOLLECTION_TOPIC_LABELS = {
+  relationships: "Relationships",
+  espionage: "Espionage",
+  investment: "Investment",
+  trade: "Trade",
+  incidents: "Incidents",
+  overview: "Overview"
+};
+
+function renderRecollections() {
+  const feed = document.getElementById("recollections-feed");
+  if (!feed) return;
+  feed.replaceChildren();
+
+  const recollections = app.recollections || [];
+  if (!recollections.length) {
+    feed.append(
+      el(
+        "div",
+        "messages-empty",
+        "No cradle recollections yet. Eliminated and finished agents may submit a memoir for spectators."
+      )
+    );
+    return;
+  }
+
+  for (const rec of recollections) {
+    const card = el("article", "recollection-card");
+    const head = el("div", "recollection-head");
+    const contextLabel =
+      rec.context === "victory"
+        ? "victory"
+        : rec.context === "elimination"
+          ? "elimination"
+          : "game over";
+    head.append(
+      el("span", "recollection-author", rec.displayName || rec.roditId || rec.agentId?.slice(0, 8) || "Cradle"),
+      el("span", null, contextLabel),
+      el("span", null, formatTime(rec.submittedAt || rec.updatedAt))
+    );
+    card.append(head);
+
+    for (const key of Object.keys(RECOLLECTION_TOPIC_LABELS)) {
+      const text = rec[key];
+      if (!text) continue;
+      const block = el("div", "recollection-topic");
+      block.append(el("h3", null, RECOLLECTION_TOPIC_LABELS[key]));
+      block.append(el("p", null, text));
+      card.append(block);
     }
 
     feed.append(card);

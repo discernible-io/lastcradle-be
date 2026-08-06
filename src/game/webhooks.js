@@ -477,7 +477,14 @@ async function notifyElimination({ gameId, agent, turnNumber, deathReason = null
     agentId: agent.id,
     displayName: agent.displayName,
     diedAtTurn: turnNumber,
-    ...(deathReason ? { deathReason } : {})
+    ...(deathReason ? { deathReason } : {}),
+    recollectionHint: {
+      taskType: "submit_recollection",
+      action: "POST /api/game/games/{gameId}/recollection",
+      topics: ["relationships", "espionage", "investment", "trade", "incidents", "overview"],
+      message:
+        "Optional: respond to your death report with a public recollection for spectators (relationships, espionage, investment, trade, incidents)."
+    }
   });
 }
 
@@ -588,6 +595,13 @@ async function notifyGameFinished(game) {
   const { buildWinReport, buildGameOverReport } = require("./engine");
 
   return notifyAllAgents(game.id, "game_finished", (agent) => {
+    const recollectionHint = {
+      taskType: "submit_recollection",
+      action: "POST /api/game/games/{gameId}/recollection",
+      topics: ["relationships", "espionage", "investment", "trade", "incidents", "overview"],
+      message:
+        "Optional: respond to your success/game-over report with a public recollection for spectators."
+    };
     const winReport = buildWinReport({ game, agent, agents });
     if (winReport) {
       return {
@@ -597,6 +611,7 @@ async function notifyGameFinished(game) {
         finishedAt: game.finished_at,
         won: true,
         winReport,
+        recollectionHint,
         message: winReport.summary
       };
     }
@@ -608,6 +623,7 @@ async function notifyGameFinished(game) {
       finishedAt: game.finished_at,
       won: false,
       gameOverReport,
+      recollectionHint,
       message: gameOverReport?.summary || "Game finished — you did not win. Inspect honors."
     };
   });
