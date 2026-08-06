@@ -1,0 +1,5978 @@
+{
+  "playerCount": 10,
+  "turnsPlayed": 23,
+  "status": "finished",
+  "survivors": 2,
+  "totals": {
+    "messages": 417,
+    "invested": {
+      "energy": 990,
+      "water": 990,
+      "compute": 990
+    },
+    "traded": {
+      "energy": 105,
+      "water": 211,
+      "compute": 0
+    },
+    "intelHide": 742,
+    "intelFind": 396
+  },
+  "eliminations": [
+    {
+      "turn": 4,
+      "name": "P6"
+    },
+    {
+      "turn": 6,
+      "name": "P9"
+    },
+    {
+      "turn": 9,
+      "name": "P1"
+    },
+    {
+      "turn": 9,
+      "name": "P2"
+    },
+    {
+      "turn": 9,
+      "name": "P5"
+    },
+    {
+      "turn": 12,
+      "name": "P8"
+    },
+    {
+      "turn": 22,
+      "name": "P7"
+    },
+    {
+      "turn": 23,
+      "name": "P4"
+    }
+  ],
+  "detailByTurn": {
+    "1": {
+      "living": 10,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 0,
+        "compute": 0
+      },
+      "tradeActions": 0,
+      "trades": [],
+      "investVolume": {
+        "energy": 109,
+        "water": 109,
+        "compute": 109
+      },
+      "investActions": 10,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 12
+        },
+        {
+          "agent": "P1",
+          "kind": "production",
+          "target": "water",
+          "amount": 5
+        },
+        {
+          "agent": "P2",
+          "kind": "production",
+          "target": "compute",
+          "amount": 11
+        },
+        {
+          "agent": "P3",
+          "kind": "production",
+          "target": "energy",
+          "amount": 11
+        },
+        {
+          "agent": "P4",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 16
+        },
+        {
+          "agent": "P5",
+          "kind": "storage",
+          "target": "water",
+          "amount": 7
+        },
+        {
+          "agent": "P6",
+          "kind": "production",
+          "target": "compute",
+          "amount": 8
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "compute",
+          "amount": 11
+        },
+        {
+          "agent": "P8",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 12
+        },
+        {
+          "agent": "P9",
+          "kind": "production",
+          "target": "water",
+          "amount": 16
+        }
+      ],
+      "intelHide": 70,
+      "intelFind": 22,
+      "messages": 30
+    },
+    "2": {
+      "living": 10,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 0,
+        "compute": 0
+      },
+      "tradeActions": 0,
+      "trades": [],
+      "investVolume": {
+        "energy": 148,
+        "water": 148,
+        "compute": 148
+      },
+      "investActions": 10,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 16
+        },
+        {
+          "agent": "P1",
+          "kind": "production",
+          "target": "water",
+          "amount": 8
+        },
+        {
+          "agent": "P2",
+          "kind": "production",
+          "target": "compute",
+          "amount": 16
+        },
+        {
+          "agent": "P3",
+          "kind": "production",
+          "target": "energy",
+          "amount": 12
+        },
+        {
+          "agent": "P4",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 16
+        },
+        {
+          "agent": "P5",
+          "kind": "storage",
+          "target": "water",
+          "amount": 16
+        },
+        {
+          "agent": "P6",
+          "kind": "production",
+          "target": "compute",
+          "amount": 16
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "compute",
+          "amount": 16
+        },
+        {
+          "agent": "P8",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 16
+        },
+        {
+          "agent": "P9",
+          "kind": "production",
+          "target": "water",
+          "amount": 16
+        }
+      ],
+      "intelHide": 70,
+      "intelFind": 22,
+      "messages": 30
+    },
+    "3": {
+      "living": 10,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 0,
+        "compute": 0
+      },
+      "tradeActions": 0,
+      "trades": [],
+      "investVolume": {
+        "energy": 137,
+        "water": 137,
+        "compute": 137
+      },
+      "investActions": 10,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 16
+        },
+        {
+          "agent": "P1",
+          "kind": "production",
+          "target": "water",
+          "amount": 6
+        },
+        {
+          "agent": "P2",
+          "kind": "production",
+          "target": "compute",
+          "amount": 16
+        },
+        {
+          "agent": "P3",
+          "kind": "production",
+          "target": "energy",
+          "amount": 11
+        },
+        {
+          "agent": "P4",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 16
+        },
+        {
+          "agent": "P5",
+          "kind": "storage",
+          "target": "water",
+          "amount": 16
+        },
+        {
+          "agent": "P6",
+          "kind": "production",
+          "target": "compute",
+          "amount": 12
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 12
+        },
+        {
+          "agent": "P8",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 16
+        },
+        {
+          "agent": "P9",
+          "kind": "production",
+          "target": "water",
+          "amount": 16
+        }
+      ],
+      "intelHide": 70,
+      "intelFind": 22,
+      "messages": 30
+    },
+    "4": {
+      "living": 10,
+      "tradeVolume": {
+        "energy": 7,
+        "water": 18,
+        "compute": 0
+      },
+      "tradeActions": 2,
+      "trades": [
+        {
+          "turn": 4,
+          "from": "P4",
+          "to": "P6",
+          "volume": "E7.0 W0.0 C0.0"
+        },
+        {
+          "turn": 4,
+          "from": "P5",
+          "to": "P2",
+          "volume": "E0.0 W18.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 49,
+        "water": 49,
+        "compute": 49
+      },
+      "investActions": 7,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P1",
+          "kind": "production",
+          "target": "water",
+          "amount": 5
+        },
+        {
+          "agent": "P3",
+          "kind": "production",
+          "target": "energy",
+          "amount": 5
+        },
+        {
+          "agent": "P6",
+          "kind": "production",
+          "target": "compute",
+          "amount": 6
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 6
+        },
+        {
+          "agent": "P8",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P9",
+          "kind": "storage",
+          "target": "water",
+          "amount": 9
+        }
+      ],
+      "intelHide": 49,
+      "intelFind": 44,
+      "messages": 30
+    },
+    "5": {
+      "living": 9,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 18,
+        "compute": 0
+      },
+      "tradeActions": 1,
+      "trades": [
+        {
+          "turn": 5,
+          "from": "P5",
+          "to": "P2",
+          "volume": "E0.0 W18.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 49,
+        "water": 49,
+        "compute": 49
+      },
+      "investActions": 7,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P1",
+          "kind": "production",
+          "target": "water",
+          "amount": 5
+        },
+        {
+          "agent": "P3",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 4
+        },
+        {
+          "agent": "P4",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 4
+        },
+        {
+          "agent": "P8",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P9",
+          "kind": "production",
+          "target": "water",
+          "amount": 9
+        }
+      ],
+      "intelHide": 49,
+      "intelFind": 22,
+      "messages": 27
+    },
+    "6": {
+      "living": 9,
+      "tradeVolume": {
+        "energy": 14,
+        "water": 18,
+        "compute": 0
+      },
+      "tradeActions": 2,
+      "trades": [
+        {
+          "turn": 6,
+          "from": "P4",
+          "to": "P2",
+          "volume": "E14.0 W0.0 C0.0"
+        },
+        {
+          "turn": 6,
+          "from": "P5",
+          "to": "P2",
+          "volume": "E0.0 W18.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 41,
+        "water": 41,
+        "compute": 41
+      },
+      "investActions": 6,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P1",
+          "kind": "production",
+          "target": "water",
+          "amount": 5
+        },
+        {
+          "agent": "P3",
+          "kind": "production",
+          "target": "energy",
+          "amount": 4
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 5
+        },
+        {
+          "agent": "P8",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P9",
+          "kind": "storage",
+          "target": "water",
+          "amount": 9
+        }
+      ],
+      "intelHide": 42,
+      "intelFind": 33,
+      "messages": 27
+    },
+    "7": {
+      "living": 8,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 18,
+        "compute": 0
+      },
+      "tradeActions": 1,
+      "trades": [
+        {
+          "turn": 7,
+          "from": "P5",
+          "to": "P2",
+          "volume": "E0.0 W18.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 43,
+        "water": 43,
+        "compute": 43
+      },
+      "investActions": 6,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P1",
+          "kind": "production",
+          "target": "water",
+          "amount": 6
+        },
+        {
+          "agent": "P3",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 4
+        },
+        {
+          "agent": "P4",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 6
+        },
+        {
+          "agent": "P8",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        }
+      ],
+      "intelHide": 42,
+      "intelFind": 22,
+      "messages": 24
+    },
+    "8": {
+      "living": 8,
+      "tradeVolume": {
+        "energy": 14,
+        "water": 18,
+        "compute": 0
+      },
+      "tradeActions": 2,
+      "trades": [
+        {
+          "turn": 8,
+          "from": "P0",
+          "to": "P2",
+          "volume": "E14.0 W0.0 C0.0"
+        },
+        {
+          "turn": 8,
+          "from": "P5",
+          "to": "P2",
+          "volume": "E0.0 W18.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 34,
+        "water": 34,
+        "compute": 34
+      },
+      "investActions": 5,
+      "investSides": [
+        {
+          "agent": "P1",
+          "kind": "production",
+          "target": "water",
+          "amount": 6
+        },
+        {
+          "agent": "P3",
+          "kind": "production",
+          "target": "energy",
+          "amount": 4
+        },
+        {
+          "agent": "P4",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 6
+        },
+        {
+          "agent": "P8",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        }
+      ],
+      "intelHide": 35,
+      "intelFind": 33,
+      "messages": 24
+    },
+    "9": {
+      "living": 8,
+      "tradeVolume": {
+        "energy": 14,
+        "water": 18,
+        "compute": 0
+      },
+      "tradeActions": 2,
+      "trades": [
+        {
+          "turn": 9,
+          "from": "P5",
+          "to": "P2",
+          "volume": "E0.0 W18.0 C0.0"
+        },
+        {
+          "turn": 9,
+          "from": "P8",
+          "to": "P2",
+          "volume": "E14.0 W0.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 36,
+        "water": 36,
+        "compute": 36
+      },
+      "investActions": 5,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P1",
+          "kind": "storage",
+          "target": "water",
+          "amount": 6
+        },
+        {
+          "agent": "P3",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 6
+        },
+        {
+          "agent": "P4",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 6
+        }
+      ],
+      "intelHide": 35,
+      "intelFind": 33,
+      "messages": 24
+    },
+    "10": {
+      "living": 5,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 0,
+        "compute": 0
+      },
+      "tradeActions": 0,
+      "trades": [],
+      "investVolume": {
+        "energy": 41,
+        "water": 41,
+        "compute": 41
+      },
+      "investActions": 5,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P3",
+          "kind": "production",
+          "target": "energy",
+          "amount": 6
+        },
+        {
+          "agent": "P4",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "storage",
+          "target": "water",
+          "amount": 8
+        },
+        {
+          "agent": "P8",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        }
+      ],
+      "intelHide": 35,
+      "intelFind": 0,
+      "messages": 15
+    },
+    "11": {
+      "living": 5,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 0,
+        "compute": 0
+      },
+      "tradeActions": 0,
+      "trades": [],
+      "investVolume": {
+        "energy": 42,
+        "water": 42,
+        "compute": 42
+      },
+      "investActions": 5,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P3",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 6
+        },
+        {
+          "agent": "P4",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 9
+        },
+        {
+          "agent": "P8",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        }
+      ],
+      "intelHide": 35,
+      "intelFind": 0,
+      "messages": 15
+    },
+    "12": {
+      "living": 5,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 6,
+        "compute": 0
+      },
+      "tradeActions": 1,
+      "trades": [
+        {
+          "turn": 12,
+          "from": "P3",
+          "to": "P8",
+          "volume": "E0.0 W6.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 36,
+        "water": 36,
+        "compute": 36
+      },
+      "investActions": 4,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P4",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "storage",
+          "target": "water",
+          "amount": 9
+        },
+        {
+          "agent": "P8",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        }
+      ],
+      "intelHide": 28,
+      "intelFind": 11,
+      "messages": 15
+    },
+    "13": {
+      "living": 4,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 0,
+        "compute": 0
+      },
+      "tradeActions": 0,
+      "trades": [],
+      "investVolume": {
+        "energy": 33,
+        "water": 33,
+        "compute": 33
+      },
+      "investActions": 4,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P3",
+          "kind": "production",
+          "target": "energy",
+          "amount": 6
+        },
+        {
+          "agent": "P4",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 9
+        }
+      ],
+      "intelHide": 28,
+      "intelFind": 0,
+      "messages": 12
+    },
+    "14": {
+      "living": 4,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 0,
+        "compute": 0
+      },
+      "tradeActions": 0,
+      "trades": [],
+      "investVolume": {
+        "energy": 33,
+        "water": 33,
+        "compute": 33
+      },
+      "investActions": 4,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P3",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 6
+        },
+        {
+          "agent": "P4",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "storage",
+          "target": "water",
+          "amount": 9
+        }
+      ],
+      "intelHide": 28,
+      "intelFind": 0,
+      "messages": 12
+    },
+    "15": {
+      "living": 4,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 13,
+        "compute": 0
+      },
+      "tradeActions": 1,
+      "trades": [
+        {
+          "turn": 15,
+          "from": "P3",
+          "to": "P4",
+          "volume": "E0.0 W13.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 18,
+        "water": 18,
+        "compute": 18
+      },
+      "investActions": 2,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 9
+        }
+      ],
+      "intelHide": 14,
+      "intelFind": 11,
+      "messages": 12
+    },
+    "16": {
+      "living": 4,
+      "tradeVolume": {
+        "energy": 14,
+        "water": 0,
+        "compute": 0
+      },
+      "tradeActions": 1,
+      "trades": [
+        {
+          "turn": 16,
+          "from": "P0",
+          "to": "P4",
+          "volume": "E14.0 W0.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 26,
+        "water": 26,
+        "compute": 26
+      },
+      "investActions": 3,
+      "investSides": [
+        {
+          "agent": "P3",
+          "kind": "production",
+          "target": "energy",
+          "amount": 8
+        },
+        {
+          "agent": "P4",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "storage",
+          "target": "water",
+          "amount": 9
+        }
+      ],
+      "intelHide": 21,
+      "intelFind": 11,
+      "messages": 12
+    },
+    "17": {
+      "living": 4,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 16,
+        "compute": 0
+      },
+      "tradeActions": 1,
+      "trades": [
+        {
+          "turn": 17,
+          "from": "P3",
+          "to": "P4",
+          "volume": "E0.0 W16.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 18,
+        "water": 18,
+        "compute": 18
+      },
+      "investActions": 2,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 9
+        }
+      ],
+      "intelHide": 14,
+      "intelFind": 11,
+      "messages": 12
+    },
+    "18": {
+      "living": 4,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 6,
+        "compute": 0
+      },
+      "tradeActions": 1,
+      "trades": [
+        {
+          "turn": 18,
+          "from": "P3",
+          "to": "P4",
+          "volume": "E0.0 W6.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 27,
+        "water": 27,
+        "compute": 27
+      },
+      "investActions": 3,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P4",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P7",
+          "kind": "storage",
+          "target": "water",
+          "amount": 9
+        }
+      ],
+      "intelHide": 21,
+      "intelFind": 11,
+      "messages": 12
+    },
+    "19": {
+      "living": 4,
+      "tradeVolume": {
+        "energy": 14,
+        "water": 16,
+        "compute": 0
+      },
+      "tradeActions": 2,
+      "trades": [
+        {
+          "turn": 19,
+          "from": "P0",
+          "to": "P4",
+          "volume": "E14.0 W0.0 C0.0"
+        },
+        {
+          "turn": 19,
+          "from": "P7",
+          "to": "P4",
+          "volume": "E0.0 W16.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 6,
+        "water": 6,
+        "compute": 6
+      },
+      "investActions": 1,
+      "investSides": [
+        {
+          "agent": "P3",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 6
+        }
+      ],
+      "intelHide": 7,
+      "intelFind": 22,
+      "messages": 12
+    },
+    "20": {
+      "living": 4,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 9,
+        "compute": 0
+      },
+      "tradeActions": 1,
+      "trades": [
+        {
+          "turn": 20,
+          "from": "P7",
+          "to": "P4",
+          "volume": "E0.0 W9.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 24,
+        "water": 24,
+        "compute": 24
+      },
+      "investActions": 3,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P3",
+          "kind": "production",
+          "target": "energy",
+          "amount": 6
+        },
+        {
+          "agent": "P4",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        }
+      ],
+      "intelHide": 21,
+      "intelFind": 11,
+      "messages": 12
+    },
+    "21": {
+      "living": 4,
+      "tradeVolume": {
+        "energy": 0,
+        "water": 18,
+        "compute": 0
+      },
+      "tradeActions": 1,
+      "trades": [
+        {
+          "turn": 21,
+          "from": "P7",
+          "to": "P4",
+          "volume": "E0.0 W18.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 15,
+        "water": 15,
+        "compute": 15
+      },
+      "investActions": 2,
+      "investSides": [
+        {
+          "agent": "P0",
+          "kind": "production",
+          "target": "energy",
+          "amount": 9
+        },
+        {
+          "agent": "P3",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 6
+        }
+      ],
+      "intelHide": 14,
+      "intelFind": 11,
+      "messages": 12
+    },
+    "22": {
+      "living": 4,
+      "tradeVolume": {
+        "energy": 14,
+        "water": 13,
+        "compute": 0
+      },
+      "tradeActions": 2,
+      "trades": [
+        {
+          "turn": 22,
+          "from": "P0",
+          "to": "P4",
+          "volume": "E14.0 W0.0 C0.0"
+        },
+        {
+          "turn": 22,
+          "from": "P3",
+          "to": "P4",
+          "volume": "E0.0 W13.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 9,
+        "water": 9,
+        "compute": 9
+      },
+      "investActions": 1,
+      "investSides": [
+        {
+          "agent": "P7",
+          "kind": "production",
+          "target": "water",
+          "amount": 9
+        }
+      ],
+      "intelHide": 7,
+      "intelFind": 22,
+      "messages": 12
+    },
+    "23": {
+      "living": 3,
+      "tradeVolume": {
+        "energy": 14,
+        "water": 6,
+        "compute": 0
+      },
+      "tradeActions": 2,
+      "trades": [
+        {
+          "turn": 23,
+          "from": "P0",
+          "to": "P4",
+          "volume": "E14.0 W0.0 C0.0"
+        },
+        {
+          "turn": 23,
+          "from": "P3",
+          "to": "P4",
+          "volume": "E0.0 W6.0 C0.0"
+        }
+      ],
+      "investVolume": {
+        "energy": 16,
+        "water": 16,
+        "compute": 16
+      },
+      "investActions": 1,
+      "investSides": [
+        {
+          "agent": "P4",
+          "kind": "storage",
+          "target": "energy",
+          "amount": 16
+        }
+      ],
+      "intelHide": 7,
+      "intelFind": 22,
+      "messages": 6
+    }
+  },
+  "storageByTurn": {
+    "1": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 72.9,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 76,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 36.4,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 52,
+          "water": 41.7,
+          "compute": 111
+        },
+        "storage": {
+          "energy": 52,
+          "water": 56,
+          "compute": 111
+        },
+        "production": {
+          "energy": 88,
+          "water": 28.5,
+          "compute": 46
+        }
+      },
+      {
+        "name": "P2",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 105,
+          "water": 57.03,
+          "compute": 66.7
+        },
+        "storage": {
+          "energy": 105,
+          "water": 73,
+          "compute": 74
+        },
+        "production": {
+          "energy": 143,
+          "water": 27,
+          "compute": 35.7
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 48.400000000000006,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 52,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 34.7,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 95.2,
+          "water": 96,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 95.2,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 120,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 74,
+          "water": 65.9,
+          "compute": 109
+        },
+        "storage": {
+          "energy": 74,
+          "water": 65.9,
+          "compute": 109
+        },
+        "production": {
+          "energy": 39,
+          "water": 105,
+          "compute": 66
+        }
+      },
+      {
+        "name": "P6",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 52.3,
+          "water": 87,
+          "compute": 58.6
+        },
+        "storage": {
+          "energy": 56,
+          "water": 87,
+          "compute": 70
+        },
+        "production": {
+          "energy": 27,
+          "water": 118,
+          "compute": 31.6
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 63.03,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 35,
+          "compute": 33.7
+        }
+      },
+      {
+        "name": "P8",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 88.4,
+          "water": 92,
+          "compute": 62
+        },
+        "storage": {
+          "energy": 88.4,
+          "water": 92,
+          "compute": 62
+        },
+        "production": {
+          "energy": 141,
+          "water": 46,
+          "compute": 39
+        }
+      },
+      {
+        "name": "P9",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 80.3,
+          "water": 73,
+          "compute": 83
+        },
+        "storage": {
+          "energy": 84,
+          "water": 73,
+          "compute": 83
+        },
+        "production": {
+          "energy": 35,
+          "water": 52.2,
+          "compute": 151
+        }
+      }
+    ],
+    "2": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 74.6,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 76,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 47.599999999999994,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 52,
+          "water": 40.20000000000001,
+          "compute": 111
+        },
+        "storage": {
+          "energy": 52,
+          "water": 56,
+          "compute": 111
+        },
+        "production": {
+          "energy": 88,
+          "water": 34.1,
+          "compute": 46
+        }
+      },
+      {
+        "name": "P2",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 105,
+          "water": 34.839999999999996,
+          "compute": 65.4
+        },
+        "storage": {
+          "energy": 105,
+          "water": 73,
+          "compute": 74
+        },
+        "production": {
+          "energy": 143,
+          "water": 27,
+          "compute": 46.900000000000006
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 49.2,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 52,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 43.1,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 106.4,
+          "water": 95.8,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 106.4,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 120,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 69.21,
+          "water": 77.10000000000001,
+          "compute": 109
+        },
+        "storage": {
+          "energy": 74,
+          "water": 77.10000000000001,
+          "compute": 109
+        },
+        "production": {
+          "energy": 39,
+          "water": 105,
+          "compute": 66
+        }
+      },
+      {
+        "name": "P6",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 39.53999999999999,
+          "water": 87,
+          "compute": 53.2
+        },
+        "storage": {
+          "energy": 56,
+          "water": 87,
+          "compute": 70
+        },
+        "production": {
+          "energy": 27,
+          "water": 118,
+          "compute": 42.8
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 50.739999999999995,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 35,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 99.60000000000001,
+          "water": 89.8,
+          "compute": 62
+        },
+        "storage": {
+          "energy": 99.60000000000001,
+          "water": 92,
+          "compute": 62
+        },
+        "production": {
+          "energy": 141,
+          "water": 46,
+          "compute": 39
+        }
+      },
+      {
+        "name": "P9",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 73.39999999999999,
+          "water": 73,
+          "compute": 83
+        },
+        "storage": {
+          "energy": 84,
+          "water": 73,
+          "compute": 83
+        },
+        "production": {
+          "energy": 35,
+          "water": 63.400000000000006,
+          "compute": 151
+        }
+      }
+    ],
+    "3": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 76,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 58.8,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 52,
+          "water": 41.70000000000001,
+          "compute": 111
+        },
+        "storage": {
+          "energy": 52,
+          "water": 56,
+          "compute": 111
+        },
+        "production": {
+          "energy": 88,
+          "water": 38.3,
+          "compute": 46
+        }
+      },
+      {
+        "name": "P2",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 105,
+          "water": 8.329999999999995,
+          "compute": 72.10000000000002
+        },
+        "storage": {
+          "energy": 105,
+          "water": 73,
+          "compute": 74
+        },
+        "production": {
+          "energy": 143,
+          "water": 27,
+          "compute": 58.10000000000001
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 52,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 52,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 50.8,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 117.60000000000001,
+          "water": 92.4,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 117.60000000000001,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 120,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 60.099999999999994,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "storage": {
+          "energy": 74,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "production": {
+          "energy": 39,
+          "water": 105,
+          "compute": 66
+        }
+      },
+      {
+        "name": "P6",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 27.319999999999993,
+          "water": 87,
+          "compute": 57
+        },
+        "storage": {
+          "energy": 56,
+          "water": 87,
+          "compute": 70
+        },
+        "production": {
+          "energy": 27,
+          "water": 118,
+          "compute": 51.199999999999996
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 47.64999999999999,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 43.4,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 110.80000000000001,
+          "water": 84.4,
+          "compute": 60.6
+        },
+        "storage": {
+          "energy": 110.80000000000001,
+          "water": 92,
+          "compute": 62
+        },
+        "production": {
+          "energy": 141,
+          "water": 46,
+          "compute": 39
+        }
+      },
+      {
+        "name": "P9",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 63.29999999999999,
+          "water": 73,
+          "compute": 83
+        },
+        "storage": {
+          "energy": 84,
+          "water": 73,
+          "compute": 83
+        },
+        "production": {
+          "energy": 35,
+          "water": 74.60000000000001,
+          "compute": 151
+        }
+      }
+    ],
+    "4": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 76,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 65.1,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 52,
+          "water": 44.50000000000001,
+          "compute": 111
+        },
+        "storage": {
+          "energy": 52,
+          "water": 56,
+          "compute": 111
+        },
+        "production": {
+          "energy": 88,
+          "water": 41.8,
+          "compute": 46
+        }
+      },
+      {
+        "name": "P2",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 105,
+          "water": 12.619999999999987,
+          "compute": 74
+        },
+        "storage": {
+          "energy": 105,
+          "water": 73,
+          "compute": 74
+        },
+        "production": {
+          "energy": 143,
+          "water": 27,
+          "compute": 58.10000000000001
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 52,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 52,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 54.3,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 117.60000000000001,
+          "water": 96,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 117.60000000000001,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 120,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 61.669999999999995,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "storage": {
+          "energy": 74,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "production": {
+          "energy": 39,
+          "water": 105,
+          "compute": 66
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 51.559999999999974,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 47.599999999999994,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 117.10000000000001,
+          "water": 82.80000000000001,
+          "compute": 62
+        },
+        "storage": {
+          "energy": 117.10000000000001,
+          "water": 92,
+          "compute": 62
+        },
+        "production": {
+          "energy": 141,
+          "water": 46,
+          "compute": 39
+        }
+      },
+      {
+        "name": "P9",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 55.59999999999999,
+          "water": 79.3,
+          "compute": 83
+        },
+        "storage": {
+          "energy": 84,
+          "water": 79.3,
+          "compute": 83
+        },
+        "production": {
+          "energy": 35,
+          "water": 74.60000000000001,
+          "compute": 151
+        }
+      }
+    ],
+    "5": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 76,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 71.39999999999999,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 52,
+          "water": 48.88,
+          "compute": 111
+        },
+        "storage": {
+          "energy": 52,
+          "water": 56,
+          "compute": 111
+        },
+        "production": {
+          "energy": 88,
+          "water": 45.3,
+          "compute": 46
+        }
+      },
+      {
+        "name": "P2",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 105,
+          "water": 14.989999999999984,
+          "compute": 74
+        },
+        "storage": {
+          "energy": 105,
+          "water": 73,
+          "compute": 74
+        },
+        "production": {
+          "energy": 143,
+          "water": 27,
+          "compute": 58.10000000000001
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 54.8,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 54.8,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 54.3,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 123.9,
+          "water": 94.48,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 123.9,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 120,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 61.31999999999999,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "storage": {
+          "energy": 74,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "production": {
+          "energy": 39,
+          "water": 105,
+          "compute": 66
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 58.349999999999966,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 50.39999999999999,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 123.4,
+          "water": 79.28000000000002,
+          "compute": 62
+        },
+        "storage": {
+          "energy": 123.4,
+          "water": 92,
+          "compute": 62
+        },
+        "production": {
+          "energy": 141,
+          "water": 46,
+          "compute": 39
+        }
+      },
+      {
+        "name": "P9",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 45.34999999999998,
+          "water": 79.3,
+          "compute": 83
+        },
+        "storage": {
+          "energy": 84,
+          "water": 79.3,
+          "compute": 83
+        },
+        "production": {
+          "energy": 35,
+          "water": 80.9,
+          "compute": 151
+        }
+      }
+    ],
+    "6": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 76,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 77.69999999999999,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 52,
+          "water": 53.88,
+          "compute": 111
+        },
+        "storage": {
+          "energy": 52,
+          "water": 56,
+          "compute": 111
+        },
+        "production": {
+          "energy": 88,
+          "water": 48.8,
+          "compute": 46
+        }
+      },
+      {
+        "name": "P2",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 105,
+          "water": 14.479999999999979,
+          "compute": 74
+        },
+        "storage": {
+          "energy": 105,
+          "water": 73,
+          "compute": 74
+        },
+        "production": {
+          "energy": 143,
+          "water": 27,
+          "compute": 58.10000000000001
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 54.8,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 54.8,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 57.099999999999994,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 123.9,
+          "water": 96,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 123.9,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 120,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 58.089999999999996,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "storage": {
+          "energy": 74,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "production": {
+          "energy": 39,
+          "water": 105,
+          "compute": 66
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 64.75999999999996,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 53.89999999999999,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 129.70000000000002,
+          "water": 72.88000000000002,
+          "compute": 59.6
+        },
+        "storage": {
+          "energy": 129.70000000000002,
+          "water": 92,
+          "compute": 62
+        },
+        "production": {
+          "energy": 141,
+          "water": 46,
+          "compute": 39
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "7": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 82.3,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 82.3,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 77.69999999999999,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 52,
+          "water": 56,
+          "compute": 111
+        },
+        "storage": {
+          "energy": 52,
+          "water": 56,
+          "compute": 111
+        },
+        "production": {
+          "energy": 88,
+          "water": 53,
+          "compute": 46
+        }
+      },
+      {
+        "name": "P2",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 105,
+          "water": 13.009999999999973,
+          "compute": 74
+        },
+        "storage": {
+          "energy": 105,
+          "water": 73,
+          "compute": 74
+        },
+        "production": {
+          "energy": 143,
+          "water": 27,
+          "compute": 58.10000000000001
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 57.599999999999994,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 57.599999999999994,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 57.099999999999994,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 123.9,
+          "water": 90.00999999999999,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 123.9,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 126.3,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 53.89999999999999,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "storage": {
+          "energy": 74,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "production": {
+          "energy": 39,
+          "water": 105,
+          "compute": 66
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 58.099999999999994,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 136.00000000000003,
+          "water": 65.52000000000002,
+          "compute": 56.24
+        },
+        "storage": {
+          "energy": 136.00000000000003,
+          "water": 92,
+          "compute": 62
+        },
+        "production": {
+          "energy": 141,
+          "water": 46,
+          "compute": 39
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "8": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 82.3,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 82.3,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 77.69999999999999,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 52,
+          "water": 56,
+          "compute": 111
+        },
+        "storage": {
+          "energy": 52,
+          "water": 56,
+          "compute": 111
+        },
+        "production": {
+          "energy": 88,
+          "water": 57.2,
+          "compute": 46
+        }
+      },
+      {
+        "name": "P2",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 105,
+          "water": 8.979999999999972,
+          "compute": 74
+        },
+        "storage": {
+          "energy": 105,
+          "water": 73,
+          "compute": 74
+        },
+        "production": {
+          "energy": 143,
+          "water": 27,
+          "compute": 58.10000000000001
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 57.599999999999994,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 57.599999999999994,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 59.89999999999999,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 130.20000000000002,
+          "water": 81.45999999999998,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 130.20000000000002,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 126.3,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 47.14999999999999,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "storage": {
+          "energy": 74,
+          "water": 88.30000000000001,
+          "compute": 109
+        },
+        "production": {
+          "energy": 39,
+          "water": 105,
+          "compute": 66
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 62.3,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 142.30000000000004,
+          "water": 55.60000000000002,
+          "compute": 50.32000000000001
+        },
+        "storage": {
+          "energy": 142.30000000000004,
+          "water": 92,
+          "compute": 62
+        },
+        "production": {
+          "energy": 141,
+          "water": 46,
+          "compute": 39
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "9": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 82.3,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 82.3,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 83.99999999999999,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 61.8,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 61.8,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 59.89999999999999,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 130.20000000000002,
+          "water": 69.71999999999998,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 130.20000000000002,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 132.6,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 66,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 66.5,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 142.30000000000004,
+          "water": 52.12000000000003,
+          "compute": 46.84000000000001
+        },
+        "storage": {
+          "energy": 142.30000000000004,
+          "water": 92,
+          "compute": 62
+        },
+        "production": {
+          "energy": 141,
+          "water": 46,
+          "compute": 39
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "10": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 88.6,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 88.6,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 83.99999999999999,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 61.8,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 61.8,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 64.1,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 136.50000000000003,
+          "water": 64.05999999999999,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 136.50000000000003,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 132.6,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 71.6,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 71.6,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 66.5,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 142.30000000000004,
+          "water": 45.09000000000003,
+          "compute": 44.44000000000001
+        },
+        "storage": {
+          "energy": 142.30000000000004,
+          "water": 92,
+          "compute": 62
+        },
+        "production": {
+          "energy": 147.3,
+          "water": 46,
+          "compute": 39
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "11": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 88.6,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 88.6,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 90.29999999999998,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 66,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 66,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 64.1,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 136.50000000000003,
+          "water": 56.16999999999999,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 136.50000000000003,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 138.9,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 71.6,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 71.6,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 72.8,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 148.60000000000005,
+          "water": 36.46000000000003,
+          "compute": 40.44000000000001
+        },
+        "storage": {
+          "energy": 148.60000000000005,
+          "water": 92,
+          "compute": 62
+        },
+        "production": {
+          "energy": 147.3,
+          "water": 46,
+          "compute": 39
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "12": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 94.89999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 94.89999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 90.29999999999998,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 66,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 66,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 64.1,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 142.80000000000004,
+          "water": 46.67999999999999,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 142.80000000000004,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 138.9,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 77.89999999999999,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 77.89999999999999,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 72.8,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "13": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 94.89999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 94.89999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 96.59999999999998,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 66,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 66,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 68.3,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 142.80000000000004,
+          "water": 38.79999999999999,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 142.80000000000004,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 145.20000000000002,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 77.89999999999999,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 77.89999999999999,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 79.1,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "14": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 101.19999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 101.19999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 96.59999999999998,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 70.2,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 70.2,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 68.3,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 149.10000000000005,
+          "water": 29.639999999999993,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 149.10000000000005,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 145.20000000000002,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 84.19999999999999,
+          "compute": 59
+        },
+        "storage": {
+          "energy": 76,
+          "water": 84.19999999999999,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 79.1,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "15": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 101.19999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 101.19999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 102.89999999999998,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 70.2,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 70.2,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 68.3,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 149.10000000000005,
+          "water": 41.199999999999996,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 149.10000000000005,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 145.20000000000002,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 84.19999999999999,
+          "compute": 58.980000000000004
+        },
+        "storage": {
+          "energy": 76,
+          "water": 84.19999999999999,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 85.39999999999999,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "16": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 101.19999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 101.19999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 102.89999999999998,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 70.2,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 70.2,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 73.89999999999999,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 149.10000000000005,
+          "water": 28.849999999999994,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 149.10000000000005,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 151.50000000000003,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 90.49999999999999,
+          "compute": 57.680000000000014
+        },
+        "storage": {
+          "energy": 76,
+          "water": 90.49999999999999,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 85.39999999999999,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "17": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 107.49999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 107.49999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 102.89999999999998,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 70.2,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 70.2,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 73.89999999999999,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 149.10000000000005,
+          "water": 40.21999999999999,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 149.10000000000005,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 151.50000000000003,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 90.49999999999999,
+          "compute": 55.10000000000002
+        },
+        "storage": {
+          "energy": 76,
+          "water": 90.49999999999999,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 91.69999999999999,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "18": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 107.49999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 107.49999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 109.19999999999997,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 70.2,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 70.2,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 73.89999999999999,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 155.40000000000006,
+          "water": 31.309999999999988,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 155.40000000000006,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 151.50000000000003,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 96.79999999999998,
+          "compute": 51.24000000000003
+        },
+        "storage": {
+          "energy": 76,
+          "water": 96.79999999999998,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 91.69999999999999,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "19": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 107.49999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 107.49999999999999,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 109.19999999999997,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 74.4,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 74.4,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 73.89999999999999,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 155.40000000000006,
+          "water": 40.11999999999999,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 155.40000000000006,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 151.50000000000003,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 96.79999999999998,
+          "compute": 51.100000000000044
+        },
+        "storage": {
+          "energy": 76,
+          "water": 96.79999999999998,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 91.69999999999999,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "20": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 113.79999999999998,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 113.79999999999998,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 109.19999999999997,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 74.4,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 74.4,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 78.1,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 155.40000000000006,
+          "water": 31.019999999999992,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 155.40000000000006,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 157.80000000000004,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 96.79999999999998,
+          "compute": 49.68000000000006
+        },
+        "storage": {
+          "energy": 76,
+          "water": 96.79999999999998,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 91.69999999999999,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "21": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 113.79999999999998,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 113.79999999999998,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 115.49999999999997,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 78.60000000000001,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 78.60000000000001,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 78.1,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 155.40000000000006,
+          "water": 38.64,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 155.40000000000006,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 157.80000000000004,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 76,
+          "water": 96.79999999999998,
+          "compute": 46.98000000000007
+        },
+        "storage": {
+          "energy": 76,
+          "water": 96.79999999999998,
+          "compute": 59
+        },
+        "production": {
+          "energy": 126,
+          "water": 91.69999999999999,
+          "compute": 44.900000000000006
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "22": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 113.79999999999998,
+          "water": 99,
+          "compute": 97
+        },
+        "storage": {
+          "energy": 113.79999999999998,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 115.49999999999997,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 78.60000000000001,
+          "water": 94,
+          "compute": 98
+        },
+        "storage": {
+          "energy": 78.60000000000001,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 78.1,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 155.40000000000006,
+          "water": 39.980000000000004,
+          "compute": 110
+        },
+        "storage": {
+          "energy": 155.40000000000006,
+          "water": 96,
+          "compute": 110
+        },
+        "production": {
+          "energy": 157.80000000000004,
+          "water": 48,
+          "compute": 60
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "dead",
+        "diedAtTurn": 22,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ],
+    "23": [
+      {
+        "name": "P0",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 49.179999999999986,
+          "water": 66.88,
+          "compute": 53.88
+        },
+        "storage": {
+          "energy": 113.79999999999998,
+          "water": 99,
+          "compute": 97
+        },
+        "production": {
+          "energy": 115.49999999999997,
+          "water": 139,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P1",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P2",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P3",
+        "status": "alive",
+        "diedAtTurn": null,
+        "inventory": {
+          "energy": 28.98000000000001,
+          "water": 55.88,
+          "compute": 54.88
+        },
+        "storage": {
+          "energy": 78.60000000000001,
+          "water": 94,
+          "compute": 98
+        },
+        "production": {
+          "energy": 78.1,
+          "water": 165,
+          "compute": 56
+        }
+      },
+      {
+        "name": "P4",
+        "status": "dead",
+        "diedAtTurn": 23,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P5",
+        "status": "dead",
+        "diedAtTurn": 9,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P6",
+        "status": "dead",
+        "diedAtTurn": 4,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P7",
+        "status": "dead",
+        "diedAtTurn": 22,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P8",
+        "status": "dead",
+        "diedAtTurn": 12,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      },
+      {
+        "name": "P9",
+        "status": "dead",
+        "diedAtTurn": 6,
+        "inventory": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "storage": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        },
+        "production": {
+          "energy": 0,
+          "water": 0,
+          "compute": 0
+        }
+      }
+    ]
+  }
+}
