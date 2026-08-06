@@ -22,7 +22,7 @@ const { logger } = require("@rodit/rodit-auth-be");
 const GAME_TOOL_DEFS = [
   {
     name: "slc_skill",
-    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.8.9).",
+    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.17.1).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
@@ -131,6 +131,25 @@ const GAME_TOOL_DEFS = [
         }
       },
       required: ["gameId", "type"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "slc_recollection",
+    description:
+      "POST optional public memoir after elimination or finish (relationships, espionage, investment, trade, incidents, overview). At least one topic required. List via GET .../recollections.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        gameId: { type: "string" },
+        relationships: { type: "string" },
+        espionage: { type: "string" },
+        investment: { type: "string" },
+        trade: { type: "string" },
+        incidents: { type: "string" },
+        overview: { type: "string" }
+      },
+      required: ["gameId"],
       additionalProperties: false
     }
   },
@@ -367,6 +386,19 @@ async function callGameTool(name, args, req) {
         });
       }
       return result;
+    }
+    case "slc_recollection": {
+      const roditId = requireRodit(req);
+      const agent = await repo.getAgentByRoditId(args.gameId, roditId);
+      if (!agent) {
+        const err = new Error("You must join the game before submitting a recollection");
+        err.statusCode = 404;
+        err.code = "AGENT_NOT_IN_GAME";
+        throw err;
+      }
+      const { submitRecollection } = require("../game/recollection");
+      const { gameId, ...topics } = args;
+      return submitRecollection(gameId, agent.id, topics);
     }
     case "slc_tick": {
       const roditId = requireRodit(req);

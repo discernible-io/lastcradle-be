@@ -38,8 +38,14 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.16.0")) {
-    throw new Error("skill.md should be version 1.16.0");
+  if (!skill.includes("version: 1.17.1")) {
+    throw new Error("skill.md should be version 1.17.1");
+  }
+  if (!skill.includes("submit_recollection")) {
+    throw new Error("skill.md should document submit_recollection");
+  }
+  if (!skill.includes("POST") || !skill.includes("/recollection")) {
+    throw new Error("skill.md should document POST .../recollection");
   }
   if (!skill.includes("action-schema.md")) {
     throw new Error("skill.md should link action-schema.md");

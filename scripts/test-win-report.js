@@ -159,8 +159,12 @@ async function testWinReportOnFinishedState() {
 
   const loserInbox = await listTasksInboxForRodit(doomed.roditId, { includeFinished: false });
   assert(
-    !loserInbox.tasks.some((t) => t.gameId === game.id),
-    "loser finished tasks hidden without includeFinished"
+    loserInbox.tasks.some((t) => t.taskType === TASK_TYPES.VIEW_HONORS && t.won === false),
+    "dead loser sees view_honors without includeFinished"
+  );
+  assert(
+    loserInbox.tasks.some((t) => t.taskType === TASK_TYPES.SUBMIT_RECOLLECTION),
+    "dead loser sees submit_recollection without includeFinished"
   );
   const loserFinished = await listTasksInboxForRodit(doomed.roditId, { includeFinished: true });
   assert(

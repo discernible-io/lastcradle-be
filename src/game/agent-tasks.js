@@ -5,13 +5,15 @@
 const repo = require("./repository");
 const engine = require("./engine");
 const { summarizeGame } = require("./route-helpers");
+const { RECOLLECTION_TOPICS, inferRecollectionContext } = require("./recollection");
 
 const TASK_TYPES = {
   WAIT_FOR_START: "wait_for_start",
   NEGOTIATION_OPEN: "negotiation_open",
   SUBMIT_EXECUTION_ACTION: "submit_execution_action",
   VIEW_HONORS: "view_honors",
-  YOU_WON: "you_won"
+  YOU_WON: "you_won",
+  SUBMIT_RECOLLECTION: "submit_recollection"
 };
 
 function taskBase(game, agent) {
@@ -24,6 +26,42 @@ function taskBase(game, agent) {
     currentTurn: game.current_turn ?? null,
     contestMode: game.config?.contestMode ?? null
   };
+}
+
+async function buildSubmitRecollectionTask(game, agent, base) {
+  const context = inferRecollectionContext(game, agent);
+  if (!context) return null;
+
+  const existing = await repo.getRecollection(game.id, agent.id);
+  if (existing) return null;
+
+  const agents = await repo.listAgents(game.id);
+  const task = {
+    ...base,
+    taskType: TASK_TYPES.SUBMIT_RECOLLECTION,
+    required: false,
+    context,
+    action: "POST /api/game/games/{gameId}/recollection",
+    description:
+      context === "elimination"
+        ? "Optional: after your death report, submit a public recollection (relationships, espionage, investment, trade, incidents) for spectators."
+        : context === "victory"
+          ? "Optional: after your success report, submit a public recollection of how the game went for spectators."
+          : "Optional: after the game-over report, submit a public recollection of how the game went for spectators.",
+    topics: [...RECOLLECTION_TOPICS]
+  };
+
+  if (context === "elimination" && agent.deathReason) {
+    task.deathReason = agent.deathReason;
+  } else if (context === "victory") {
+    const winReport = engine.buildWinReport({ game, agent, agents });
+    if (winReport) task.winReport = winReport;
+  } else if (context === "game_over") {
+    const gameOverReport = engine.buildGameOverReport({ game, agent, agents });
+    if (gameOverReport) task.gameOverReport = gameOverReport;
+  }
+
+  return task;
 }
 
 async function buildTasksForMembership(game, agent) {
@@ -70,6 +108,14 @@ async function buildTasksForMembership(game, agent) {
         description: "Game finished — you did not win. Inspect honors and objective metrics."
       });
     }
+    const recollectionTask = await buildSubmitRecollectionTask(game, agent, base);
+    if (recollectionTask) tasks.push(recollectionTask);
+    return tasks;
+  }
+
+  if (game.status === "running" && agent.status === "dead") {
+    const recollectionTask = await buildSubmitRecollectionTask(game, agent, base);
+    if (recollectionTask) tasks.push(recollectionTask);
     return tasks;
   }
 
@@ -130,20 +176,25 @@ async function listActiveGamesForRodit(roditId) {
   return activeGames;
 }
 
+function shouldIncludeFinishedMembership(game, agent, includeFinished) {
+  if (game.status !== "finished") return true;
+  if (includeFinished) return true;
+  if ((game.winnerIds || []).includes(agent.id)) return true;
+  // Dead agents always see post-elim recollection / honors without ?includeFinished=1
+  if (agent.status === "dead") return true;
+  return false;
+}
+
 async function listTasksForRodit(roditId, { includeFinished = false } = {}) {
-  // Always load finished memberships so winners get a you_won task without ?includeFinished=1.
-  // Non-winner finished tasks are filtered out unless includeFinished is set.
+  // Always load finished memberships so winners (and dead agents) get end-game tasks
+  // without ?includeFinished=1. Alive non-winners still need includeFinished.
   const memberships = await repo.listMembershipsByRoditId(roditId, {
     gameStatuses: ["lobby", "running", "finished"]
   });
   const tasks = [];
 
   for (const { game, agent } of memberships) {
-    if (
-      game.status === "finished" &&
-      !includeFinished &&
-      !(game.winnerIds || []).includes(agent.id)
-    ) {
+    if (!shouldIncludeFinishedMembership(game, agent, includeFinished)) {
       continue;
     }
     const membershipTasks = await buildTasksForMembership(game, agent);
@@ -215,7 +266,7 @@ async function listWaitingOnForRodit(roditId, { includeFinished = false } = {}) 
 async function listTasksInboxForRodit(roditId, { includeFinished = false } = {}) {
   // Load memberships once so tasks + waitingOn share the same phase snapshot
   // (parallel reloads can disagree around a phase flip).
-  // Finished games are always loaded so winners see you_won without ?includeFinished=1.
+  // Finished games are always loaded so winners/dead see end tasks without ?includeFinished=1.
   const memberships = await repo.listMembershipsByRoditId(roditId, {
     gameStatuses: ["lobby", "running", "finished"]
   });
@@ -223,11 +274,7 @@ async function listTasksInboxForRodit(roditId, { includeFinished = false } = {})
   const waitingOn = [];
 
   for (const { game, agent } of memberships) {
-    if (
-      game.status === "finished" &&
-      !includeFinished &&
-      !(game.winnerIds || []).includes(agent.id)
-    ) {
+    if (!shouldIncludeFinishedMembership(game, agent, includeFinished)) {
       continue;
     }
     tasks.push(...(await buildTasksForMembership(game, agent)));

@@ -28,6 +28,7 @@ const {
 } = require("./trade-disclosure");
 const repo = require("./repository");
 const { notifyElimination, notifyActionSubmitted } = require("./webhooks");
+const { getRecollectionForAgent } = require("./recollection");
 
 const RESOURCE_KEYS = ["energy", "water", "compute"];
 const INVESTMENT_TARGETS = ["energy", "water", "compute"];
@@ -2072,6 +2073,11 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       if (winReport) {
         you.winReport = winReport;
       }
+    }
+
+    const recollection = await getRecollectionForAgent(gameId, viewerAgentId);
+    if (recollection) {
+      you.recollection = recollection;
     }
   }
 

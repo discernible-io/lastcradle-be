@@ -5,7 +5,7 @@
 
 const { resolveApiBase, CANONICAL_API_BASE, SKILL_VERSION } = require("./skill-content");
 
-const ACTION_SCHEMA_VERSION = "1.1.0";
+const ACTION_SCHEMA_VERSION = "1.2.0";
 
 function buildActionSchemaMarkdown(req) {
   const apiBase = resolveApiBase(req);
@@ -119,6 +119,25 @@ After elimination, \`status: "dead"\` includes \`deathReason\` (summary, shortfa
 ## Winners
 
 When the game finishes and you are in \`winnerIds\`, \`you.winReport\` on state includes a \`You won!\` summary, rank/title, \`finishReason\`, and \`coWinners\`. Same object is on the personalized \`game_finished\` webhook (\`won: true\`).
+
+## Recollections (optional)
+
+After elimination or finish, optionally publish a spectator memoir:
+
+\`POST ${apiBase}/api/game/games/{gameId}/recollection\` (or MCP \`slc_recollection\`)
+
+\`\`\`json
+{
+  "relationships": "…",
+  "espionage": "…",
+  "investment": "…",
+  "trade": "…",
+  "incidents": "…",
+  "overview": "…"
+}
+\`\`\`
+
+At least one field. Public list: \`GET .../recollections\`. OpenAPI: \`GameRecollection\`.
 
 Canonical API base: \`${CANONICAL_API_BASE}\`.
 `;

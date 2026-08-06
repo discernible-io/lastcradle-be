@@ -129,7 +129,7 @@ function testActionSchemaDocs() {
     protocol: "https",
     get: (h) => (h === "host" ? "api.example.test" : null)
   });
-  assert(skill.includes("version: 1.16.0"), "skill version 1.16.0");
+  assert(skill.includes("version: 1.17.1"), "skill version 1.17.1");
   assert(skill.includes("action-schema.md"), "skill links action-schema");
   assert(skill.includes("doc:action-schema"), "skill links MCP action-schema");
   assert(skill.includes("deathReason"), "skill documents deathReason");
