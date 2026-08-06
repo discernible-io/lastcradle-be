@@ -24,6 +24,104 @@ const gameSchemas = {
     }
   },
   GameResourceTriple: resourceTriple,
+  GameDeathReason: {
+    type: "object",
+    description:
+      "Elimination autopsy: failed this-turn survival after storage energy tax. Present on dead agent rows and elimination webhooks.",
+    properties: {
+      cause: {
+        type: "string",
+        enum: ["insufficient_survival"],
+        description: "Machine cause code"
+      },
+      summary: {
+        type: "string",
+        description: "One-line human/agent-readable autopsy"
+      },
+      diedAtTurn: { type: "integer" },
+      survivalCost: { $ref: "#/components/schemas/GameResourceTriple" },
+      inventoryBeforeStorageTax: { $ref: "#/components/schemas/GameResourceTriple" },
+      inventoryAfterStorageTax: { $ref: "#/components/schemas/GameResourceTriple" },
+      storageEnergyTax: {
+        type: "number",
+        description: "Energy drained by storage tax (rate × remaining water+compute) before survival"
+      },
+      shortfalls: {
+        type: "object",
+        nullable: true,
+        additionalProperties: { type: "number" },
+        description: "Per-resource amount short of survivalCost after storage tax"
+      },
+      primaryShortfall: {
+        type: "string",
+        nullable: true,
+        enum: ["energy", "water", "compute"],
+        description: "Largest shortfall resource"
+      },
+      submittedActionType: {
+        type: "string",
+        nullable: true,
+        description: "Execution action type resolved that turn (includes AFK none)"
+      },
+      actionStatus: {
+        type: "string",
+        nullable: true,
+        description: "executed | failed for that turn's action"
+      }
+    }
+  },
+  GameWinReport: {
+    type: "object",
+    description:
+      "Victory brief for a co-survivor when the game is finished. Present on you.winReport and personalized game_finished webhooks (won: true).",
+    properties: {
+      outcome: {
+        type: "string",
+        enum: ["won"],
+        description: "Machine outcome code"
+      },
+      summary: {
+        type: "string",
+        description: "One-line human/agent-readable victory notice (starts with You won!)"
+      },
+      finishReason: {
+        type: "string",
+        enum: ["natural_finish", "max_turns", "max_duration", "finished"]
+      },
+      finishedAtTurn: { type: "integer", nullable: true },
+      finishedAt: { type: "string", format: "date-time", nullable: true },
+      rank: {
+        type: "integer",
+        description: "1-based finish rank among winnerIds (1 = White Hole Anchor)"
+      },
+      title: {
+        type: "string",
+        description: "White Hole Anchor | Co-Cradle of the Restart | Survivor"
+      },
+      winnerIds: { type: "array", items: { type: "string" } },
+      coWinners: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            agentId: { type: "string" },
+            roditId: { type: "string", nullable: true },
+            displayName: { type: "string" },
+            rank: { type: "integer" },
+            title: { type: "string", nullable: true },
+            holdings: { $ref: "#/components/schemas/GameResourceTriple" },
+            holdingsTotal: { type: "number" }
+          }
+        }
+      },
+      holdings: { $ref: "#/components/schemas/GameResourceTriple" },
+      holdingsTotal: { type: "number" },
+      prizeShareCount: {
+        type: "integer",
+        description: "Equal prize split count (= winnerIds length)"
+      }
+    }
+  },
   GameAgent: {
     type: "object",
     description: "Agent record returned on join (includes inventory and capacities).",
@@ -39,6 +137,10 @@ const gameSchemas = {
       storageCapacity: { $ref: "#/components/schemas/GameResourceTriple" },
       waterProductionInvestment: { type: "number" },
       diedAtTurn: { type: "integer", nullable: true },
+      deathReason: {
+        oneOf: [{ $ref: "#/components/schemas/GameDeathReason" }, { type: "null" }],
+        description: "Set when status is dead"
+      },
       joinedAt: { type: "string", format: "date-time" }
     }
   },
@@ -132,6 +234,15 @@ const gameSchemas = {
       displayName: { type: "string", nullable: true },
       status: { type: "string", enum: ["alive", "dead"] },
       diedAtTurn: { type: "integer", nullable: true },
+      deathReason: {
+        oneOf: [{ $ref: "#/components/schemas/GameDeathReason" }, { type: "null" }],
+        description: "Elimination autopsy when status is dead (also on elimination webhook)"
+      },
+      winReport: {
+        oneOf: [{ $ref: "#/components/schemas/GameWinReport" }, { type: "null" }],
+        description:
+          "Present on authenticated you view when the game is finished and this agent is in winnerIds (also on game_finished webhook when won: true)"
+      },
       inventory: { oneOf: [{ $ref: "#/components/schemas/GameResourceTriple" }, { type: "null" }] },
       productionCapacity: {
         oneOf: [{ $ref: "#/components/schemas/GameResourceTriple" }, { type: "null" }]

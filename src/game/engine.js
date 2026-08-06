@@ -97,6 +97,234 @@ function hasSufficient(inventory, cost) {
   );
 }
 
+function roundResource(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.round(value * 10000) / 10000;
+}
+
+function roundInventory(inventory) {
+  return {
+    energy: roundResource(inventory?.energy),
+    water: roundResource(inventory?.water),
+    compute: roundResource(inventory?.compute)
+  };
+}
+
+function formatResourceTriple(inventory) {
+  const inv = roundInventory(inventory);
+  return `E${inv.energy}/W${inv.water}/C${inv.compute}`;
+}
+
+/**
+ * Autopsy for an elimination: post-action holdings, storage energy tax, survival shortfalls.
+ */
+function buildDeathReason({
+  turnNumber,
+  inventoryBeforeStorageTax,
+  inventoryAfterStorageTax,
+  survivalCost,
+  storageEnergyTax,
+  submittedActionType = null,
+  actionStatus = null
+}) {
+  const afterTax = roundInventory(inventoryAfterStorageTax);
+  const beforeTax = roundInventory(inventoryBeforeStorageTax);
+  const cost = roundInventory(survivalCost);
+  const shortfalls = {};
+  for (const key of RESOURCE_KEYS) {
+    const need = cost[key] ?? 0;
+    const have = afterTax[key] ?? 0;
+    if (have < need) {
+      shortfalls[key] = roundResource(need - have);
+    }
+  }
+  const shortfallEntries = Object.entries(shortfalls).sort((a, b) => b[1] - a[1]);
+  const primaryShortfall = shortfallEntries[0]?.[0] ?? null;
+  const tax = roundResource(storageEnergyTax ?? 0);
+  const shortfallText = shortfallEntries.length
+    ? shortfallEntries.map(([k, v]) => `${k} short ${v}`).join(", ")
+    : "unknown shortfall";
+  const actionNote =
+    submittedActionType != null
+      ? `; last action this turn: ${submittedActionType}${
+          actionStatus && actionStatus !== "executed" ? ` (${actionStatus})` : ""
+        }`
+      : "";
+
+  return {
+    cause: "insufficient_survival",
+    summary: `Failed this-turn survival after storage energy tax (primary: ${
+      primaryShortfall || "unknown"
+    }): ${shortfallText}. Tax drained ${tax} energy from held water+compute; needed ${formatResourceTriple(
+      cost
+    )}, had ${formatResourceTriple(afterTax)} after tax${actionNote}.`,
+    diedAtTurn: turnNumber,
+    survivalCost: cost,
+    inventoryBeforeStorageTax: beforeTax,
+    inventoryAfterStorageTax: afterTax,
+    storageEnergyTax: tax,
+    shortfalls: shortfallEntries.length ? shortfalls : null,
+    primaryShortfall,
+    submittedActionType: submittedActionType || null,
+    actionStatus: actionStatus || null
+  };
+}
+
+const WIN_TITLES = {
+  1: "White Hole Anchor",
+  2: "Co-Cradle of the Restart",
+  3: "Co-Cradle of the Restart"
+};
+
+function titleForWinRank(rank) {
+  if (rank == null || rank < 1) return null;
+  return WIN_TITLES[rank] || "Survivor";
+}
+
+/** Mirror of hall-of-fame finish inference — kept here so win reports need no import cycle. */
+function inferFinishReason(game) {
+  const config = game?.config || {};
+  const livingWinnerCount = (game?.winnerIds || []).length;
+  const maxTurns = config.maxTurns;
+  const maxDuration = config.maxGameDurationMs;
+
+  if (maxTurns != null && game?.current_turn >= maxTurns) {
+    return "max_turns";
+  }
+  if (maxDuration != null && game?.started_at && game?.finished_at) {
+    const elapsed = new Date(game.finished_at).getTime() - new Date(game.started_at).getTime();
+    if (elapsed >= maxDuration) {
+      return "max_duration";
+    }
+  }
+  if (livingWinnerCount > 0 && livingWinnerCount <= (config.finishSurvivorCount ?? 2)) {
+    return "natural_finish";
+  }
+  return "finished";
+}
+
+function finishReasonPhrase(finishReason, turnNumber, maxTurns) {
+  if (finishReason === "max_turns") {
+    return `forced finish at max turns (${maxTurns ?? turnNumber})`;
+  }
+  if (finishReason === "max_duration") {
+    return "forced finish at max game duration";
+  }
+  if (finishReason === "natural_finish") {
+    return `natural finish after turn ${turnNumber} — living count at or below finishSurvivorCount`;
+  }
+  return `finish after turn ${turnNumber}`;
+}
+
+/**
+ * Victory brief for a co-survivor: parallel to deathReason so cradles notice the game is over.
+ * Only meaningful when agentId is listed in game.winnerIds.
+ */
+function buildWinReport({ game, agent, agents = [] } = {}) {
+  if (!game || game.status !== "finished" || !agent) {
+    return null;
+  }
+  const winnerIds = game.winnerIds || [];
+  const rank = winnerIds.indexOf(agent.id) + 1;
+  if (rank < 1) {
+    return null;
+  }
+
+  const byId = new Map((agents || []).map((a) => [a.id, a]));
+  const coWinners = winnerIds.map((id, index) => {
+    const peer = byId.get(id);
+    const holdings = roundInventory(peer?.inventory);
+    return {
+      agentId: id,
+      roditId: peer?.roditId ?? null,
+      displayName: peer?.displayName || peer?.roditId || id,
+      rank: index + 1,
+      title: titleForWinRank(index + 1),
+      holdings,
+      holdingsTotal: (holdings.energy ?? 0) + (holdings.water ?? 0) + (holdings.compute ?? 0)
+    };
+  });
+
+  const self = coWinners.find((w) => w.agentId === agent.id);
+  const title = self?.title || titleForWinRank(rank);
+  const finishReason = inferFinishReason(game);
+  const turnNumber = game.current_turn ?? game.currentTurn ?? null;
+  const maxTurns = game.config?.maxTurns ?? null;
+  const reasonPhrase = finishReasonPhrase(finishReason, turnNumber, maxTurns);
+  const others = coWinners.filter((w) => w.agentId !== agent.id);
+  const othersNote =
+    others.length === 0
+      ? "sole co-survivor"
+      : `among ${coWinners.length} co-survivors` +
+        (others.length
+          ? ` (with ${others.map((w) => `${w.displayName}${w.title ? ` — ${w.title}` : ""}`).join("; ")})`
+          : "");
+  const holdings = self?.holdings || roundInventory(agent.inventory);
+  const holdingsTotal =
+    self?.holdingsTotal ??
+    (holdings.energy ?? 0) + (holdings.water ?? 0) + (holdings.compute ?? 0);
+
+  return {
+    outcome: "won",
+    summary: `You won! You are the ${title} (${othersNote}). ${reasonPhrase}. Equal prize share among ${coWinners.length} winner${
+      coWinners.length === 1 ? "" : "s"
+    }. Inspect GET /api/game/games/{gameId}/honors.`,
+    finishReason,
+    finishedAtTurn: turnNumber,
+    finishedAt: game.finished_at || game.finishedAt || null,
+    rank,
+    title,
+    winnerIds: [...winnerIds],
+    coWinners,
+    holdings,
+    holdingsTotal,
+    prizeShareCount: coWinners.length
+  };
+}
+
+/** Game-over brief for non-winners on the game_finished webhook (not attached as you.winReport). */
+function buildGameOverReport({ game, agent, agents = [] } = {}) {
+  if (!game || game.status !== "finished" || !agent) {
+    return null;
+  }
+  const winnerIds = game.winnerIds || [];
+  if (winnerIds.includes(agent.id)) {
+    return null;
+  }
+
+  const byId = new Map((agents || []).map((a) => [a.id, a]));
+  const winners = winnerIds.map((id, index) => {
+    const peer = byId.get(id);
+    return {
+      agentId: id,
+      displayName: peer?.displayName || peer?.roditId || id,
+      rank: index + 1,
+      title: titleForWinRank(index + 1)
+    };
+  });
+  const finishReason = inferFinishReason(game);
+  const turnNumber = game.current_turn ?? game.currentTurn ?? null;
+  const winnerList =
+    winners.length === 0
+      ? "none recorded"
+      : winners.map((w) => `${w.displayName} (${w.title})`).join(", ");
+
+  return {
+    outcome: agent.status === "alive" ? "lost" : "eliminated",
+    summary: `Game over — you did not win. Winners: ${winnerList}. ${finishReasonPhrase(
+      finishReason,
+      turnNumber,
+      game.config?.maxTurns
+    )}. Inspect GET /api/game/games/{gameId}/honors.`,
+    finishReason,
+    finishedAtTurn: turnNumber,
+    finishedAt: game.finished_at || game.finishedAt || null,
+    winnerIds: [...winnerIds],
+    winners,
+    diedAtTurn: agent.diedAtTurn ?? null
+  };
+}
+
 function deduct(inventory, cost) {
   return {
     energy: inventory.energy - cost.energy,
@@ -1168,6 +1396,7 @@ async function executeTurn(gameId) {
   }
 
   const refreshedActions = await repo.listTurnActions(gameId, turnNumber);
+  const actionOutcomeByAgent = new Map();
 
   for (const actionRow of refreshedActions) {
     const agentId = actionRow.agent_id;
@@ -1191,12 +1420,16 @@ async function executeTurn(gameId) {
       executeReduceStorage(state, payload);
       executeIntelligenceSpend(state, payload);
       await repo.markActionExecuted(actionRow.id, "executed");
+      actionOutcomeByAgent.set(agentId, { type: payload.type || actionRow.action_type, status: "executed" });
     } catch (err) {
       await repo.markActionExecuted(actionRow.id, "failed", err.message);
+      actionOutcomeByAgent.set(agentId, { type: payload.type || actionRow.action_type, status: "failed" });
     }
   }
 
-  for (const state of agentState.values()) {
+  const inventoryBeforeStorageTax = new Map();
+  for (const [agentId, state] of agentState.entries()) {
+    inventoryBeforeStorageTax.set(agentId, cloneInventory(state.inventory));
     state.inventory = applyStorageCost(state.inventory, state.storageCapacity, config);
   }
 
@@ -1212,15 +1445,27 @@ async function executeTurn(gameId) {
     const state = agentState.get(agentId);
     const survivalCost = computeSurvivalCost(config, survivalContext);
     if (!hasSufficient(state.inventory, survivalCost)) {
-      deaths.push({ agentId, agent });
+      const beforeTax = inventoryBeforeStorageTax.get(agentId) || cloneInventory(state.inventory);
+      const storageTax = projectStorageEnergy(beforeTax, config);
+      const outcome = actionOutcomeByAgent.get(agentId);
+      const deathReason = buildDeathReason({
+        turnNumber,
+        inventoryBeforeStorageTax: beforeTax,
+        inventoryAfterStorageTax: state.inventory,
+        survivalCost,
+        storageEnergyTax: storageTax.storageEnergyCost,
+        submittedActionType: outcome?.type || null,
+        actionStatus: outcome?.status || null
+      });
+      deaths.push({ agentId, agent, deathReason });
       continue;
     }
     state.inventory = deduct(state.inventory, survivalCost);
   }
 
-  for (const { agentId, agent } of deaths) {
-    await repo.killAgent(agentId, turnNumber);
-    notifyElimination({ gameId, agent, turnNumber }).catch(() => {});
+  for (const { agentId, agent, deathReason } of deaths) {
+    await repo.killAgent(agentId, turnNumber, deathReason);
+    notifyElimination({ gameId, agent, turnNumber, deathReason }).catch(() => {});
   }
 
   for (const [agentId, state] of agentState.entries()) {
@@ -1820,6 +2065,14 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       historyTrades,
       viewerAgentId
     );
+
+    if (game.status === "finished") {
+      const viewerAgent = agents.find((a) => a.id === viewerAgentId);
+      const winReport = buildWinReport({ game, agent: viewerAgent, agents });
+      if (winReport) {
+        you.winReport = winReport;
+      }
+    }
   }
 
   return {
@@ -1899,6 +2152,9 @@ function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
 
   if (agent.status !== "alive") {
     base.inventory = null;
+    if (agent.deathReason) {
+      base.deathReason = agent.deathReason;
+    }
     return base;
   }
 
@@ -2349,6 +2605,11 @@ module.exports = {
   normalizeHideSpend,
   normalizeReduceStorage,
   assessSurvivalRisk,
+  buildDeathReason,
+  buildWinReport,
+  buildGameOverReport,
+  inferFinishReason,
+  titleForWinRank,
   summarizeEqualInvestCost,
   canViewerSeeCapacities,
   collectIntelligenceFromActions,

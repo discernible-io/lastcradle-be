@@ -10,6 +10,7 @@ const { ulid } = require("ulid");
 const { logger, errorResponse } = require("@rodit/rodit-auth-be");
 const { sendError } = errorResponse;
 const { loadOpenApiSpec } = require("../lib/app-version");
+const { buildActionSchemaMarkdown } = require("../game/action-schema-content");
 
 const mcpCache = { swagger: null };
 
@@ -160,6 +161,7 @@ const AGENT_LOGIN_GUIDE = {
     }
   ],
   gameSkill: "/api/game/skill.md",
+  actionSchema: "/api/game/action-schema.md",
   peerAuth: "/api/game/peer-auth.md"
 };
 
@@ -212,6 +214,7 @@ const DISCOVERY_INDEX = {
   tlsNote: "Self-signed TLS on :9443 — use curl -sk for shell agents",
   resources: [
     { uri: "doc:skills", http: "/api/mcp/resource/doc:skills", description: "Login cheat sheet" },
+    { uri: "doc:action-schema", http: "/api/mcp/resource/doc:action-schema", description: "Execution action schema cheat sheet" },
     { uri: "guide:agent-login", http: "/api/mcp/resource/guide:agent-login", description: "Structured login guide" },
     { uri: "guide:troubleshooting", http: "/api/mcp/resource/guide:troubleshooting", description: "Login error diagnosis" },
     { uri: "openapi:swagger", http: "/api/mcp/resource/openapi:swagger", description: "OpenAPI spec" }
@@ -220,6 +223,11 @@ const DISCOVERY_INDEX = {
     markdown: "/api/game/skill.md",
     alias: "/skill.md",
     absolute: "https://slcapi.discernible.io:9443/api/game/skill.md"
+  },
+  actionSchema: {
+    markdown: "/api/game/action-schema.md",
+    alias: "/action-schema.md",
+    absolute: "https://slcapi.discernible.io:9443/api/game/action-schema.md"
   },
   peerAuth: {
     markdown: "/api/game/peer-auth.md",
@@ -250,6 +258,7 @@ const mcpService = {
       { uri: "doc:discovery", name: "MCP Discovery Index", type: "application/json" },
       { uri: "doc:skills", name: "Agent Login Skills", type: "text/markdown" },
       { uri: "skills:skills", name: "Agent Login Skills (alias)", type: "text/markdown" },
+      { uri: "doc:action-schema", name: "Execution Action Schema", type: "text/markdown" },
       { uri: "guide:agent-login", name: "Agent Login Guide", type: "application/json" },
       { uri: "guide:troubleshooting", name: "Login Troubleshooting", type: "application/json" },
       { uri: "openapi:swagger", name: "OpenAPI Schema", type: "application/json" }
@@ -270,6 +279,9 @@ const mcpService = {
     }
     if (uri === "doc:skills" || uri === "skills:skills") {
       return { type: "text/markdown", content: AGENT_SKILLS_MD };
+    }
+    if (uri === "doc:action-schema") {
+      return { type: "text/markdown", content: buildActionSchemaMarkdown(null) };
     }
     if (uri === "guide:agent-login") {
       return { type: "application/json", content: AGENT_LOGIN_GUIDE };

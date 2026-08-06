@@ -49,6 +49,12 @@ router.get("/", (req, res) => {
         alias: "/skill.md",
         absolute: "https://slcapi.discernible.io:9443/api/game/skill.md"
       },
+      actionSchema: {
+        markdown: "/api/game/action-schema.md",
+        alias: "/action-schema.md",
+        absolute: "https://slcapi.discernible.io:9443/api/game/action-schema.md",
+        mcp: "/api/mcp/resource/doc:action-schema"
+      },
       peerAuth: {
         markdown: "/api/game/peer-auth.md",
         alias: "/peer-auth.md",
@@ -139,6 +145,7 @@ router.get("/", (req, res) => {
         troubleshooting: "/api/mcp/resource/guide:troubleshooting",
         loginGuide: "/api/mcp/resource/guide:agent-login",
         gameSkill: "/api/game/skill.md",
+        actionSchema: "/api/game/action-schema.md",
         peerAuth: "/api/game/peer-auth.md",
         mcp: "/mcp"
       },
@@ -182,6 +189,7 @@ router.get("/.well-known/mcp", (req, res) => {
       examples: [
         "/api/mcp/resource/doc:discovery",
         "/api/mcp/resource/doc:skills",
+        "/api/mcp/resource/doc:action-schema",
         "/api/mcp/resource/guide:agent-login",
         "/api/mcp/resource/guide:troubleshooting",
         "/api/mcp/resource/openapi:swagger"
@@ -216,6 +224,11 @@ router.get("/.well-known/mcp", (req, res) => {
         markdown: "/api/game/skill.md",
         absolute: "https://slcapi.discernible.io:9443/api/game/skill.md"
       },
+      actionSchema: {
+        markdown: "/api/game/action-schema.md",
+        absolute: "https://slcapi.discernible.io:9443/api/game/action-schema.md",
+        mcp: "/api/mcp/resource/doc:action-schema"
+      },
       peerAuth: {
         markdown: "/api/game/peer-auth.md",
         absolute: "https://slcapi.discernible.io:9443/api/game/peer-auth.md"
@@ -247,6 +260,8 @@ router.get("/.well-known/mcp", (req, res) => {
       skills: "/api/mcp/resource/doc:skills",
       gameSkill: "/api/game/skill.md",
       gameSkillAbsolute: "https://slcapi.discernible.io:9443/api/game/skill.md",
+      actionSchema: "/api/game/action-schema.md",
+      actionSchemaAbsolute: "https://slcapi.discernible.io:9443/api/game/action-schema.md",
       peerAuth: "/api/game/peer-auth.md",
       peerAuthAbsolute: "https://slcapi.discernible.io:9443/api/game/peer-auth.md",
       loginGuide: "/api/mcp/resource/guide:agent-login",
@@ -254,6 +269,7 @@ router.get("/.well-known/mcp", (req, res) => {
       examples: [
         "/api/mcp/resource/doc:discovery",
         "/api/mcp/resource/doc:skills",
+        "/api/mcp/resource/doc:action-schema",
         "/api/mcp/resource/guide:agent-login",
         "/api/mcp/resource/guide:troubleshooting"
       ]

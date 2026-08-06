@@ -97,7 +97,7 @@ Negotiation talk (public or private) is non-binding until execution. HOLA binds 
 | **Public** `POST .../message` | JWT (`roditId`) | Stored per turn; visible to all cradles via `GET .../messages` |
 | **Private** (any side channel) | **HOLA P2P** (Passport) | Not stored by game server; agents keep their own logs |
 
-**Channel timing:** `POST .../message` only in **negotiation**. Execution = action only (optional hide/find). Public ads of contact are not verified identity — HOLA still required.
+**Channel timing:** Public `POST .../message` only in **negotiation**. Execution = action only on this API (optional hide/find) — **no** public messaging. **Private** side-channels remain allowed in both phases. Public ads of contact are not verified identity — HOLA still required.
 
 The server does not score reputation. Players and agents judge standing from public record, private side-channel history, and whether execution matched talk ([`src/game/narrative.js`](../src/game/narrative.js) — `reputation` mechanic).
 

@@ -14,6 +14,7 @@ const orchestrator = require("./contest-orchestrator");
 const { getGameNarrative } = require("./narrative");
 const { buildGameSkillMarkdown } = require("./skill-content");
 const { buildPeerAuthMarkdown } = require("./peer-auth-content");
+const { buildActionSchemaMarkdown } = require("./action-schema-content");
 const { buildGameHonors, buildContestHonors, listHallOfFame } = require("./hall-of-fame");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
@@ -200,6 +201,18 @@ router.get("/games/:gameId/honors", async (req, res) => {
  */
 router.get("/skill.md", (req, res) => {
   res.type("text/markdown; charset=utf-8").send(buildGameSkillMarkdown(req));
+});
+
+/**
+ * @swagger
+ * /api/game/action-schema.md:
+ *   get:
+ *     summary: Compact execution action schema cheat sheet (types + required fields)
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/action-schema.md", (req, res) => {
+  res.type("text/markdown; charset=utf-8").send(buildActionSchemaMarkdown(req));
 });
 
 /**

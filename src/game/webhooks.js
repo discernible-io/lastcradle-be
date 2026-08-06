@@ -471,12 +471,13 @@ async function notifyDeadlineWarningForGame(gameId) {
   return results;
 }
 
-async function notifyElimination({ gameId, agent, turnNumber }) {
+async function notifyElimination({ gameId, agent, turnNumber, deathReason = null }) {
   return notifyRoditEvent(agent.roditId, "elimination", {
     gameId,
     agentId: agent.id,
     displayName: agent.displayName,
-    diedAtTurn: turnNumber
+    diedAtTurn: turnNumber,
+    ...(deathReason ? { deathReason } : {})
   });
 }
 
@@ -582,11 +583,33 @@ async function notifyGameFinished(game) {
     return [];
   }
 
-  return notifyAllAgents(game.id, "game_finished", {
-    status: game.status,
-    winnerIds: game.winnerIds || [],
-    contestMode: game.config?.contestMode ?? null,
-    finishedAt: game.finished_at
+  const agents = await repo.listAgents(game.id);
+  // Lazy require avoids circular init with engine.js (which imports this module).
+  const { buildWinReport, buildGameOverReport } = require("./engine");
+
+  return notifyAllAgents(game.id, "game_finished", (agent) => {
+    const winReport = buildWinReport({ game, agent, agents });
+    if (winReport) {
+      return {
+        status: game.status,
+        winnerIds: game.winnerIds || [],
+        contestMode: game.config?.contestMode ?? null,
+        finishedAt: game.finished_at,
+        won: true,
+        winReport,
+        message: winReport.summary
+      };
+    }
+    const gameOverReport = buildGameOverReport({ game, agent, agents });
+    return {
+      status: game.status,
+      winnerIds: game.winnerIds || [],
+      contestMode: game.config?.contestMode ?? null,
+      finishedAt: game.finished_at,
+      won: false,
+      gameOverReport,
+      message: gameOverReport?.summary || "Game finished — you did not win. Inspect honors."
+    };
   });
 }
 

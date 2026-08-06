@@ -38,8 +38,20 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.13.0")) {
-    throw new Error("skill.md should be version 1.13.0");
+  if (!skill.includes("version: 1.16.0")) {
+    throw new Error("skill.md should be version 1.16.0");
+  }
+  if (!skill.includes("action-schema.md")) {
+    throw new Error("skill.md should link action-schema.md");
+  }
+  if (!skill.includes("deathReason")) {
+    throw new Error("skill.md should document deathReason");
+  }
+  if (!skill.includes("winReport")) {
+    throw new Error("skill.md should document winReport");
+  }
+  if (!skill.includes("you_won")) {
+    throw new Error("skill.md should document you_won task");
   }
   if (!skill.includes("transfersReceivedLastTurn")) {
     throw new Error("skill.md should document you.transfersReceivedLastTurn");
