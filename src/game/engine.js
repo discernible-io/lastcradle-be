@@ -1070,6 +1070,23 @@ async function joinGame(gameId, { roditId, displayName }) {
     return existing;
   }
 
+  const memberships = await repo.listMembershipsByRoditId(roditId, {
+    gameStatuses: ["lobby", "running"]
+  });
+  const other = memberships.find((m) => m.game.id !== gameId);
+  if (other) {
+    throw gameError(
+      "AGENT_IN_ACTIVE_GAME",
+      "Agent is already in another lobby or running game; finish or wait for that game before joining another",
+      409,
+      {
+        activeGameId: other.game.id,
+        activeGameStatus: other.game.status,
+        agentStatus: other.agent.status
+      }
+    );
+  }
+
   requireJoiningWindowOpen(game);
 
   const config = game.config;
