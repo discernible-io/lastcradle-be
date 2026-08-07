@@ -413,6 +413,46 @@ router.post("/games/:gameId/action", validateContentType, validateJsonBody, asyn
 
 /**
  * @swagger
+ * /api/game/games/{gameId}/project:
+ *   post:
+ *     summary: Dry-run survival/action calculator (does not submit)
+ *     description: >
+ *       Project storage-tax + survival + outbound action effects without writing an action.
+ *       Optional assumeInbound models hypothetical peer sends. Allowed in any running phase.
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-game-auth: jwt-passport
+ */
+router.post("/games/:gameId/project", validateContentType, validateJsonBody, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const roditId = resolveRoditId(req);
+  if (!roditId) {
+    return sendError(res, { statusCode: 401, requestId, code: "AUTH_REQUIRED", message: "Authentication required" });
+  }
+
+  try {
+    const agent = await repo.getAgentByRoditId(req.params.gameId, roditId);
+    if (!agent) {
+      return sendError(res, {
+        statusCode: 404,
+        requestId,
+        code: "AGENT_NOT_IN_GAME",
+        message: "You must join the game before projecting actions"
+      });
+    }
+    const { assumeInbound, ...actionBody } = req.body || {};
+    const result = await engine.projectAgentActionDryRun(req.params.gameId, agent.id, actionBody, {
+      assumeInbound
+    });
+    res.status(200).json({ ...result, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
  * /api/game/games/{gameId}/recollection:
  *   post:
  *     summary: Submit or update a public post-elim / post-finish recollection for spectators

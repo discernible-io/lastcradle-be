@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.17.1")) {
-    throw new Error("skill.md should be version 1.17.1");
+  if (!skill.includes("version: 1.18.0")) {
+    throw new Error("skill.md should be version 1.18.0");
   }
   if (!skill.includes("submit_recollection")) {
     throw new Error("skill.md should document submit_recollection");
@@ -49,6 +49,12 @@ async function main() {
   }
   if (!skill.includes("action-schema.md")) {
     throw new Error("skill.md should link action-schema.md");
+  }
+  if (!skill.includes("/project") || !skill.includes("slc_project")) {
+    throw new Error("skill.md should document dry-run calculator POST .../project / slc_project");
+  }
+  if (!skill.includes("assumeInbound")) {
+    throw new Error("skill.md should document assumeInbound on dry-run");
   }
   if (!skill.includes("deathReason")) {
     throw new Error("skill.md should document deathReason");

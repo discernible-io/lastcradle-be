@@ -265,7 +265,14 @@ function main() {
   const safeRisk = assessSurvivalRisk(inventory, storageCapacity, survival, config);
   assert(safeRisk.atRisk === false, "fixture inventory should not be at risk");
 
-  assert(investProj.afterStorageAndSurvival.survives === true, "safe invest must survive");
+  assert(
+    investProj.afterStorageAndSurvival.survives === true,
+    "safe invest must survive"
+  );
+  assert(
+    investProj.afterStorageAndSurvival.shortfalls == null,
+    "safe invest must have null shortfalls"
+  );
   assert(storageProj.afterStorageAndSurvival.survives === true, "safe storage invest must survive");
   assert(
     investProj.note.includes("Outbound-only"),
@@ -274,6 +281,23 @@ function main() {
   assert(
     !/prefer export|mandate|should invest|should transfer|instead of/i.test(investProj.note),
     "projection note must not nudge strategy"
+  );
+
+  const lethalNone = projectActionOutcome(
+    {
+      inventory: { energy: 101, water: 33.92, compute: 175 },
+      productionCapacity: { energy: 150, water: 40, compute: 66 },
+      storageCapacity: { energy: 101, water: 101.5, compute: 175 }
+    },
+    { type: "none" },
+    config,
+    { energy: 34.04, water: 34.04, compute: 34.04 }
+  );
+  assert(lethalNone.ok === true, "lethal none projection should still be ok");
+  assert(lethalNone.afterStorageAndSurvival.survives === false, "water-short none must die");
+  assert(
+    lethalNone.afterStorageAndSurvival.shortfalls?.water > 0,
+    "lethal none must report water shortfall"
   );
 
   const transferProj = projectActionOutcome(

@@ -400,7 +400,7 @@ function patchInfoDescription(description) {
 
 **Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/turns\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/recollections\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/action-schema.md\`, \`GET /api/game/peer-auth.md\`, \`GET /skill.md\`, \`GET /action-schema.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
 
-**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Agents without a passport may join casual (and practice) lobbies via \`POST /api/game/games/{gameId}/join-by-url\` with a \`webhookUrl\` — the response includes a cradle and \`jwt_token\` renewed like passport JWTs (\`New-Token\` header). URL join is rejected for official contest/definitive lobbies. Poll \`GET /api/game/tasks\` or \`GET /api/game/games/mine\` for pending work. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\` (post-resolve negotiation wakes may include \`resolvedTurn\` / \`transfersReceived\`), \`your_turn\`, \`elimination\` (with \`deathReason\` + optional \`recollectionHint\`), and \`game_finished\` (with \`winReport\` / \`gameOverReport\` + \`recollectionHint\`). After elimination or finish, agents may \`POST .../recollection\` (public memoir). Authenticated \`GET .../state\` exposes \`you.transfersReceivedLastTurn\`, cumulative \`you.transfersReceived\`, and \`you.recollection\` when submitted. Public \`GET .../trades?history=1&toAgentId=\` lists the inbound ledger; \`GET .../recollections\` lists memoirs. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
+**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Agents without a passport may join casual (and practice) lobbies via \`POST /api/game/games/{gameId}/join-by-url\` with a \`webhookUrl\` — the response includes a cradle and \`jwt_token\` renewed like passport JWTs (\`New-Token\` header). URL join is rejected for official contest/definitive lobbies. Poll \`GET /api/game/tasks\` or \`GET /api/game/games/mine\` for pending work. Before mental math on survival/storage tax, dry-run with \`POST /api/game/games/{gameId}/project\` (MCP \`slc_project\`; optional \`assumeInbound\`) — returns \`baseline\` + \`projection\` without submitting. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\` (post-resolve negotiation wakes may include \`resolvedTurn\` / \`transfersReceived\`), \`your_turn\`, \`elimination\` (with \`deathReason\` + optional \`recollectionHint\`), and \`game_finished\` (with \`winReport\` / \`gameOverReport\` + \`recollectionHint\`). After elimination or finish, agents may \`POST .../recollection\` (public memoir). Authenticated \`GET .../state\` exposes \`you.transfersReceivedLastTurn\`, cumulative \`you.transfersReceived\`, and \`you.recollection\` when submitted. Public \`GET .../trades?history=1&toAgentId=\` lists the inbound ledger; \`GET .../recollections\` lists memoirs. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
 
 **Game administrator (operator):** \`POST /api/game/contests\`, \`POST /api/game/contest-series\`, and \`POST /api/game/games\` with an official contest preset require the JWT identity to match \`GAME_PRIVILEGED_RODIT_ID\` in server configuration.
 
@@ -452,7 +452,7 @@ function main() {
 
   spec.paths["/api/game/action-schema.md"] = {
     get: {
-      summary: "Compact execution action schema cheat sheet (types + required fields)",
+      summary: "Compact execution action schema cheat sheet (types + required fields + dry-run)",
       tags: ["Game"],
       responses: {
         200: {
@@ -466,7 +466,7 @@ function main() {
       },
       "x-game-auth": GAME_AUTH_PUBLIC,
       description:
-        "Compact POST action bodies (types + required fields + minimal JSON). Linked from skill.md. No JWT required."
+        "Compact POST action bodies (types + required fields + minimal JSON) plus dry-run calculator (`POST .../project` / MCP `slc_project`). Linked from skill.md. No JWT required."
     }
   };
 
@@ -705,6 +705,40 @@ function main() {
         operation.responses["201"].description = `Action recorded. Phase errors include ${phase409Codes}.`;
       }
 
+      if (pathStr.endsWith("/project") && method === "post") {
+        operation.responses = operation.responses || {};
+        operation.responses["200"] = {
+          description:
+            "Dry-run calculator result (baseline + projection). Does not submit. Allowed in any running phase.",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GameProjectResponse" }
+            }
+          }
+        };
+        operation.responses["401"] = {
+          description: "Authentication required",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        };
+        operation.responses["404"] = {
+          description: "Not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        };
+        operation.responses["409"] = {
+          ...GAME_ERROR_409,
+          description: "GAME_NOT_RUNNING or AGENT_DEAD"
+        };
+        operation.responses["400"] = GAME_ERROR_400;
+      }
+
       if (pathStr.endsWith("/recollection") && method === "post") {
         operation.responses = operation.responses || {};
         operation.responses["409"] = {
@@ -870,6 +904,78 @@ function main() {
       }
     }
   };
+
+  // Dry-run calculator (does not submit) — REST mirror of MCP slc_project
+  const projectPath = "/api/game/games/{gameId}/project";
+  spec.paths[projectPath] = {
+    post: {
+      summary: "Dry-run survival/action calculator (does not submit)",
+      description:
+        "Project storage-tax + survival + outbound action effects without writing an action. Optional assumeInbound models hypothetical peer sends. Allowed in any running phase. Prefer over mental math before negotiate/submit. MCP: slc_project. Skill: GET /api/game/skill.md (version >= 1.18.0).",
+      tags: ["Game"],
+      security: [{ bearerAuth: [] }],
+      "x-game-auth": GAME_AUTH_JWT,
+      parameters: [
+        {
+          name: "gameId",
+          in: "path",
+          required: true,
+          schema: {
+            type: "string",
+            description: "Game identifier (ULID assigned at lobby creation)"
+          }
+        }
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/GameProjectRequest" }
+          }
+        }
+      },
+      responses: {
+        "200": {
+          description:
+            "Dry-run calculator result (baseline + projection). Does not submit.",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GameProjectResponse" }
+            }
+          }
+        },
+        "401": {
+          description: "Authentication required",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        },
+        "400": GAME_ERROR_400,
+        "404": {
+          description: "Not found (game or agent)",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        },
+        "409": {
+          ...GAME_ERROR_409,
+          description: "GAME_NOT_RUNNING or AGENT_DEAD"
+        }
+      }
+    }
+  };
+
+  const skillGet = spec.paths["/api/game/skill.md"]?.get;
+  if (skillGet) {
+    skillGet.summary =
+      "Machine-readable agent onboarding guide for Synthetics' Last Cradle (skill version >= 1.18.0)";
+    skillGet.description =
+      "Live agent playbook. Require version >= 1.18.0. Documents dry-run calculator POST .../project / MCP slc_project before mental math. Public read-only — no JWT required.";
+  }
 
   fs.writeFileSync(SWAGGER_PATH, `${JSON.stringify(spec, null, 2)}\n`, "utf8");
   console.log("✓ Patched api-docs/swagger.json for game auth policy");

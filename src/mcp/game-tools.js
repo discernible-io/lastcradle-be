@@ -22,7 +22,7 @@ const { logger } = require("@rodit/rodit-auth-be");
 const GAME_TOOL_DEFS = [
   {
     name: "slc_skill",
-    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.17.1).",
+    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.18.0).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
@@ -132,6 +132,54 @@ const GAME_TOOL_DEFS = [
       },
       required: ["gameId", "type"],
       additionalProperties: false
+    }
+  },
+  {
+    name: "slc_project",
+    description:
+      "Dry-run survival/action calculator (does not submit). Same action fields as slc_action plus optional assumeInbound { energy, water, compute } for hypothetical peer sends. Returns baseline (survives/shortfalls/storage tax) and outbound projection. Prefer this over mental math before negotiating or submitting. REST: POST /api/game/games/{gameId}/project.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        gameId: { type: "string" },
+        type: { type: "string", description: "Execution action type (default none)" },
+        payload: {
+          type: "object",
+          description: "Action fields including optional hide/find/reduceStorage/transfers",
+          additionalProperties: true
+        },
+        assumeInbound: {
+          type: "object",
+          description: "Hypothetical inbound transfer amounts applied before the outbound action",
+          properties: {
+            energy: { type: "number" },
+            water: { type: "number" },
+            compute: { type: "number" }
+          },
+          additionalProperties: false
+        },
+        hide: {
+          oneOf: [{ type: "number" }, { type: "object", additionalProperties: true }]
+        },
+        find: {
+          type: "array",
+          items: { type: "object", additionalProperties: true }
+        },
+        toAgentId: { type: "string" },
+        energy: { type: "number" },
+        water: { type: "number" },
+        compute: { type: "number" },
+        target: { type: "string", enum: ["energy", "water", "compute"] },
+        amount: { type: "number" },
+        transfers: { type: "array", items: { type: "object", additionalProperties: true } },
+        transfer: { type: "object", additionalProperties: true },
+        invest: { type: "object", additionalProperties: true },
+        production: { type: "object", additionalProperties: true },
+        storage: { type: "object", additionalProperties: true },
+        reduceStorage: { type: "object", additionalProperties: true }
+      },
+      required: ["gameId"],
+      additionalProperties: true
     }
   },
   {
@@ -386,6 +434,35 @@ async function callGameTool(name, args, req) {
         });
       }
       return result;
+    }
+    case "slc_project": {
+      const roditId = requireRodit(req);
+      const agent = await repo.getAgentByRoditId(args.gameId, roditId);
+      if (!agent) {
+        const err = new Error("You must join the game before projecting actions");
+        err.statusCode = 404;
+        err.code = "AGENT_NOT_IN_GAME";
+        throw err;
+      }
+      const {
+        gameId,
+        assumeInbound,
+        payload,
+        ...rest
+      } = args || {};
+      const body = {
+        type: rest.type || payload?.type || "none",
+        ...(payload || {}),
+        ...rest,
+        ...(rest.hide != null || payload?.hide != null
+          ? { hide: rest.hide != null ? rest.hide : payload.hide }
+          : {}),
+        ...(rest.find != null || payload?.find != null
+          ? { find: rest.find != null ? rest.find : payload.find }
+          : {})
+      };
+      delete body.assumeInbound;
+      return engine.projectAgentActionDryRun(gameId, agent.id, body, { assumeInbound });
     }
     case "slc_recollection": {
       const roditId = requireRodit(req);

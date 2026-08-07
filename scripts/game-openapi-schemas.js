@@ -464,7 +464,7 @@ const gameSchemas = {
   GameActionProjection: {
     type: "object",
     description:
-      "Outbound-only projection returned on POST .../action and tick/slc_action responses. Inbound peer transfers are not modeled.",
+      "Outbound-only projection returned on POST .../action, POST .../project, and tick/slc_action responses. Inbound peer transfers are not modeled unless assumeInbound was supplied on .../project.",
     properties: {
       ok: { type: "boolean" },
       error: { type: "string" },
@@ -523,6 +523,12 @@ const gameSchemas = {
           productionCapacity: { $ref: "#/components/schemas/GameResourceTriple" },
           storageCapacity: { $ref: "#/components/schemas/GameResourceTriple" },
           survives: { type: "boolean", nullable: true },
+          shortfalls: {
+            type: "object",
+            nullable: true,
+            additionalProperties: { type: "number" },
+            description: "Per-resource amount short of thisTurnSurvivalCost after storage tax"
+          },
           thisTurnSurvivalCost: { $ref: "#/components/schemas/GameResourceTriple" },
           storageEnergyCost: { type: "number" },
           energyAfterStorage: { type: "number" },
@@ -537,6 +543,108 @@ const gameSchemas = {
           }
         }
       }
+    }
+  },
+  GameSurvivalBaseline: {
+    type: "object",
+    description:
+      "Survival risk snapshot for current holdings (after optional assumeInbound, before outbound action).",
+    properties: {
+      survives: { type: "boolean" },
+      atRisk: { type: "boolean" },
+      shortfalls: {
+        type: "object",
+        nullable: true,
+        additionalProperties: { type: "number" },
+        description: "Per-resource shortfall vs thisTurnSurvivalCost after storage tax"
+      },
+      storageEnergyCost: { type: "number" },
+      energyAfterStorage: { type: "number" },
+      inventoryAfterStorage: { $ref: "#/components/schemas/GameResourceTriple" },
+      thisTurnSurvivalCost: { $ref: "#/components/schemas/GameResourceTriple" },
+      message: { type: "string", nullable: true },
+      note: { type: "string" }
+    }
+  },
+  GameProjectRequest: {
+    type: "object",
+    description:
+      "Dry-run calculator body (does not submit). Same fields as execution action plus optional assumeInbound. Defaults to type none when omitted. MCP: slc_project.",
+    properties: {
+      type: {
+        type: "string",
+        enum: [
+          "none",
+          "transfer",
+          "invest",
+          "invest_production",
+          "invest_storage",
+          "transfer_and_invest",
+          "transfer_and_invest_production",
+          "transfer_and_invest_storage"
+        ]
+      },
+      assumeInbound: {
+        type: "object",
+        description:
+          "Hypothetical peer send applied before outbound projection. Not guaranteed — negotiation planning only.",
+        properties: {
+          energy: { type: "number" },
+          water: { type: "number" },
+          compute: { type: "number" }
+        }
+      },
+      toAgentId: { type: "string" },
+      energy: { type: "number" },
+      water: { type: "number" },
+      compute: { type: "number" },
+      target: { type: "string", enum: ["energy", "water", "compute"] },
+      amount: { type: "number" },
+      transfers: { type: "array", items: { type: "object", additionalProperties: true } },
+      transfer: { type: "object", additionalProperties: true },
+      production: { type: "object", additionalProperties: true },
+      storage: { type: "object", additionalProperties: true },
+      invest: { type: "object", additionalProperties: true },
+      reduceStorage: { type: "object", additionalProperties: true },
+      hide: {
+        oneOf: [{ type: "number" }, { type: "object", additionalProperties: true }]
+      },
+      find: { type: "array", items: { type: "object", additionalProperties: true } }
+    }
+  },
+  GameProjectResponse: {
+    type: "object",
+    description:
+      "Dry-run survival/action calculator result. Does not write an execution action. Prefer over mental math before negotiate/submit.",
+    required: ["dryRun", "baseline", "projection", "requestId"],
+    properties: {
+      dryRun: { type: "boolean", enum: [true] },
+      gameId: { type: "string" },
+      agentId: { type: "string" },
+      turnNumber: { type: "integer" },
+      phase: {
+        type: "string",
+        nullable: true,
+        enum: ["negotiation", "execution", "resolving"]
+      },
+      action: {
+        type: "object",
+        description: "Normalized action that was projected",
+        additionalProperties: true
+      },
+      assumeInbound: {
+        type: "object",
+        nullable: true,
+        properties: {
+          energy: { type: "number" },
+          water: { type: "number" },
+          compute: { type: "number" }
+        }
+      },
+      baseline: { $ref: "#/components/schemas/GameSurvivalBaseline" },
+      projection: { $ref: "#/components/schemas/GameActionProjection" },
+      note: { type: "string" },
+      requestId: { type: "string" }
     }
   },
   GameSubmissionStatus: {

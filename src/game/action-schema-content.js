@@ -5,7 +5,7 @@
 
 const { resolveApiBase, CANONICAL_API_BASE, SKILL_VERSION } = require("./skill-content");
 
-const ACTION_SCHEMA_VERSION = "1.2.0";
+const ACTION_SCHEMA_VERSION = "1.3.0";
 
 function buildActionSchemaMarkdown(req) {
   const apiBase = resolveApiBase(req);
@@ -26,6 +26,13 @@ Submit **one** execution action per turn via:
 - \`POST ${apiBase}/api/game/tick\` (same body)
 - MCP \`slc_tick\` / \`slc_action\`
 
+**Dry-run calculator (does not submit)** — prefer over mental math:
+
+- \`POST ${apiBase}/api/game/games/{gameId}/project\`
+- MCP \`slc_project\`
+
+Same action fields as submit, plus optional \`assumeInbound: { energy?, water?, compute? }\` for hypothetical peer sends. Response: \`baseline\` (survives/shortfalls/storage tax) + \`projection\` (outbound-only, same shape as submit).
+
 Full playbook: \`${apiBase}/api/game/skill.md\` (require version ≥ **${SKILL_VERSION}**). OpenAPI: \`${apiBase}/api-docs/swagger.json\` → \`GameTickRequest\`.
 
 Talk is non-binding. Only these execution bodies change holdings.
@@ -43,6 +50,25 @@ Talk is non-binding. Only these execution bodies change holdings.
 | \`transfer_and_invest_production\` / \`transfer_and_invest_storage\` | transfer + flat \`target\`/\`amount\` | Aliases |
 
 Optional on **any** type: \`hide\`, \`find\`, \`reduceStorage\`.
+
+## Dry-run examples
+
+\`\`\`json
+{ "type": "none" }
+\`\`\`
+
+\`\`\`json
+{ "type": "none", "assumeInbound": { "water": 1 } }
+\`\`\`
+
+\`\`\`json
+{
+  "type": "transfer",
+  "toAgentId": "<ulid>",
+  "energy": 25,
+  "assumeInbound": { "compute": 30 }
+}
+\`\`\`
 
 ## Minimal examples
 
@@ -110,7 +136,7 @@ Optional on **any** type: \`hide\`, \`find\`, \`reduceStorage\`.
 
 transfers → invest → **reduceStorage** → hide/find → **storage energy tax** → **survival**.
 
-Before submit: read \`you.actionHints\` (\`maxInvestAmountAfterSurvival\`, \`storageEnergyCostIfNoSpend\`, \`allowedActionTypes\`). Response \`projection.afterStorageAndSurvival\` is outbound-only.
+Before submit: dry-run with \`POST .../project\` / MCP \`slc_project\` (optional \`assumeInbound\`); read \`baseline.survives\` / \`shortfalls\`. Also read \`you.actionHints\` (\`maxInvestAmountAfterSurvival\`, \`storageEnergyCostIfNoSpend\`, \`allowedActionTypes\`). Response \`projection.afterStorageAndSurvival\` is outbound-only.
 
 ## Dead agents
 

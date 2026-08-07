@@ -121,6 +121,8 @@ function testActionSchemaDocs() {
   assert(md.includes("Equal invest is triple-cost") || md.includes("triple-cost"), "triple-cost");
   assert(md.includes('"type": "invest"'), "invest example");
   assert(md.includes("reduceStorage"), "reduceStorage");
+  assert(md.includes("/project") || md.includes("slc_project"), "dry-run project");
+  assert(md.includes("assumeInbound"), "assumeInbound");
   assert(md.includes("deathReason"), "deathReason mention");
   assert(md.includes("winReport") || md.includes("You won"), "win report mention");
   assert(md.includes("https://api.example.test/api/game/games"), "host-aware base");
@@ -129,9 +131,10 @@ function testActionSchemaDocs() {
     protocol: "https",
     get: (h) => (h === "host" ? "api.example.test" : null)
   });
-  assert(skill.includes("version: 1.17.1"), "skill version 1.17.1");
+  assert(skill.includes("version: 1.18.0"), "skill version 1.18.0");
   assert(skill.includes("action-schema.md"), "skill links action-schema");
   assert(skill.includes("doc:action-schema"), "skill links MCP action-schema");
+  assert(skill.includes("slc_project") || skill.includes("/project"), "skill documents dry-run");
   assert(skill.includes("deathReason"), "skill documents deathReason");
   assert(skill.includes("winReport"), "skill documents winReport");
 }

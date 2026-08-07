@@ -135,6 +135,7 @@ router.get("/", (req, res) => {
         "slc_state",
         "slc_message",
         "slc_action",
+        "slc_project",
         "slc_tick"
       ],
       httpAccessForAgents: {
@@ -207,6 +208,11 @@ router.get("/.well-known/mcp", (req, res) => {
       { name: "slc_state", description: "GET game state" },
       { name: "slc_message", description: "POST public negotiation message" },
       { name: "slc_action", description: "POST execution action" },
+      {
+        name: "slc_project",
+        description:
+          "Dry-run survival/action calculator (does not submit; optional assumeInbound)"
+      },
       { name: "slc_tick", description: "Submit one required execution action (explicit body; empty → action_required)" }
     ],
     agentGuide: {

@@ -1860,6 +1860,11 @@ function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
     survivalCost != null ? hasSufficient(afterStorageInv, survivalCost) : null;
   const afterSurvivalInv =
     survives === true ? deduct(afterStorageInv, survivalCost) : afterStorageInv;
+  const shortfalls =
+    survivalCost != null
+      ? assessSurvivalRisk(state.inventory, state.storageCapacity, survivalCost, config)
+          .shortfalls
+      : null;
 
   return {
     ok: true,
@@ -1870,6 +1875,7 @@ function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
       productionCapacity: cloneCapacities(state.productionCapacity),
       storageCapacity: cloneCapacities(state.storageCapacity),
       survives,
+      shortfalls,
       thisTurnSurvivalCost: survivalCost ? { ...survivalCost } : null,
       storageEnergyCost: storageTax.storageEnergyCost,
       energyAfterStorage: storageTax.energyAfterStorage,
@@ -1881,6 +1887,139 @@ function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
     },
     note:
       "Outbound-only projection of your submit (transfer out, invest capacity growth, reduceStorage, hide/find). Equal invest amount N spends N of each E/W/C (see equalInvestCost). Inbound peer transfers are not modeled. Fields: afterAction and afterStorageAndSurvival inventory, capacities, wasteIfNotExportedByNextProduction."
+  };
+}
+
+function normalizeAssumeInbound(raw) {
+  if (raw == null) {
+    return null;
+  }
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    throw gameError(
+      "INVALID_ASSUME_INBOUND",
+      "assumeInbound must be an object with optional energy, water, compute",
+      400
+    );
+  }
+  const inbound = {
+    energy: Number(raw.energy) || 0,
+    water: Number(raw.water) || 0,
+    compute: Number(raw.compute) || 0
+  };
+  for (const key of RESOURCE_KEYS) {
+    if (!Number.isFinite(inbound[key]) || inbound[key] < 0) {
+      throw gameError(
+        "INVALID_ASSUME_INBOUND",
+        `assumeInbound.${key} must be a non-negative number`,
+        400,
+        { field: key, value: raw[key] }
+      );
+    }
+  }
+  if (inbound.energy + inbound.water + inbound.compute <= 0) {
+    return null;
+  }
+  return inbound;
+}
+
+function survivalSnapshotFromRisk(risk, note) {
+  return {
+    survives: risk.canPaySurvival,
+    atRisk: risk.atRisk,
+    shortfalls: risk.shortfalls,
+    storageEnergyCost: risk.storageEnergyCost,
+    energyAfterStorage: risk.energyAfterStorage,
+    inventoryAfterStorage: risk.inventoryAfterStorage,
+    thisTurnSurvivalCost: risk.thisTurnSurvivalCost,
+    message: risk.message,
+    ...(note ? { note } : {})
+  };
+}
+
+/**
+ * Dry-run calculator: project survival + outbound action without submitting.
+ * Optional assumeInbound models hypothetical peer sends before the outbound action.
+ * Allowed in any running phase (negotiation or execution) so agents can plan.
+ */
+async function projectAgentActionDryRun(gameId, agentId, action = {}, options = {}) {
+  const game = await repo.getGameById(gameId);
+  if (!game) {
+    throw gameError("GAME_NOT_FOUND", "Game not found", 404);
+  }
+  if (game.status !== "running") {
+    throw gameError("GAME_NOT_RUNNING", "Game is not in progress", 409);
+  }
+
+  const agent = await requireLivingAgent(agentId, gameId);
+  const assumeInbound = normalizeAssumeInbound(
+    options.assumeInbound !== undefined ? options.assumeInbound : action?.assumeInbound
+  );
+
+  const {
+    assumeInbound: _assumeInbound,
+    gameId: _gameId,
+    ...actionFields
+  } = action && typeof action === "object" ? action : {};
+  const actionBody =
+    actionFields && Object.keys(actionFields).length > 0
+      ? actionFields
+      : { type: "none" };
+  if (actionBody.type == null) {
+    actionBody.type = "none";
+  }
+
+  const maxTransferRecipients = resolveMaxTransferRecipients(game.config);
+  const normalized = normalizeAction(actionBody, { maxTransferRecipients });
+  validateActionPayload(normalized);
+
+  const livingAgents = await repo.listAgents(gameId, { status: "alive" });
+  const survivalContext = buildSurvivalContext({
+    turnNumber: game.current_turn,
+    livingAgents,
+    game
+  });
+  const thisTurnSurvivalCost = computeSurvivalCost(game.config, survivalContext);
+
+  const inventoryWithInbound = assumeInbound
+    ? add(cloneInventory(agent.inventory), assumeInbound)
+    : cloneInventory(agent.inventory);
+
+  const baselineRisk = assessSurvivalRisk(
+    inventoryWithInbound,
+    agent.storageCapacity,
+    thisTurnSurvivalCost,
+    game.config
+  );
+
+  const projectedAgent = {
+    inventory: inventoryWithInbound,
+    productionCapacity: cloneCapacities(agent.productionCapacity),
+    storageCapacity: cloneCapacities(agent.storageCapacity)
+  };
+  const projection = projectActionOutcome(
+    projectedAgent,
+    normalized,
+    game.config,
+    thisTurnSurvivalCost
+  );
+
+  return {
+    dryRun: true,
+    gameId,
+    agentId,
+    turnNumber: game.current_turn,
+    phase: game.phase,
+    action: normalized,
+    ...(assumeInbound ? { assumeInbound } : {}),
+    baseline: survivalSnapshotFromRisk(
+      baselineRisk,
+      assumeInbound
+        ? "After hypothetical assumeInbound only (no outbound action)."
+        : "Current holdings, no outbound action (equivalent to type none with no inbound)."
+    ),
+    projection,
+    note:
+      "Does not submit. Inbound is hypothetical only; peer transfers not guaranteed. Outbound-only projection matches POST .../action response.projection."
   };
 }
 
@@ -2601,6 +2740,8 @@ module.exports = {
   buildStorageReadouts,
   buildActionHints,
   projectActionOutcome,
+  projectAgentActionDryRun,
+  normalizeAssumeInbound,
   gameError,
   isJoiningWindowOpen,
   joiningWindowDetails,

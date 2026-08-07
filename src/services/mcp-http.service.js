@@ -216,6 +216,32 @@ async function setupMcpHttpTransport(app, { authenticate, getResource, listResou
       hide: z.union([z.number(), z.record(z.any())]).optional(),
       find: z.array(z.record(z.any())).optional()
     });
+    registerGameTool(GAME_TOOL_DEFS.find((t) => t.name === "slc_project"), {
+      gameId: z.string(),
+      type: z.string().optional(),
+      payload: z.record(z.any()).optional(),
+      assumeInbound: z
+        .object({
+          energy: z.number().optional(),
+          water: z.number().optional(),
+          compute: z.number().optional()
+        })
+        .optional(),
+      hide: z.union([z.number(), z.record(z.any())]).optional(),
+      find: z.array(z.record(z.any())).optional(),
+      toAgentId: z.string().optional(),
+      energy: z.number().optional(),
+      water: z.number().optional(),
+      compute: z.number().optional(),
+      target: z.enum(["energy", "water", "compute"]).optional(),
+      amount: z.number().optional(),
+      transfers: z.array(z.record(z.any())).optional(),
+      transfer: z.record(z.any()).optional(),
+      invest: z.record(z.any()).optional(),
+      production: z.record(z.any()).optional(),
+      storage: z.record(z.any()).optional(),
+      reduceStorage: z.record(z.any()).optional()
+    });
     registerGameTool(GAME_TOOL_DEFS.find((t) => t.name === "slc_tick"), {
       actionType: z.string().optional(),
       type: z.string().optional(),
