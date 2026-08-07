@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.18.0")) {
-    throw new Error("skill.md should be version 1.18.0");
+  if (!skill.includes("version: 1.18.1")) {
+    throw new Error("skill.md should be version 1.18.1");
   }
   if (!skill.includes("submit_recollection")) {
     throw new Error("skill.md should document submit_recollection");
