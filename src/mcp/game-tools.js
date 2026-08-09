@@ -18,6 +18,7 @@ const {
 } = require("../game/permissions");
 const scheduler = require("../game/scheduler");
 const { logger } = require("@rodit/rodit-auth-be");
+const { assertPassportIpLoginMethod } = require("../game/ip-login-method");
 
 const GAME_TOOL_DEFS = [
   {
@@ -368,6 +369,7 @@ async function callGameTool(name, args, req) {
     case "slc_join": {
       const roditId = requireRodit(req);
       const gameId = args.gameId;
+      await assertPassportIpLoginMethod(req, gameId, roditId);
       const existing = await repo.getAgentByRoditId(gameId, roditId);
       const agent = await engine.joinGame(gameId, {
         roditId,

@@ -27,6 +27,7 @@ const {
 const { resolveRoditId, handleGameError } = require("./route-helpers");
 const { listActiveGamesForRodit, listTasksInboxForRodit } = require("./agent-tasks");
 const { runAgentTick } = require("./tick");
+const { assertPassportIpLoginMethod } = require("./ip-login-method");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -94,6 +95,7 @@ router.post("/games", validateContentType, validateJsonBody, async (req, res) =>
       });
     }
 
+    await assertPassportIpLoginMethod(req, game.id, roditId);
     const agent = await engine.joinGame(game.id, {
       roditId,
       displayName: req.body?.displayName
@@ -229,6 +231,7 @@ router.post("/games/:gameId/join", validateContentType, validateJsonBody, async 
 
   try {
     const { gameId } = req.params;
+    await assertPassportIpLoginMethod(req, gameId, roditId);
     const existing = await repo.getAgentByRoditId(gameId, roditId);
     const agent = await engine.joinGame(gameId, {
       roditId,

@@ -168,6 +168,23 @@ CREATE TABLE IF NOT EXISTS contests (
 
 CREATE INDEX IF NOT EXISTS idx_contests_status ON contests(status);
 CREATE INDEX IF NOT EXISTS idx_games_contest_mode ON games(status, created_at);
+
+CREATE TABLE IF NOT EXISTS rodit_login_methods (
+  rodit_id TEXT PRIMARY KEY,
+  method TEXT NOT NULL,
+  ip TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS game_ip_login_methods (
+  game_id TEXT NOT NULL,
+  ip TEXT NOT NULL,
+  method TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (game_id, ip),
+  FOREIGN KEY (game_id) REFERENCES games(id)
+);
+CREATE INDEX IF NOT EXISTS idx_game_ip_login_methods_ip ON game_ip_login_methods(ip);
 `;
 
 module.exports = { GAME_TABLES_SQL };

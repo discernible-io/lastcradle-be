@@ -157,6 +157,23 @@ async function migrateSchema(database) {
       UNIQUE (game_id, agent_id)
     );
     CREATE INDEX IF NOT EXISTS idx_game_recollections_game ON game_recollections(game_id);
+
+    CREATE TABLE IF NOT EXISTS rodit_login_methods (
+      rodit_id TEXT PRIMARY KEY,
+      method TEXT NOT NULL,
+      ip TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS game_ip_login_methods (
+      game_id TEXT NOT NULL,
+      ip TEXT NOT NULL,
+      method TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (game_id, ip),
+      FOREIGN KEY (game_id) REFERENCES games(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_game_ip_login_methods_ip ON game_ip_login_methods(ip);
   `);
 }
 
@@ -187,10 +204,89 @@ async function resetGameData() {
     DELETE FROM game_actions;
     DELETE FROM game_messages;
     DELETE FROM game_agents;
+    DELETE FROM game_ip_login_methods;
+    DELETE FROM rodit_login_methods;
     DELETE FROM url_join_identities;
     DELETE FROM contests;
     DELETE FROM games;
   `);
+}
+
+async function upsertRoditLoginMethod({ roditId, method, ip = null }) {
+  const id = canonicalRoditId(roditId);
+  if (!id || !method) {
+    return null;
+  }
+  const database = await getDb();
+  await database.run(
+    `INSERT INTO rodit_login_methods (rodit_id, method, ip, updated_at)
+     VALUES (?, ?, ?, datetime('now'))
+     ON CONFLICT(rodit_id) DO UPDATE SET
+       method = excluded.method,
+       ip = excluded.ip,
+       updated_at = datetime('now')`,
+    [id, method, ip]
+  );
+  return getRoditLoginMethod(id);
+}
+
+async function getRoditLoginMethod(roditId) {
+  const id = canonicalRoditId(roditId);
+  if (!id) {
+    return null;
+  }
+  const database = await getDb();
+  const row = await database.get(
+    `SELECT rodit_id AS roditId, method, ip, updated_at AS updatedAt
+     FROM rodit_login_methods WHERE rodit_id = ?`,
+    [id]
+  );
+  return row || null;
+}
+
+async function getGameIpLoginMethod(gameId, ip) {
+  if (!gameId || !ip) {
+    return null;
+  }
+  const database = await getDb();
+  const row = await database.get(
+    `SELECT game_id AS gameId, ip, method, created_at AS createdAt
+     FROM game_ip_login_methods WHERE game_id = ? AND ip = ?`,
+    [gameId, ip]
+  );
+  return row || null;
+}
+
+/**
+ * Bind (gameId, ip) → method. Returns { ok, lockedMethod }.
+ * ok=false when an existing bind uses a different method.
+ */
+async function bindGameIpLoginMethod({ gameId, ip, method }) {
+  if (!gameId || !ip || !method) {
+    return { ok: false, lockedMethod: null, reason: "missing_args" };
+  }
+  const database = await getDb();
+  const existing = await getGameIpLoginMethod(gameId, ip);
+  if (existing) {
+    if (existing.method !== method) {
+      return { ok: false, lockedMethod: existing.method };
+    }
+    return { ok: true, lockedMethod: existing.method };
+  }
+  try {
+    await database.run(
+      `INSERT INTO game_ip_login_methods (game_id, ip, method) VALUES (?, ?, ?)`,
+      [gameId, ip, method]
+    );
+    return { ok: true, lockedMethod: method };
+  } catch (err) {
+    // Race: another request bound first
+    const again = await getGameIpLoginMethod(gameId, ip);
+    if (again && again.method === method) {
+      return { ok: true, lockedMethod: again.method };
+    }
+    return { ok: false, lockedMethod: again?.method ?? null };
+  }
 }
 
 async function insertUrlJoinIdentity(fields) {
@@ -1423,6 +1519,10 @@ module.exports = {
   initializeDatabase,
   closeDatabase,
   resetGameData,
+  upsertRoditLoginMethod,
+  getRoditLoginMethod,
+  getGameIpLoginMethod,
+  bindGameIpLoginMethod,
   insertUrlJoinIdentity,
   getUrlJoinIdentity,
   createGame,

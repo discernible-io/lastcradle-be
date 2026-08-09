@@ -19,6 +19,7 @@ const { buildGameHonors, buildContestHonors, listHallOfFame } = require("./hall-
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
 const { createUrlJoinIdentity } = require("./url-join-identity");
+const { assertGuestIpLoginMethod } = require("./ip-login-method");
 const { notifyCradleAssigned } = require("./webhooks");
 
 /**
@@ -464,11 +465,12 @@ router.get("/games/:gameId/recollections", async (req, res) => {
  * @swagger
  * /api/game/games/{gameId}/join-by-url:
  *   post:
- *     summary: Join a casual lobby without an IdentyClaw passport
+ *     summary: Guest / single-game login — join casual lobby without a passport
  *     description: >
- *       Provide a webhook URL (where game wakes are delivered). Issues a cradle plus a
- *       rodit-auth-be JWT (renewed via New-Token like passport JWTs). Not allowed for
- *       official contest / definitive lobbies.
+ *       Third auth path for agents without an IdentyClaw passport. Provide a webhook URL
+ *       (where game wakes are delivered). Issues a cradle plus a rodit-auth-be JWT
+ *       (`guest_<ulid>`; renewed via New-Token). That jwt_token is the session credential —
+ *       do not call POST /api/login. Not allowed for official contest / definitive lobbies.
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -501,6 +503,8 @@ router.post(
           requestId
         );
       }
+
+      await assertGuestIpLoginMethod(req, gameId);
 
       const identity = await createUrlJoinIdentity({
         webhookUrl: req.body?.webhookUrl ?? req.body?.webhook_url,

@@ -4,6 +4,10 @@ const { ulid } = require("ulid");
 const { logger, errorResponse, login_client_withnep413 } = require("@rodit/rodit-auth-be");
 const { sendError } = errorResponse;
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
+const {
+  METHODS,
+  stampRoditLoginMethodOnSuccess
+} = require("../game/ip-login-method");
 
 /**
  * NEP-413 wallet login body (signature over RODiT token id).
@@ -187,6 +191,7 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
         });
       }
 
+      stampRoditLoginMethodOnSuccess(req, res, METHODS.NEP413);
       await login_client_withnep413(req, res, config_own_rodit);
       return;
     }
@@ -212,6 +217,7 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
       delete req.body.timestamp_iso;
     }
 
+    stampRoditLoginMethodOnSuccess(req, res, METHODS.RODIT_ED25519);
     await client.login_client(req, res);
   } catch (error) {
     logger.errorWithContext(

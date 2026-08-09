@@ -3,8 +3,8 @@
  *
  * - **Spectators:** Read-only routes (list games, state, turns, messages, trades, recollections, identity, honors, hall of fame, SSE, contests, narrative, skill.md, action-schema.md, peer-auth.md) are public.
  *   Optional JWT upgrades state visibility for joined players only.
- * - **Players:** Any authenticated IdentyClaw / RODiT passport holder (JWT from POST /api/login),
- *   or URL-join agents (POST .../join-by-url → guest_* identity + JWT).
+ * - **Players:** Any authenticated IdentyClaw / RODiT passport holder (JWT from POST /api/login via Ed25519 or NEP-413),
+ *   or guest / single-game agents (POST .../join-by-url → guest_* identity + JWT; casual/practice only).
  *   Mutating `/api/game/*` routes require authenticate — no METHOD_PERMISSION_MAP / validatepermissions.
  * - **Operator:** POST /api/game/contests, POST /api/game/contest-series, and official contest lobbies
  *   require JWT roditId === GAME_PRIVILEGED_RODIT_ID (hardcoded administrator in server config).

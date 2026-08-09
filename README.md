@@ -260,23 +260,26 @@ Local deploy without rsync/GHCR: `./scripts/deploy-local-podman.sh` (requires `~
 
 ### Authentication Flow
 
-`POST /api/login` supports two credential styles:
+There are **three** ways to obtain a game API Bearer (`Authorization: Bearer <jwt_token>`):
 
-1. **Ed25519 challenge (agents / OpenClaw):** `GET /api/login/timestamp`, then POST `roditid` + signature + exactly one of `timestamp` / `timestamp_iso`.
-2. **NEP-413 (NEAR wallet frontend):** POST `signature`, `message`, `nonce`, and `recipient` (optional `callbackUrl`). When those four fields are present, the server uses SDK `login_client_withnep413` (same contract as SignSanctum).
+1. **Ed25519 / RODiT challenge (`POST /api/login` — agents / OpenClaw):** `GET /api/login/timestamp`, then POST `roditid` + signature + exactly one of `timestamp` / `timestamp_iso`.
+2. **NEP-413 (`POST /api/login` — NEAR wallet frontend):** POST `signature`, `message`, `nonce`, and `recipient` (optional `callbackUrl`). When those four fields are present, the server uses SDK `login_client_withnep413` (same contract as SignSanctum).
+3. **Guest / single-game (no passport):** `POST /api/game/games/{gameId}/join-by-url` with `webhookUrl` on a casual/practice lobby → cradle + `jwt_token` for a `guest_<ulid>` identity. That token **is** the session credential (do not call `/api/login`). Renew via `New-Token`. Rejected for official contest/definitive lobbies.
 
-Either path:
+Passport paths (1–2):
 
 1. Server verifies the credential against NEAR / RODiT ownership
 2. JWT token issued with configurable expiration
 3. Subsequent requests include JWT in `Authorization: Bearer` header
 4. Middleware validates JWT and extracts user claims
 
+Guest path (3) mints the same style of JWT at join time (server-issued guest identity + webhook URL).
+
 Privileged game operator routes additionally require the JWT identity to match `GAME_PRIVILEGED_RODIT_ID` (must be set in server config / env; empty disables operator access).
 
 ### Security Features
 
-- **Cryptographic Identity**: Ed25519 challenge login and NEP-413 wallet signature verification
+- **Cryptographic Identity**: Ed25519 / RODiT challenge, NEP-413 wallet signatures, and server-issued guest JWTs from join-by-url
 - **JWT Tokens**: Short-lived tokens with automatic renewal
 - **Session Management**: SQLite-backed persistent sessions
 - **Rate Limiting**: Configurable per-route limits
@@ -456,7 +459,7 @@ curl -X POST https://api.discernible.io:9443/api/cruda/create \
 
 | Audience | Requirement |
 | --- | --- |
-| **Players** | IdentyClaw / RODiT passport login (`POST /api/login` via Ed25519 challenge or NEP-413 → JWT), **or** URL join (`POST /api/game/games/{gameId}/join-by-url` with a webhook URL → cradle + JWT). Passport holders may create casual lobbies, join, and play. URL join is for casual/practice lobbies only (not official contests). No `METHOD_PERMISSION_MAP` scopes. |
+| **Players** | Three Bearer mint paths: (1) IdentyClaw / RODiT `POST /api/login` (Ed25519), (2) NEP-413 `POST /api/login`, or (3) **guest / single-game** `POST /api/game/games/{gameId}/join-by-url` with a webhook URL → cradle + JWT (`guest_<ulid>`). Per `gameId`, each client IP is sticky to one of those methods (`409 LOGIN_METHOD_LOCKED` on switch). Passport holders may create casual lobbies, join, and play. Guest join is for casual/practice lobbies only (not official contests). No `METHOD_PERMISSION_MAP` scopes. |
 | **Game administrator** | Same JWT, but `roditId` must match `GAME_PRIVILEGED_RODIT_ID` for `POST /api/game/contests`, `POST /api/game/contest-series`, and official contest lobbies (`preset: contest\|definitive` or 15-player min/max). Set `GAME_PRIVILEGED_RODIT_ID` in config/env to the operator RODiT id (empty disables privileged access). |
 
 Swagger marks each Game operation with `x-game-auth`: `jwt-passport` or `privileged-rodit-id`. Re-sync after swagger edits: `node scripts/sync-game-openapi-auth.js`.
@@ -477,7 +480,7 @@ Player onboarding: [`docs/game-player-onboarding-howto.md`](docs/game-player-onb
 | `GET` | `/api/game/games` | List games (`?status`, `?contestMode`, `?limit`, `?offset`) |
 | `POST` | `/api/game/games` | Create lobby (auto-joins creator by default; `autoJoin: false` for host-only) |
 | `POST` | `/api/game/games/{gameId}/join` | Join lobby → cradle assignment (passport JWT) |
-| `POST` | `/api/game/games/{gameId}/join-by-url` | Join without passport → cradle + `jwt_token` (body: `webhookUrl`) |
+| `POST` | `/api/game/games/{gameId}/join-by-url` | Guest / single-game login: join without passport → cradle + `jwt_token` (body: `webhookUrl`) |
 | `POST` | `/api/game/games/{gameId}/start` | Start when `minAgents` joined |
 | `GET` | `/api/game/games/{gameId}/state` | Public state (your inventory/capacities when joined) |
 | `GET` | `/api/game/games/{gameId}/events` | SSE stream (phase changes, game finished, …) |
