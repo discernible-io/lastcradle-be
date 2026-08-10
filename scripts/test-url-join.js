@@ -79,6 +79,23 @@ async function main() {
     assert(err.code === "INVALID_WEBHOOK_URL", "invalid url rejected");
   }
 
+  const blocked = [
+    "https://127.0.0.1:8443/",
+    "https://localhost:8443/",
+    "https://10.0.0.5/hook",
+    "https://192.168.1.1/hook",
+    "https://169.254.169.254/latest/meta-data/",
+    "https://user:pass@agent.example/hooks/wake"
+  ];
+  for (const url of blocked) {
+    try {
+      validateWebhookUrl(url);
+      throw new Error(`expected block for ${url}`);
+    } catch (err) {
+      assert(err.code === "INVALID_WEBHOOK_URL", `blocked ${url}`);
+    }
+  }
+
   await repo.insertUrlJoinIdentity({
     roditId: guestId,
     ownerId: "ab".repeat(32),

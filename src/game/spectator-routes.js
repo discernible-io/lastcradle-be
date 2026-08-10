@@ -22,6 +22,43 @@ const { createUrlJoinIdentity } = require("./url-join-identity");
 const { assertGuestIpLoginMethod } = require("./ip-login-method");
 const { notifyCradleAssigned } = require("./webhooks");
 
+// Concurrent SSE connection caps (CC-0005).
+const MAX_TOTAL_SSE = Number(process.env.SSE_MAX_TOTAL || 500);
+const MAX_PER_IP_SSE = Number(process.env.SSE_MAX_PER_IP || 20);
+const sseTotal = { count: 0 };
+const ssePerIp = new Map();
+
+function acquireSseSlot(req, res, requestId) {
+  const ip = req.ip || req.socket?.remoteAddress || "unknown";
+  const perIp = ssePerIp.get(ip) || 0;
+  if (sseTotal.count >= MAX_TOTAL_SSE || perIp >= MAX_PER_IP_SSE) {
+    handleGameError(
+      res,
+      {
+        code: "SSE_CONNECTION_LIMIT",
+        message: "Too many concurrent SSE connections",
+        statusCode: 503
+      },
+      requestId
+    );
+    return null;
+  }
+  sseTotal.count += 1;
+  ssePerIp.set(ip, perIp + 1);
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    sseTotal.count = Math.max(0, sseTotal.count - 1);
+    const next = (ssePerIp.get(ip) || 1) - 1;
+    if (next <= 0) ssePerIp.delete(ip);
+    else ssePerIp.set(ip, next);
+  };
+  req.on("close", release);
+  res.on("close", release);
+  return release;
+}
+
 /**
  * @swagger
  * /api/game/games:
@@ -67,6 +104,11 @@ router.get("/games/:gameId/events", async (req, res) => {
       return handleGameError(res, { code: "GAME_NOT_FOUND", message: "Game not found", statusCode: 404 }, requestId);
     }
 
+    const releaseSlot = acquireSseSlot(req, res, requestId);
+    if (!releaseSlot) {
+      return; // 503 already sent
+    }
+
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -94,6 +136,7 @@ router.get("/games/:gameId/events", async (req, res) => {
     req.on("close", () => {
       clearInterval(heartbeat);
       unsubscribe();
+      releaseSlot();
     });
   } catch (err) {
     return handleGameError(res, err, requestId);

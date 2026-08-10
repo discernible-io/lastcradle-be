@@ -28,6 +28,20 @@ const authenticate_apicall = (req, res, next) => {
   return getClient(req).authenticate(req, res, next);
 };
 
+// Standard RBAC via METHOD_PERMISSION_MAP (CC-0003) — mirrors session.privileged.routes.js
+const authorize = (req, res, next) => {
+  const client = req.app?.locals?.roditClient;
+  if (!client) {
+    return sendError(res, {
+      statusCode: 503,
+      requestId: req.requestId || ulid(),
+      code: 'AUTHORIZATION_SERVICE_UNAVAILABLE',
+      message: 'Authorization service unavailable'
+    });
+  }
+  return client.authorize(req, res, next);
+};
+
 // Get performance service from singleton client
 const getPerformanceService = (req) => {
   return getClient(req).getPerformanceService();
@@ -279,9 +293,9 @@ router.get('/system', authenticate_apicall, (req, res) => {
  * POST /api/metrics/reset
  * 
  * Reset performance metrics counters
- * Protected: Requires authentication and admin permissions
+ * Protected: Requires authentication + METHOD_PERMISSION_MAP.reset (authorize)
  */
-router.post('/reset', authenticate_apicall, (req, res) => {
+router.post('/reset', authenticate_apicall, authorize, (req, res) => {
   const requestId = req.requestId || ulid();
   const startTime = Date.now();
   
@@ -294,26 +308,8 @@ router.post('/reset', authenticate_apicall, (req, res) => {
     endpoint: '/api/metrics/reset',
     httpMethod: req.method,
     userId: req.user?.id,
-    ip: req.ip,
-    hasAdminPermission: req.user?.permissions?.includes('admin')
+    ip: req.ip
   });
-  
-  // Check if user has admin permissions
-  if (!req.user || !req.user.permissions || !req.user.permissions.includes('admin')) {
-    logger.warnWithContext('Permission denied for metrics reset', {
-      requestId,
-      component: 'MetricsRoutes',
-      event: 'resetMetrics',
-      reason: 'Missing admin permission'
-    });
-    
-    return sendError(res, {
-      statusCode: 403,
-      requestId,
-      code: 'FORBIDDEN',
-      message: 'Admin permission required to reset metrics'
-    });
-  }
   
   try {
     const performanceService = getPerformanceService(req);

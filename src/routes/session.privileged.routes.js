@@ -5,6 +5,7 @@ const { logger, errorResponse } = require("@rodit/rodit-auth-be");
 const { getUserRateLimiter } = require("../middleware/userratelimitmw");
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
 const { sendError } = errorResponse;
+const { roditIdFromUser } = require("../game/rodit-id");
 
 const authenticate_apicall = (req, res, next) => {
   const client = req.app?.locals?.roditClient;
@@ -167,6 +168,43 @@ router.post("/revoke", validateContentType, validateJsonBody, authenticate_apica
 
   try {
     const sessionManager = getSessionManager(req);
+    const target = await sessionManager.storage.get(sessionId);
+    if (!target) {
+      return sendError(res, {
+        statusCode: 404,
+        requestId,
+        code: "SESSION_NOT_FOUND",
+        message: "Session not found or already terminated",
+        details: { sessionId }
+      });
+    }
+
+    const callerRoditId = roditIdFromUser(req.user);
+    const ownsTarget =
+      Boolean(callerRoditId) &&
+      (target.roditId === callerRoditId ||
+        target.ownerId === callerRoditId ||
+        target.ownerId === req.user?.rodit_owner ||
+        target.roditId === req.user?.sub);
+
+    if (!ownsTarget) {
+      logger.warnWithContext("Session revoke denied: not owner", {
+        component: "Sessions",
+        operation: "revoke",
+        requestId,
+        callerRoditId,
+        targetOwnerId: target.ownerId,
+        targetRoditId: target.roditId,
+        sessionId
+      });
+      return sendError(res, {
+        statusCode: 403,
+        requestId,
+        code: "SESSION_NOT_OWNED",
+        message: "Cannot revoke a session you do not own"
+      });
+    }
+
     const sessionClosed = await sessionManager.closeSession(sessionId, reason);
 
     if (sessionClosed) {

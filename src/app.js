@@ -182,7 +182,6 @@ const homeRoute = require("./routes/home");
 const authPublicRoutes = require("./routes/auth.public.routes");
 const agentPublicRoutes = require("./routes/agent.public.routes");
 const discoveryRoutes = require("./routes/discovery.public.routes");
-const signclientRoute = require("./routes/signclient");
 const mcpRoutes = require("./routes/mcp.public.routes");
 
 // Import protected routes (require authentication)
@@ -281,7 +280,6 @@ app.use((req, res, next) => {
 // Mount public routes
 app.use("/", discoveryRoutes);
 app.use("/api", homeRoute);
-app.use("/api", signclientRoute);
 app.use("/api/mcp", mcpRoutes);
 
 // Import additional protected routes
@@ -429,8 +427,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Apply rate limiting to all routes
-// app.use((req, res, next) => ratelimiter(req, res, next));
+// Apply rate limiting to all routes (CC-0006). Skip probes the SDK skip list misses.
+app.use((req, res, next) => {
+  if (req.path === "/health") {
+    return next();
+  }
+  return ratelimiter(req, res, next);
+});
 
 // Action logging middleware - tracks user actions
 app.use((req, res, next) => {
@@ -874,6 +877,9 @@ async function startServer() {
     app.use("/api", agentPublicRoutes);
 
     // Protected routes
+    // Tighter per-IP budget for game surface (CC-0006); SSE also has connection caps (CC-0005).
+    const gameIpsLimiter = ratelimitmw(300, 1);
+    app.use("/api/game", (req, res, next) => gameIpsLimiter(req, res, next));
     app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
     app.use("/api/game", optionalAuthenticate, gameSpectatorRoutes);
     app.use("/api/game", authenticate_apicall, gameRoutes);

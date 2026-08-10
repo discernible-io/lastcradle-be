@@ -28,6 +28,59 @@ const SERVER_INFO = {
 
 const transportsBySessionId = {};
 
+// Cap + TTL eviction for anonymous initialize storms (CC-0004).
+const MAX_MCP_SESSIONS = Number(process.env.MCP_MAX_SESSIONS || 1000);
+const MCP_SESSION_TTL_MS = Number(process.env.MCP_SESSION_TTL_MS || 60_000);
+const sessionLastSeen = new Map();
+
+function touchMcpSession(sessionId) {
+  if (sessionId) {
+    sessionLastSeen.set(sessionId, Date.now());
+  }
+}
+
+function forgetMcpSession(sessionId) {
+  if (sessionId) {
+    sessionLastSeen.delete(sessionId);
+  }
+}
+
+async function evictMcpSession(sessionId, reason) {
+  const transport = transportsBySessionId[sessionId];
+  if (!transport) {
+    forgetMcpSession(sessionId);
+    return;
+  }
+  try {
+    await transport.close();
+  } catch (error) {
+    logger.warnWithContext(
+      "Error closing idle MCP transport",
+      {
+        component: "MCPHttpIntegration",
+        operation: "evictMcpSession",
+        sessionId,
+        reason
+      },
+      error instanceof Error ? error : new Error(String(error))
+    );
+  }
+  delete transportsBySessionId[sessionId];
+  forgetMcpSession(sessionId);
+}
+
+const mcpSessionEvictionTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [sid, ts] of sessionLastSeen) {
+    if (now - ts > MCP_SESSION_TTL_MS) {
+      evictMcpSession(sid, "ttl_expired").catch(() => {});
+    }
+  }
+}, Math.max(5_000, Math.floor(MCP_SESSION_TTL_MS / 2)));
+if (typeof mcpSessionEvictionTimer.unref === "function") {
+  mcpSessionEvictionTimer.unref();
+}
+
 function sendMcpTransportSessionError(res, req) {
   if (res.headersSent) {
     return;
@@ -264,11 +317,20 @@ async function setupMcpHttpTransport(app, { authenticate, getResource, listResou
     try {
       let transport = sessionId ? transportsBySessionId[sessionId] : undefined;
 
+      if (sessionId && transport) {
+        touchMcpSession(sessionId);
+      }
+
       if (!transport && !sessionId && isInitializeRequest(req.body)) {
+        if (Object.keys(transportsBySessionId).length >= MAX_MCP_SESSIONS) {
+          sendMcpJsonRpcError(res, 429, "Too many active MCP sessions.");
+          return;
+        }
         transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => crypto.randomUUID(),
           onsessioninitialized: (sid) => {
             transportsBySessionId[sid] = transport;
+            touchMcpSession(sid);
             logger.infoWithContext("MCP session initialized", {
               ...logContext,
               sessionId: sid
@@ -280,6 +342,7 @@ async function setupMcpHttpTransport(app, { authenticate, getResource, listResou
           const sid = transport.sessionId;
           if (sid && transportsBySessionId[sid]) {
             delete transportsBySessionId[sid];
+            forgetMcpSession(sid);
             logger.infoWithContext("MCP session transport closed", {
               ...logContext,
               sessionId: sid
@@ -324,6 +387,7 @@ async function setupMcpHttpTransport(app, { authenticate, getResource, listResou
     }
 
     try {
+      touchMcpSession(sessionId);
       await transportsBySessionId[sessionId].handleRequest(req, res);
     } catch (error) {
       logger.errorWithContext(
@@ -352,6 +416,7 @@ async function setupMcpHttpTransport(app, { authenticate, getResource, listResou
     }
 
     try {
+      touchMcpSession(sessionId);
       await transportsBySessionId[sessionId].handleRequest(req, res);
     } catch (error) {
       logger.errorWithContext(
@@ -378,6 +443,7 @@ async function setupMcpHttpTransport(app, { authenticate, getResource, listResou
 }
 
 async function closeMcpHttpTransports() {
+  clearInterval(mcpSessionEvictionTimer);
   const sessionIds = Object.keys(transportsBySessionId);
   for (const sessionId of sessionIds) {
     try {
@@ -390,6 +456,7 @@ async function closeMcpHttpTransports() {
       );
     }
     delete transportsBySessionId[sessionId];
+    forgetMcpSession(sessionId);
   }
 }
 

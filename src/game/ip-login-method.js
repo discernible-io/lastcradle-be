@@ -4,7 +4,7 @@
  */
 
 const repo = require("./repository");
-const { canonicalRoditId } = require("./rodit-id");
+const { canonicalRoditId, roditIdFromUser } = require("./rodit-id");
 
 const METHODS = Object.freeze({
   RODIT_ED25519: "rodit_ed25519",
@@ -117,7 +117,26 @@ async function assertGuestIpLoginMethod(req, gameId) {
 
 /**
  * After a successful POST /api/login, stamp rodit → method for later join resolution.
+ * Identity MUST come from the SDK-issued JWT (authenticated sub), never from
+ * attacker-controlled req.body fields (CC-0008).
  */
+function decodeJwtPayload(jwtToken) {
+  if (typeof jwtToken !== "string" || !jwtToken) {
+    return null;
+  }
+  const parts = jwtToken.split(".");
+  if (parts.length < 2) {
+    return null;
+  }
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
 function stampRoditLoginMethodOnSuccess(req, res, method) {
   const originalJson = res.json.bind(res);
   let stamped = false;
@@ -131,14 +150,8 @@ function stampRoditLoginMethodOnSuccess(req, res, method) {
       body.jwt_token
     ) {
       stamped = true;
-      const rawId =
-        req.body?.roditid ||
-        req.body?.roditId ||
-        req.body?.recipient ||
-        body.roditid ||
-        body.roditId ||
-        null;
-      const roditId = canonicalRoditId(rawId);
+      const payload = decodeJwtPayload(body.jwt_token);
+      const roditId = roditIdFromUser(payload);
       if (roditId) {
         repo
           .upsertRoditLoginMethod({

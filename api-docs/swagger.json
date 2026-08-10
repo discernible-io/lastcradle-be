@@ -3330,60 +3330,6 @@
         }
       }
     },
-    "/api/signclient": {
-      "post": {
-        "summary": "Sign client RODiT token",
-        "description": "Creates and signs a new client RODiT token with specified permissions",
-        "tags": [
-          "Authentication"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "tobesignedValues",
-                  "mintingfee",
-                  "mintingfeeaccount"
-                ],
-                "properties": {
-                  "tobesignedValues": {
-                    "type": "object",
-                    "description": "Values to be signed in the token"
-                  },
-                  "mintingfee": {
-                    "type": "string",
-                    "description": "Fee for minting the token"
-                  },
-                  "mintingfeeaccount": {
-                    "type": "string",
-                    "description": "Account to receive the minting fee"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Token created successfully"
-          },
-          "400": {
-            "description": "Invalid request"
-          },
-          "500": {
-            "description": "Server error"
-          }
-        }
-      }
-    },
     "/api/cruda/create": {
       "post": {
         "summary": "Create comment",

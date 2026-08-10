@@ -3,6 +3,8 @@
  * persist webhook URL, and satisfy JWT renewal chain lookups for guest_* ids.
  */
 
+const dns = require("dns").promises;
+const net = require("net");
 const nacl = require("tweetnacl");
 const { ulid } = require("ulid");
 const {
@@ -45,36 +47,118 @@ function ensureChainLookupWrapped() {
   chainLookupWrapped = true;
 }
 
+function invalidWebhookUrl(message) {
+  const err = new Error(message);
+  err.code = "INVALID_WEBHOOK_URL";
+  err.statusCode = 400;
+  return err;
+}
+
+/**
+ * Reject loopback / RFC1918 / link-local / ULA / CGNAT / cloud-metadata destinations.
+ * Self-signed TLS for public webhook hosts remains allowed (WEBHOOK_TLS_SKIP_VERIFY).
+ */
+function isBlockedIpAddress(ip) {
+  const version = net.isIP(ip);
+  if (version === 4) {
+    const parts = ip.split(".").map((p) => Number(p));
+    if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
+      return true;
+    }
+    const [a, b] = parts;
+    if (a === 0) return true; // 0.0.0.0/8
+    if (a === 10) return true; // 10.0.0.0/8
+    if (a === 127) return true; // 127.0.0.0/8
+    if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local / metadata
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16
+    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
+    if (a >= 224) return true; // multicast / reserved
+    return false;
+  }
+  if (version === 6) {
+    const normalized = ip.toLowerCase();
+    if (normalized === "::" || normalized === "::1") return true;
+    // IPv4-mapped IPv6 (:ffff:x.x.x.x)
+    const mapped = normalized.match(/:ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+    if (mapped) return isBlockedIpAddress(mapped[1]);
+    // Expand first hextet for prefix checks (link-local fe80::/10, ULA fc00::/7, multicast ff00::/8)
+    const first = normalized.split(":")[0] || "";
+    const firstVal = Number.parseInt(first, 16);
+    if (Number.isFinite(firstVal)) {
+      if ((firstVal & 0xffc0) === 0xfe80) return true; // fe80::/10
+      if ((firstVal & 0xfe00) === 0xfc00) return true; // fc00::/7
+      if ((firstVal & 0xff00) === 0xff00) return true; // ff00::/8
+    }
+    return false;
+  }
+  return true;
+}
+
+function isBlockedHostname(hostname) {
+  const host = String(hostname || "")
+    .toLowerCase()
+    .replace(/\.$/, "")
+    .replace(/^\[|\]$/g, "");
+  if (!host) return true;
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+  if (host === "metadata.google.internal" || host.endsWith(".metadata.google.internal")) {
+    return true;
+  }
+  if (host === "metadata" || host.endsWith(".internal")) return true;
+  if (net.isIP(host)) return isBlockedIpAddress(host);
+  return false;
+}
+
 function validateWebhookUrl(raw) {
   if (typeof raw !== "string" || !raw.trim()) {
-    const err = new Error("webhookUrl is required");
-    err.code = "INVALID_WEBHOOK_URL";
-    err.statusCode = 400;
-    throw err;
+    throw invalidWebhookUrl("webhookUrl is required");
   }
   const trimmed = raw.trim();
   let parsed;
   try {
     parsed = new URL(trimmed);
   } catch {
-    const err = new Error("webhookUrl must be an absolute URL");
-    err.code = "INVALID_WEBHOOK_URL";
-    err.statusCode = 400;
-    throw err;
+    throw invalidWebhookUrl("webhookUrl must be an absolute URL");
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    const err = new Error("webhookUrl must use http or https");
-    err.code = "INVALID_WEBHOOK_URL";
-    err.statusCode = 400;
-    throw err;
+    throw invalidWebhookUrl("webhookUrl must use http or https");
   }
   if (trimmed.length > 2048) {
-    const err = new Error("webhookUrl is too long");
-    err.code = "INVALID_WEBHOOK_URL";
-    err.statusCode = 400;
-    throw err;
+    throw invalidWebhookUrl("webhookUrl is too long");
+  }
+  if (parsed.username || parsed.password) {
+    throw invalidWebhookUrl("webhookUrl must not contain userinfo");
+  }
+  if (isBlockedHostname(parsed.hostname)) {
+    throw invalidWebhookUrl("webhookUrl must not target a private, loopback, or metadata host");
   }
   return trimmed;
+}
+
+async function assertWebhookUrlResolvesPublic(rawUrl) {
+  const parsed = new URL(rawUrl);
+  const hostname = String(parsed.hostname || "").replace(/^\[|\]$/g, "");
+  if (net.isIP(hostname)) {
+    if (isBlockedIpAddress(hostname)) {
+      throw invalidWebhookUrl("webhookUrl must not target a private, loopback, or metadata host");
+    }
+    return;
+  }
+  let records;
+  try {
+    records = await dns.lookup(hostname, { all: true, verbatim: true });
+  } catch {
+    throw invalidWebhookUrl("webhookUrl hostname could not be resolved");
+  }
+  if (!records.length) {
+    throw invalidWebhookUrl("webhookUrl hostname could not be resolved");
+  }
+  for (const record of records) {
+    if (isBlockedIpAddress(record.address)) {
+      throw invalidWebhookUrl("webhookUrl must not resolve to a private, loopback, or metadata address");
+    }
+  }
 }
 
 function isoYearsFromNow(years) {
@@ -194,6 +278,7 @@ async function createUrlJoinIdentity({ webhookUrl, displayName = null }) {
   ensureChainLookupWrapped();
 
   const validatedUrl = validateWebhookUrl(webhookUrl);
+  await assertWebhookUrlResolvesPublic(validatedUrl);
 
   const configOwn = await stateManager.getConfigOwnRodit();
   const ownRodit = configOwn?.own_rodit;
@@ -273,6 +358,9 @@ function installUrlJoinIdentitySupport() {
 
 module.exports = {
   validateWebhookUrl,
+  assertWebhookUrlResolvesPublic,
+  isBlockedHostname,
+  isBlockedIpAddress,
   createUrlJoinIdentity,
   lookupUrlJoinWebhookUrl,
   loadSyntheticPeerRodit,
