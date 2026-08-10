@@ -649,8 +649,13 @@ function executeInvestSides(state, payload, config) {
  * production < storage (need imports), plus a stockpile boost — very large storage on a
  * different resource than the production specialty (warehouse for trade/imports).
  * Legacy mode keeps production = storage.
+ *
+ * @param {object} config
+ * @param {{ excludeSpecialty?: string|null }} [options]
+ *   When set, specialty is chosen uniformly from the other resources so consecutive
+ *   joiners never share the same specialty (reduces same-surplus lobbies).
  */
-function buildCradleAssignment(config) {
+function buildCradleAssignment(config, { excludeSpecialty = null } = {}) {
   const storageCapacity = {
     energy: randomInt(config.cradleCapacityMin, config.cradleCapacityMax),
     water: randomInt(config.cradleCapacityMin, config.cradleCapacityMax),
@@ -663,7 +668,9 @@ function buildCradleAssignment(config) {
   if (config.useSpecializedCradles === false) {
     productionCapacity = cloneCapacities(storageCapacity);
   } else {
-    specialty = RESOURCE_KEYS[randomInt(0, RESOURCE_KEYS.length - 1)];
+    const specialtyChoices = RESOURCE_KEYS.filter((key) => key !== excludeSpecialty);
+    const pool = specialtyChoices.length > 0 ? specialtyChoices : RESOURCE_KEYS;
+    specialty = pool[randomInt(0, pool.length - 1)];
     const specialtyMin = config.cradleSpecialtyProductionMinRatio ?? 1.35;
     const specialtyMax = config.cradleSpecialtyProductionMaxRatio ?? 1.85;
     const secondaryMin = config.cradleSecondaryProductionMinRatio ?? 0.35;
@@ -1094,7 +1101,15 @@ async function joinGame(gameId, { roditId, displayName }) {
     throw gameError("GAME_FULL", "Game has reached maximum agent capacity", 409);
   }
 
-  const { storageCapacity, productionCapacity, inventory } = buildCradleAssignment(config);
+  const existingAgents = await repo.listAgents(gameId);
+  const previous = existingAgents[existingAgents.length - 1];
+  const excludeSpecialty = previous
+    ? deriveCradleEconomics(previous.productionCapacity, previous.storageCapacity).specialty
+    : null;
+
+  const { storageCapacity, productionCapacity, inventory } = buildCradleAssignment(config, {
+    excludeSpecialty
+  });
   return repo.addAgent({
     gameId,
     roditId,
@@ -2784,5 +2799,6 @@ module.exports = {
   openingInventoryReportForViewer,
   inventoryTotal,
   storageTotal,
-  inventoryFillRatio
+  inventoryFillRatio,
+  buildCradleAssignment
 };

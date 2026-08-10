@@ -392,6 +392,7 @@ async function testSpecializedCradlesAndCombinedAction() {
   await engine.joinGame(game.id, { roditId: "sp3", displayName: "SpThree" });
 
   const agents = await repo.listAgents(game.id);
+  const joinSpecialties = [];
   for (const agent of agents) {
     const keys = ["energy", "water", "compute"];
     const specialties = keys.filter(
@@ -403,6 +404,7 @@ async function testSpecializedCradlesAndCombinedAction() {
     if (specialties.length !== 1) {
       throw new Error(`Expected exactly one specialty, got ${specialties.join(",")}`);
     }
+    joinSpecialties.push(specialties[0]);
     if (secondaries.length !== 2) {
       throw new Error(`Expected two secondaries, got ${secondaries.join(",")}`);
     }
@@ -424,6 +426,13 @@ async function testSpecializedCradlesAndCombinedAction() {
         `Expected one stockpile storage=160 and one base secondary storage=80, got ${JSON.stringify(
           Object.fromEntries(secondaries.map((k) => [k, agent.storageCapacity[k]]))
         )}`
+      );
+    }
+  }
+  for (let i = 1; i < joinSpecialties.length; i++) {
+    if (joinSpecialties[i] === joinSpecialties[i - 1]) {
+      throw new Error(
+        `Consecutive joiners must not share specialty, got ${joinSpecialties.join(" → ")}`
       );
     }
   }
