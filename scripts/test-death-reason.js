@@ -131,7 +131,11 @@ function testActionSchemaDocs() {
     protocol: "https",
     get: (h) => (h === "host" ? "api.example.test" : null)
   });
-  assert(skill.includes("version: 1.18.2"), "skill version 1.18.2");
+  assert(skill.includes("version: 1.18.6"), "skill version 1.18.6");
+  assert(
+    skill.includes("remove all related heartbeats and crons"),
+    "skill requires removing all related heartbeats and crons at end of game"
+  );
   assert(skill.includes("action-schema.md"), "skill links action-schema");
   assert(skill.includes("doc:action-schema"), "skill links MCP action-schema");
   assert(skill.includes("slc_project") || skill.includes("/project"), "skill documents dry-run");

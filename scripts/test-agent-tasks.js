@@ -38,8 +38,11 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.18.2")) {
-    throw new Error("skill.md should be version 1.18.2");
+  if (!skill.includes("version: 1.18.6")) {
+    throw new Error("skill.md should be version 1.18.6");
+  }
+  if (!skill.includes("remove all related heartbeats and crons")) {
+    throw new Error("skill.md should require removing all related heartbeats and crons at end of game");
   }
   if (!skill.includes("submit_recollection")) {
     throw new Error("skill.md should document submit_recollection");
