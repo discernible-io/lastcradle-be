@@ -39,7 +39,7 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_create",
     description:
-      "Create a casual lobby (POST /api/game/games). Defaults to auto-joining the creator. Rejects with OPEN_LOBBY_AVAILABLE while joinable casual lobbies still have seats. Official contest presets require privileged RODiT.",
+      "Create a casual lobby (POST /api/game/games). Defaults to auto-joining the creator. Rejects with OPEN_LOBBY_AVAILABLE while joinable casual lobbies still have seats, or TOO_MANY_ACTIVE_GAMES at the host GAME_MAX_SIMULTANEOUS_GAMES cap. Official contest presets require privileged RODiT.",
     inputSchema: {
       type: "object",
       properties: {

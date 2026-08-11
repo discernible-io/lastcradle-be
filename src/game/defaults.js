@@ -4,7 +4,29 @@
  * Survival costs (energy / water / compute) represent per-turn overhead for
  * powering, hydrating, and maintaining each cradle's immortal synthetic population
  * as it races to reproduce the entropy-reversing god. See src/game/narrative.js.
+ *
+ * Per-game mechanics defaults below are product constants (served on GET /api/game/defaults).
+ * Host-wide operational limits (simultaneous games, privileged operator) resolve from
+ * `config/<NODE_ENV>.json` via `@rodit/rodit-auth-be` — see docs/configuration-standard.md
+ * and docs/allowed-fallback-standard.md.
  */
+
+const { resolvePositiveIntConfig } = require("../services/resolve-positive-int-config");
+
+/**
+ * Baked-in fallback when `GAME_MAX_SIMULTANEOUS_GAMES` is missing or invalid.
+ * Authoritative deployed value lives in `config/development.json` and `config/main.json`.
+ */
+const MAX_SIMULTANEOUS_GAMES_DEFAULT = 20;
+
+const GAME_MAX_SIMULTANEOUS_GAMES_KEY = "GAME_MAX_SIMULTANEOUS_GAMES";
+
+/** Effective host cap on games in `lobby` or `running` (create → 409 TOO_MANY_ACTIVE_GAMES). */
+const MAX_SIMULTANEOUS_GAMES = resolvePositiveIntConfig(
+  GAME_MAX_SIMULTANEOUS_GAMES_KEY,
+  MAX_SIMULTANEOUS_GAMES_DEFAULT,
+  { component: "GameDefaults", operation: "resolveMaxSimultaneousGames" }
+);
 
 const DEFAULT_GAME_CONFIG = {
   /**
@@ -349,6 +371,9 @@ function publicGameConfig(config) {
 }
 
 module.exports = {
+  GAME_MAX_SIMULTANEOUS_GAMES_KEY,
+  MAX_SIMULTANEOUS_GAMES_DEFAULT,
+  MAX_SIMULTANEOUS_GAMES,
   DEFAULT_GAME_CONFIG,
   CONTEST_GAME_CONFIG,
   PRACTICE_GAME_CONFIG,

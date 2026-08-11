@@ -10,6 +10,7 @@ const {
   rollStartingInventory,
   maxCapacityFor,
   DEFAULT_GAME_CONFIG,
+  MAX_SIMULTANEOUS_GAMES,
   resolveMaxTransferRecipients
 } = require("./defaults");
 const {
@@ -856,10 +857,32 @@ async function assertNoJoinableOpenCasualLobbies() {
   }
 }
 
+/**
+ * Enforce host-wide cap on lobby+running games.
+ * @param {{ slotsNeeded?: number, bypass?: boolean }} [opts]
+ */
+async function assertSimultaneousGameCapacity({ slotsNeeded = 1, bypass = false } = {}) {
+  if (bypass) {
+    return;
+  }
+  const needed = Math.max(1, Number(slotsNeeded) || 1);
+  const activeGames = await repo.countActiveGames();
+  const maxSimultaneousGames = MAX_SIMULTANEOUS_GAMES;
+  if (activeGames + needed > maxSimultaneousGames) {
+    throw gameError(
+      "TOO_MANY_ACTIVE_GAMES",
+      `Host is at capacity (${activeGames}/${maxSimultaneousGames} simultaneous games); wait for a lobby or running game to finish or cancel`,
+      409,
+      { activeGames, maxSimultaneousGames, slotsNeeded: needed }
+    );
+  }
+}
+
 async function createGame({
   config: configOverrides = {},
   joiningWindowStartsAt = null,
-  allowParallelLobbies = false
+  allowParallelLobbies = false,
+  bypassSimultaneousCap = false
 } = {}) {
   const gameConfig = mergeGameConfig(configOverrides);
   const skipFillFirst =
@@ -868,6 +891,11 @@ async function createGame({
   if (!skipFillFirst) {
     await assertNoJoinableOpenCasualLobbies();
   }
+
+  await assertSimultaneousGameCapacity({
+    slotsNeeded: 1,
+    bypass: allowParallelLobbies || bypassSimultaneousCap
+  });
 
   const joiningWindow = resolveJoiningWindow(gameConfig, { joiningWindowStartsAt });
   return repo.createGame({
@@ -2752,6 +2780,7 @@ function gameError(code, message, statusCode = 400, details = null) {
 
 module.exports = {
   createGame,
+  assertSimultaneousGameCapacity,
   joinGame,
   startGame,
   publishPublicMessage,

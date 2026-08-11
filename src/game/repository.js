@@ -451,6 +451,15 @@ async function listLobbyGames() {
   return rows.map(rowToGame);
 }
 
+/** Count games that still occupy a simultaneous slot (lobby or running). */
+async function countActiveGames() {
+  const database = await getDb();
+  const row = await database.get(
+    `SELECT COUNT(*) AS count FROM games WHERE status IN ('lobby', 'running')`
+  );
+  return Number(row?.count) || 0;
+}
+
 async function listGames({ status, contestMode, limit = 50, offset = 0 } = {}) {
   const database = await getDb();
   const params = [];
@@ -1530,6 +1539,7 @@ module.exports = {
   updateGame,
   listRunningGames,
   listLobbyGames,
+  countActiveGames,
   listGames,
   createContest,
   getContestById,

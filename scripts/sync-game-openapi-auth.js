@@ -180,7 +180,7 @@ function wireGameResponseSchemas(spec) {
   if (createPost) {
     createPost.summary = "Create a survival game lobby";
     createPost.description = [
-      "Create a survival game lobby. Defaults to auto-joining the creator (`autoJoin: false` opens a host-only lobby). New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats (full = `maxAgents`, default 10).",
+      "Create a survival game lobby. Defaults to auto-joining the creator (`autoJoin: false` opens a host-only lobby). New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats (full = `maxAgents`, default 10). Rejected with `409 TOO_MANY_ACTIVE_GAMES` when lobby/running count would exceed `GAME_MAX_SIMULTANEOUS_GAMES` (see `maxSimultaneousGames` on `GET /api/game/defaults`).",
       `Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from \`POST /api/login\`). Official contest presets (\`preset: contest|definitive\` or ${CONTEST_GAME_CONFIG.minAgents}-player min/max) require \`GAME_PRIVILEGED_RODIT_ID\`.`
     ].join(" ");
     if (createPost.requestBody?.content?.["application/json"]?.schema) {

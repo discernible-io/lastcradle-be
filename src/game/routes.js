@@ -22,6 +22,7 @@ const {
   DEFAULT_GAME_CONFIG,
   CONTEST_GAME_CONFIG,
   PRACTICE_GAME_CONFIG,
+  MAX_SIMULTANEOUS_GAMES,
   publicGameConfig
 } = require("./defaults");
 const { resolveRoditId, handleGameError } = require("./route-helpers");
@@ -50,7 +51,7 @@ function denyUnlessPrivileged(req, res, requestId) {
  * /api/game/games:
  *   post:
  *     summary: Create a new survival game lobby
- *     description: Defaults to auto-joining the creator (set autoJoin false for a host-only lobby). Rejects with 409 OPEN_LOBBY_AVAILABLE while any joinable casual lobby still has seats (full = maxAgents, default 10).
+ *     description: Defaults to auto-joining the creator (set autoJoin false for a host-only lobby). Rejects with 409 OPEN_LOBBY_AVAILABLE while any joinable casual lobby still has seats (full = maxAgents, default 10). Rejects with 409 TOO_MANY_ACTIVE_GAMES when lobby/running count would exceed GAME_MAX_SIMULTANEOUS_GAMES (see GET /api/game/defaults maxSimultaneousGames).
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
@@ -504,7 +505,13 @@ router.post("/games/:gameId/recollection", validateContentType, validateJsonBody
  *     x-game-auth: jwt-passport
  */
 router.get("/defaults", (req, res) => {
-  res.json({ defaults: publicGameConfig(DEFAULT_GAME_CONFIG), requestId: req.requestId || ulid() });
+  res.json({
+    defaults: {
+      ...publicGameConfig(DEFAULT_GAME_CONFIG),
+      maxSimultaneousGames: MAX_SIMULTANEOUS_GAMES
+    },
+    requestId: req.requestId || ulid()
+  });
 });
 
 /**

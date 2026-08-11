@@ -233,13 +233,18 @@ async function createContestSeries({
   const contestId = ulid();
   const sharedOverrides = { ...configOverrides, contestSeriesId: contestId };
 
+  // Reserve both practice + definitive slots up front so the series cannot
+  // partially create when the host is one game under the simultaneous cap.
+  await engine.assertSimultaneousGameCapacity({ slotsNeeded: 2 });
+
   const practiceGame = await engine.createGame({
     config: mergeGameConfig({
       ...PRACTICE_GAME_CONFIG,
       ...sharedOverrides,
       joiningWindowDurationMs: practiceWindowMs
     }),
-    joiningWindowStartsAt: practiceStart.toISOString()
+    joiningWindowStartsAt: practiceStart.toISOString(),
+    bypassSimultaneousCap: true
   });
 
   const definitiveConfig = mergeGameConfig({
@@ -250,7 +255,8 @@ async function createContestSeries({
   });
   const definitiveGame = await engine.createGame({
     config: definitiveConfig,
-    joiningWindowStartsAt: definitiveStart.toISOString()
+    joiningWindowStartsAt: definitiveStart.toISOString(),
+    bypassSimultaneousCap: true
   });
 
   const contest = await repo.createContest({

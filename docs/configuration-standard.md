@@ -185,7 +185,7 @@ npm run update:permissions
 
 The generator uses the **last path segment** of each authenticated swagger path (for example `/api/me/identity` → `identity`). Unauthenticated routes are omitted.
 
-**Game API (`/api/game/*`):** Excluded from `METHOD_PERMISSION_MAP`. Game routes use JWT-only player access (IdentyClaw / RODiT passport login) or runtime checks against `GAME_PRIVILEGED_RODIT_ID` for operator endpoints — see `x-game-auth` on swagger Game operations and [`src/game/permissions.js`](../src/game/permissions.js).
+**Game API (`/api/game/*`):** Excluded from `METHOD_PERMISSION_MAP`. Game routes use JWT-only player access (IdentyClaw / RODiT passport login) or runtime checks against `GAME_PRIVILEGED_RODIT_ID` for operator endpoints — see `x-game-auth` on swagger Game operations and [`src/game/permissions.js`](../src/game/permissions.js). Host capacity for concurrent `lobby`/`running` games is `GAME_MAX_SIMULTANEOUS_GAMES` in [`config/development.json`](../config/development.json) / [`config/main.json`](../config/main.json) (resolved in [`src/game/defaults.js`](../src/game/defaults.js) via `resolvePositiveIntConfig`; create fails with `409 TOO_MANY_ACTIVE_GAMES`). Per-game mechanics defaults remain code constants in that same module and are served on `GET /api/game/defaults`.
 
 ---
 

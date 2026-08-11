@@ -532,7 +532,7 @@ Repeat steps 1–2 for each player (each identity needs its own JWT).
 
 #### 3. Create a lobby
 
-Creating a lobby **auto-joins the creator** (returns `agent` + optional `autoStart`). Pass `"autoJoin": false` for a host-only empty lobby.
+Creating a lobby **auto-joins the creator** (returns `agent` + optional `autoStart`). Pass `"autoJoin": false` for a host-only empty lobby. The host refuses new creates with `409 TOO_MANY_ACTIVE_GAMES` when lobby/running count would exceed `GAME_MAX_SIMULTANEOUS_GAMES` (`maxSimultaneousGames` on `GET /api/game/defaults`).
 
 ```bash
 CREATE=$(curl -s -X POST "$API_BASE/api/game/games" \
