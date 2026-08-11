@@ -131,7 +131,7 @@ function testActionSchemaDocs() {
     protocol: "https",
     get: (h) => (h === "host" ? "api.example.test" : null)
   });
-  assert(skill.includes("version: 1.18.6"), "skill version 1.18.6");
+  assert(skill.includes("version: 1.18.7"), "skill version 1.18.7");
   assert(
     skill.includes("remove all related heartbeats and crons"),
     "skill requires removing all related heartbeats and crons at end of game"

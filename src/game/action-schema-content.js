@@ -134,7 +134,9 @@ Optional on **any** type: \`hide\`, \`find\`, \`reduceStorage\`.
 
 ## Resolve order
 
-transfers → invest → **reduceStorage** → hide/find → **storage energy tax** → **survival**.
+**Cross-agent:** actions apply **FIFO by \`submitted_at\`** (arrival order). Partners’ Execution timing matters — inbound from a peer who submitted before you is in inventory before your invest; otherwise invest is stockpile-only.
+
+**Within one action:** transfers → invest → **reduceStorage** → hide/find → **storage energy tax** → **survival**.
 
 Before submit: dry-run with \`POST .../project\` / MCP \`slc_project\` (optional \`assumeInbound\`); read \`baseline.survives\` / \`shortfalls\`. Also read \`you.actionHints\` (\`maxInvestAmountAfterSurvival\`, \`storageEnergyCostIfNoSpend\`, \`allowedActionTypes\`). Response \`projection.afterStorageAndSurvival\` is outbound-only.
 
