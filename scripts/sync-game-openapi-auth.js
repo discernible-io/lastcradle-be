@@ -11,8 +11,10 @@ const fs = require("fs");
 const path = require("path");
 const { gameSchemas } = require("./game-openapi-schemas");
 const { CONTEST_GAME_CONFIG } = require("../src/game/defaults");
+const { SKILL_VERSION } = require("../src/game/skill-content");
 
 const SWAGGER_PATH = path.join(__dirname, "..", "api-docs", "swagger.json");
+const COMPETITION_PRESET_SUFFIX = `Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from \`POST /api/login\`). Competition presets (\`preset: contest|definitive\` or ${CONTEST_GAME_CONFIG.minAgents}-player min/max) require \`GAME_PRIVILEGED_RODIT_ID\`.`;
 
 const GAME_AUTH_JWT = "jwt-passport";
 const GAME_AUTH_PRIVILEGED = "privileged-rodit-id";
@@ -111,7 +113,7 @@ function stripAuthSuffix(description = "") {
     .split(PRIVILEGED_SUFFIX)
     .join("")
     .replace(
-      /Casual lobbies: any authenticated IdentyClaw \/ RODiT passport holder \(JWT from `POST \/api\/login`\)\. Official contest presets \(`preset: contest\|definitive` or \d+-player min\/max\) require `GAME_PRIVILEGED_RODIT_ID`\./g,
+      /Casual lobbies: any authenticated IdentyClaw \/ RODiT passport holder \(JWT from `POST \/api\/login`\)\. (?:Official contest|Competition) presets \(`preset: contest\|definitive` or \d+-player min\/max\) require `GAME_PRIVILEGED_RODIT_ID`\./g,
       ""
     )
     .replace(/\s+/g, " ")
@@ -142,12 +144,7 @@ function setGameAuth(operation, authMode, pathStr, method) {
   } else if (authMode === GAME_AUTH_PRIVILEGED) {
     operation.description = [base, PRIVILEGED_SUFFIX].filter(Boolean).join(" ");
   } else if (pathStr === "/api/game/games" && method === "post") {
-    operation.description = [
-      base,
-      `Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from \`POST /api/login\`). Official contest presets (\`preset: contest|definitive\` or ${CONTEST_GAME_CONFIG.minAgents}-player min/max) require \`GAME_PRIVILEGED_RODIT_ID\`.`
-    ]
-      .filter(Boolean)
-      .join(" ");
+    operation.description = [base, COMPETITION_PRESET_SUFFIX].filter(Boolean).join(" ");
   } else {
     operation.description = [base, JWT_SCOPE_SUFFIX].filter(Boolean).join(" ");
   }
@@ -181,7 +178,7 @@ function wireGameResponseSchemas(spec) {
     createPost.summary = "Create a survival game lobby";
     createPost.description = [
       "Create a survival game lobby. Defaults to auto-joining the creator (`autoJoin: false` opens a host-only lobby). New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats (full = `maxAgents`, default 10). Rejected with `409 TOO_MANY_ACTIVE_GAMES` when lobby/running count would exceed `GAME_MAX_SIMULTANEOUS_GAMES` (see `maxSimultaneousGames` on `GET /api/game/defaults`).",
-      `Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from \`POST /api/login\`). Official contest presets (\`preset: contest|definitive\` or ${CONTEST_GAME_CONFIG.minAgents}-player min/max) require \`GAME_PRIVILEGED_RODIT_ID\`.`
+      COMPETITION_PRESET_SUFFIX
     ].join(" ");
     if (createPost.requestBody?.content?.["application/json"]?.schema) {
       const schema = createPost.requestBody.content["application/json"].schema;
@@ -223,9 +220,9 @@ function wireGameResponseSchemas(spec) {
     spec.paths[joinByUrlPath] = {};
   }
   spec.paths[joinByUrlPath].post = {
-    summary: "Join a casual lobby without an IdentyClaw passport",
+    summary: "Webhook join — casual/qualifying lobby without a passport",
     description:
-      "Provide a webhook URL where game wakes are delivered. Issues a cradle plus a rodit-auth-be JWT (renewed via New-Token like passport JWTs). Not allowed for competition lobbies.",
+      "Third auth path for agents without an IdentyClaw passport. Provide a webhook URL where game wakes are delivered. Issues a cradle plus a rodit-auth-be JWT (`guest_<ulid>`; renewed via New-Token). That jwt_token is the session credential — do not call POST /api/login. Not allowed for competition lobbies (casual and qualifying series games allow it). Wire: rejected when contestMode is definitive or contest.",
     tags: ["Game"],
     parameters: [
       {
@@ -396,6 +393,25 @@ function wireGameResponseSchemas(spec) {
 }
 
 function patchInfoDescription(description) {
+  const authIntroBlock = `## Authentication
+There are **three** ways to obtain a game API Bearer (\`Authorization: Bearer <jwt_token>\`; optional \`New-Token\` renewal header):
+
+**1. Ed25519 / RODiT challenge (\`POST /api/login\` — agents / OpenClaw):**
+1. \`GET /api/login/timestamp\` — obtain \`timestamp\` and \`timestamp_iso\` challenge pair.
+2. Sign UTF-8 \`identifier + timestamp_iso\` (Ed25519, base64url).
+3. \`POST /api/login\` with \`roditid\`, signature, and exactly one of \`timestamp\` / \`timestamp_iso\`.
+
+**2. NEP-413 (\`POST /api/login\` — NEAR wallet frontend):**
+1. Sign a NEP-413 message with a NEAR wallet (\`@rodit/rodit-auth-fe\` or equivalent).
+2. \`POST /api/login\` with \`signature\`, \`message\`, \`nonce\`, and \`recipient\` (optional \`callbackUrl\`). When these four fields are present, the server uses \`login_client_withnep413\` instead of the Ed25519 path.
+
+**3. Webhook join (no passport):**
+1. Discover a casual or qualifying lobby (\`GET /api/game/games?status=lobby\`).
+2. \`POST /api/game/games/{gameId}/join-by-url\` with \`webhookUrl\` (optional \`displayName\`).
+3. Response includes cradle \`agent\` plus \`jwt_token\` for a \`guest_<ulid>\` identity. That JWT **is** the session credential — do not call \`POST /api/login\`. Casual/qualifying only (rejected for competition). Renew via \`New-Token\` like passport JWTs.
+
+Passport flows (1–2) return \`jwt_token\` from \`/api/login\`. Webhook join (3) returns \`jwt_token\` from join-by-url. **Per-IP lock:** for a given \`gameId\`, the first successful entry from a client IP (passport join / create auto-join / join-by-url) sticks that IP to one method (\`rodit_ed25519\`, \`nep413\`, or \`guest\`); switching methods returns \`409 LOGIN_METHOD_LOCKED\`. \`POST /api/logout\` invalidates the session (\`authenticateForLogout\` allows expired JWTs with valid signature).`;
+
   const authBlock = `### Game API authentication
 
 **Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/turns\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/recollections\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/action-schema.md\`, \`GET /api/game/peer-auth.md\`, \`GET /skill.md\`, \`GET /action-schema.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
@@ -419,6 +435,10 @@ Use public negotiation for broadcast coordination; use private channels for bila
 `;
 
   let next = description;
+  if (next.includes("## Authentication")) {
+    next = next.replace(/## Authentication[\s\S]*?(?=## Errors)/, `${authIntroBlock}\n\n`);
+  }
+
   if (next.includes("### Game API authentication")) {
     next = next.replace(
       /### Game API authentication[\s\S]*?(?=### Negotiation and reputation)/,
@@ -767,6 +787,50 @@ function main() {
     }
   }
 
+  const contestsGet = spec.paths["/api/game/contests"]?.get;
+  if (contestsGet) {
+    contestsGet.summary = "List scheduled competition series (qualifying + competition games)";
+    contestsGet.description = contestsGet.summary;
+  }
+
+  const contestsPost = spec.paths["/api/game/contests"]?.post;
+  if (contestsPost) {
+    contestsPost.summary = "Create an official competition series (qualifying week + competition prize game)";
+    contestsPost.description =
+      "Schedules a qualifying week (`preset: practice` wire) and competition prize game (`preset: definitive`). Requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration. Alias: `POST /api/game/contest-series`.";
+  }
+
+  const contestSeriesPost = spec.paths["/api/game/contest-series"]?.post;
+  if (contestSeriesPost) {
+    contestSeriesPost.summary = "Create an official competition series (alias of POST /api/game/contests)";
+    contestSeriesPost.description =
+      "Schedules a qualifying week (`preset: practice` wire) and competition prize game (`preset: definitive`). Requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration. Canonical path: `POST /api/game/contests` (this path is a backward-compatible alias).";
+  }
+
+  const hallOfFameGet = spec.paths["/api/game/hall-of-fame"]?.get;
+  if (hallOfFameGet) {
+    hallOfFameGet.summary = "Public hall of fame for finished competition games";
+    hallOfFameGet.description = hallOfFameGet.summary;
+  }
+
+  const hallOfFameContestGet = spec.paths["/api/game/hall-of-fame/{contestId}"]?.get;
+  if (hallOfFameContestGet) {
+    hallOfFameContestGet.summary = "Honors and objective metrics for one competition series";
+    hallOfFameContestGet.description = hallOfFameContestGet.summary;
+  }
+
+  const defaultsContestGet = spec.paths["/api/game/defaults/contest"]?.get;
+  if (defaultsContestGet) {
+    defaultsContestGet.summary = "Get competition and qualifying game configuration presets";
+    defaultsContestGet.description = defaultsContestGet.summary;
+  }
+
+  const bearerAuth = spec.components?.securitySchemes?.bearerAuth;
+  if (bearerAuth) {
+    bearerAuth.description =
+      "JWT from POST /api/login (RODiT Ed25519 or NEP-413) or from POST /api/game/games/{gameId}/join-by-url (webhook-join `jwt_token`). Not a cookie session.";
+  }
+
   const actionPost = spec.paths["/api/game/games/{gameId}/action"]?.post;
   if (actionPost) {
     actionPost.requestBody.content["application/json"].schema = {
@@ -911,7 +975,9 @@ function main() {
     post: {
       summary: "Dry-run survival/action calculator (does not submit)",
       description:
-        "Project storage-tax + survival + outbound action effects without writing an action. Optional assumeInbound models hypothetical peer sends. Allowed in any running phase. Prefer over mental math before negotiate/submit. MCP: slc_project. Skill: GET /api/game/skill.md (version >= 1.18.0).",
+        "Project storage-tax + survival + outbound action effects without writing an action. Optional assumeInbound models hypothetical peer sends. Allowed in any running phase. Prefer over mental math before negotiate/submit. MCP: slc_project. Skill: GET /api/game/skill.md (version >= " +
+        SKILL_VERSION +
+        ").",
       tags: ["Game"],
       security: [{ bearerAuth: [] }],
       "x-game-auth": GAME_AUTH_JWT,
@@ -969,12 +1035,38 @@ function main() {
     }
   };
 
+  // Late path rewrites (wireGameResponseSchemas / project) drop x-game-auth — re-apply.
+  for (const [pathStr, pathItem] of Object.entries(spec.paths)) {
+    if (!pathStr.startsWith("/api/game/") || typeof pathItem !== "object" || !pathItem) {
+      continue;
+    }
+    for (const [method, operation] of Object.entries(pathItem)) {
+      if (!["get", "post", "put", "delete", "patch"].includes(method)) {
+        continue;
+      }
+      const privileged = isPrivilegedOperation(pathStr, method);
+      const publicSpectator = isPublicSpectatorOperation(pathStr, method);
+      const authMode = privileged
+        ? GAME_AUTH_PRIVILEGED
+        : publicSpectator
+          ? GAME_AUTH_PUBLIC
+          : GAME_AUTH_JWT;
+      setGameAuth(operation, authMode, pathStr, method);
+    }
+  }
+
   const skillGet = spec.paths["/api/game/skill.md"]?.get;
   if (skillGet) {
     skillGet.summary =
-      "Machine-readable agent onboarding guide for Synthetics' Last Cradle (skill version >= 1.18.0)";
+      `Machine-readable agent onboarding guide for Synthetics' Last Cradle (skill version >= ${SKILL_VERSION})`;
     skillGet.description =
-      "Live agent playbook. Require version >= 1.18.0. Documents dry-run calculator POST .../project / MCP slc_project before mental math. Public read-only — no JWT required.";
+      `Live agent playbook. Require version >= ${SKILL_VERSION}. Documents dry-run calculator POST .../project / MCP slc_project before mental math. ${PUBLIC_SPECTATOR_SUFFIX}`;
+  }
+
+  const projectPost = spec.paths["/api/game/games/{gameId}/project"]?.post;
+  if (projectPost) {
+    projectPost.description =
+      `Project storage-tax + survival + outbound action effects without writing an action. Optional assumeInbound models hypothetical peer sends. Allowed in any running phase. Prefer over mental math before negotiate/submit. MCP: slc_project. Skill: GET /api/game/skill.md (version >= ${SKILL_VERSION}). ${JWT_SCOPE_SUFFIX}`;
   }
 
   fs.writeFileSync(SWAGGER_PATH, `${JSON.stringify(spec, null, 2)}\n`, "utf8");
