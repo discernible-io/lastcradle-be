@@ -96,10 +96,11 @@ In `sdk/utils.js`, the compatibility fallback uses `process.env[key] || null`. T
 
 ### Secrets and environment variables
 
+- **Single store per secret** — Each secret must have exactly **one** authoritative store. Do not duplicate the same credential across two or more stores (for example host `secrets/secrets.env`, GitHub Actions secrets, a vault, or committed `config/*.json`). Pick one store per secret and wire it only through [`config/custom-environment-variables.json`](../config/custom-environment-variables.json) or the appropriate CI/workflow binding. Runtime secrets belong on the host; CI/deploy-only credentials belong in GitHub Actions — never the same key in both. See [`cicd-deployment-standard.md`](cicd-deployment-standard.md#runtime-secrets-secretsenv).
 - **`secrets/secrets.env`** (host-only, never committed) — Contains only runtime secrets. Each service defines its own set.
   - *This repo:* `LOKI_BASIC_AUTH`, `NEAR_CREDENTIALS_JSON_B64`, `NEAR_RPC_URL`, `VAULT_ROLE_ID`, `VAULT_SECRET_ID`.
 - **Env → config mapping** is declared in [`config/custom-environment-variables.json`](../config/custom-environment-variables.json). When adding a new secret, update that file so operators can set it via a stable env name.
-- **Secrets** (tokens, basic auth, private keys) must not appear in logs. They may be present in environment or vault-backed stores per your deployment; the runtime snapshot **redacts** sensitive key paths (see below).
+- **Secrets** (tokens, basic auth, private keys) must not appear in logs. The runtime snapshot **redacts** sensitive key paths (see below).
 
 ### Branch-specific deployment
 
@@ -227,7 +228,7 @@ Other services in the RODiT family may log a delayed, redacted **configuration s
 
 - New tunable behavior uses `config.get` from `@rodit/rodit-auth-be`, not ad-hoc `process.env` in route code.
 - Runtime path selection (auth/signing/routing behavior) uses nullish fallback (`??`) unless a documented reason requires truthy fallback (`||`).
-- New secrets or credentials stay in host `secrets/secrets.env` / env mapping—not in committed `config/*.json`.
+- New secrets or credentials stay in host `secrets/secrets.env` / env mapping—not in committed `config/*.json`, and each secret exists in only one store (not duplicated in GitHub Actions, vault, or another env file).
 - If a key appears in startup logs, sensitive values are redacted (no raw secrets in log payloads).
 - **`custom-environment-variables.json`** is updated when operators need a documented env knob.
 - **`VALIDATION_RULES`** (or upstream validation) covers any new mandatory main settings.

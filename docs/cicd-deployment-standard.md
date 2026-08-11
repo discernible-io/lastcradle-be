@@ -205,9 +205,10 @@ Further detail: [`infra/CERTIFICATE-MANAGEMENT.md`](../../infra/CERTIFICATE-MANA
 
 1. Create `~/<app-dir>/secrets/secrets.env` on the **target host** for that environment (development host vs main host).
 2. Put **runtime secrets only** in the file (tokens, credentials, base64 key blobs). Non-secret settings belong in committed `config/{NODE_ENV}.json` — see [`configuration-standard.md`](configuration-standard.md).
-3. Map keys through `config/custom-environment-variables.json` so the API reads them via `@rodit/rodit-auth-be` `config.get`.
-4. Wire the deploy workflow: `podman run --env-file ~/<app-dir>/secrets/secrets.env`.
-5. Keep each `KEY=value` on **one line** (especially `*_JSON_B64` values).
+3. **One store per secret** — Each credential lives in exactly one place. Runtime secrets stay in host `secrets/secrets.env` only; CI/deploy credentials (`GHCR_PULL_TOKEN`, SSH keys) stay in GitHub Actions secrets only. Never copy the same key into both, into a vault and `secrets.env`, or into committed config. See [Secrets and environment variables](configuration-standard.md#secrets-and-environment-variables).
+4. Map keys through `config/custom-environment-variables.json` so the API reads them via `@rodit/rodit-auth-be` `config.get`.
+5. Wire the deploy workflow: `podman run --env-file ~/<app-dir>/secrets/secrets.env`.
+6. Keep each `KEY=value` on **one line** (especially `*_JSON_B64` values).
 
 **Permissions (rootless Podman deploy user)**
 

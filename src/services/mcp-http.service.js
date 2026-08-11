@@ -14,6 +14,7 @@ const { z } = require("zod");
 const { ulid } = require("ulid");
 const { logger, errorResponse } = require("@rodit/rodit-auth-be");
 const { sendError } = errorResponse;
+const { resolvePositiveIntConfig } = require("./resolve-positive-int-config");
 const {
   GAME_TOOL_DEFS,
   PUBLIC_TOOL_DEFS,
@@ -28,9 +29,20 @@ const SERVER_INFO = {
 
 const transportsBySessionId = {};
 
+const MCP_MAX_SESSIONS_DEFAULT = 1000;
+const MCP_SESSION_TTL_MS_DEFAULT = 60_000;
+
 // Cap + TTL eviction for anonymous initialize storms (CC-0004).
-const MAX_MCP_SESSIONS = Number(process.env.MCP_MAX_SESSIONS || 1000);
-const MCP_SESSION_TTL_MS = Number(process.env.MCP_SESSION_TTL_MS || 60_000);
+const MAX_MCP_SESSIONS = resolvePositiveIntConfig(
+  "MCP_MAX_SESSIONS",
+  MCP_MAX_SESSIONS_DEFAULT,
+  { component: "MCPHttpIntegration" }
+);
+const MCP_SESSION_TTL_MS = resolvePositiveIntConfig(
+  "MCP_SESSION_TTL_MS",
+  MCP_SESSION_TTL_MS_DEFAULT,
+  { component: "MCPHttpIntegration" }
+);
 const sessionLastSeen = new Map();
 
 function touchMcpSession(sessionId) {

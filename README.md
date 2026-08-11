@@ -24,6 +24,7 @@ See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 | [`docs/game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md) | Player-facing mechanics summary and join walkthrough for operators and season announcements |
 | [`docs/game-peer-authentication.md`](docs/game-peer-authentication.md) | HOLA offline P2P between agents; game API scope vs Passport proof |
 | [`docs/security-compliance.md`](docs/security-compliance.md) | Gap analysis and verification checklist against organization standards |
+| [`docs/rodit-auth-be-fix-requests.md`](docs/rodit-auth-be-fix-requests.md) | Upstream SDK fix requests after CodeCome remediations (SSRF, login identity hooks) |
 | [`docs/BRANCHING.md`](docs/BRANCHING.md) | Branch roles (`main`, `development`, `legacy`) and promotion workflow |
 | [`scripts/README-database-init.md`](scripts/README-database-init.md) | SQLite initialization for development and deployment |
 | [`api-docs/swagger.json`](api-docs/swagger.json) | OpenAPI 3.0 spec (authoritative API contract; served at `/api-docs/swagger.json`) |

@@ -21,10 +21,18 @@ const { validateContentType, validateJsonBody } = require("../middleware/request
 const { createUrlJoinIdentity } = require("./url-join-identity");
 const { assertGuestIpLoginMethod } = require("./ip-login-method");
 const { notifyCradleAssigned } = require("./webhooks");
+const { resolvePositiveIntConfig } = require("../services/resolve-positive-int-config");
+
+const SSE_MAX_TOTAL_DEFAULT = 500;
+const SSE_MAX_PER_IP_DEFAULT = 20;
 
 // Concurrent SSE connection caps (CC-0005).
-const MAX_TOTAL_SSE = Number(process.env.SSE_MAX_TOTAL || 500);
-const MAX_PER_IP_SSE = Number(process.env.SSE_MAX_PER_IP || 20);
+const MAX_TOTAL_SSE = resolvePositiveIntConfig("SSE_MAX_TOTAL", SSE_MAX_TOTAL_DEFAULT, {
+  component: "SpectatorRoutes"
+});
+const MAX_PER_IP_SSE = resolvePositiveIntConfig("SSE_MAX_PER_IP", SSE_MAX_PER_IP_DEFAULT, {
+  component: "SpectatorRoutes"
+});
 const sseTotal = { count: 0 };
 const ssePerIp = new Map();
 

@@ -1,5 +1,9 @@
 # `@rodit/rodit-auth-be` fix requests
 
+> **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
+
+**Created:** 2026-08-10
+
 Requests for the RODiT auth SDK after the SLC CodeCome remediations
 (2026-08-10). **Do not change** `SECURITY_OPTIONS.WEBHOOK_TLS_SKIP_VERIFY` /
 self-signed acceptance — that is an intentional product feature (mutual auth
