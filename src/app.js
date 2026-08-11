@@ -293,9 +293,14 @@ if (!isProduction) {
 }
 
 // Use SDK-provided rate limiting helper
-
-// Default rate limits - will be updated from RODiT metadata
-let ratelimiter = ratelimitmw(100, 15);
+// Default must cover anonymous spectator browsing (watch UI polls state/messages/trades/turns).
+// 100/15min is far too low: ~4 parallel GETs every few seconds exhausts it in under a minute.
+const GLOBAL_RATE_LIMIT_MIN_REQUESTS = 3000;
+const GLOBAL_RATE_LIMIT_DEFAULT_WINDOW_MINUTES = 15;
+let ratelimiter = ratelimitmw(
+  GLOBAL_RATE_LIMIT_MIN_REQUESTS,
+  GLOBAL_RATE_LIMIT_DEFAULT_WINDOW_MINUTES
+);
 
 // OpenAPI spec — authoritative copy in api-docs/swagger.json (documentation-standard.md)
 const swaggerPath = path.join(__dirname, "../api-docs/swagger.json");
@@ -878,7 +883,8 @@ async function startServer() {
 
     // Protected routes
     // Tighter per-IP budget for game surface (CC-0006); SSE also has connection caps (CC-0005).
-    const gameIpsLimiter = ratelimitmw(300, 1);
+    // 600/min allows spectator parallel polls (~4 endpoints) plus agent traffic on the same NAT.
+    const gameIpsLimiter = ratelimitmw(600, 1);
     app.use("/api/game", (req, res, next) => gameIpsLimiter(req, res, next));
     app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
     app.use("/api/game", optionalAuthenticate, gameSpectatorRoutes);
@@ -950,13 +956,15 @@ async function startServer() {
     // Display RODIT token information
     await displayRoditInfo(configObject);
 
-    // Update rate limits if applicable
+    // Update global rate limits from own RODiT (maxrq_window is seconds; factory wants minutes).
+    // Never drop below GLOBAL_RATE_LIMIT_MIN_REQUESTS — spectator UI needs that headroom.
     const own_rodit = configObject.own_rodit;
-    if (own_rodit.metadata.maxrequests && own_rodit.metadata.maxrqwindow) {
-      updateRateLimit(
-        own_rodit.metadata.maxrequests,
-        own_rodit.metadata.maxrqwindow
-      );
+    const meta = own_rodit?.metadata || {};
+    const metaMax = parseInt(meta.max_requests ?? meta.maxrequests, 10);
+    const metaWindowSec = parseInt(meta.maxrq_window ?? meta.maxrqwindow, 10);
+    if (Number.isFinite(metaMax) && metaMax > 0 && Number.isFinite(metaWindowSec) && metaWindowSec > 0) {
+      const windowMinutes = Math.max(Math.ceil(metaWindowSec / 60), 1);
+      updateRateLimit(Math.max(metaMax, GLOBAL_RATE_LIMIT_MIN_REQUESTS), windowMinutes);
     }
 
     // Start the HTTP server

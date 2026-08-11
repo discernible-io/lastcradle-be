@@ -2750,11 +2750,11 @@
   },
   "x-rate-limits": {
     "default": {
-      "rate": "100 requests per 15 minutes",
-      "burst": "150 requests"
+      "rate": "3000 requests per 15 minutes",
+      "burst": "600 requests per minute on /api/game"
     },
     "premium": {
-      "rate": "1000 requests per 15 minutes",
+      "rate": "10000 requests per 15 minutes",
       "burst": "1500 requests"
     }
   },
