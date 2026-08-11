@@ -286,7 +286,7 @@ router.post("/games/:gameId/start", validateContentType, async (req, res) => {
  * @swagger
  * /api/game/contests:
  *   post:
- *     summary: Create an official contest series (practice week + definitive prize game)
+ *     summary: Create an official competition series (qualifying week + competition prize game)
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
@@ -318,7 +318,7 @@ router.post("/contests", validateContentType, validateJsonBody, handleCreateCont
  * @swagger
  * /api/game/contest-series:
  *   post:
- *     summary: Create an official contest series (alias of POST /api/game/contests)
+ *     summary: Create an official competition series (alias of POST /api/game/contests)
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
@@ -518,7 +518,7 @@ router.get("/defaults", (req, res) => {
  * @swagger
  * /api/game/defaults/contest:
  *   get:
- *     summary: Get contest and practice game configuration presets
+ *     summary: Get competition and qualifying game configuration presets
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []

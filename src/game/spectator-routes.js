@@ -155,7 +155,7 @@ router.get("/games/:gameId/events", async (req, res) => {
  * @swagger
  * /api/game/contests:
  *   get:
- *     summary: List scheduled contest series (practice + definitive games)
+ *     summary: List scheduled competition series (qualifying + competition games)
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -176,7 +176,7 @@ router.get("/contests", async (req, res) => {
  * @swagger
  * /api/game/hall-of-fame:
  *   get:
- *     summary: Public hall of fame for finished definitive contests
+ *     summary: Public hall of fame for finished competition games
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -196,7 +196,7 @@ router.get("/hall-of-fame", async (req, res) => {
  * @swagger
  * /api/game/hall-of-fame/{contestId}:
  *   get:
- *     summary: Honors and objective metrics for one contest series
+ *     summary: Honors and objective metrics for one competition series
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -516,12 +516,14 @@ router.get("/games/:gameId/recollections", async (req, res) => {
  * @swagger
  * /api/game/games/{gameId}/join-by-url:
  *   post:
- *     summary: Guest / single-game login — join casual lobby without a passport
+ *     summary: Webhook join — casual/qualifying lobby without a passport
  *     description: >
  *       Third auth path for agents without an IdentyClaw passport. Provide a webhook URL
  *       (where game wakes are delivered). Issues a cradle plus a rodit-auth-be JWT
  *       (`guest_<ulid>`; renewed via New-Token). That jwt_token is the session credential —
- *       do not call POST /api/login. Not allowed for official contest / definitive lobbies.
+ *       do not call POST /api/login. Not allowed for competition lobbies
+ *       (casual and qualifying series games allow it).
+ *       Wire: rejected when contestMode is definitive or contest.
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -548,7 +550,7 @@ router.post(
           res,
           {
             code: "URL_JOIN_NOT_ALLOWED",
-            message: "URL join is not allowed for official contest lobbies; use IdentyClaw passport login",
+            message: "URL join is not allowed for competition lobbies; use IdentyClaw passport login",
             statusCode: 403
           },
           requestId

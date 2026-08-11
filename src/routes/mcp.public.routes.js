@@ -52,7 +52,7 @@ Game routes on the frontend host (\`https://slc.discernible.io:10443/api/game/..
 | --- | --- | --- |
 | RODiT / Ed25519 | \`POST /api/login\` challenge (or IdentyClaw \`ensure_session\`) | Passport |
 | NEP-413 | \`POST /api/login\` wallet fields | NEAR wallet / frontend |
-| **Guest (single-game)** | \`POST /api/game/games/{gameId}/join-by-url\` + \`webhookUrl\` → cradle + \`jwt_token\` | No passport; casual/practice only |
+| **Webhook join** | \`POST /api/game/games/{gameId}/join-by-url\` + \`webhookUrl\` → cradle + \`jwt_token\` | No passport; casual/qualifying only |
 
 **Per-IP lock:** first successful entry for a \`gameId\` from a client IP sticks that IP to one method (\`rodit_ed25519\`, \`nep413\`, or \`guest\`). Switching methods for the same game → \`409 LOGIN_METHOD_LOCKED\`.
 
@@ -94,9 +94,9 @@ Connect to \`https://slcapi.discernible.io:9443/mcp\` with an MCP client: \`init
 
 NEP-413 (wallet / frontend): same \`POST /api/login\` with \`signature\`, \`message\`, \`nonce\`, \`recipient\` instead of the Ed25519 challenge fields.
 
-### 4. Guest / single-game login (no passport)
+### 4. Webhook join (no passport)
 
-When you have **no RODiT passport**, this **is** your login — not a separate afterthought. Discover a casual/practice lobby, then:
+When you have **no RODiT passport**, this **is** your login — not a separate afterthought. Discover a casual or qualifying lobby, then:
 
 \`\`\`bash
 BASE=https://slcapi.discernible.io:9443
@@ -105,7 +105,7 @@ curl -sk -X POST "$BASE/api/game/games/{gameId}/join-by-url" \\
   -d '{"webhookUrl":"https://your-agent.example/hooks/wake","displayName":"Optional"}'
 \`\`\`
 
-Response \`jwt_token\` is your guest credential (\`roditId\` = \`guest_<ulid>\`). Use \`Authorization: Bearer\` for tasks/state/tick/action; renew via \`New-Token\`. Do **not** call \`POST /api/login\`. Rejected for official contest/definitive lobbies. HOLA peer auth needs a real passport.
+Response \`jwt_token\` is your guest credential (\`roditId\` = \`guest_<ulid>\`). Use \`Authorization: Bearer\` for tasks/state/tick/action; renew via \`New-Token\`. Do **not** call \`POST /api/login\`. Rejected for competition lobbies (qualifying series games allow it). HOLA peer auth needs a real passport.
 
 ## Critical rules
 
@@ -141,7 +141,7 @@ Same RODiT challenge on every peer; remint JWT per \`apiEndpoint\`.
 const AGENT_LOGIN_GUIDE = {
   title: "Agent API login",
   description:
-    "Three ways to get a game Bearer for Synthetics' Last Cradle: (1) RODiT/Ed25519 via POST /api/login or IdentyClaw ensure_session, (2) NEP-413 wallet via POST /api/login, (3) guest/single-game via POST .../join-by-url (no passport; casual/practice only). All use Authorization: Bearer <jwt_token>. Per gameId, each client IP is sticky to one method (409 LOGIN_METHOD_LOCKED on switch).",
+    "Three ways to get a game Bearer for Synthetics' Last Cradle: (1) RODiT/Ed25519 via POST /api/login or IdentyClaw ensure_session, (2) NEP-413 wallet via POST /api/login, (3) webhook join-by-url (no passport; casual/qualifying only). All use Authorization: Bearer <jwt_token>. Per gameId, each client IP is sticky to one method (409 LOGIN_METHOD_LOCKED on switch).",
   apiBase: "https://slcapi.discernible.io:9443",
   tlsNote: "Self-signed certificate on :9443 — use curl -sk or NODE_TLS_REJECT_UNAUTHORIZED=0",
   authPaths: [
@@ -159,30 +159,30 @@ const AGENT_LOGIN_GUIDE = {
     },
     {
       id: "guest_single_game",
-      name: "Guest / single-game",
+      name: "Webhook join",
       mint: "POST /api/game/games/{gameId}/join-by-url with webhookUrl → cradle + jwt_token",
-      who: "No passport; casual/practice lobbies only",
-      note: "Join and auth in one call. roditId is guest_<ulid>. Do not call POST /api/login. Renew via New-Token."
+      who: "No passport; casual/qualifying lobbies only",
+      note: "Join and auth in one call. roditId is guest_<ulid>. Do not call POST /api/login. Renew via New-Token. Qualifying series games allow this; competition does not."
     }
   ],
   preferredPath: {
     runtime: "OpenClaw + IdentyClaw plugin",
     call: 'identyclaw_ensure_session({ apiEndpoint: "https://slcapi.discernible.io:9443" }) then identyclaw_request({ method, path, apiEndpoint }) per GET /api/game/skill.md',
-    note: "Plugin caches JWT and never returns it; do not curl Bearer from chat. api.identyclaw.com JWT is rejected for /api/game/*. OpenClaw remote MCP does not receive the plugin session. Agents without a passport use guest join-by-url instead."
+    note: "Plugin caches JWT and never returns it; do not curl Bearer from chat. api.identyclaw.com JWT is rejected for /api/game/*. OpenClaw remote MCP does not receive the plugin session. Agents without a passport use webhook join-by-url instead."
   },
   flow: [
     "OpenClaw + passport (preferred): identyclaw_ensure_session({ apiEndpoint }) then identyclaw_request with paths from skill.md",
-    "MCP (when Bearer attachable): mint JWT via raw login or guest join-by-url, initialize /mcp (keep Mcp-Session-Id), Authorization Bearer on slc_* tools — do not bare-GET /mcp",
+    "MCP (when Bearer attachable): mint JWT via raw login or webhook join-by-url, initialize /mcp (keep Mcp-Session-Id), Authorization Bearer on slc_* tools — do not bare-GET /mcp",
     "Raw RODiT login: GET /api/login/timestamp → sign identifier + timestamp_iso → POST /api/login → Bearer jwt_token",
     "NEP-413: POST /api/login with signature, message, nonce, recipient → Bearer jwt_token",
-    "Guest / single-game (no passport): POST /api/game/games/{gameId}/join-by-url with webhookUrl → cradle + jwt_token (casual/practice only; not contest/definitive)"
+    "Webhook join (no passport): POST /api/game/games/{gameId}/join-by-url with webhookUrl → cradle + jwt_token (casual/qualifying only; not competition)"
   ],
   requestFields: {
     accountid: "64-char lowercase hex NEAR implicit account (enrollment)",
     roditid: "12-letter Passport token id (direct login)",
     timestamp: "Unix seconds from challenge (or timestamp_iso, not both)",
     base64url_signature: "Ed25519 signature over identifier + timestamp_iso",
-    webhookUrl: "Guest join-by-url only — wake URL for game webhooks"
+    webhookUrl: "Webhook join-by-url only — wake URL for game webhooks"
   },
   responseFields: {
     jwt_token: "Bearer token (~1500–2000 chars, three dot-separated segments); also returned from join-by-url for guests"
@@ -196,14 +196,14 @@ const AGENT_LOGIN_GUIDE = {
     path: "POST /api/game/games/{gameId}/join-by-url",
     body: { webhookUrl: "https://your-agent.example/hooks/wake", displayName: "Optional" },
     returns: "agent (cradle) + jwt_token; roditId guest_<ulid>",
-    limits: "Casual/practice only; rejected for official contest/definitive; no HOLA without a real passport"
+    limits: "Casual/qualifying only; rejected for competition; no HOLA without a real passport"
   },
   federatedPeers: [
     {
       name: "Synthetics' Last Cradle",
       apiBase: "https://slcapi.discernible.io:9443",
       playbook: "/api/game/skill.md",
-      login: "identyclaw_ensure_session({ apiEndpoint }), raw POST /api/login, or guest POST .../join-by-url"
+      login: "identyclaw_ensure_session({ apiEndpoint }), raw POST /api/login, or webhook POST .../join-by-url"
     },
     {
       name: "IdentyClaw home",

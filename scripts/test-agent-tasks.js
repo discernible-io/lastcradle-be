@@ -38,8 +38,20 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.18.7")) {
-    throw new Error("skill.md should be version 1.18.7");
+  if (!skill.includes("version: 1.19.0")) {
+    throw new Error("skill.md should be version 1.19.0");
+  }
+  if (!skill.includes("When to Use This Skill")) {
+    throw new Error("skill.md should include intent→action lookup");
+  }
+  if (!skill.includes("Operation model")) {
+    throw new Error("skill.md should include operation model categories");
+  }
+  if (!skill.includes("Exact enums") || !skill.includes("do not invent")) {
+    throw new Error("skill.md should pin exact enums");
+  }
+  if (!skill.includes("Integrator traps")) {
+    throw new Error("skill.md should include integrator traps");
   }
   if (!skill.includes("Resolve FIFO") || !skill.includes("FIFO by")) {
     throw new Error("skill.md should document FIFO resolve by submission arrival");

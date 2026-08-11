@@ -152,7 +152,7 @@ const DEFAULT_GAME_CONFIG = {
   maxGameDurationMs: null,
 
   /**
-   * Contest metadata: null (casual), "practice", or "definitive".
+   * Contest metadata: null (casual), "practice" (qualifying; wire), or "definitive" (competition; wire).
    * Orchestration (prizes, scheduling) is layered on top when set.
    */
   contestMode: null,
@@ -199,7 +199,7 @@ const CONTEST_GAME_CONFIG = {
   contestMode: "definitive"
 };
 
-/** Softer preset for practice week — same timing, no duration pressure. */
+/** Softer preset for qualifying week — same timing, no duration pressure. */
 const PRACTICE_GAME_CONFIG = {
   ...CONTEST_GAME_CONFIG,
   minAgents: 3,
