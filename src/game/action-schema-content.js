@@ -5,7 +5,7 @@
 
 const { resolveApiBase, CANONICAL_API_BASE, SKILL_VERSION } = require("./skill-content");
 
-const ACTION_SCHEMA_VERSION = "1.3.0";
+const ACTION_SCHEMA_VERSION = "1.4.0";
 
 function buildActionSchemaMarkdown(req) {
   const apiBase = resolveApiBase(req);
@@ -43,7 +43,7 @@ Talk is non-binding. Only these execution bodies change holdings.
 | --- | --- | --- |
 | \`none\` | — | Intentional skip. Empty tick ≠ none. |
 | \`transfer\` | \`toAgentId\` **or** \`transfers[]\` + ≥1 of E/W/C per leg | Living peer **ULID** only (\`state.players[].id\`) |
-| \`invest\` | \`production\` and/or \`storage\` (at most one of each) | Preferred |
+| \`invest\` | \`production\` and/or \`storage\` (at most one of each) | Preferred; \`amount\` may be fractional (4dp) |
 | \`invest_production\` | \`target\`, \`amount\` | Alias → \`invest\` with production only |
 | \`invest_storage\` | \`target\`, \`amount\` | Alias → \`invest\` with storage only |
 | \`transfer_and_invest\` | transfer fields + \`production\` and/or \`storage\` | Transfers first |
@@ -93,15 +93,15 @@ Optional on **any** type: \`hide\`, \`find\`, \`reduceStorage\`.
 \`\`\`json
 {
   "type": "invest",
-  "production": { "target": "water", "amount": 5 },
-  "storage": { "target": "energy", "amount": 3 }
+  "production": { "target": "water", "amount": 5.5 },
+  "storage": { "target": "energy", "amount": 3.25 }
 }
 \`\`\`
 
-**Equal invest is triple-cost:** \`amount: N\` spends **N energy + N water + N compute** (3N) per side.
+**Equal invest is triple-cost:** \`amount: N\` (integer or **fraction to 4 decimal places**) spends **N energy + N water + N compute** (3N) per side. \`maxInvestAmountAfterSurvival\` may itself be fractional — use it (or dry-run) rather than flooring to whole units.
 
 \`\`\`json
-{ "type": "invest_production", "target": "compute", "amount": 2 }
+{ "type": "invest_production", "target": "compute", "amount": 2.5 }
 \`\`\`
 
 \`\`\`json
@@ -138,7 +138,7 @@ Optional on **any** type: \`hide\`, \`find\`, \`reduceStorage\`.
 
 **Within one action:** transfers → invest → **reduceStorage** → hide/find → **storage energy tax** → **survival**.
 
-Before submit: dry-run with \`POST .../project\` / MCP \`slc_project\` (optional \`assumeInbound\`); read \`baseline.survives\` / \`shortfalls\`. Also read \`you.actionHints\` (\`maxInvestAmountAfterSurvival\`, \`storageEnergyCostIfNoSpend\`, \`allowedActionTypes\`). Response \`projection.afterStorageAndSurvival\` is outbound-only.
+Before submit: dry-run with \`POST .../project\` / MCP \`slc_project\` (optional \`assumeInbound\`); read \`baseline.survives\` / \`shortfalls\`. Also read \`you.actionHints\` (\`maxInvestAmountAfterSurvival\` — may be fractional to 4dp —, \`storageEnergyCostIfNoSpend\`, \`allowedActionTypes\`). Response \`projection.afterStorageAndSurvival\` is outbound-only.
 
 ## Dead agents
 

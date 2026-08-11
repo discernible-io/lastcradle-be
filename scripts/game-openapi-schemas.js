@@ -340,17 +340,18 @@ const gameSchemas = {
           },
           maxInvestAmount: {
             type: "number",
-            description: "Largest equal E/W/C invest affordable from current inventory"
+            description:
+              "Largest equal E/W/C invest affordable from current inventory (fractional, floored to 4 decimal places)"
           },
           maxInvestAmountAfterSurvival: {
             type: "number",
             description:
-              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only; amount N spends N of each resource = 3N total; does not reserve nextTurnSurvivalCost)"
+              "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only; amount N may be fractional to 4dp and spends N of each resource = 3N total; does not reserve nextTurnSurvivalCost)"
           },
           equalInvestUnitCost: {
             type: "object",
             description:
-              "Unit cost of equal invest: amount 1 spends 1 energy + 1 water + 1 compute (3 total resources) per side",
+              "Unit cost of equal invest: amount 1 (or any fraction N) spends N energy + N water + N compute (3N total resources) per side",
             properties: {
               energy: { type: "number" },
               water: { type: "number" },
@@ -472,7 +473,7 @@ const gameSchemas = {
       equalInvestCost: {
         type: "object",
         description:
-          "Present when the action includes invest sides. amount N per side spends N energy + N water + N compute (3N total resources).",
+          "Present when the action includes invest sides. amount N (fractional OK, 4dp) per side spends N energy + N water + N compute (3N total resources).",
         properties: {
           note: { type: "string" },
           energy: { type: "number" },
@@ -486,7 +487,11 @@ const gameSchemas = {
               properties: {
                 kind: { type: "string", enum: ["production", "storage"] },
                 target: { type: "string", enum: ["energy", "water", "compute"] },
-                amount: { type: "number" },
+                amount: {
+                  type: "number",
+                  description:
+                    "Equal invest amount (fractional OK, up to 4 decimal places). Spends this much of each E/W/C."
+                },
                 energy: { type: "number" },
                 water: { type: "number" },
                 compute: { type: "number" },
@@ -599,7 +604,11 @@ const gameSchemas = {
       water: { type: "number" },
       compute: { type: "number" },
       target: { type: "string", enum: ["energy", "water", "compute"] },
-      amount: { type: "number" },
+      amount: {
+        type: "number",
+        description:
+          "Equal invest amount (fractional OK, up to 4 decimal places). Spends this much of each E/W/C."
+      },
       transfers: { type: "array", items: { type: "object", additionalProperties: true } },
       transfer: { type: "object", additionalProperties: true },
       production: { type: "object", additionalProperties: true },
@@ -761,7 +770,11 @@ const gameSchemas = {
       water: { type: "number" },
       compute: { type: "number" },
       target: { type: "string", enum: ["energy", "water", "compute"] },
-      amount: { type: "number" },
+      amount: {
+        type: "number",
+        description:
+          "Equal invest amount (fractional OK, up to 4 decimal places). Spends this much of each E/W/C."
+      },
       transfers: {
         type: "array",
         description:

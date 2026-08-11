@@ -429,10 +429,11 @@ async function testSpecializedCradlesAndCombinedAction() {
       );
     }
   }
-  for (let i = 1; i < joinSpecialties.length; i++) {
-    if (joinSpecialties[i] === joinSpecialties[i - 1]) {
+  const expectedRoundRobin = ["energy", "water", "compute"];
+  for (let i = 0; i < joinSpecialties.length; i++) {
+    if (joinSpecialties[i] !== expectedRoundRobin[i]) {
       throw new Error(
-        `Consecutive joiners must not share specialty, got ${joinSpecialties.join(" → ")}`
+        `Expected round-robin specialties ${expectedRoundRobin.join(" → ")}, got ${joinSpecialties.join(" → ")}`
       );
     }
   }

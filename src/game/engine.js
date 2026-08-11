@@ -99,9 +99,19 @@ function hasSufficient(inventory, cost) {
   );
 }
 
+/** Resource / invest precision: four decimal places. */
+const RESOURCE_SCALE = 10000;
+
 function roundResource(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) return 0;
-  return Math.round(value * 10000) / 10000;
+  return Math.round(value * RESOURCE_SCALE) / RESOURCE_SCALE;
+}
+
+/** Floor to resource precision (safe for max-affordable / max-safe invest hints). */
+function floorResource(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  if (value <= 0) return 0;
+  return Math.floor(value * RESOURCE_SCALE + 1e-9) / RESOURCE_SCALE;
 }
 
 function roundInventory(inventory) {
@@ -393,21 +403,37 @@ function applyStorageCost(inventory, storageCapacity, config) {
 function normalizeInvestAction(action) {
   const normalized = { ...action };
   if (typeof normalized.amount === "number") {
-    normalized.energy = normalized.amount;
-    normalized.water = normalized.amount;
-    normalized.compute = normalized.amount;
+    if (!Number.isFinite(normalized.amount) || normalized.amount <= 0) {
+      throw gameError(
+        "INVALID_INVESTMENT",
+        "Investment amount must be a positive number (fractions allowed to 4 decimal places)",
+        400
+      );
+    }
+    const amount = roundResource(normalized.amount);
+    if (amount <= 0) {
+      throw gameError(
+        "INVALID_INVESTMENT",
+        "Investment amount must be a positive number (fractions allowed to 4 decimal places)",
+        400
+      );
+    }
+    normalized.amount = amount;
+    normalized.energy = amount;
+    normalized.water = amount;
+    normalized.compute = amount;
   }
   return normalized;
 }
 
 function validateBalancedInvestment(action) {
-  const energy = action.energy || 0;
-  const water = action.water || 0;
-  const compute = action.compute || 0;
+  const energy = roundResource(action.energy || 0);
+  const water = roundResource(action.water || 0);
+  const compute = roundResource(action.compute || 0);
   if (energy <= 0 || water <= 0 || compute <= 0) {
     throw gameError(
       "INVALID_INVESTMENT",
-      "Investment must spend a positive equal amount of energy, water, and compute",
+      "Investment must spend a positive equal amount of energy, water, and compute (fractions allowed to 4 decimal places)",
       400
     );
   }
@@ -549,11 +575,15 @@ function extractInvestLeg(source) {
     );
   }
   validateBalancedInvestment(normalized);
+  const energy = roundResource(normalized.energy);
+  const water = roundResource(normalized.water);
+  const compute = roundResource(normalized.compute);
   return {
     target: normalized.target,
-    energy: normalized.energy,
-    water: normalized.water,
-    compute: normalized.compute
+    energy,
+    water,
+    compute,
+    amount: energy
   };
 }
 
@@ -652,11 +682,11 @@ function executeInvestSides(state, payload, config) {
  * Legacy mode keeps production = storage.
  *
  * @param {object} config
- * @param {{ excludeSpecialty?: string|null }} [options]
- *   When set, specialty is chosen uniformly from the other resources so consecutive
- *   joiners never share the same specialty (reduces same-surplus lobbies).
+ * @param {{ specialty?: string|null }} [options]
+ *   When set to a resource key, that specialty is used (join path assigns by round-robin
+ *   join index: energy → water → compute → energy…). Otherwise a random specialty is rolled.
  */
-function buildCradleAssignment(config, { excludeSpecialty = null } = {}) {
+function buildCradleAssignment(config, { specialty: forcedSpecialty = null } = {}) {
   const storageCapacity = {
     energy: randomInt(config.cradleCapacityMin, config.cradleCapacityMax),
     water: randomInt(config.cradleCapacityMin, config.cradleCapacityMax),
@@ -669,9 +699,10 @@ function buildCradleAssignment(config, { excludeSpecialty = null } = {}) {
   if (config.useSpecializedCradles === false) {
     productionCapacity = cloneCapacities(storageCapacity);
   } else {
-    const specialtyChoices = RESOURCE_KEYS.filter((key) => key !== excludeSpecialty);
-    const pool = specialtyChoices.length > 0 ? specialtyChoices : RESOURCE_KEYS;
-    specialty = pool[randomInt(0, pool.length - 1)];
+    specialty =
+      forcedSpecialty && RESOURCE_KEYS.includes(forcedSpecialty)
+        ? forcedSpecialty
+        : RESOURCE_KEYS[randomInt(0, RESOURCE_KEYS.length - 1)];
     const specialtyMin = config.cradleSpecialtyProductionMinRatio ?? 1.35;
     const specialtyMax = config.cradleSpecialtyProductionMaxRatio ?? 1.85;
     const secondaryMin = config.cradleSecondaryProductionMinRatio ?? 0.35;
@@ -1130,13 +1161,11 @@ async function joinGame(gameId, { roditId, displayName }) {
   }
 
   const existingAgents = await repo.listAgents(gameId);
-  const previous = existingAgents[existingAgents.length - 1];
-  const excludeSpecialty = previous
-    ? deriveCradleEconomics(previous.productionCapacity, previous.storageCapacity).specialty
-    : null;
+  // Deterministic round-robin by join order so lobbies stay mixed (energy → water → compute).
+  const specialty = RESOURCE_KEYS[existingAgents.length % RESOURCE_KEYS.length];
 
   const { storageCapacity, productionCapacity, inventory } = buildCradleAssignment(config, {
-    excludeSpecialty
+    specialty
   });
   return repo.addAgent({
     gameId,
@@ -1683,6 +1712,7 @@ function deriveCradleEconomics(productionCapacity, storageCapacity, inventory = 
 /**
  * Largest equal E/W/C invest that still leaves enough to pay survival after
  * post-execution storage energy cost (rate × remaining water+compute).
+ * Returns a fractional amount floored to 4 decimal places.
  * Transfers / hide / find are not modeled — leave extra cushion if combining them.
  */
 function maxEqualInvestPreservingSurvival(inventory, survivalCost, config = {}) {
@@ -1690,18 +1720,42 @@ function maxEqualInvestPreservingSurvival(inventory, survivalCost, config = {}) 
   const se = survivalCost?.energy ?? 0;
   const sw = survivalCost?.water ?? 0;
   const sc = survivalCost?.compute ?? 0;
-  const maxAffordable = Math.max(
-    0,
-    Math.floor(Math.min(inventory.energy, inventory.water, inventory.compute))
-  );
+  const e = Number(inventory?.energy) || 0;
+  const w = Number(inventory?.water) || 0;
+  const c = Number(inventory?.compute) || 0;
 
-  for (let n = maxAffordable; n >= 0; n -= 1) {
-    const energy = inventory.energy - n;
-    const water = inventory.water - n;
-    const compute = inventory.compute - n;
-    if (water < sw || compute < sc) continue;
-    const energyAfterStorage = Math.max(0, energy - (water + compute) * rate);
-    if (energyAfterStorage >= se) return n;
+  let upper = Math.min(e, w, c, w - sw, c - sc);
+  if (!(upper > 0)) return 0;
+
+  // After spending n of each: energyAfterTax = (e-n) - rate*((w-n)+(c-n))
+  //   = e - rate(w+c) - n(1 - 2rate). Require >= se.
+  const denom = 1 - 2 * rate;
+  if (denom > 1e-12) {
+    const numer = e - rate * (w + c) - se;
+    if (numer < 0) return 0;
+    upper = Math.min(upper, numer / denom);
+  } else if (Math.abs(denom) <= 1e-12) {
+    // rate ≈ 0.5: energy constraint independent of n
+    if (e - rate * (w + c) - se < -1e-9) return 0;
+  } else {
+    // rate > 0.5: investing reduces tax faster than energy spent — need n >= minN
+    const minN = (e - rate * (w + c) - se) / denom;
+    if (upper < minN - 1e-9) return 0;
+  }
+
+  let n = floorResource(upper);
+  // Nudge down if float noise made the floored value slightly unsafe
+  for (let i = 0; i < 20 && n > 0; i += 1) {
+    const energy = e - n;
+    const water = w - n;
+    const compute = c - n;
+    if (water + 1e-9 < sw || compute + 1e-9 < sc) {
+      n = floorResource(n - 1 / RESOURCE_SCALE);
+      continue;
+    }
+    const energyAfterStorage = energy - (water + compute) * rate;
+    if (energyAfterStorage + 1e-9 >= se) return n;
+    n = floorResource(n - 1 / RESOURCE_SCALE);
   }
   return 0;
 }
@@ -2084,9 +2138,12 @@ async function projectAgentActionDryRun(gameId, agentId, action = {}, options = 
 }
 
 function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
-  const maxInvestAmount = Math.max(
-    0,
-    Math.floor(Math.min(inventory.energy, inventory.water, inventory.compute))
+  const maxInvestAmount = floorResource(
+    Math.min(
+      Number(inventory?.energy) || 0,
+      Number(inventory?.water) || 0,
+      Number(inventory?.compute) || 0
+    )
   );
   const maxInvestAmountAfterSurvival = maxEqualInvestPreservingSurvival(
     inventory,
@@ -2152,7 +2209,7 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
       compute: 1,
       totalResources: 3,
       note:
-        "Equal invest amount N spends N energy + N water + N compute (3N total resources) per side. Dual production+storage spends both sides."
+        "Equal invest amount N (integer or fraction to 4 decimal places) spends N energy + N water + N compute (3N total resources) per side. Dual production+storage spends both sides."
     },
     storageEnergyCostRate: noSpend.storageEnergyCostRate,
     storageEnergyCostIfNoSpend: noSpend.storageEnergyCost,
@@ -2163,7 +2220,7 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     ...(survivalCostPerTurnIncrement ? { survivalCostPerTurnIncrement } : {}),
     ...(storageReadouts || {}),
     note:
-      "Equal invest is triple-cost: amount N = N of each E/W/C (see equalInvestUnitCost). Read storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageEnergyCostRate × remaining water+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only for a single side (no transfers/hide/find/inbound/reduceStorage); dual production+storage spends both." +
+      "Equal invest is triple-cost: amount N (fractional OK, 4dp) = N of each E/W/C (see equalInvestUnitCost). Read storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageEnergyCostRate × remaining water+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only for a single side (no transfers/hide/find/inbound/reduceStorage); dual production+storage spends both." +
       risingNote +
       " Cap hide+find at maxIntelligenceComputeAfterSurvival. Optional free reduceStorage:{ energy?, water?, compute? } shrinks warehouse caps (overflow inventory clamped). Up to maxTransferRecipients peers per transfer (defaults to maxAgents). Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
       " invest may include production and/or storage (at most one of each); invest_production / invest_storage are aliases." +

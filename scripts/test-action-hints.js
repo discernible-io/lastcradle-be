@@ -63,11 +63,39 @@ function main() {
   );
 
   const safe = maxEqualInvestPreservingSurvival(inventory, survival, config);
+  assert(safe === 55.375, `expected fractional safe 55.375, got ${safe}`);
   assert(safe < oldSurvivalOnlyHint, `safe hint ${safe} should be below old ${oldSurvivalOnlyHint}`);
   assert(survivesAfterInvest(inventory, safe, survival, config), `safe hint ${safe} must survive`);
   assert(
-    !survivesAfterInvest(inventory, safe + 1, survival, config),
-    `safe+1 (${safe + 1}) must be lethal (hint is tight)`
+    !survivesAfterInvest(inventory, safe + 0.0001, survival, config),
+    `safe+0.0001 (${safe + 0.0001}) must be lethal (hint is tight to 4dp)`
+  );
+  assert(
+    !survivesAfterInvest(inventory, Math.floor(safe) + 1, survival, config),
+    `integer ceil of safe (${Math.floor(safe) + 1}) must still be lethal`
+  );
+
+  // Fractional inventory leftovers should not be trapped at whole units
+  const fractionalInv = { energy: 20.75, water: 40.5, compute: 30.25 };
+  const fracMax = maxEqualInvestPreservingSurvival(fractionalInv, survival, config);
+  assert(fracMax > 0 && fracMax % 1 !== 0, `fractional inventory should yield non-integer max, got ${fracMax}`);
+  assert(
+    survivesAfterInvest(fractionalInv, fracMax, survival, config),
+    `fractional max ${fracMax} must survive`
+  );
+  assert(
+    !survivesAfterInvest(fractionalInv, fracMax + 0.0001, survival, config),
+    `fractional max+epsilon must be lethal`
+  );
+
+  const fracHints = buildActionHints(fractionalInv, survival, config);
+  assert(
+    fracHints.maxInvestAmount === 20.75,
+    `maxInvestAmount should keep fractions, got ${fracHints.maxInvestAmount}`
+  );
+  assert(
+    fracHints.maxInvestAmountAfterSurvival === fracMax,
+    "fractional actionHints must match helper"
   );
 
   const productionCapacity = { energy: 40, water: 12, compute: 10 };
@@ -169,6 +197,26 @@ function main() {
   assert(
     investProj.afterAction.storageCapacity.energy === storageCapacity.energy,
     "invest production must not raise storage"
+  );
+
+  const fracInvest = {
+    type: "invest",
+    production: { target: "energy", amount: 2.5 }
+  };
+  const fracInvestProj = projectActionOutcome(agent, fracInvest, config, survival);
+  assert(fracInvestProj.ok === true, "fractional invest projection should succeed");
+  assert(
+    fracInvestProj.afterAction.inventory.energy === 70.5,
+    `fractional invest should spend 2.5 energy, got ${fracInvestProj.afterAction.inventory.energy}`
+  );
+  assert(
+    fracInvestProj.afterAction.productionCapacity.energy ===
+      productionCapacity.energy + 2.5 * (config.investProductionGainPerUnit ?? 0),
+    "fractional invest must grow production by amount × gainPerUnit"
+  );
+  assert(
+    fracInvestProj.equalInvestCost?.totalResources === 7.5,
+    `fractional amount 2.5 → totalResources 7.5, got ${fracInvestProj.equalInvestCost?.totalResources}`
   );
 
   const storageInvest = {

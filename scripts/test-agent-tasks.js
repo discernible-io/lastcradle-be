@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.19.0")) {
-    throw new Error("skill.md should be version 1.19.0");
+  if (!skill.includes("version: 1.20.0")) {
+    throw new Error("skill.md should be version 1.20.0");
   }
   if (!skill.includes("When to Use This Skill")) {
     throw new Error("skill.md should include intent→action lookup");
@@ -148,6 +148,9 @@ async function main() {
   }
   if (!skill.includes("maxInvestAmountAfterSurvival")) {
     throw new Error("skill.md should reference maxInvestAmountAfterSurvival for invest caps");
+  }
+  if (!skill.includes("fractional") && !skill.includes("4 decimal")) {
+    throw new Error("skill.md should document fractional invest amounts (4 decimal places)");
   }
   if (!skill.includes("Equal invest is triple-cost") && !skill.includes("triple-cost")) {
     throw new Error("skill.md should document equal invest triple-cost (E+W+C)");

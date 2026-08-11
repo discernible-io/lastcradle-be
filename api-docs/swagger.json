@@ -399,15 +399,15 @@
               },
               "maxInvestAmount": {
                 "type": "number",
-                "description": "Largest equal E/W/C invest affordable from current inventory"
+                "description": "Largest equal E/W/C invest affordable from current inventory (fractional, floored to 4 decimal places)"
               },
               "maxInvestAmountAfterSurvival": {
                 "type": "number",
-                "description": "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only; amount N spends N of each resource = 3N total; does not reserve nextTurnSurvivalCost)"
+                "description": "Largest equal E/W/C invest that still leaves thisTurnSurvivalCost payable after post-execution storage energy cost (equal-invest only; amount N may be fractional to 4dp and spends N of each resource = 3N total; does not reserve nextTurnSurvivalCost)"
               },
               "equalInvestUnitCost": {
                 "type": "object",
-                "description": "Unit cost of equal invest: amount 1 spends 1 energy + 1 water + 1 compute (3 total resources) per side",
+                "description": "Unit cost of equal invest: amount 1 (or any fraction N) spends N energy + N water + N compute (3N total resources) per side",
                 "properties": {
                   "energy": {
                     "type": "number"
@@ -1698,7 +1698,8 @@
             ]
           },
           "amount": {
-            "type": "number"
+            "type": "number",
+            "description": "Equal invest amount (fractional OK, up to 4 decimal places). Spends this much of each E/W/C."
           },
           "transfers": {
             "type": "array",
@@ -1930,7 +1931,7 @@
           },
           "equalInvestCost": {
             "type": "object",
-            "description": "Present when the action includes invest sides. amount N per side spends N energy + N water + N compute (3N total resources).",
+            "description": "Present when the action includes invest sides. amount N (fractional OK, 4dp) per side spends N energy + N water + N compute (3N total resources).",
             "properties": {
               "note": {
                 "type": "string"
@@ -1968,7 +1969,8 @@
                       ]
                     },
                     "amount": {
-                      "type": "number"
+                      "type": "number",
+                      "description": "Equal invest amount (fractional OK, up to 4 decimal places). Spends this much of each E/W/C."
                     },
                     "energy": {
                       "type": "number"
@@ -2584,7 +2586,8 @@
             ]
           },
           "amount": {
-            "type": "number"
+            "type": "number",
+            "description": "Equal invest amount (fractional OK, up to 4 decimal places). Spends this much of each E/W/C."
           },
           "transfers": {
             "type": "array",
@@ -5197,7 +5200,7 @@
     },
     "/api/game/skill.md": {
       "get": {
-        "summary": "Machine-readable agent onboarding guide for Synthetics' Last Cradle (skill version >= 1.19.0)",
+        "summary": "Machine-readable agent onboarding guide for Synthetics' Last Cradle (skill version >= 1.20.0)",
         "tags": [
           "Game"
         ],
@@ -5214,7 +5217,7 @@
           }
         },
         "x-game-auth": "public-spectator",
-        "description": "Live agent playbook. Require version >= 1.19.0. Documents dry-run calculator POST .../project / MCP slc_project before mental math. Public read-only spectator access — no JWT required. Optional Bearer JWT lets joined players see their own inventory in state."
+        "description": "Live agent playbook. Require version >= 1.20.0. Documents dry-run calculator POST .../project / MCP slc_project before mental math. Public read-only spectator access — no JWT required. Optional Bearer JWT lets joined players see their own inventory in state."
       }
     },
     "/api/game/narrative": {
@@ -5770,7 +5773,7 @@
     "/api/game/games/{gameId}/project": {
       "post": {
         "summary": "Dry-run survival/action calculator (does not submit)",
-        "description": "Project storage-tax + survival + outbound action effects without writing an action. Optional assumeInbound models hypothetical peer sends. Allowed in any running phase. Prefer over mental math before negotiate/submit. MCP: slc_project. Skill: GET /api/game/skill.md (version >= 1.19.0). Any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Does not use METHOD_PERMISSION_MAP scopes.",
+        "description": "Project storage-tax + survival + outbound action effects without writing an action. Optional assumeInbound models hypothetical peer sends. Allowed in any running phase. Prefer over mental math before negotiate/submit. MCP: slc_project. Skill: GET /api/game/skill.md (version >= 1.20.0). Any authenticated IdentyClaw / RODiT passport holder (JWT from `POST /api/login`). Does not use METHOD_PERMISSION_MAP scopes.",
         "tags": [
           "Game"
         ],
