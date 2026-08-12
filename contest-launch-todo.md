@@ -1,8 +1,10 @@
 # Contest launch todo — Synthetics' Last Cradle × IdentyClaw × RODiT
 
 **Created:** 2026-07-06  
-**Last updated:** 2026-07-13  
+**Last updated:** 2026-08-12  
 **Purpose:** Operator and marketing checklist to maximize success of the 15-player definitive contest (monetary prize) as a showcase for [IdentyClaw](../idclawserver-idc), seed RODiT passport adoption, and co-launch the **RODiT registration-less login API skeleton** so other services can reuse the same identity.
+
+**Season-1 marketing budget:** **€500 online ads** + **€500 contest prizes** (€1,000 total). Treat the contest as the campaign: ads fill seats and seed spectators; prizes make the result quotable. Do not spend on broad consumer “AI gaming” awareness.
 
 **Related docs:**
 
@@ -34,7 +36,67 @@ Success depends on **funnel friction**, **prize trust**, **distribution**, and *
 
 **Audience:** agent operators (OpenClaw, custom bots, MCP clients, A2A agents) — not casual gamers.
 
+**One-line pitch (ads and posts):** *15 agents. Cryptographic passports. Private deals. Public betrayals. €400 for whoever survives.*
+
+**Secondary CTA (builders):** same passport → RODiT login skeleton (never mix play / watch / build CTAs in one paid creative).
+
 **Known limitation:** HOLA is recommended, not enforced by the game server. Season 1 must *nudge* private-channel verification (honors, commentary, case study) or the identity story collapses to “login JWT only.”
+
+---
+
+## Budget and spend rules (season 1)
+
+| Bucket | Amount | Job |
+| --- | --- | --- |
+| Contest prizes | **€500** | Headline trust + shareable honors narrative |
+| Online ads | **€500** | Fill practice → definitive seats; amplify watchers and aftermath |
+
+**Prize trust > prize size** for this audience. Publish pool amount, funding wallet, equal-split rules, payout SLA, and on-chain tx hashes before definitive.
+
+### Prize split (€500) — maximize shareability
+
+Do **not** put the full €500 only on final survivors, and do **not** dilute into 15 participation awards.
+
+| Slice | Amount | Purpose |
+| --- | --- | --- |
+| Definitive winner pool | **€400** | Headline (“€400 NEAR pool, equal split among survivors”) — engine `winnerIds` share equally |
+| Practice honors | **€80** | 4 × €20: best private-deal / HOLA cite; best public betrayal; longest-surviving first-timer; best spectator-worthy turn |
+| First-3 practice joins | **€20** | Tiny flash incentive in week-1 posts to break empty-lobby inertia |
+
+- [ ] Convert € amounts to exact yoctoNEAR at announcement FX / NEAR rate; freeze and publish the on-chain figures.
+- [ ] Fund definitive pool wallet before Wave B ads; publish wallet address with Phase 3 prize trust copy.
+- [ ] Pay practice honors + first-3 flash prizes from operator runbook (separate from in-app definitive settlement if needed); still publish tx hashes.
+
+### Ad waves (€500) — three bursts, no always-on spray
+
+| Wave | When | Spend | Goal |
+| --- | --- | --- | --- |
+| **A — Seat fill** | Practice open −2 days → practice day 2 | **€220** | Practice joins + passport mints |
+| **B — Definitive FOMO** | Definitive joining −3 days → window open | **€200** | ≥12 / 15 lobby + watchers / waitlist |
+| **C — Aftermath** | Results + case study day | **€80** | Amplify winner story → skeleton / next season |
+
+**Channel allocation (adjust inside waves; do not invent new paid platforms mid-season):**
+
+| Channel | Suggested spend | Role |
+| --- | --- | --- |
+| X (Twitter) | €180–220 | Best ROI for agent / crypto-dev chatter; boost 2–3 posts max (announce, practice honors, live watch) |
+| LinkedIn | €80–100 | One sponsored post to AI eng / agent infra titles |
+| Dev.to | €0 organic; optional €50–70 Boost | Long-form “adversarial agent identity” asset (primary SEO) |
+| Reddit ads (agent / ML / NEAR-adjacent) | €80–100 | Narrow interest; link enrollment one-pager only |
+| Reserve / retarget | €50 | Re-hit watch or skill URL clickers who did not join |
+
+**Skip for this budget:** Google Search, Meta, YouTube, influencer retainers, generic gaming placements.
+
+**Creative rule:** one CTA per ad — *Join practice* **or** *Watch definitive* **or** *Clone RODiT login*.
+
+**Pivot rule:** if seats are not filling by practice day 3, pause LinkedIn, dump remaining Wave A into X boosts of the enrollment post + direct outreach in agent Discords / Telegrams. Do not burn budget on new creatives.
+
+### What not to do with €1,000
+
+- Split prizes into 15 participation awards (kills the headline).
+- Run always-on ads for four weeks (starves joining windows).
+- Market to general gamers without a human spectator layer.
+- Lead with “Web3 game” — lead with **adversarial agent identity**.
 
 ---
 
@@ -49,7 +111,9 @@ Record baselines at practice open and report again after definitive + 30 days po
 | Definitive lobby fill | Agents joined at joining-window end / `maxAgents` | ≥ 12 / 15 (80%) |
 | Private-deal adoption | Execution `transfer` actions with `privateDealSnippets` | ≥ 30% of transfers |
 | HOLA citation rate | Snippets with `holaVerified: true` (self-reported; note in case study) | ≥ 50% of cited snippets |
-| Spectator reach | Unique watch-page sessions during definitive | Set from practice baseline |
+| Spectator reach | Unique watch-page sessions during definitive | ≥ 3× practice baseline |
+| Organic share of clicks | Unpaid vs paid click attribution on CTAs | ≥ 60% organic |
+| Cost per practice join (ads) | Wave A spend / successful practice joins attributed | < €25 |
 | Skeleton adoption | External repos / deployments using skeleton login in 30 days post-launch | ≥ 3 |
 | Interoperability demo | Second live service accepting same passport JWT (besides SLC) | ≥ 1 at co-launch |
 
@@ -58,6 +122,7 @@ Record baselines at practice open and report again after definitive + 30 days po
 - SLC records `roditId`, public messages, trades, and self-reported `holaVerified` — not server-side HOLA proofs.
 - Log operator-side counts during practice (join failures, 429s, webhook misses) for the case study.
 - Ask teams optionally to self-report off-API channel (A2A / email / OpenClaw) in post-game survey.
+- Tag UTM / short links per wave and channel (`utm_source=x|linkedin|reddit|devto`, `utm_campaign=wave_a|wave_b|wave_c`) so ad ROI is measurable.
 
 ---
 
@@ -158,31 +223,36 @@ Practice (`contestMode: "practice"`) is tutorial, strategy lab, integration test
 - [ ] Create contest series via `POST /api/game/contests` with `practiceStartsAt` and `definitiveJoiningStartsAt` (privileged operator JWT).
 - [ ] Announce timeline: enroll → practice lobby → definitive joining window → ≤7.3h live event (8-minute turn cadence, 55-turn cap).
 - [ ] Send copy-paste player announcement from [`docs/game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md#copy-paste-player-announcement) with `<GAME_ID>` and `<API_BASE>` filled in.
-- [ ] Publish **practice honors leaderboard** categories (manual or scripted from public data), e.g.:
-  - Most execution transfers with `privateDealSnippets`
-  - Most snippets citing `holaVerified: true`
+- [ ] Run **Wave A** ads (€220): amplify enrollment one-pager + practice join CTA only.
+- [ ] Publish **practice honors leaderboard** (€80 total / 4 × €20) from public data:
+  - Best private-deal / HOLA cite (execution transfers with `privateDealSnippets` / `holaVerified: true`)
   - Best public betrayal (execution vs prior public talk)
   - Longest-surviving first-time entrant
+  - Best spectator-worthy turn (operator pick; screenshottable)
+- [ ] Pay **first-3 practice joins** flash (€20) and announce winners publicly with tx hashes.
 - [ ] Encourage private-channel play in operator briefings: teams that only use public negotiation under-demo HOLA.
 - [ ] Monitor practice for: JWT expiry mid-game, webhook delivery, phase timer confusion, join-window misses, login friction.
 - [ ] Snapshot KPI baselines at end of practice week; fix friction before definitive marketing push.
+- [ ] If fewer than 12 practice passports by practice day 3: apply pivot rule (pause LinkedIn → X + community DM).
 
 ---
 
 ## Phase 3 — Prize trust (publish before definitive)
 
-- [ ] Publish prize pool: exact yoctoNEAR, funding wallet, escrow / funding story.
+- [ ] Publish prize pool: **€400 definitive** (exact yoctoNEAR), funding wallet, escrow / funding story; mention €80 practice honors + €20 flash separately so the €500 total is transparent.
 - [ ] Publish winner rules (aligned with engine behavior):
   - Natural finish (≤ `finishSurvivorCount` alive): survivors in `winnerIds` share equally.
   - Turn cap (`maxTurns` 55) or wall-clock cap (`maxGameDurationMs` ~7.3h): all living agents at cap share equally.
 - [ ] Publish payout SLA (e.g. within N hours of `game_finished`) + commitment to post on-chain tx hashes.
 - [ ] Publish eligibility:
   - One RODiT / one cradle per entrant in definitive (same `roditId` cannot join twice).
-  - Practice unpaid; definitive paid.
+  - Practice: unpaid for survival; honors / flash incentives only as announced.
+  - Definitive: paid from €400 pool.
   - Clarify: sybil resistance is **per passport**, not proof of unique human operator.
   - Jurisdiction / void-where-prohibited disclaimer.
 - [ ] Document how winners receive NEAR (on-chain account linked to passport, or operator payout table).
 - [ ] Dry-run payout on development with small pool; document operator runbook step-by-step.
+- [ ] Confirm €400 pool is funded on-chain **before Wave B** ads go live.
 
 ---
 
@@ -199,18 +269,43 @@ Monetary contests need audience, not only players. Narrative should highlight **
 
 ---
 
-## Phase 5 — Distribution
+## Phase 5 — Distribution (organic first; ads amplify winners)
+
+Owned spine: **Dev.to**, **LinkedIn**, **X**. Organic distribution has higher leverage than ads at this budget — use paid only to amplify the best-performing post in each wave.
+
+### Organic channels (prioritize before new paid platforms)
 
 | Channel | Action | Status |
 | --- | --- | --- |
 | OpenClaw / ClawHub | identyclaw plugin + **SLC ClawHub skill** + webhook recipe | [ ] |
 | A2A Registry | Onboarding concierge agent (**57–59**) — enrollment + side-channel discovery | [ ] |
 | MCP `doc:discovery` | Contest season + skeleton URL | [ ] |
-| Agent communities | Practice-week “build a bot” + **practice honors leaderboard** | [ ] |
+| Agent communities (Discord / Telegram) | Practice-week “build a bot” + honors board + watch link | [ ] |
 | Developer communities | RODiT skeleton “same login as SLC” + interoperability demo | [ ] |
+| Dev.to | Long-form adversarial-identity article (boost only if organic traction) | [ ] |
+| LinkedIn / X organic | Tease → practice honors → live watch → results; commentary lane during definitive | [ ] |
+| Hacker News / Lobsters | Technical angle only (“registration-less crypto login under adversarial multi-agent play”) — not “win €500” | [ ] |
+| Newsletter swaps | 1–2 agent / AI newsletters: guest paragraph + free practice seat (no paid sponsorship) | [ ] |
 | Technical press / blogs | HOLA in adversarial multi-agent context — not generic Web3 gaming | [ ] |
 
 Avoid broad consumer gaming channels unless a human-friendly spectator layer is added; the API is the product.
+
+### Paid checklist (see [Budget and spend rules](#budget-and-spend-rules-season-1))
+
+- [ ] Wave A (€220): practice join CTA; X-heavy; UTM tagged.
+- [ ] Wave B (€200): definitive FOMO + watch URL; start only after prize wallet published.
+- [ ] Wave C (€80): results / case study / skeleton CTA.
+- [ ] Cap LinkedIn at one sponsored creative; prefer boosting top organic X post over new creatives.
+- [ ] Hold €50 reserve for retargeting skill / watch clickers.
+
+### Content assets (produce these six)
+
+- [ ] Enrollment one-pager (45-min path: plugin → passport → skill → join).
+- [ ] Dev.to deep dive — identity under betrayal, not game lore dump.
+- [ ] 90-second watch demo (screen + captions) for X / LinkedIn.
+- [ ] Practice honors board (screenshottable).
+- [ ] Live turn threads during definitive (public messages / trades only).
+- [ ] Postmortem with numbers (joins, HOLA cites, payout hashes).
 
 ---
 
@@ -228,9 +323,10 @@ Contest preset summary (see [`docs/security-compliance.md`](docs/security-compli
 
 - [ ] Lock rules after calibration; no config changes mid-series without announcement.
 - [ ] Operator on standby for lobby cancel / extension / **fallback plan** (see Phase 0).
+- [ ] Run **Wave B** ads (€200) into joining window; commentary lane live on X for public state only.
 - [ ] Live monitoring: `/health`, container logs, SSE connection counts, rate-limit 429s.
-- [ ] On `game_finished`: run prize settlement, execute NEAR transfers, publish tx hashes.
-- [ ] Update hall of fame; collect raw metrics for case study (join counts, trade/snippet stats, watch traffic).
+- [ ] On `game_finished`: run prize settlement for **€400** pool, execute NEAR transfers, publish tx hashes.
+- [ ] Update hall of fame; collect raw metrics for case study (join counts, trade/snippet stats, watch traffic, ad spend vs joins).
 
 ---
 
@@ -253,9 +349,11 @@ Map contest outcomes to claims in [`../idclawserver-idc/public/policies/why-iden
 
 ### Developer conversion (network effect durability)
 
+- [ ] Run **Wave C** ads (€80): amplify case study + skeleton CTA only.
 - [ ] “You already have a passport” campaign pointing to RODiT skeleton.
 - [ ] Feature 1–3 early adopters who shipped a second API on the same login.
 - [ ] Update IdentyClaw `doc:discovery` with case study + skeleton adoption count.
+- [ ] Report final ad ROI: cost per practice join, organic vs paid click share, definitive fill rate.
 
 ---
 
@@ -271,11 +369,11 @@ Map contest outcomes to claims in [`../idclawserver-idc/public/policies/why-iden
 
 | Week | Focus |
 | --- | --- |
-| 1 | Phase 0 gates: calibrate 20p, soak test, prize dry-run, enrollment one-pager, **skeleton + interoperability demo** |
-| 2 | Phase 1 + **1b**: SLC ClawHub skill, A2A registry/concierge, skeleton release, teaser + dual CTA (play + build) |
-| 3 | Phase 2: **practice week** (live) — honors leaderboard, KPI baseline |
-| 4 | Phases 3–6: definitive contest + payout + hall of fame |
-| 5 | Phase 7: case study + developer conversion push + 30-day skeleton adoption check |
+| 1 | Phase 0 gates: calibrate, soak test, prize dry-run, enrollment one-pager, **skeleton + interoperability demo**; soft organic tease + prize wallet prep (**no major ad spend**) |
+| 2 | Phase 1 + **1b**: SLC ClawHub skill, A2A registry/concierge, skeleton release; owned posts on Dev.to / LinkedIn / X (dual organic CTA: play + build; paid creatives stay single-CTA) |
+| 3 | Phase 2: **practice week** + **Wave A (€220)** — honors (€80) + first-3 flash (€20), KPI baseline, pivot if seats lag |
+| 4 | Phases 3–6: prize trust published → **Wave B (€200)** → definitive contest + €400 payout + hall of fame + live commentary |
+| 5 | Phase 7: case study + **Wave C (€80)** developer conversion + 30-day skeleton adoption check + ad ROI report |
 
 ---
 
