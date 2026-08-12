@@ -16,11 +16,18 @@ const {
 } = require("@rodit/rodit-auth-be");
 const repo = require("./repository");
 const { isUrlJoinRoditId, normalizeRoditId } = require("./rodit-id");
+const { CONTEST_GAME_CONFIG } = require("./defaults");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
 
-const GUEST_JWT_DURATION_SECONDS = "3600";
+/**
+ * Guest JWT TTL for join-by-url: wall-clock of a 55-turn contest
+ * (`maxGameDurationMs` = 55 × 9 min turns) plus a 10-minute buffer.
+ */
+const GUEST_JWT_DURATION_SECONDS = String(
+  Math.ceil(CONTEST_GAME_CONFIG.maxGameDurationMs / 1000) + 10 * 60
+);
 const GUEST_MAX_REQUESTS = "100000";
 const GUEST_MAXRQ_WINDOW = "3600";
 /** ~10 years from join — session/credential caps still apply via server config. */

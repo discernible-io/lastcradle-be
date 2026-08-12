@@ -429,11 +429,12 @@ async function testSpecializedCradlesAndCombinedAction() {
       );
     }
   }
-  const expectedRoundRobin = ["energy", "water", "compute"];
+  // Internal join mix policy (not public docs): energy, water, compute by join index.
+  const expectedJoinSpecialties = ["energy", "water", "compute"];
   for (let i = 0; i < joinSpecialties.length; i++) {
-    if (joinSpecialties[i] !== expectedRoundRobin[i]) {
+    if (joinSpecialties[i] !== expectedJoinSpecialties[i]) {
       throw new Error(
-        `Expected round-robin specialties ${expectedRoundRobin.join(" → ")}, got ${joinSpecialties.join(" → ")}`
+        `Expected join specialties ${expectedJoinSpecialties.join(",")}, got ${joinSpecialties.join(",")}`
       );
     }
   }

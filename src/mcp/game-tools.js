@@ -11,7 +11,7 @@ const {
 } = require("../game/agent-tasks");
 const { buildGameSkillMarkdown, SKILL_VERSION } = require("../game/skill-content");
 const { notifyCradleAssigned, onGamePhaseUpdated } = require("../game/webhooks");
-const { resolvePresetConfig } = require("../game/defaults");
+const { resolvePresetConfig, publicGameConfig } = require("../game/defaults");
 const {
   isPrivilegedRoditId,
   isOfficialContestConfig
@@ -351,7 +351,7 @@ async function callGameTool(name, args, req) {
       const gamePayload = {
         id: game.id,
         status: game.status,
-        config: game.config,
+        config: publicGameConfig(game.config),
         joiningWindow: engine.joiningWindowDetails(game)
       };
 

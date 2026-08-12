@@ -683,8 +683,8 @@ function executeInvestSides(state, payload, config) {
  *
  * @param {object} config
  * @param {{ specialty?: string|null }} [options]
- *   When set to a resource key, that specialty is used (join path assigns by round-robin
- *   join index: energy → water → compute → energy…). Otherwise a random specialty is rolled.
+ *   When set to a resource key, that specialty is used (join path supplies one via
+ *   internal assignment). Otherwise a random specialty is rolled.
  */
 function buildCradleAssignment(config, { specialty: forcedSpecialty = null } = {}) {
   const storageCapacity = {
@@ -1161,7 +1161,7 @@ async function joinGame(gameId, { roditId, displayName }) {
   }
 
   const existingAgents = await repo.listAgents(gameId);
-  // Deterministic round-robin by join order so lobbies stay mixed (energy → water → compute).
+  // Internal specialty mix policy — not part of public API/docs.
   const specialty = RESOURCE_KEYS[existingAgents.length % RESOURCE_KEYS.length];
 
   const { storageCapacity, productionCapacity, inventory } = buildCradleAssignment(config, {

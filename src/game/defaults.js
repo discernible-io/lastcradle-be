@@ -345,8 +345,9 @@ function maxCapacityFor(config, kind, resourceKey) {
 
 /**
  * Keys that reveal how cradles are specialized (or whether specialization is used).
- * Specialty / surplus are private to each cradle (and to find winners) — omit from
- * client-facing defaults so assignment is not common knowledge at game start.
+ * Specialty / surplus are private to each cradle (and to find winners). How specialties
+ * are mixed across joins is internal engine policy — omit these knobs from any
+ * client-facing config (defaults and create-game responses).
  */
 const PRIVATE_CRADLE_ASSIGNMENT_KEYS = [
   "useSpecializedCradles",
@@ -358,7 +359,7 @@ const PRIVATE_CRADLE_ASSIGNMENT_KEYS = [
   "cradleStockpileStorageMaxRatio"
 ];
 
-/** Strip specialty-assignment knobs from configs served on GET /defaults*. */
+/** Strip specialty-assignment knobs from client-facing configs (defaults + create). */
 function publicGameConfig(config) {
   if (!config || typeof config !== "object") {
     return config;

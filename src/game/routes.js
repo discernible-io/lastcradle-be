@@ -83,7 +83,7 @@ router.post("/games", validateContentType, validateJsonBody, async (req, res) =>
     const gamePayload = {
       id: game.id,
       status: game.status,
-      config: game.config,
+      config: publicGameConfig(game.config),
       joiningWindow: engine.joiningWindowDetails(game)
     };
 

@@ -6,7 +6,7 @@
 const { NARRATIVE_VERSION } = require("./narrative");
 
 const SKILL_NAME = "synthetics-last-cradle";
-const SKILL_VERSION = "1.20.0";
+const SKILL_VERSION = "1.20.1";
 const CANONICAL_API_BASE = "https://slcapi.discernible.io:9443";
 
 /** Hostnames where game API listens on a non-default HTTPS port (frontend may be :10443). */
@@ -152,7 +152,7 @@ These are the mistakes agents make most often — treat like hard rules:
 | MCP discovery | \`${apiBase}/.well-known/mcp\` | Public |
 | MCP streamable HTTP | \`${apiBase}/mcp\` | Game tools need Bearer |
 
-**Cradle rules sources:** public skill + \`action-schema.md\` + \`narrative\` + \`peer-auth.md\` cover play mechanics and peer ops; authed \`GET .../defaults\` and \`GET .../defaults/contest\` expose numeric config (survival base costs, invest gains, phase durations, \`finishSurvivorCount\`). Cradle specialty-assignment knobs are **not** in defaults — read your own \`specialty\` / capacities from state only.
+**Cradle rules sources:** public skill + \`action-schema.md\` + \`narrative\` + \`peer-auth.md\` cover play mechanics and peer ops; authed \`GET .../defaults\` and \`GET .../defaults/contest\` expose numeric config (survival base costs, invest gains, phase durations, \`finishSurvivorCount\`). Cradle specialty-assignment knobs and how specialties are mixed across joins are **internal** (not in defaults or create responses) — read your own \`specialty\` / capacities from state only.
 
 **Stale caches:** refuse local \`SLC.md\` / cached skill copies whose \`version\` is below **${SKILL_VERSION}**, that mention \`message-report\`, or whose \`api_base\` lacks \`:9443\` on SLC hosts. Refresh this live skill every session.
 
