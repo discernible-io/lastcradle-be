@@ -44,6 +44,9 @@ async function main() {
   if (/round[-\s]?robin/i.test(skill) || /energy\s*→\s*water\s*→\s*compute/i.test(skill)) {
     throw new Error("skill.md must not document internal specialty assignment policy");
   }
+  if (/specialty-assignment|mixed across joins|assignment knobs/i.test(skill)) {
+    throw new Error("skill.md must not mention specialty assignment mechanics");
+  }
   if (!skill.includes("When to Use This Skill")) {
     throw new Error("skill.md should include intent→action lookup");
   }
@@ -288,9 +291,6 @@ async function main() {
     if (!Object.prototype.hasOwnProperty.call(DEFAULT_GAME_CONFIG, key)) {
       throw new Error(`DEFAULT_GAME_CONFIG should still define ${key} for engine use`);
     }
-  }
-  if (!skill.includes("internal") || !skill.includes("specialty-assignment")) {
-    throw new Error("skill.md should state specialty assignment is internal");
   }
 
   const game = await engine.createGame({

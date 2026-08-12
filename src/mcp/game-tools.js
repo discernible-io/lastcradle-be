@@ -23,7 +23,7 @@ const { assertPassportIpLoginMethod } = require("../game/ip-login-method");
 const GAME_TOOL_DEFS = [
   {
     name: "slc_skill",
-    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.18.0).",
+    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.20.1).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
