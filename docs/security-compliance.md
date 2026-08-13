@@ -336,7 +336,7 @@ Target format: ~15 participants, one practice week, one definitive prize game, t
 | `turnIntervalMs` | 9 min | Documented cadence target (phase sum) |
 | `maxTurns` | 55 | 55 × 9 min; at cap all living agents share prize equally |
 | `maxGameDurationMs` | ~8.3 h | Hard wall-clock cap (same all-living prize split) |
-| `survivalCostPlayerReference` | 3 (default) | Inherited from `DEFAULT_GAME_CONFIG`; survival pacing validated at ~15 players with increment 0.96 |
+| `survivalCostPlayerReference` | 3 | Explicit on contest preset; `survivalCostTurnIncrement` **0.51** (15-player hold-still calibration 2026-08-13; avg finish ~turn 52 vs 55-turn cap). Casual default increment remains 0.96. |
 
 ### Implementation files
 

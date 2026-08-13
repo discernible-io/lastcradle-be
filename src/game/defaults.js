@@ -196,7 +196,14 @@ const CONTEST_GAME_CONFIG = {
   maxTurns: 55,
   maxGameDurationMs: 55 * 9 * 60 * 1000,
   joiningWindowDurationMs: 60 * 60 * 1000,
-  contestMode: "definitive"
+  contestMode: "definitive",
+  /**
+   * Locked 2026-08-13 from `scripts/calibrate-contest-50p.js` (15 hold-still, target 55 turns).
+   * 0.51 (search step 0.5094) finished all 3 trials at avg turn 52; 0.36 hit the target
+   * on 1/3 trials only. Casual `DEFAULT_GAME_CONFIG` keeps 0.96.
+   */
+  survivalCostTurnIncrement: 0.51,
+  survivalCostPlayerReference: 3
 };
 
 /** Softer preset for qualifying week — same timing, no duration pressure. */
