@@ -16,11 +16,11 @@ env:
   SSH_USER: ${{ github.ref == 'refs/heads/main' && secrets.SSH_USER_MAIN || secrets.SSH_USER_DEVELOPMENT }}
   SSH_PRIVATE_KEY: ${{ github.ref == 'refs/heads/main' && secrets.SSH_PRIVATE_KEY_MAIN || secrets.SSH_PRIVATE_KEY_DEVELOPMENT }}
   SSH_KNOWN_HOSTS: ${{ github.ref == 'refs/heads/main' && secrets.SSH_KNOWN_HOSTS_MAIN || secrets.SSH_KNOWN_HOSTS_DEVELOPMENT }}
-  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'slcapi.discernible.io' || 'slcapi.dihola.io' }}
+  DOMAIN: ${{ github.ref == 'refs/heads/main' && 'api.lastcradle.io' || 'slcapi.dihola.io' }}
   APP_PORT: "9443"
   # Public surface is APP_PORT only. nginx must not listen on 443: rootless
   # Podman cannot bind privileged ports, and a failed :443 bind aborts nginx entirely.
-  # Game UI frontend is on slc.*:10443; API is slcapi.*:9443.
+  # Main frontend is lastcradle.io / www.lastcradle.io; API is api.lastcradle.io.
   APP_DIR: ~/syntheticlc-app
   POD_NAME: syntheticlc-pod
   APP_CONTAINER_NAME: syntheticlc-container

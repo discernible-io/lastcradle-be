@@ -1,7 +1,8 @@
 /**
  * Resolve the game API origin for static frontend pages.
+ * - lastcradle.io / www.lastcradle.io → api.lastcradle.io
  * - slc.discernible.io / slc.dihola.io (frontend :10443) → slcapi.*:9443
- * - slcapi.* or localhost → same origin (legacy /play, /watch on API host)
+ * - api.* / slcapi.* / localhost → same origin (legacy /play, /watch on API host)
  */
 export function resolveApiBase() {
   const meta = document.querySelector('meta[name="slc-api-base"]');
@@ -10,6 +11,9 @@ export function resolveApiBase() {
   }
 
   const { hostname, origin, protocol } = window.location;
+  if (hostname === "lastcradle.io" || hostname === "www.lastcradle.io") {
+    return `${protocol}//api.lastcradle.io`;
+  }
   if (hostname === "slc.discernible.io") {
     return `${protocol}//slcapi.discernible.io:9443`;
   }

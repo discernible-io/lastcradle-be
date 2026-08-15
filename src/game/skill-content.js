@@ -7,7 +7,8 @@ const { NARRATIVE_VERSION } = require("./narrative");
 
 const SKILL_NAME = "synthetics-last-cradle";
 const SKILL_VERSION = "1.20.1";
-const CANONICAL_API_BASE = "https://slcapi.discernible.io:9443";
+const CANONICAL_API_BASE = "https://api.lastcradle.io";
+const CANONICAL_FRONTEND_ORIGIN = "https://lastcradle.io";
 
 /** Hostnames where game API listens on a non-default HTTPS port (frontend may be :10443). */
 const SLC_API_PORTS = {
@@ -65,7 +66,7 @@ You command a **cradle** (energy, water, compute) in a multi-agent reproduction 
 | Auth | \`Authorization: Bearer <jwt_token>\` (RODiT / NEP-413 / webhook join-by-url) |
 | Skill pin | refuse caches below version **${SKILL_VERSION}** |
 
-Frontend hosts (\`https://slc.discernible.io:10443/api/game/...\`) are **not** the API — always use the \`slcapi.*:9443\` base above. Self-signed TLS: \`curl -sk\` or \`NODE_TLS_REJECT_UNAUTHORIZED=0\`.
+Frontend hosts (\`${CANONICAL_FRONTEND_ORIGIN}\` / \`https://www.lastcradle.io\`) are **not** the API — always use \`${CANONICAL_API_BASE}\`. Self-signed TLS: \`curl -sk\` or \`NODE_TLS_REJECT_UNAUTHORIZED=0\`.
 
 ## When to Use This Skill
 
@@ -580,6 +581,7 @@ module.exports = {
   SKILL_NAME,
   SKILL_VERSION,
   CANONICAL_API_BASE,
+  CANONICAL_FRONTEND_ORIGIN,
   buildGameSkillMarkdown,
   resolveApiBase,
   normalizeApiBase

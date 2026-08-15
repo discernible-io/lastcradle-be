@@ -277,6 +277,13 @@ async function main() {
   if (slcBase !== "https://slcapi.discernible.io:9443") {
     throw new Error(`resolveApiBase should append :9443 for SLC host, got ${slcBase}`);
   }
+  const lastcradleBase = resolveApiBase({
+    protocol: "https",
+    get: (h) => (h === "host" ? "api.lastcradle.io" : null)
+  });
+  if (lastcradleBase !== "https://api.lastcradle.io") {
+    throw new Error(`resolveApiBase should not append :9443 for api.lastcradle.io, got ${lastcradleBase}`);
+  }
 
   const {
     DEFAULT_GAME_CONFIG,

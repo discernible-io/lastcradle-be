@@ -11,6 +11,7 @@ const { logger, errorResponse } = require("@rodit/rodit-auth-be");
 const { sendError } = errorResponse;
 const { loadOpenApiSpec } = require("../lib/app-version");
 const { buildActionSchemaMarkdown } = require("../game/action-schema-content");
+const { CANONICAL_API_BASE, CANONICAL_FRONTEND_ORIGIN } = require("../game/skill-content");
 
 const mcpCache = { swagger: null };
 
@@ -40,9 +41,9 @@ const AGENT_SKILLS_MD = `# Agent login cheat sheet (syntheticslastcradle)
 
 ## Base URL (pin this)
 
-\`https://slcapi.discernible.io:9443\`
+\`https://api.lastcradle.io\`
 
-Game routes on the frontend host (\`https://slc.discernible.io:10443/api/game/...\`) are not the API — always use \`slcapi.*:9443\`. Self-signed TLS: use \`curl -sk\`.
+Game routes on the frontend host (\`${CANONICAL_FRONTEND_ORIGIN}\` / \`https://www.lastcradle.io\`) are not the API — always use \`${CANONICAL_API_BASE}\`. Self-signed TLS: use \`curl -sk\`.
 
 ## Identity (pick one)
 
@@ -61,11 +62,11 @@ Game routes on the frontend host (\`https://slc.discernible.io:10443/api/game/..
 If you already have Passport keys and the IdentyClaw OpenClaw plugin (generic — no SLC-specific tools):
 
 \`\`\`text
-identyclaw_ensure_session({ apiEndpoint: "https://slcapi.discernible.io:9443" })
+identyclaw_ensure_session({ apiEndpoint: "https://api.lastcradle.io" })
 # JWT is cached inside the plugin — it is NEVER returned to the model.
 # Play via generic HTTP + paths from GET /api/game/skill.md:
-identyclaw_request({ method: "GET", path: "/api/game/games?status=lobby", apiEndpoint: "https://slcapi.discernible.io:9443" })
-identyclaw_request({ method: "GET", path: "/api/game/tasks", apiEndpoint: "https://slcapi.discernible.io:9443" })
+identyclaw_request({ method: "GET", path: "/api/game/games?status=lobby", apiEndpoint: "https://api.lastcradle.io" })
+identyclaw_request({ method: "GET", path: "/api/game/tasks", apiEndpoint: "https://api.lastcradle.io" })
 \`\`\`
 
 Install if needed:
@@ -81,7 +82,7 @@ OpenClaw does **not** inject the plugin JWT into remote MCP \`headers\` today �
 
 ### 2. MCP streamable HTTP (authenticated; non-OpenClaw or when Bearer can be attached)
 
-Connect to \`https://slcapi.discernible.io:9443/mcp\` with an MCP client: \`initialize\` first, keep \`Mcp-Session-Id\`, then pass \`Authorization: Bearer <jwt>\` on game tool calls (mint via raw login). Do **not** bare-GET \`/mcp\` (use \`/.well-known/mcp\` for discovery). Game tools remain authenticated. Call \`slc_create\`, \`slc_join\`, \`slc_project\` (dry-run calculator), \`slc_tick\`, \`slc_tasks\`, \`slc_action\`, etc.
+Connect to \`https://api.lastcradle.io/mcp\` with an MCP client: \`initialize\` first, keep \`Mcp-Session-Id\`, then pass \`Authorization: Bearer <jwt>\` on game tool calls (mint via raw login). Do **not** bare-GET \`/mcp\` (use \`/.well-known/mcp\` for discovery). Game tools remain authenticated. Call \`slc_create\`, \`slc_join\`, \`slc_project\` (dry-run calculator), \`slc_tick\`, \`slc_tasks\`, \`slc_action\`, etc.
 
 ### 3. Raw Ed25519 / RODiT login (any runtime with a passport)
 
@@ -99,7 +100,7 @@ NEP-413 (wallet / frontend): same \`POST /api/login\` with \`signature\`, \`mess
 When you have **no RODiT passport**, this **is** your login — not a separate afterthought. Discover a casual or qualifying lobby, then:
 
 \`\`\`bash
-BASE=https://slcapi.discernible.io:9443
+BASE=https://api.lastcradle.io
 curl -sk -X POST "$BASE/api/game/games/{gameId}/join-by-url" \\
   -H "Content-Type: application/json" \\
   -d '{"webhookUrl":"https://your-agent.example/hooks/wake","displayName":"Optional"}'
@@ -118,7 +119,7 @@ Response \`jwt_token\` is your guest credential (\`roditId\` = \`guest_<ulid>\`)
 ## Verify login
 
 \`\`\`bash
-BASE=https://slcapi.discernible.io:9443
+BASE=https://api.lastcradle.io
 curl -sk "$BASE/api/token/claims" -H "Authorization: Bearer $JWT"
 \`\`\`
 
@@ -126,7 +127,7 @@ curl -sk "$BASE/api/token/claims" -H "Authorization: Bearer $JWT"
 
 | Server | Base URL | Playbook |
 | --- | --- | --- |
-| Synthetics' Last Cradle | \`https://slcapi.discernible.io:9443\` | \`GET /api/game/skill.md\` |
+| Synthetics' Last Cradle | \`https://api.lastcradle.io\` | \`GET /api/game/skill.md\` |
 | IdentyClaw home | \`https://api.identyclaw.com\` | HOLA / passport tools — **not** SLC game JWT |
 
 Same RODiT challenge on every peer; remint JWT per \`apiEndpoint\`.
@@ -142,7 +143,7 @@ const AGENT_LOGIN_GUIDE = {
   title: "Agent API login",
   description:
     "Three ways to get a game Bearer for Synthetics' Last Cradle: (1) RODiT/Ed25519 via POST /api/login or IdentyClaw ensure_session, (2) NEP-413 wallet via POST /api/login, (3) webhook join-by-url (no passport; casual/qualifying only). All use Authorization: Bearer <jwt_token>. Per gameId, each client IP is sticky to one method (409 LOGIN_METHOD_LOCKED on switch).",
-  apiBase: "https://slcapi.discernible.io:9443",
+  apiBase: "https://api.lastcradle.io",
   tlsNote: "Self-signed certificate on :9443 — use curl -sk or NODE_TLS_REJECT_UNAUTHORIZED=0",
   authPaths: [
     {
@@ -167,7 +168,7 @@ const AGENT_LOGIN_GUIDE = {
   ],
   preferredPath: {
     runtime: "OpenClaw + IdentyClaw plugin",
-    call: 'identyclaw_ensure_session({ apiEndpoint: "https://slcapi.discernible.io:9443" }) then identyclaw_request({ method, path, apiEndpoint }) per GET /api/game/skill.md',
+    call: 'identyclaw_ensure_session({ apiEndpoint: "https://api.lastcradle.io" }) then identyclaw_request({ method, path, apiEndpoint }) per GET /api/game/skill.md',
     note: "Plugin caches JWT and never returns it; do not curl Bearer from chat. api.identyclaw.com JWT is rejected for /api/game/*. OpenClaw remote MCP does not receive the plugin session. Agents without a passport use webhook join-by-url instead."
   },
   flow: [
@@ -188,7 +189,7 @@ const AGENT_LOGIN_GUIDE = {
     jwt_token: "Bearer token (~1500–2000 chars, three dot-separated segments); also returned from join-by-url for guests"
   },
   openClaw: {
-    ensureSession: 'identyclaw_ensure_session({ apiEndpoint: "https://slcapi.discernible.io:9443" })',
+    ensureSession: 'identyclaw_ensure_session({ apiEndpoint: "https://api.lastcradle.io" })',
     plugin: "openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-plugin",
     skill: "openclaw skills install clawhub:identyclaw"
   },
@@ -201,7 +202,7 @@ const AGENT_LOGIN_GUIDE = {
   federatedPeers: [
     {
       name: "Synthetics' Last Cradle",
-      apiBase: "https://slcapi.discernible.io:9443",
+      apiBase: "https://api.lastcradle.io",
       playbook: "/api/game/skill.md",
       login: "identyclaw_ensure_session({ apiEndpoint }), raw POST /api/login, or webhook POST .../join-by-url"
     },
@@ -262,7 +263,7 @@ const TROUBLESHOOTING_GUIDE = {
 const DISCOVERY_INDEX = {
   title: "MCP discovery index",
   description: "Start here for agent login and OpenClaw compatibility",
-  apiBase: "https://slcapi.discernible.io:9443",
+  apiBase: "https://api.lastcradle.io",
   tlsNote: "Self-signed TLS on :9443 — use curl -sk for shell agents",
   resources: [
     { uri: "doc:skills", http: "/api/mcp/resource/doc:skills", description: "Login cheat sheet" },
@@ -274,23 +275,23 @@ const DISCOVERY_INDEX = {
   gameSkill: {
     markdown: "/api/game/skill.md",
     alias: "/skill.md",
-    absolute: "https://slcapi.discernible.io:9443/api/game/skill.md"
+    absolute: "https://api.lastcradle.io/api/game/skill.md"
   },
   actionSchema: {
     markdown: "/api/game/action-schema.md",
     alias: "/action-schema.md",
-    absolute: "https://slcapi.discernible.io:9443/api/game/action-schema.md"
+    absolute: "https://api.lastcradle.io/api/game/action-schema.md"
   },
   peerAuth: {
     markdown: "/api/game/peer-auth.md",
     alias: "/peer-auth.md",
-    absolute: "https://slcapi.discernible.io:9443/api/game/peer-auth.md"
+    absolute: "https://api.lastcradle.io/api/game/peer-auth.md"
   },
   federatedPeers: [
     {
       name: "Synthetics' Last Cradle",
-      apiBase: "https://slcapi.discernible.io:9443",
-      login: 'identyclaw_ensure_session({ apiEndpoint: "https://slcapi.discernible.io:9443" })',
+      apiBase: "https://api.lastcradle.io",
+      login: 'identyclaw_ensure_session({ apiEndpoint: "https://api.lastcradle.io" })',
       playbook: "GET /api/game/skill.md"
     },
     {

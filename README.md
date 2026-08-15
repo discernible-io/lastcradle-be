@@ -10,7 +10,7 @@ This API provides secure authentication services using the Discernible Authentic
 
 | Branch | Role | API | Game frontend |
 |--------|------|-----|---------------|
-| **`main`** | Production (SLC) | https://slcapi.discernible.io:9443 | frontend https://slc.discernible.io:10443 |
+| **`main`** | Production (SLC) | https://api.lastcradle.io | frontend https://lastcradle.io / https://www.lastcradle.io |
 | **`development`** | Development / integration | https://slcapi.dihola.io:9443 | frontend https://slc.dihola.io:10443 |
 | **`legacy`** | Archive of pre-migration `main` (read-only) | — | — |
 
