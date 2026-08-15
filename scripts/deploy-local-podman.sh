@@ -61,7 +61,7 @@ default_repo() {
   case "$url" in
     git@github.com:*) echo "${url#git@github.com:}" | sed 's/\.git$//' ;;
     https://github.com/*) echo "${url#https://github.com/}" | sed 's/\.git$//' ;;
-    *) echo "discernible-io/syntheticslastcradle" ;;
+    *) echo "discernible-io/lastcradle-be" ;;
   esac
 }
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-$(default_repo)}"

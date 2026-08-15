@@ -33,12 +33,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/discernible-io/syntheticslastcradle.git"
+    "url": "git+https://github.com/discernible-io/lastcradle-be.git"
   },
   "author": "Discernible Ltd",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/discernible-io/syntheticslastcradle/issues"
+    "url": "https://github.com/discernible-io/lastcradle-be/issues"
   },
-  "homepage": "https://github.com/discernible-io/syntheticslastcradle#readme"
+  "homepage": "https://github.com/discernible-io/lastcradle-be#readme"
 }
