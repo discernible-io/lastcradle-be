@@ -20,6 +20,13 @@ if [[ "$APP_DIR" == "$LEGACY_DIR" ]]; then
   exit 0
 fi
 
+# Production (slcbackend-app) and any already-provisioned APP_DIR skip the
+# servertest → syntheticlc link. Require legacy secrets only when migrating.
+if [[ -f "${APP_DIR}/secrets/secrets.env" ]]; then
+  echo "APP_DIR already has secrets.env; skipping legacy link." >&2
+  exit 0
+fi
+
 if [[ ! -f "${LEGACY_DIR}/secrets/secrets.env" ]]; then
   echo "Legacy secrets not found at ${LEGACY_DIR}/secrets/secrets.env" >&2
   exit 1
@@ -33,15 +40,6 @@ if [[ -L "$APP_DIR" ]]; then
     exit 0
   fi
   rm -f "$APP_DIR"
-fi
-
-if [[ -f "${APP_DIR}/secrets/secrets.env" ]]; then
-  if cmp -s "${APP_DIR}/secrets/secrets.env" "${LEGACY_DIR}/secrets/secrets.env"; then
-    echo "APP_DIR already has secrets.env (same as legacy)." >&2
-    exit 0
-  fi
-  echo "APP_DIR secrets differ from legacy; keeping APP_DIR secrets (not overwriting)." >&2
-  exit 0
 fi
 
 if [[ -d "$APP_DIR" ]] && [[ -n "$(ls -A "$APP_DIR" 2>/dev/null || true)" ]]; then

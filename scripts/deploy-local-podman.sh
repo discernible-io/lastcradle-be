@@ -31,13 +31,6 @@ done
 [[ -f "${REPO_ROOT}/.deploy.local.env" ]] && set -a && source "${REPO_ROOT}/.deploy.local.env" && set +a
 
 TARGET="${TARGET:-development}"
-APP_DIR="${APP_DIR:-~/syntheticlc-app}"
-APP_DIR="${APP_DIR/#\~/$HOME}"
-bash "${REPO_ROOT}/scripts/migrate-app-dir.sh"
-APP_PORT="${APP_PORT:-9443}"
-POD_NAME="${POD_NAME:-syntheticlc-pod}"
-APP_CONTAINER_NAME="${APP_CONTAINER_NAME:-syntheticlc-container}"
-NGINX_CONTAINER_NAME="${NGINX_CONTAINER_NAME:-syntheticlc-nginx}"
 REGISTRY="${REGISTRY:-ghcr.io}"
 IMAGE_TAG="${IMAGE_TAG:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo local)}"
 
@@ -46,14 +39,25 @@ case "$TARGET" in
     NODE_ENV=development
     DOMAIN="${DOMAIN:-slcapi.dihola.io}"
     APP_PORT="${APP_PORT:-9443}"
+    APP_DIR="${APP_DIR:-~/syntheticlc-app}"
+    POD_NAME="${POD_NAME:-syntheticlc-pod}"
+    APP_CONTAINER_NAME="${APP_CONTAINER_NAME:-syntheticlc-container}"
+    NGINX_CONTAINER_NAME="${NGINX_CONTAINER_NAME:-syntheticlc-nginx}"
     ;;
   main)
     NODE_ENV=main
-    DOMAIN="${DOMAIN:-slcapi.discernible.io}"
-    APP_PORT="${APP_PORT:-9443}"
+    DOMAIN="${DOMAIN:-api.lastcradle.io}"
+    APP_PORT="${APP_PORT:-13443}"
+    APP_DIR="${APP_DIR:-~/slcbackend-app}"
+    POD_NAME="${POD_NAME:-slcbackend-pod}"
+    APP_CONTAINER_NAME="${APP_CONTAINER_NAME:-slcbackend-container}"
+    NGINX_CONTAINER_NAME="${NGINX_CONTAINER_NAME:-slcbackend-nginx}"
     ;;
   *) echo "TARGET must be development or main" >&2; exit 1 ;;
 esac
+
+APP_DIR="${APP_DIR/#\~/$HOME}"
+APP_DIR="$APP_DIR" bash "${REPO_ROOT}/scripts/migrate-app-dir.sh"
 
 default_repo() {
   local url
@@ -71,7 +75,7 @@ NGINX_IMAGE="${REGISTRY}/${GITHUB_REPOSITORY}/syntheticlc-nginx:${IMAGE_TAG}"
 if [[ "$DEPLOY_MODE" == "local" ]]; then
   if [[ "$SKIP_BUILD" -eq 0 ]]; then
     podman build -f api.Dockerfile --build-arg "NODE_ENV=${NODE_ENV}" -t "$API_IMAGE" .
-    podman build -f nginx.Dockerfile --build-arg "NODE_ENV=${NODE_ENV}" -t "$NGINX_IMAGE" .
+    podman build -f nginx.Dockerfile --build-arg "NODE_ENV=${NODE_ENV}" --build-arg "APP_PORT=${APP_PORT}" -t "$NGINX_IMAGE" .
   fi
 
   DEPLOY_USER="${USER}"

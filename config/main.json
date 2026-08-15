@@ -14,7 +14,7 @@
   },
   "SERVERPORT": 8080,
   "SERVICE_NAME": "api.lastcradle.io",
-  "PUBLIC_PORT": "9443",
+  "PUBLIC_PORT": "13443",
   "FRONTEND_ORIGIN": "https://lastcradle.io",
   "LOG_LEVEL": "info",
   "LOKI_TLS_SKIP_VERIFY": "false",

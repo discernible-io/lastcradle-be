@@ -1,6 +1,7 @@
 FROM docker.io/nginx:mainline-alpine
 
 ARG NODE_ENV=main
+ARG APP_PORT=9443
 
 RUN apk update && apk upgrade --no-cache && \
     apk add --no-cache openssl && \
@@ -13,7 +14,8 @@ COPY frontend /app/frontend
 RUN chown -R nginx:nginx /etc/nginx/nginx.conf /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /app
 
 USER nginx
-# Rootless Podman cannot bind privileged ports (<1024); public surface is APP_PORT 9443 only.
-EXPOSE 9443
+# Rootless Podman cannot bind privileged ports (<1024).
+# Main publishes 13443 (443→13443 REDIRECT); development publishes 9443.
+EXPOSE ${APP_PORT}
 
 CMD ["nginx", "-g", "daemon off;"]

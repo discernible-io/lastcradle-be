@@ -17,14 +17,14 @@ env:
   SSH_PRIVATE_KEY: ${{ github.ref == 'refs/heads/main' && secrets.SSH_PRIVATE_KEY_MAIN || secrets.SSH_PRIVATE_KEY_DEVELOPMENT }}
   SSH_KNOWN_HOSTS: ${{ github.ref == 'refs/heads/main' && secrets.SSH_KNOWN_HOSTS_MAIN || secrets.SSH_KNOWN_HOSTS_DEVELOPMENT }}
   DOMAIN: ${{ github.ref == 'refs/heads/main' && 'api.lastcradle.io' || 'slcapi.dihola.io' }}
-  APP_PORT: "9443"
-  # Public surface is APP_PORT only. nginx must not listen on 443: rootless
-  # Podman cannot bind privileged ports, and a failed :443 bind aborts nginx entirely.
-  # Main frontend is lastcradle.io / www.lastcradle.io; API is api.lastcradle.io.
-  APP_DIR: ~/syntheticlc-app
-  POD_NAME: syntheticlc-pod
-  APP_CONTAINER_NAME: syntheticlc-container
-  NGINX_CONTAINER_NAME: syntheticlc-nginx
+  # Host publish port must match nginx listen. Main is 13443 (443→13443 REDIRECT);
+  # development stays 9443. nginx must not listen on 443: rootless Podman cannot
+  # bind privileged ports, and a failed :443 bind aborts nginx entirely.
+  APP_PORT: ${{ github.ref == 'refs/heads/main' && '13443' || '9443' }}
+  APP_DIR: ${{ github.ref == 'refs/heads/main' && '~/slcbackend-app' || '~/syntheticlc-app' }}
+  POD_NAME: ${{ github.ref == 'refs/heads/main' && 'slcbackend-pod' || 'syntheticlc-pod' }}
+  APP_CONTAINER_NAME: ${{ github.ref == 'refs/heads/main' && 'slcbackend-container' || 'syntheticlc-container' }}
+  NGINX_CONTAINER_NAME: ${{ github.ref == 'refs/heads/main' && 'slcbackend-nginx' || 'syntheticlc-nginx' }}
   REGISTRY: ghcr.io
   REGISTRY_USERNAME: ${{ github.actor }}
   API_IMAGE_NAME: ${{ github.repository }}/syntheticlc-api
@@ -103,6 +103,7 @@ jobs:
           push: true
           build-args: |
             NODE_ENV=${{ env.NODE_ENV }}
+            APP_PORT=${{ env.APP_PORT }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:latest
@@ -143,7 +144,7 @@ jobs:
         run: |
           scp scripts/migrate-app-dir.sh ${{ env.SSH_USER }}@${{ env.SSH_HOST }}:/tmp/migrate-app-dir.sh
           ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
-            bash /tmp/migrate-app-dir.sh
+            APP_DIR=${{ env.APP_DIR }} bash /tmp/migrate-app-dir.sh
             mkdir -p ${{ env.APP_DIR }}/{certs,logs,data,nginx,secrets}
             mkdir -p ${{ env.APP_DIR }}/logs/nginx
             chmod 750 ${{ env.APP_DIR }}/secrets
