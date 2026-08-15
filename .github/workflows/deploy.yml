@@ -141,8 +141,8 @@ jobs:
 
       - name: Setup directories and login to GHCR
         run: |
+          echo "Setting up directories..."
           ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
-            set -euo pipefail
             mkdir -p ${{ env.APP_DIR }}/{certs,logs,data,nginx,secrets}
             mkdir -p ${{ env.APP_DIR }}/logs/nginx
             chmod 750 ${{ env.APP_DIR }}/secrets
@@ -151,6 +151,7 @@ jobs:
             podman unshare chown -R 101:101 ${{ env.APP_DIR }}/logs/nginx || true
             test -f ${{ env.APP_DIR }}/secrets/secrets.env
           "
+          echo "Logging into GHCR on deployment host..."
           ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "echo '${{ secrets.GHCR_PULL_TOKEN }}' | podman login ghcr.io -u ${{ github.actor }} --password-stdin"
 
       - name: Deploy containers
