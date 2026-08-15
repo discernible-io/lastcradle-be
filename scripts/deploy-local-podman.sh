@@ -80,7 +80,8 @@ if [[ "$DEPLOY_MODE" == "local" ]]; then
   DEPLOY_USER="${USER}"
   bash "${REPO_ROOT}/scripts/ensure-podman-linger.sh"
 
-  mkdir -p "${APP_DIR}/"{certs,logs,data,nginx,secrets} "${APP_DIR}/logs/nginx"
+  mkdir -p "${APP_DIR}/"{certs,logs,data,nginx,secrets}
+  podman unshare mkdir -p "${APP_DIR}/logs/nginx"
   # Always force-remove (exists&&rm trips set -e when the pod is absent).
   podman pod rm -f "$POD_NAME" || true
   podman pod create --name "$POD_NAME" -p "${APP_PORT}:${APP_PORT}"

@@ -121,6 +121,7 @@ jobs:
           ref: ${{ github.event.inputs.commit_sha || github.sha }}
           sparse-checkout: |
             scripts/ensure-podman-linger.sh
+            scripts/ensure-deploy-dirs.sh
 
       - name: Install SSH key
         uses: shimataro/ssh-key-action@87a8f067114a8ce263df83e9ed5c849953548bc3 # v2.8.1
@@ -142,15 +143,8 @@ jobs:
       - name: Setup directories and login to GHCR
         run: |
           echo "Setting up directories..."
-          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
-            mkdir -p ${{ env.APP_DIR }}/{certs,logs,data,nginx,secrets}
-            mkdir -p ${{ env.APP_DIR }}/logs/nginx
-            chmod 750 ${{ env.APP_DIR }}/secrets
-            chmod 711 ${{ env.APP_DIR }}/certs || true
-            chmod 0775 ${{ env.APP_DIR }}/logs/nginx || true
-            podman unshare chown -R 101:101 ${{ env.APP_DIR }}/logs/nginx || true
-            test -f ${{ env.APP_DIR }}/secrets/secrets.env
-          "
+          ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "APP_DIR=${{ env.APP_DIR }} bash -s" \
+            < scripts/ensure-deploy-dirs.sh
           echo "Logging into GHCR on deployment host..."
           ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "echo '${{ secrets.GHCR_PULL_TOKEN }}' | podman login ghcr.io -u ${{ github.actor }} --password-stdin"
 
@@ -170,8 +164,10 @@ jobs:
             podman pod rm -f ${{ env.POD_NAME }} || true
             podman pod create --name ${{ env.POD_NAME }} -p ${{ env.APP_PORT }}:${{ env.APP_PORT }}
 
-            mkdir -p ${{ env.APP_DIR }}/logs ${{ env.APP_DIR }}/data
-            podman unshare chown -R 1000:1000 ${{ env.APP_DIR }}/logs ${{ env.APP_DIR }}/data || true
+            podman unshare mkdir -p ${{ env.APP_DIR }}/logs ${{ env.APP_DIR }}/data
+            # Do not chown -R logs: that recurses into logs/nginx (userns uid 101).
+            podman unshare chown 1000:1000 ${{ env.APP_DIR }}/logs ${{ env.APP_DIR }}/data || true
+            podman unshare chown -R 1000:1000 ${{ env.APP_DIR }}/data || true
             podman unshare chmod g+w ${{ env.APP_DIR }}/data || true
 
             set +x
@@ -196,9 +192,7 @@ jobs:
               podman unshare chmod 644 ${{ env.APP_DIR }}/certs/fullchain.pem || true
             fi
 
-            mkdir -p ${{ env.APP_DIR }}/logs/nginx
-            chmod 0775 ${{ env.APP_DIR }}/logs/nginx || true
-            podman unshare chown -R 101:101 ${{ env.APP_DIR }}/logs/nginx || true
+            podman unshare mkdir -p ${{ env.APP_DIR }}/logs/nginx
 
             podman run -d \
               --log-driver=k8s-file \
