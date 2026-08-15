@@ -57,7 +57,6 @@ case "$TARGET" in
 esac
 
 APP_DIR="${APP_DIR/#\~/$HOME}"
-APP_DIR="$APP_DIR" bash "${REPO_ROOT}/scripts/migrate-app-dir.sh"
 
 default_repo() {
   local url
@@ -84,9 +83,6 @@ if [[ "$DEPLOY_MODE" == "local" ]]; then
   mkdir -p "${APP_DIR}/"{certs,logs,data,nginx,secrets} "${APP_DIR}/logs/nginx"
   # Always force-remove (exists&&rm trips set -e when the pod is absent).
   podman pod rm -f "$POD_NAME" || true
-  podman pod rm -f servertest-pod || true
-  podman rm -f servertest-container || true
-  podman rm -f servertest-nginx || true
   podman pod create --name "$POD_NAME" -p "${APP_PORT}:${APP_PORT}"
 
   podman run -d \

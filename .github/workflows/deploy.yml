@@ -121,7 +121,6 @@ jobs:
           ref: ${{ github.event.inputs.commit_sha || github.sha }}
           sparse-checkout: |
             scripts/ensure-podman-linger.sh
-            scripts/migrate-app-dir.sh
 
       - name: Install SSH key
         uses: shimataro/ssh-key-action@87a8f067114a8ce263df83e9ed5c849953548bc3 # v2.8.1
@@ -142,9 +141,8 @@ jobs:
 
       - name: Setup directories and login to GHCR
         run: |
-          scp scripts/migrate-app-dir.sh ${{ env.SSH_USER }}@${{ env.SSH_HOST }}:/tmp/migrate-app-dir.sh
           ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} "
-            APP_DIR=${{ env.APP_DIR }} bash /tmp/migrate-app-dir.sh
+            set -euo pipefail
             mkdir -p ${{ env.APP_DIR }}/{certs,logs,data,nginx,secrets}
             mkdir -p ${{ env.APP_DIR }}/logs/nginx
             chmod 750 ${{ env.APP_DIR }}/secrets
@@ -163,10 +161,6 @@ jobs:
 
             # Always force-remove (exists&&rm trips set -e when the pod is absent).
             podman pod rm -f ${{ env.POD_NAME }} || true
-            # servertest → syntheticlc rename: legacy pod still binds APP_PORT until removed.
-            podman pod rm -f servertest-pod || true
-            podman rm -f servertest-container || true
-            podman rm -f servertest-nginx || true
 
             podman pull ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
             podman pull ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:${{ github.sha }}
