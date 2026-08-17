@@ -451,6 +451,31 @@ async function listLobbyGames() {
   return rows.map(rowToGame);
 }
 
+/** Cancelled games that never left lobby (no started_at). */
+async function listNeverStartedCancelledGames() {
+  const database = await getDb();
+  const rows = await database.all(
+    `SELECT * FROM games WHERE status = 'cancelled' AND started_at IS NULL ORDER BY created_at ASC`
+  );
+  return rows.map(rowToGame);
+}
+
+/**
+ * Remove a game and all per-game rows. Does not touch contests, url_join_identities,
+ * or rodit_login_methods (those are not scoped to a single game).
+ */
+async function deleteGameCascade(gameId) {
+  const database = await getDb();
+  await database.run(`DELETE FROM game_recollections WHERE game_id = ?`, [gameId]);
+  await database.run(`DELETE FROM game_message_reports WHERE game_id = ?`, [gameId]);
+  await database.run(`DELETE FROM game_actions WHERE game_id = ?`, [gameId]);
+  await database.run(`DELETE FROM game_messages WHERE game_id = ?`, [gameId]);
+  await database.run(`DELETE FROM game_agents WHERE game_id = ?`, [gameId]);
+  await database.run(`DELETE FROM game_ip_login_methods WHERE game_id = ?`, [gameId]);
+  const result = await database.run(`DELETE FROM games WHERE id = ?`, [gameId]);
+  return (result?.changes || 0) > 0;
+}
+
 /** Count games that still occupy a simultaneous slot (lobby or running). */
 async function countActiveGames() {
   const database = await getDb();
@@ -1539,6 +1564,8 @@ module.exports = {
   updateGame,
   listRunningGames,
   listLobbyGames,
+  listNeverStartedCancelledGames,
+  deleteGameCascade,
   countActiveGames,
   listGames,
   createContest,

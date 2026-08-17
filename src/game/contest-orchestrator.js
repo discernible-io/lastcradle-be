@@ -3,13 +3,18 @@
  */
 
 const { RoditClient } = require("@rodit/rodit-auth-be");
-const { ulid } = require("ulid");
+const { ulid, decodeTime } = require("ulid");
 const engine = require("./engine");
 const repo = require("./repository");
 const events = require("./events");
 const prizeSettlement = require("./prize-settlement");
 const { notifyOpeningInventoryReport, notifyGameFinished, onGamePhaseUpdated } = require("./webhooks");
-const { CONTEST_GAME_CONFIG, PRACTICE_GAME_CONFIG, mergeGameConfig } = require("./defaults");
+const {
+  DEFAULT_GAME_CONFIG,
+  CONTEST_GAME_CONFIG,
+  PRACTICE_GAME_CONFIG,
+  mergeGameConfig
+} = require("./defaults");
 
 function scheduler() {
   return require("./scheduler");
@@ -21,6 +26,51 @@ const logger = sdkClient.getLogger();
 const lobbyTimers = new Map();
 
 const PRACTICE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+/** Node timers cannot exceed 2^31-1 ms; longer windows rely on the periodic sweep. */
+const MAX_TIMEOUT_MS = 2_147_483_647;
+const LOBBY_SWEEP_INTERVAL_MS = 30 * 1000;
+
+let lobbySweepTimer = null;
+
+function lobbyCreatedAtMs(game) {
+  try {
+    return decodeTime(game.id);
+  } catch {
+    const raw = game.created_at || game.createdAt;
+    if (!raw) {
+      return Date.now();
+    }
+    const iso = String(raw).includes("T") ? String(raw) : `${String(raw).replace(" ", "T")}Z`;
+    const ms = new Date(iso).getTime();
+    return Number.isFinite(ms) ? ms : Date.now();
+  }
+}
+
+function resolveStaleLobbyTtlMs(config = {}) {
+  if (typeof config.staleLobbyTtlMs === "number" && Number.isFinite(config.staleLobbyTtlMs)) {
+    return Math.max(0, config.staleLobbyTtlMs);
+  }
+  return DEFAULT_GAME_CONFIG.staleLobbyTtlMs;
+}
+
+function staleLobbyDeadlineMs(game) {
+  if (game?.joining_window_ends_at) {
+    const endsAt = new Date(game.joining_window_ends_at).getTime();
+    if (Number.isFinite(endsAt)) {
+      return endsAt;
+    }
+  }
+  const ttl = resolveStaleLobbyTtlMs(game?.config);
+  if (ttl <= 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return lobbyCreatedAtMs(game) + ttl;
+}
+
+function isLobbyExpired(game, now = Date.now()) {
+  const deadline = staleLobbyDeadlineMs(game);
+  return Number.isFinite(deadline) && now >= deadline;
+}
 
 function clearLobbyTimer(gameId) {
   const timer = lobbyTimers.get(gameId);
@@ -31,13 +81,17 @@ function clearLobbyTimer(gameId) {
 }
 
 function scheduleLobbyAutoStart(game) {
-  if (!game || game.status !== "lobby" || !game.joining_window_ends_at) {
+  if (!game || game.status !== "lobby") {
+    return;
+  }
+
+  const deadline = staleLobbyDeadlineMs(game);
+  if (!Number.isFinite(deadline)) {
     return;
   }
 
   clearLobbyTimer(game.id);
-  const endsAt = new Date(game.joining_window_ends_at).getTime();
-  const delay = Math.max(0, endsAt - Date.now());
+  const delay = Math.min(MAX_TIMEOUT_MS, Math.max(0, deadline - Date.now()));
 
   lobbyTimers.set(
     game.id,
@@ -62,13 +116,25 @@ async function evaluateLobbyAutoStart(gameId) {
 
   const agentCount = await repo.countAgents(gameId);
   const { minAgents, maxAgents } = game.config;
-  const now = Date.now();
-  const windowEnded =
-    game.joining_window_ends_at && now >= new Date(game.joining_window_ends_at).getTime();
+  const expired = isLobbyExpired(game);
   const lobbyFull = agentCount >= maxAgents;
+  const startTrigger = lobbyFull
+    ? "lobby_full"
+    : game.joining_window_ends_at
+      ? "join_window_end"
+      : "stale_lobby";
 
-  if ((windowEnded || lobbyFull) && agentCount >= minAgents) {
-    const started = await engine.startGame(gameId);
+  if ((expired || lobbyFull) && agentCount >= minAgents) {
+    let started;
+    try {
+      started = await engine.startGame(gameId);
+    } catch (err) {
+      if (err.code === "GAME_ALREADY_STARTED") {
+        clearLobbyTimer(gameId);
+        return { started: false, reason: "not_lobby" };
+      }
+      throw err;
+    }
     const startedRow = await repo.getGameById(gameId);
     await notifyOpeningInventoryReport(null, { gameId, game: startedRow });
     scheduler().registerGame(started);
@@ -84,7 +150,7 @@ async function evaluateLobbyAutoStart(gameId) {
       component: "ContestOrchestrator",
       gameId,
       agentCount,
-      trigger: lobbyFull ? "lobby_full" : "join_window_end"
+      trigger: startTrigger
     });
     onGamePhaseUpdated(gameId).catch((err) => {
       logger.warnWithContext("Phase webhook delivery failed", {
@@ -96,23 +162,8 @@ async function evaluateLobbyAutoStart(gameId) {
     return { started: true, game: started };
   }
 
-  if (windowEnded && agentCount < minAgents) {
-    await repo.updateGame(gameId, { status: "cancelled" });
-    clearLobbyTimer(gameId);
-    events.publishGameEvent(gameId, {
-      type: "game_cancelled",
-      reason: "insufficient_agents",
-      agentCount,
-      minAgents
-    });
-    await syncContestStatusForGame(await repo.getGameById(gameId));
-    logger.warnWithContext("Lobby cancelled — insufficient agents at window end", {
-      component: "ContestOrchestrator",
-      gameId,
-      agentCount,
-      minAgents
-    });
-    return { started: false, reason: "cancelled_insufficient_agents" };
+  if (expired && agentCount < minAgents) {
+    return removeNeverStartedLobby(game, { agentCount, minAgents });
   }
 
   return { started: false, reason: "waiting" };
@@ -186,15 +237,121 @@ function registerLobbyGame(game) {
   scheduleLobbyAutoStart(game);
 }
 
+async function removeNeverStartedLobby(game, { agentCount, minAgents }) {
+  const gameId = game.id;
+  const trigger = game.joining_window_ends_at ? "join_window_end" : "stale_lobby";
+  const contest = await repo.getContestByGameId(gameId);
+
+  events.publishGameEvent(gameId, {
+    type: "game_cancelled",
+    reason: "insufficient_agents",
+    agentCount,
+    minAgents
+  });
+  clearLobbyTimer(gameId);
+
+  if (contest) {
+    await repo.updateGame(gameId, { status: "cancelled" });
+    await syncContestStatusForGame(await repo.getGameById(gameId));
+    logger.warnWithContext("Lobby cancelled — never started (contest row kept)", {
+      component: "ContestOrchestrator",
+      gameId,
+      agentCount,
+      minAgents,
+      trigger
+    });
+    return { started: false, reason: "cancelled_insufficient_agents", deleted: false };
+  }
+
+  await repo.deleteGameCascade(gameId);
+  logger.warnWithContext("Never-started lobby removed from database", {
+    component: "ContestOrchestrator",
+    gameId,
+    agentCount,
+    minAgents,
+    trigger
+  });
+  return { started: false, reason: "cancelled_insufficient_agents", deleted: true };
+}
+
+async function purgeNeverStartedGames() {
+  const leftovers = await repo.listNeverStartedCancelledGames();
+  let deleted = 0;
+  for (const game of leftovers) {
+    const contest = await repo.getContestByGameId(game.id);
+    if (contest) {
+      continue;
+    }
+    await repo.deleteGameCascade(game.id);
+    deleted += 1;
+  }
+  if (deleted > 0) {
+    logger.infoWithContext("Purged cancelled never-started games", {
+      component: "ContestOrchestrator",
+      deleted
+    });
+  }
+  return deleted;
+}
+
+async function sweepStaleLobbies() {
+  const lobbies = await repo.listLobbyGames();
+  const results = [];
+  for (const game of lobbies) {
+    try {
+      const result = await evaluateLobbyAutoStart(game.id);
+      results.push({ gameId: game.id, ...result });
+    } catch (err) {
+      logger.errorWithContext("Stale lobby sweep failed for game", {
+        component: "ContestOrchestrator",
+        gameId: game.id,
+        error: err.message
+      });
+      results.push({ gameId: game.id, started: false, reason: "error", error: err.message });
+    }
+  }
+  await purgeNeverStartedGames();
+  return results;
+}
+
+function startLobbySweep() {
+  if (lobbySweepTimer) {
+    return;
+  }
+  lobbySweepTimer = setInterval(() => {
+    sweepStaleLobbies().catch((err) => {
+      logger.errorWithContext("Stale lobby sweep failed", {
+        component: "ContestOrchestrator",
+        error: err.message
+      });
+    });
+  }, LOBBY_SWEEP_INTERVAL_MS);
+  if (typeof lobbySweepTimer.unref === "function") {
+    lobbySweepTimer.unref();
+  }
+}
+
+function stopLobbySweep() {
+  if (!lobbySweepTimer) {
+    return;
+  }
+  clearInterval(lobbySweepTimer);
+  lobbySweepTimer = null;
+}
+
 async function resumeLobbyGames() {
   const lobbies = await repo.listLobbyGames();
   for (const game of lobbies) {
     scheduleLobbyAutoStart(game);
-    await evaluateLobbyAutoStart(game.id);
   }
+  const swept = await sweepStaleLobbies();
+  startLobbySweep();
   logger.infoWithContext("Contest orchestrator resumed lobby watches", {
     component: "ContestOrchestrator",
-    count: lobbies.length
+    count: lobbies.length,
+    cancelled: swept.filter((r) => r.reason === "cancelled_insufficient_agents").length,
+    deleted: swept.filter((r) => r.deleted).length,
+    started: swept.filter((r) => r.started).length
   });
 }
 
@@ -293,6 +450,7 @@ function clearAllLobbyTimers() {
 
 function unregisterLobbyGame(gameId) {
   if (gameId === "all") {
+    stopLobbySweep();
     clearAllLobbyTimers();
     return;
   }
@@ -304,8 +462,10 @@ module.exports = {
   evaluateLobbyAutoStart,
   registerLobbyGame,
   resumeLobbyGames,
+  sweepStaleLobbies,
   onGameFinished,
   syncContestStatusForGame,
   unregisterLobbyGame,
-  PRACTICE_WEEK_MS
+  PRACTICE_WEEK_MS,
+  LOBBY_SWEEP_INTERVAL_MS
 };
