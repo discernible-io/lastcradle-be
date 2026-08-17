@@ -163,6 +163,15 @@ const DEFAULT_GAME_CONFIG = {
    */
   joiningWindowDurationMs: 5 * 60 * 1000,
 
+  /**
+   * Max age for a lobby with no joining window before it is removed if it never
+   * started. Windowed lobbies use `joining_window_ends_at` instead. Casual rows
+   * are deleted (agents, IP-login bindings, and the game). Contest-series games
+   * are kept as `cancelled` so the series row still resolves. Set 0 on a
+   * no-window lobby to disable age-based removal.
+   */
+  staleLobbyTtlMs: 5 * 60 * 1000,
+
   /** Delay after game creation before the joining window opens. 0 = opens immediately. */
   joiningWindowDelayMs: 0,
 
