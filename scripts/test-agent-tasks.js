@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.20.1")) {
-    throw new Error("skill.md should be version 1.20.1");
+  if (!skill.includes("version: 1.20.3")) {
+    throw new Error("skill.md should be version 1.20.3");
   }
   if (/round[-\s]?robin/i.test(skill) || /energy\s*→\s*water\s*→\s*compute/i.test(skill)) {
     throw new Error("skill.md must not document internal specialty assignment policy");
@@ -76,6 +76,21 @@ async function main() {
   }
   if (!skill.includes("/project") || !skill.includes("slc_project")) {
     throw new Error("skill.md should document dry-run calculator POST .../project / slc_project");
+  }
+  if (
+    !skill.includes("projection.afterStorageAndSurvival") ||
+    !(
+      skill.includes("never on `baseline`") ||
+      skill.includes("never baseline") ||
+      skill.includes("never on \\`baseline\\`")
+    )
+  ) {
+    throw new Error(
+      "skill.md should gate submit on projection.afterStorageAndSurvival (never baseline)"
+    );
+  }
+  if (!skill.includes("actionHints.runway") && !skill.includes("runwayTurns")) {
+    throw new Error("skill.md should document actionHints.runway / runwayTurns");
   }
   if (!skill.includes("assumeInbound")) {
     throw new Error("skill.md should document assumeInbound on dry-run");
@@ -348,6 +363,15 @@ async function main() {
   }
   if (!state.you.actionHints || typeof state.you.actionHints.maxInvestAmount !== "number") {
     throw new Error(`Expected actionHints on you view, got ${JSON.stringify(state.you.actionHints)}`);
+  }
+  if (
+    !state.you.actionHints.runway ||
+    typeof state.you.actionHints.runway.netBurn?.energy !== "number" ||
+    !("runwayTurns" in state.you.actionHints.runway)
+  ) {
+    throw new Error(
+      `Expected actionHints.runway with runwayTurns/netBurn, got ${JSON.stringify(state.you.actionHints.runway)}`
+    );
   }
 
   const { runAgentTick } = require("../src/game/tick");

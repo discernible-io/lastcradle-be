@@ -212,7 +212,7 @@ router.get("/.well-known/mcp", (req, res) => {
       {
         name: "slc_project",
         description:
-          "Dry-run survival/action calculator (does not submit; optional assumeInbound)"
+          "Dry-run calculator (does not submit). Gate submit on projection.afterStorageAndSurvival — never baseline"
       },
       { name: "slc_tick", description: "Submit one required execution action (explicit body; empty → action_required)" }
     ],

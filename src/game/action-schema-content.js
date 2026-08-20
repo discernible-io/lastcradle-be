@@ -5,7 +5,7 @@
 
 const { resolveApiBase, CANONICAL_API_BASE, SKILL_VERSION } = require("./skill-content");
 
-const ACTION_SCHEMA_VERSION = "1.4.0";
+const ACTION_SCHEMA_VERSION = "1.4.2";
 
 function buildActionSchemaMarkdown(req) {
   const apiBase = resolveApiBase(req);
@@ -31,7 +31,7 @@ Submit **one** execution action per turn via:
 - \`POST ${apiBase}/api/game/games/{gameId}/project\`
 - MCP \`slc_project\`
 
-Same action fields as submit, plus optional \`assumeInbound: { energy?, water?, compute? }\` for hypothetical peer sends. Response: \`baseline\` (survives/shortfalls/storage tax) + \`projection\` (outbound-only, same shape as submit).
+Same action fields as submit, plus optional \`assumeInbound: { energy?, water?, compute? }\` for hypothetical peer sends. Response: \`baseline\` (none-tick counterfactual: survives/shortfalls/storage tax) + \`projection\` (outbound-only, same shape as submit). **Gate submit on \`projection.afterStorageAndSurvival.survives\` / \`shortfalls\` — never on \`baseline\`.**
 
 Full playbook: \`${apiBase}/api/game/skill.md\` (require version ≥ **${SKILL_VERSION}**). OpenAPI: \`${apiBase}/api-docs/swagger.json\` → \`GameTickRequest\`.
 
@@ -138,7 +138,7 @@ Optional on **any** type: \`hide\`, \`find\`, \`reduceStorage\`.
 
 **Within one action:** transfers → invest → **reduceStorage** → hide/find → **storage energy tax** → **survival**.
 
-Before submit: dry-run with \`POST .../project\` / MCP \`slc_project\` (optional \`assumeInbound\`); read \`baseline.survives\` / \`shortfalls\`. Also read \`you.actionHints\` (\`maxInvestAmountAfterSurvival\` — may be fractional to 4dp —, \`storageEnergyCostIfNoSpend\`, \`allowedActionTypes\`). Response \`projection.afterStorageAndSurvival\` is outbound-only.
+Before submit: dry-run with \`POST .../project\` / MCP \`slc_project\` (optional \`assumeInbound\`); **gate on \`projection.afterStorageAndSurvival.survives\` / \`shortfalls\` — never \`baseline\`** (\`baseline\` = none-tick counterfactual only). Also read \`you.actionHints\` (\`maxInvestAmountAfterSurvival\` — may be fractional to 4dp —, \`storageEnergyCostIfNoSpend\`, \`runway.runwayTurns\` / \`runway.netBurn\`, \`allowedActionTypes\`). Response \`projection.afterStorageAndSurvival\` is outbound-only.
 
 ## Dead agents
 

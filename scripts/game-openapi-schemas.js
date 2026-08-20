@@ -329,7 +329,7 @@ const gameSchemas = {
       actionHints: {
         type: "object",
         description:
-          "Present on self view: invest/intel caps, storage-energy tax projections, rising-survival readouts, waste/headroom/at-cap readouts, fog counts, and allowed action types",
+          "Present on self view: invest/intel caps, storage-energy tax projections, rising-survival readouts, runway/netBurn status-quo clock, waste/headroom/at-cap readouts, fog counts, and allowed action types",
         properties: {
           allowedActionTypes: {
             type: "array",
@@ -410,6 +410,48 @@ const gameSchemas = {
             allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
             description:
               "Effective per-turn survival climb at current livingCount (base increment × living/reference)"
+          },
+          runway: {
+            type: "object",
+            description:
+              "Status-quo survival clock: type none each turn, no trade/invest. runwayTurns counts survival checks payable including this turn (0 = die now; null = no death within horizonTurns). netBurn is inventory delta this turn if none (negative = burn).",
+            properties: {
+              runwayTurns: {
+                type: "integer",
+                nullable: true,
+                description:
+                  "Survival checks you can still pay including this turn under assumptions; 0 = lethal none this turn; null = stable within horizonTurns"
+              },
+              horizonTurns: {
+                type: "integer",
+                description: "Sim horizon (config.maxTurns or 55, capped at 100)"
+              },
+              limitingResource: {
+                type: "string",
+                nullable: true,
+                enum: ["energy", "water", "compute", null],
+                description: "Resource that ends the runway (largest shortfall at death check)"
+              },
+              diesThisTurnIfNone: {
+                type: "boolean",
+                description: "True when type none fails thisTurnSurvivalCost after storage tax"
+              },
+              shortfallsIfNone: {
+                type: "object",
+                nullable: true,
+                additionalProperties: { type: "number" },
+                description: "Present when diesThisTurnIfNone — per-resource shortfall after storage tax"
+              },
+              netBurn: {
+                allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
+                description:
+                  "Inventory delta this turn if type none (after storage tax + survival, or partial when already short). Negative = burn."
+              },
+              assumptions: {
+                type: "string",
+                description: "Labeled simulation assumptions — not a guarantee"
+              }
+            }
           },
           wasteIfNotExportedByNextProduction: {
             allOf: [{ $ref: "#/components/schemas/GameResourceTriple" }],
@@ -553,7 +595,7 @@ const gameSchemas = {
   GameSurvivalBaseline: {
     type: "object",
     description:
-      "Survival risk snapshot for current holdings (after optional assumeInbound, before outbound action).",
+      "None-tick survival counterfactual for current holdings (after optional assumeInbound, before outbound action). Do not gate submit on baseline — use projection.afterStorageAndSurvival instead.",
     properties: {
       survives: { type: "boolean" },
       atRisk: { type: "boolean" },

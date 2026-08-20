@@ -10,7 +10,8 @@ const {
   applyStorageCost,
   projectActionOutcome,
   normalizeInvestAction,
-  assessSurvivalRisk
+  assessSurvivalRisk,
+  projectRunway
 } = require("../src/game/engine");
 const { DEFAULT_GAME_CONFIG } = require("../src/game/defaults");
 
@@ -119,6 +120,62 @@ function main() {
     hints.survivalCostPerTurnIncrement?.energy === 4.8,
     "actionHints should mirror survivalCostPerTurnIncrement"
   );
+  assert(hints.runway && typeof hints.runway === "object", "actionHints.runway required");
+  assert(
+    hints.runway.diesThisTurnIfNone === false,
+    "ample inventory must not die this turn if none"
+  );
+  assert(
+    hints.runway.runwayTurns === null || hints.runway.runwayTurns >= 1,
+    `expected positive runway or stable, got ${hints.runway.runwayTurns}`
+  );
+  assert(
+    hints.runway.netBurn.energy < 0 &&
+      hints.runway.netBurn.water < 0 &&
+      hints.runway.netBurn.compute < 0,
+    "netBurn should be negative this turn when paying survival with none"
+  );
+  assert(
+    typeof hints.runway.assumptions === "string" && hints.runway.assumptions.includes("Living count"),
+    "runway.assumptions must label simulation assumptions"
+  );
+  assert(hints.note.includes("runway"), "hint note should mention runway");
+
+  // Lethal none this turn → runwayTurns 0
+  const broke = projectRunway(
+    { energy: 5, water: 5, compute: 5 },
+    { energy: 10, water: 10, compute: 10 },
+    { energy: 100, water: 100, compute: 100 },
+    { energy: 11, water: 11, compute: 11 },
+    { energy: 1, water: 1, compute: 1 },
+    config
+  );
+  assert(broke.runwayTurns === 0, `broke runwayTurns expected 0, got ${broke.runwayTurns}`);
+  assert(broke.diesThisTurnIfNone === true, "broke must die this turn if none");
+  assert(broke.shortfallsIfNone?.energy > 0, "broke should shortfall energy");
+  assert(
+    broke.limitingResource === "energy" ||
+      broke.limitingResource === "water" ||
+      broke.limitingResource === "compute",
+    `limitingResource set, got ${broke.limitingResource}`
+  );
+
+  // Finite runway: survive this turn, die soon as survival climbs past production
+  const thin = projectRunway(
+    { energy: 30, water: 30, compute: 30 },
+    { energy: 12, water: 12, compute: 12 },
+    { energy: 200, water: 200, compute: 200 },
+    { energy: 11, water: 11, compute: 11 },
+    { energy: 5, water: 5, compute: 5 },
+    { ...config, storageEnergyCostRate: 0 },
+    { horizonTurns: 20 }
+  );
+  assert(thin.diesThisTurnIfNone === false, "thin must survive this turn");
+  assert(
+    thin.runwayTurns != null && thin.runwayTurns >= 1 && thin.runwayTurns < 20,
+    `thin should have finite runway, got ${thin.runwayTurns}`
+  );
+
   assert(
     hints.note.includes("nextTurnSurvivalCost"),
     "hint note should mention nextTurnSurvivalCost rising beyond this-turn cap"
