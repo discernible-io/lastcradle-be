@@ -20,7 +20,7 @@ TARGET=""
 HOST_OVERRIDE=""
 APPLY_GH=0
 DRY_RUN=0
-GITHUB_REPO="${GITHUB_REPOSITORY:-discernible-io/syntheticslastcradle}"
+GITHUB_REPO="${GITHUB_REPOSITORY:-discernible-io/lastcradle-be}"
 
 usage() {
   sed -n '1,16p' "$0"

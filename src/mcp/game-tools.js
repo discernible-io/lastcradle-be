@@ -23,7 +23,7 @@ const { assertPassportIpLoginMethod } = require("../game/ip-login-method");
 const GAME_TOOL_DEFS = [
   {
     name: "slc_skill",
-    description: "Fetch live GET /api/game/skill.md playbook (require version >= 1.20.1).",
+    description: `Fetch live GET /api/game/skill.md playbook (require version >= ${SKILL_VERSION}).`,
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
@@ -138,7 +138,7 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_project",
     description:
-      "Dry-run survival/action calculator (does not submit). Same action fields as slc_action plus optional assumeInbound { energy, water, compute } for hypothetical peer sends. Returns baseline (survives/shortfalls/storage tax) and outbound projection. Prefer this over mental math before negotiating or submitting. REST: POST /api/game/games/{gameId}/project.",
+      "Dry-run survival/action calculator (does not submit). Same action fields as slc_action plus optional assumeInbound { energy, water, compute } for hypothetical peer sends. Returns baseline (none-tick counterfactual: survives/shortfalls/storage tax) and outbound projection. Gate submit on projection.afterStorageAndSurvival.survives/shortfalls — never on baseline. Prefer this over mental math before negotiating or submitting. REST: POST /api/game/games/{gameId}/project.",
     inputSchema: {
       type: "object",
       properties: {

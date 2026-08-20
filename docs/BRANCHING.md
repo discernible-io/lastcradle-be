@@ -15,7 +15,7 @@
 
 | Branch | Purpose | Auto-deploy |
 |--------|---------|-------------|
-| **`main`** | Production SLC (`slcapi.discernible.io:9443`; frontend `slc.discernible.io:10443`) | Yes |
+| **`main`** | Production SLC (`api.lastcradle.io`; frontend `lastcradle.io` / `www.lastcradle.io`) | Yes |
 | **`development`** | Development tier (`slcapi.dihola.io:9443`; frontend `slc.dihola.io:10443`) | Yes |
 | **`legacy`** | Frozen snapshot of pre-migration `main` | No |
 

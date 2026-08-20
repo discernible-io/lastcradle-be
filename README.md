@@ -10,7 +10,7 @@ This API provides secure authentication services using the Discernible Authentic
 
 | Branch | Role | API | Game frontend |
 |--------|------|-----|---------------|
-| **`main`** | Production (SLC) | https://slcapi.discernible.io:9443 | frontend https://slc.discernible.io:10443 |
+| **`main`** | Production (SLC) | https://api.lastcradle.io | frontend https://lastcradle.io / https://www.lastcradle.io |
 | **`development`** | Development / integration | https://slcapi.dihola.io:9443 | frontend https://slc.dihola.io:10443 |
 | **`legacy`** | Archive of pre-migration `main` (read-only) | — | — |
 
@@ -132,8 +132,8 @@ Surface areas: authentication, CRUDA comments, sessions, metrics, MCP, client si
 
 ```bash
 # Clone the repository
-git clone https://github.com/discernible-io/syntheticslastcradle.git
-cd syntheticslastcradle
+git clone https://github.com/discernible-io/lastcradle-be.git
+cd lastcradle-be
 
 # Install dependencies
 npm install
@@ -323,7 +323,7 @@ Available at `/api/metrics` (authenticated):
 ### Project Structure
 
 ```
-syntheticslastcradle/
+lastcradle-be/
 ├── src/
 │   ├── app.js                 # Main application entry point
 │   ├── routes/                # Public route handlers (incl. mcproutes.js)
@@ -697,7 +697,7 @@ Proprietary - Copyright (c) 2025 Discernible Inc. All rights reserved.
 
 - **Email**: support@rodit-tech.com
 - **Documentation**: https://docs.rodit-tech.com
-- **Issues**: https://github.com/discernible-io/syntheticslastcradle/issues
+- **Issues**: https://github.com/discernible-io/lastcradle-be/issues
 
 ## Contributing
 

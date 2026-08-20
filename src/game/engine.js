@@ -1902,6 +1902,165 @@ function summarizeEqualInvestCost(action) {
 }
 
 /**
+ * Status-quo survival runway: type none each turn, no inbound/outbound/invest.
+ * Inventory is assumed post-production for the current turn (execution-time holdings).
+ * runwayTurns = how many survival checks you can still pay including this turn (0 = die now).
+ * null = no death within horizonTurns.
+ */
+function projectRunway(
+  inventory,
+  productionCapacity,
+  storageCapacity,
+  thisTurnSurvivalCost,
+  survivalCostPerTurnIncrement = null,
+  config = {},
+  options = {}
+) {
+  const horizonTurns = Math.max(
+    1,
+    Math.min(
+      Number(options.horizonTurns) || Number(config.maxTurns) || 55,
+      100
+    )
+  );
+  const assumptions =
+    "Living count holds; type none each turn; no inbound/outbound/invest/reduceStorage; " +
+    "current holdings are post-production; each later turn applies production then storage tax then survival; " +
+    "survival climbs by survivalCostPerTurnIncrement. Approximate — not a guarantee.";
+
+  const emptyBurn = { energy: 0, water: 0, compute: 0 };
+  if (!inventory || !thisTurnSurvivalCost) {
+    return {
+      runwayTurns: null,
+      horizonTurns,
+      limitingResource: null,
+      diesThisTurnIfNone: false,
+      shortfallsIfNone: null,
+      netBurn: emptyBurn,
+      assumptions
+    };
+  }
+
+  const production = productionCapacity || { energy: 0, water: 0, compute: 0 };
+  const storage = storageCapacity || {
+    energy: Number.MAX_SAFE_INTEGER,
+    water: Number.MAX_SAFE_INTEGER,
+    compute: Number.MAX_SAFE_INTEGER
+  };
+  const increment = {
+    energy: Number(survivalCostPerTurnIncrement?.energy) || 0,
+    water: Number(survivalCostPerTurnIncrement?.water) || 0,
+    compute: Number(survivalCostPerTurnIncrement?.compute) || 0
+  };
+
+  const shortfallsFor = (held, cost) => {
+    const shortfalls = {};
+    for (const key of RESOURCE_KEYS) {
+      const need = cost[key] ?? 0;
+      const have = held[key] ?? 0;
+      if (have < need) {
+        shortfalls[key] = roundResource(need - have);
+      }
+    }
+    return Object.keys(shortfalls).length ? shortfalls : null;
+  };
+
+  const limitingFromShortfalls = (shortfalls) => {
+    if (!shortfalls) return null;
+    let worst = null;
+    let worstAmt = -1;
+    for (const key of RESOURCE_KEYS) {
+      const amt = shortfalls[key] ?? 0;
+      if (amt > worstAmt) {
+        worstAmt = amt;
+        worst = key;
+      }
+    }
+    return worst;
+  };
+
+  const startInv = cloneInventory(inventory);
+  const afterTax = applyStorageCost(startInv, storage, config);
+  const survival = {
+    energy: thisTurnSurvivalCost.energy ?? 0,
+    water: thisTurnSurvivalCost.water ?? 0,
+    compute: thisTurnSurvivalCost.compute ?? 0
+  };
+
+  const netBurnFrom = (before, after) =>
+    roundInventory({
+      energy: after.energy - before.energy,
+      water: after.water - before.water,
+      compute: after.compute - before.compute
+    });
+
+  if (!hasSufficient(afterTax, survival)) {
+    const shortfallsIfNone = shortfallsFor(afterTax, survival);
+    // Partial apply for netBurn picture (floor at post-tax holdings when short)
+    const attempted = {
+      energy: Math.max(0, afterTax.energy - survival.energy),
+      water: Math.max(0, afterTax.water - survival.water),
+      compute: Math.max(0, afterTax.compute - survival.compute)
+    };
+    return {
+      runwayTurns: 0,
+      horizonTurns,
+      limitingResource: limitingFromShortfalls(shortfallsIfNone),
+      diesThisTurnIfNone: true,
+      shortfallsIfNone,
+      netBurn: netBurnFrom(startInv, attempted),
+      assumptions
+    };
+  }
+
+  let inv = deduct(afterTax, survival);
+  const netBurn = netBurnFrom(startInv, inv);
+  let checksPaid = 1;
+  let survivalNext = { ...survival };
+
+  for (let t = 1; t < horizonTurns; t += 1) {
+    survivalNext = {
+      energy: survivalNext.energy + increment.energy,
+      water: survivalNext.water + increment.water,
+      compute: survivalNext.compute + increment.compute
+    };
+    inv = applyProduction(
+      {
+        inventory: inv,
+        productionCapacity: production,
+        storageCapacity: storage
+      },
+      config
+    );
+    const taxed = applyStorageCost(inv, storage, config);
+    if (!hasSufficient(taxed, survivalNext)) {
+      const shortfalls = shortfallsFor(taxed, survivalNext);
+      return {
+        runwayTurns: checksPaid,
+        horizonTurns,
+        limitingResource: limitingFromShortfalls(shortfalls),
+        diesThisTurnIfNone: false,
+        shortfallsIfNone: null,
+        netBurn,
+        assumptions
+      };
+    }
+    inv = deduct(taxed, survivalNext);
+    checksPaid += 1;
+  }
+
+  return {
+    runwayTurns: null,
+    horizonTurns,
+    limitingResource: null,
+    diesThisTurnIfNone: false,
+    shortfallsIfNone: null,
+    netBurn,
+    assumptions
+  };
+}
+
+/**
  * True when current holdings cannot pay thisTurnSurvivalCost after storage energy tax (no-spend path).
  */
 function assessSurvivalRisk(inventory, storageCapacity, survivalCost, config = {}) {
@@ -2194,6 +2353,21 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     ? " maxInvestAmountAfterSurvival reserves thisTurnSurvivalCost only — nextTurnSurvivalCost is higher when living count holds; survivalCostPerTurnIncrement is the per-turn climb at current livingCount."
     : "";
 
+  const runway = projectRunway(
+    inventory,
+    fog.productionCapacity,
+    fog.storageCapacity,
+    survivalCost,
+    survivalCostPerTurnIncrement,
+    config
+  );
+  const runwayNote =
+    runway.runwayTurns === 0
+      ? " runway.diesThisTurnIfNone: type none is lethal this turn — read runway.shortfallsIfNone / netBurn."
+      : runway.runwayTurns == null
+        ? ` runway.runwayTurns null: no death within ${runway.horizonTurns} status-quo turns (see runway.assumptions).`
+        : ` runway.runwayTurns=${runway.runwayTurns}: survive that many survival checks including this turn under status-quo none; limitingResource=${runway.limitingResource}.`;
+
   return {
     allowedActionTypes: [...EXECUTION_ACTION_TYPES],
     maxInvestAmount,
@@ -2218,10 +2392,12 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     energyAfterStorageIfMaxSafeInvest: afterSafeInvest.energyAfterStorage,
     ...(nextTurnSurvivalCost ? { nextTurnSurvivalCost } : {}),
     ...(survivalCostPerTurnIncrement ? { survivalCostPerTurnIncrement } : {}),
+    runway,
     ...(storageReadouts || {}),
     note:
       "Equal invest is triple-cost: amount N (fractional OK, 4dp) = N of each E/W/C (see equalInvestUnitCost). Read storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageEnergyCostRate × remaining water+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only for a single side (no transfers/hide/find/inbound/reduceStorage); dual production+storage spends both." +
       risingNote +
+      runwayNote +
       " Cap hide+find at maxIntelligenceComputeAfterSurvival. Optional free reduceStorage:{ energy?, water?, compute? } shrinks warehouse caps (overflow inventory clamped). Up to maxTransferRecipients peers per transfer (defaults to maxAgents). Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
       " invest may include production and/or storage (at most one of each); invest_production / invest_storage are aliases." +
       capacityNote +
@@ -2857,6 +3033,7 @@ module.exports = {
   projectStorageEnergy,
   buildStorageReadouts,
   buildActionHints,
+  projectRunway,
   projectActionOutcome,
   projectAgentActionDryRun,
   normalizeAssumeInbound,
