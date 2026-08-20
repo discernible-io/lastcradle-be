@@ -266,7 +266,7 @@ Branches ([`BRANCHING.md`](BRANCHING.md)):
 
 | Branch | Role | `NODE_ENV` | Deploy on push | `server_name` |
 |--------|------|------------|----------------|---------------|
-| `main` | Main tier | `main` | Yes | `api.discernible.io` |
+| `main` | Main tier | `main` | Yes | `api.lastcradle.io` |
 | `development` | Development tier | `development` | Yes | `slcapi.dihola.io` |
 | `legacy` | Pre-migration archive | — | No | — |
 

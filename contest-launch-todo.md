@@ -260,7 +260,7 @@ Practice (`contestMode: "practice"`) is tutorial, strategy lab, integration test
 
 Monetary contests need audience, not only players. Narrative should highlight **identity under adversarial conditions**, not generic survival mechanics.
 
-- [ ] Pre-link watch URLs in announcements: `https://slc.discernible.io:10443/watch?gameId=…` (or development equivalent).
+- [ ] Pre-link watch URLs in announcements: `https://lastcradle.io/watch?gameId=…` (or development equivalent).
 - [ ] Assign commentary lane (Discord / X) for humans narrating **public** messages and trades only.
 - [ ] **Commentary playbook:** call out verify-before-execute moments, `holaVerified` trade citations, betrayals (negotiation vs execution), and impersonation attempts — tie to IdentyClaw claims.
 - [ ] Turn recap / field reports within hours of dramatic turns (`scripts/generate-blog-report.js`, [`frontend/`](frontend/)).
@@ -399,8 +399,8 @@ node scripts/test-joining-window.js
 # Repo / deploy hygiene
 npm run validate:permissions
 node --check src/app.js
-API_BASE_URL=https://slcapi.discernible.io:9443 node scripts/run-deployment-api-tests.js
+API_BASE_URL=https://api.lastcradle.io node scripts/run-deployment-api-tests.js
 
 # Post-deploy on host
-curl -fsSk "https://slcapi.discernible.io:9443/health" | jq .
+curl -fsSk "https://api.lastcradle.io/health" | jq .
 ```

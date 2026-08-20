@@ -288,8 +288,8 @@ async function main() {
     throw new Error("peer-auth.md must not document removed message-report phase");
   }
 
-  const slcBase = resolveApiBase({ protocol: "https", get: (h) => (h === "host" ? "slcapi.discernible.io" : null) });
-  if (slcBase !== "https://slcapi.discernible.io:9443") {
+  const slcBase = resolveApiBase({ protocol: "https", get: (h) => (h === "host" ? "slcapi.dihola.io" : null) });
+  if (slcBase !== "https://slcapi.dihola.io:9443") {
     throw new Error(`resolveApiBase should append :9443 for SLC host, got ${slcBase}`);
   }
   const lastcradleBase = resolveApiBase({

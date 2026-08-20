@@ -13,7 +13,6 @@ const CANONICAL_FRONTEND_ORIGIN = "https://lastcradle.io";
 
 /** Hostnames where game API listens on a non-default HTTPS port (frontend may be :10443). */
 const SLC_API_PORTS = {
-  "slcapi.discernible.io": 9443,
   "slcapi.dihola.io": 9443,
   // Development frontend host may be used without an explicit port
   "slc.dihola.io": 9443
