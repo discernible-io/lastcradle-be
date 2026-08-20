@@ -17,6 +17,7 @@ const {
 const repo = require("./repository");
 const { isUrlJoinRoditId, normalizeRoditId } = require("./rodit-id");
 const { CONTEST_GAME_CONFIG } = require("./defaults");
+const { WEBHOOK_URL_MAX_LEN } = require("./input-limits");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -131,7 +132,7 @@ function validateWebhookUrl(raw) {
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
     throw invalidWebhookUrl("webhookUrl must use http or https");
   }
-  if (trimmed.length > 2048) {
+  if (trimmed.length > WEBHOOK_URL_MAX_LEN) {
     throw invalidWebhookUrl("webhookUrl is too long");
   }
   if (parsed.username || parsed.password) {

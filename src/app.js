@@ -311,8 +311,12 @@ const swaggerSpec = JSON.parse(fs.readFileSync(swaggerPath, "utf8"));
 app.set("trust proxy", 1);
 
 // Configure middleware
-app.use(express.json({ limit: "64kb" }));
-app.use(express.urlencoded({ extended: false, limit: "32kb" }));
+const {
+  JSON_BODY_LIMIT,
+  URLENCODED_BODY_LIMIT
+} = require("./game/input-limits");
+app.use(express.json({ limit: JSON_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: false, limit: URLENCODED_BODY_LIMIT }));
 
 // Malformed JSON bodies → standard ErrorResponse envelope
 app.use((err, req, res, next) => {

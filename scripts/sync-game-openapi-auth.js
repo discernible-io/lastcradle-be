@@ -12,6 +12,7 @@ const path = require("path");
 const { gameSchemas } = require("./game-openapi-schemas");
 const { CONTEST_GAME_CONFIG } = require("../src/game/defaults");
 const { SKILL_VERSION } = require("../src/game/skill-content");
+const { RECOLLECTION_FIELD_MAX } = require("../src/game/input-limits");
 
 const SWAGGER_PATH = path.join(__dirname, "..", "api-docs", "swagger.json");
 const COMPETITION_PRESET_SUFFIX = `Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from \`POST /api/login\`). Competition presets (\`preset: contest|definitive\` or ${CONTEST_GAME_CONFIG.minAgents}-player min/max) require \`GAME_PRIVILEGED_RODIT_ID\`.`;
@@ -574,12 +575,12 @@ function main() {
               type: "object",
               description: "At least one topic field required",
               properties: {
-                relationships: { type: "string", maxLength: 4000 },
-                espionage: { type: "string", maxLength: 4000 },
-                investment: { type: "string", maxLength: 4000 },
-                trade: { type: "string", maxLength: 4000 },
-                incidents: { type: "string", maxLength: 4000 },
-                overview: { type: "string", maxLength: 4000 }
+                relationships: { type: "string", maxLength: RECOLLECTION_FIELD_MAX },
+                espionage: { type: "string", maxLength: RECOLLECTION_FIELD_MAX },
+                investment: { type: "string", maxLength: RECOLLECTION_FIELD_MAX },
+                trade: { type: "string", maxLength: RECOLLECTION_FIELD_MAX },
+                incidents: { type: "string", maxLength: RECOLLECTION_FIELD_MAX },
+                overview: { type: "string", maxLength: RECOLLECTION_FIELD_MAX }
               }
             },
             example: {

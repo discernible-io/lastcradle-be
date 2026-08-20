@@ -13,6 +13,7 @@ const {
   MAX_SIMULTANEOUS_GAMES,
   resolveMaxTransferRecipients
 } = require("./defaults");
+const { PUBLIC_MESSAGE_BODY_MAX } = require("./input-limits");
 const {
   computeSurvivalCost,
   buildSurvivalContext,
@@ -1248,12 +1249,14 @@ async function publishPublicMessage(gameId, agentId, { body }) {
     throw gameError("MESSAGE_BODY_REQUIRED", "Message body is required", 400);
   }
 
+  const trimmed = body.trim().slice(0, PUBLIC_MESSAGE_BODY_MAX);
+
   const message = await repo.addMessage({
     gameId,
     turnNumber: game.current_turn,
     fromAgentId: agentId,
     toAgentId: null,
-    body: body.trim(),
+    body: trimmed,
     computeCost: 0,
     isPublic: true
   });

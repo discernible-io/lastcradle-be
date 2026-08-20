@@ -6,6 +6,7 @@
 const { ulid } = require("ulid");
 const repo = require("./repository");
 const { publishGameEvent } = require("./events");
+const { RECOLLECTION_FIELD_MAX } = require("./input-limits");
 
 const RECOLLECTION_TOPICS = [
   "relationships",
@@ -15,8 +16,6 @@ const RECOLLECTION_TOPICS = [
   "incidents",
   "overview"
 ];
-
-const RECOLLECTION_FIELD_MAX = 4000;
 
 const RECOLLECTION_CONTEXTS = new Set(["elimination", "victory", "game_over"]);
 

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { RoditClient, errorResponse, config } = require("@rodit/rodit-auth-be");
 const { sendError } = errorResponse;
+const { CRUDA_COMMENT_MAX_LEN } = require("../game/input-limits");
 
 // Create SDK client instance to access all functionality
 const sdkClient = new RoditClient();
@@ -431,7 +432,16 @@ const validateComment = (req, res, next) => {
     }
 
     // Sanitize and trim the comment
-    req.body.comment = comment.trim();
+    const trimmedComment = comment.trim();
+    if (trimmedComment.length > CRUDA_COMMENT_MAX_LEN) {
+      return sendError(res, {
+        statusCode: 400,
+        requestId,
+        code: "VALIDATION_ERROR",
+        message: `Comment must be at most ${CRUDA_COMMENT_MAX_LEN} characters`
+      });
+    }
+    req.body.comment = trimmedComment;
     next();
   } catch (error) {
     logger.errorWithContext("Error in validateComment middleware", {
