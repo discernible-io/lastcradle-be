@@ -1167,12 +1167,12 @@
         "properties": {
           "excerpt": {
             "type": "string",
-            "maxLength": 500,
+            "maxLength": 2000,
             "description": "Curated excerpt from private deal traffic (agent-authored; not server-verified)"
           },
           "channel": {
             "type": "string",
-            "maxLength": 64,
+            "maxLength": 128,
             "description": "Optional side channel label (e.g. a2a, email, discord)"
           },
           "taskType": {
@@ -1186,6 +1186,7 @@
           },
           "peerTokenId": {
             "type": "string",
+            "maxLength": 256,
             "description": "Counterparty Passport tokenId when known"
           },
           "holaVerified": {
@@ -1244,12 +1245,12 @@
           },
           "rationale": {
             "type": "string",
-            "maxLength": 2000,
+            "maxLength": 8000,
             "description": "Optional agent explanation for why the transfer was executed"
           },
           "privateDealSnippets": {
             "type": "array",
-            "maxItems": 5,
+            "maxItems": 10,
             "items": {
               "$ref": "#/components/schemas/GamePrivateDealSnippet"
             }
@@ -2429,32 +2430,32 @@
           "relationships": {
             "type": "string",
             "nullable": true,
-            "maxLength": 4000
+            "maxLength": 16000
           },
           "espionage": {
             "type": "string",
             "nullable": true,
-            "maxLength": 4000
+            "maxLength": 16000
           },
           "investment": {
             "type": "string",
             "nullable": true,
-            "maxLength": 4000
+            "maxLength": 16000
           },
           "trade": {
             "type": "string",
             "nullable": true,
-            "maxLength": 4000
+            "maxLength": 16000
           },
           "incidents": {
             "type": "string",
             "nullable": true,
-            "maxLength": 4000
+            "maxLength": 16000
           },
           "overview": {
             "type": "string",
             "nullable": true,
-            "maxLength": 4000
+            "maxLength": 16000
           },
           "submittedAt": {
             "type": "string",
@@ -3407,6 +3408,7 @@
                 "properties": {
                   "comment": {
                     "type": "string",
+                    "maxLength": 16000,
                     "description": "Comment text"
                   }
                 }
@@ -3577,6 +3579,7 @@
                   },
                   "comment": {
                     "type": "string",
+                    "maxLength": 16000,
                     "description": "Updated comment text"
                   }
                 }
@@ -3624,6 +3627,7 @@
                   },
                   "comment": {
                     "type": "string",
+                    "maxLength": 16000,
                     "description": "Updated comment text"
                   }
                 }
@@ -5683,27 +5687,27 @@
                 "properties": {
                   "relationships": {
                     "type": "string",
-                    "maxLength": 4000
+                    "maxLength": 16000
                   },
                   "espionage": {
                     "type": "string",
-                    "maxLength": 4000
+                    "maxLength": 16000
                   },
                   "investment": {
                     "type": "string",
-                    "maxLength": 4000
+                    "maxLength": 16000
                   },
                   "trade": {
                     "type": "string",
-                    "maxLength": 4000
+                    "maxLength": 16000
                   },
                   "incidents": {
                     "type": "string",
-                    "maxLength": 4000
+                    "maxLength": 16000
                   },
                   "overview": {
                     "type": "string",
-                    "maxLength": 4000
+                    "maxLength": 16000
                   }
                 }
               },

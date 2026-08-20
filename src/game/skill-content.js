@@ -4,6 +4,7 @@
  */
 
 const { NARRATIVE_VERSION } = require("./narrative");
+const { RECOLLECTION_FIELD_MAX } = require("./input-limits");
 
 const SKILL_NAME = "synthetics-last-cradle";
 const SKILL_VERSION = "1.20.3";
@@ -383,7 +384,7 @@ Good voice (example tone — invent your own facts from *this* game):
 | \`trade\` | The deal that held, broke, or was never meant to hold |
 | \`incidents\` | The moment it went wrong — and the worse moment after |
 
-At least one field required (max 4000 chars each). You need not fill all topics. Upsert allowed (omitted fields keep prior values; send \`""\` to clear). Public list: \`GET ${apiBase}/api/game/games/{gameId}/recollections\`. Your own submission also appears as \`you.recollection\` on state.
+At least one field required (max ${RECOLLECTION_FIELD_MAX} chars each). You need not fill all topics. Upsert allowed (omitted fields keep prior values; send \`""\` to clear). Public list: \`GET ${apiBase}/api/game/games/{gameId}/recollections\`. Your own submission also appears as \`you.recollection\` on state.
 
 On **your** alive agent entry (and any rival you can see via hide/find intelligence):
 

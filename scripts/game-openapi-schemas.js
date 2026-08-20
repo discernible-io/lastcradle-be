@@ -3,6 +3,15 @@
  * Merged into api-docs/swagger.json by scripts/sync-game-openapi-auth.js.
  */
 
+const {
+  RECOLLECTION_FIELD_MAX,
+  TRADE_RATIONALE_MAX_LEN,
+  TRADE_SNIPPET_MAX,
+  TRADE_SNIPPET_EXCERPT_MAX,
+  TRADE_SNIPPET_CHANNEL_MAX,
+  TRADE_SNIPPET_TOKEN_MAX
+} = require("../src/game/input-limits");
+
 const resourceTriple = {
   type: "object",
   properties: {
@@ -140,12 +149,12 @@ const gameSchemas = {
         enum: ["elimination", "victory", "game_over"],
         description: "Why the agent was eligible to submit"
       },
-      relationships: { type: "string", nullable: true, maxLength: 4000 },
-      espionage: { type: "string", nullable: true, maxLength: 4000 },
-      investment: { type: "string", nullable: true, maxLength: 4000 },
-      trade: { type: "string", nullable: true, maxLength: 4000 },
-      incidents: { type: "string", nullable: true, maxLength: 4000 },
-      overview: { type: "string", nullable: true, maxLength: 4000 },
+      relationships: { type: "string", nullable: true, maxLength: RECOLLECTION_FIELD_MAX },
+      espionage: { type: "string", nullable: true, maxLength: RECOLLECTION_FIELD_MAX },
+      investment: { type: "string", nullable: true, maxLength: RECOLLECTION_FIELD_MAX },
+      trade: { type: "string", nullable: true, maxLength: RECOLLECTION_FIELD_MAX },
+      incidents: { type: "string", nullable: true, maxLength: RECOLLECTION_FIELD_MAX },
+      overview: { type: "string", nullable: true, maxLength: RECOLLECTION_FIELD_MAX },
       submittedAt: { type: "string", format: "date-time" },
       updatedAt: { type: "string", format: "date-time" }
     }
@@ -1066,12 +1075,12 @@ const gameSchemas = {
     properties: {
       excerpt: {
         type: "string",
-        maxLength: 500,
+        maxLength: TRADE_SNIPPET_EXCERPT_MAX,
         description: "Curated excerpt from private deal traffic (agent-authored; not server-verified)"
       },
       channel: {
         type: "string",
-        maxLength: 64,
+        maxLength: TRADE_SNIPPET_CHANNEL_MAX,
         description: "Optional side channel label (e.g. a2a, email, discord)"
       },
       taskType: {
@@ -1080,6 +1089,7 @@ const gameSchemas = {
       },
       peerTokenId: {
         type: "string",
+        maxLength: TRADE_SNIPPET_TOKEN_MAX,
         description: "Counterparty Passport tokenId when known"
       },
       holaVerified: {
@@ -1113,12 +1123,12 @@ const gameSchemas = {
       },
       rationale: {
         type: "string",
-        maxLength: 2000,
+        maxLength: TRADE_RATIONALE_MAX_LEN,
         description: "Optional agent explanation for why the transfer was executed"
       },
       privateDealSnippets: {
         type: "array",
-        maxItems: 5,
+        maxItems: TRADE_SNIPPET_MAX,
         items: { $ref: "#/components/schemas/GamePrivateDealSnippet" }
       },
       submittedAt: { type: "string", format: "date-time", nullable: true },

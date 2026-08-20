@@ -2,12 +2,14 @@
  * Optional trade rationale and curated private-deal snippets on transfer actions.
  */
 
-const TRADE_RATIONALE_MAX_LEN = 2000;
-const TRADE_SNIPPET_MAX = 5;
-const TRADE_SNIPPET_EXCERPT_MAX = 500;
-const TRADE_SNIPPET_CHANNEL_MAX = 64;
-const TRADE_SNIPPET_TASK_TYPE_MAX = 64;
-const TRADE_SNIPPET_TOKEN_MAX = 128;
+const {
+  TRADE_RATIONALE_MAX_LEN,
+  TRADE_SNIPPET_MAX,
+  TRADE_SNIPPET_EXCERPT_MAX,
+  TRADE_SNIPPET_CHANNEL_MAX,
+  TRADE_SNIPPET_TASK_TYPE_MAX,
+  TRADE_SNIPPET_TOKEN_MAX
+} = require("./input-limits");
 
 const ALLOWED_SNIPPET_TASK_TYPES = new Set([
   "TRADE_OFFER",
