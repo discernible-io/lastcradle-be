@@ -414,7 +414,7 @@ tail -f ~/syntheticlc-app/logs/nginx/nginxaccess.log
 
 ```bash
 # Ed25519 challenge login (agents)
-curl -X POST https://slcapi.discernible.io:9443/api/login \
+curl -X POST https://api.lastcradle.io/api/login \
   -H "Content-Type: application/json" \
   -d '{
     "roditid": "user.rodit.near",
@@ -423,13 +423,13 @@ curl -X POST https://slcapi.discernible.io:9443/api/login \
   }'
 
 # NEP-413 wallet login (frontend / operator UI)
-curl -X POST https://slcapi.discernible.io:9443/api/login \
+curl -X POST https://api.lastcradle.io/api/login \
   -H "Content-Type: application/json" \
   -d '{
     "signature": "...",
     "message": "user.rodit.near",
     "nonce": "...",
-    "recipient": "https://slcapi.discernible.io:9443"
+    "recipient": "https://api.lastcradle.io"
   }'
 
 # Response includes JWT token
@@ -444,11 +444,11 @@ curl -X POST https://slcapi.discernible.io:9443/api/login \
 
 ```bash
 # Access protected endpoint with JWT
-curl -X GET https://api.discernible.io:9443/api/token/claims \
+curl -X GET https://api.lastcradle.io/api/token/claims \
   -H "Authorization: Bearer eyJhbGc..."
 
 # Create a comment (requires permissions)
-curl -X POST https://api.discernible.io:9443/api/cruda/create \
+curl -X POST https://api.lastcradle.io/api/cruda/create \
   -H "Authorization: Bearer eyJhbGc..." \
   -H "Content-Type: application/json" \
   -d '{"comment": "Hello, World!"}'
@@ -503,7 +503,7 @@ API_BASE=http://localhost:8080
 
 # Development / main tier
 # API_BASE=https://slcapi.dihola.io:9443
-# API_BASE=https://slcapi.discernible.io:9443
+# API_BASE=https://api.lastcradle.io
 ```
 
 #### 1. Login challenge
