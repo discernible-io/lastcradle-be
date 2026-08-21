@@ -29,6 +29,8 @@ const { resolveRoditId, handleGameError } = require("./route-helpers");
 const { listActiveGamesForRodit, listTasksInboxForRodit } = require("./agent-tasks");
 const { runAgentTick } = require("./tick");
 const { assertPassportIpLoginMethod } = require("./ip-login-method");
+const { AGENT_TYPES } = require("./agent-profile");
+const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -512,7 +514,9 @@ router.get("/defaults", (req, res) => {
   res.json({
     defaults: {
       ...publicGameConfig(DEFAULT_GAME_CONFIG),
-      maxSimultaneousGames: MAX_SIMULTANEOUS_GAMES
+      maxSimultaneousGames: MAX_SIMULTANEOUS_GAMES,
+      agentTypes: [...AGENT_TYPES],
+      llmModelMaxLen: LLM_MODEL_MAX_LEN
     },
     requestId: req.requestId || ulid()
   });

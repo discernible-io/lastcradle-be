@@ -38,8 +38,16 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.20.6")) {
-    throw new Error("skill.md should be version 1.20.6");
+  if (!skill.includes("version: 1.20.8")) {
+    throw new Error("skill.md should be version 1.20.8");
+  }
+  if (
+    !skill.includes("Join `agentType`") ||
+    !skill.includes("`openclaw`") ||
+    !skill.includes("`ironclaw`") ||
+    !skill.includes("agentTypes")
+  ) {
+    throw new Error("skill.md should document join agentType enum and defaults.agentTypes");
   }
   if (!/Production \(auto, turn start\)/i.test(skill) || !/not.*inside Resolve/i.test(skill)) {
     throw new Error("skill.md should place Production at turn start, outside Resolve");

@@ -7,9 +7,9 @@ const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 const AGENT_TYPES = Object.freeze([
   "openclaw",
   "nanoclaw",
+  "ironclaw",
   "hermes",
   "custom",
-  "human",
   "other"
 ]);
 

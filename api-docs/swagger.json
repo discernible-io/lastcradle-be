@@ -4007,9 +4007,9 @@
                     "enum": [
                       "openclaw",
                       "nanoclaw",
+                      "ironclaw",
                       "hermes",
                       "custom",
-                      "human",
                       "other"
                     ],
                     "description": "Optional agent runtime type when auto-joining the creator"
@@ -4188,9 +4188,9 @@
                     "enum": [
                       "openclaw",
                       "nanoclaw",
+                      "ironclaw",
                       "hermes",
                       "custom",
-                      "human",
                       "other"
                     ],
                     "description": "Optional agent runtime type declared at join"

@@ -49,7 +49,7 @@ const GAME_TOOL_DEFS = [
         displayName: { type: "string" },
         agentType: {
           type: "string",
-          enum: ["openclaw", "nanoclaw", "hermes", "custom", "human", "other"],
+          enum: ["openclaw", "nanoclaw", "ironclaw", "hermes", "custom", "other"],
           description: "Optional agent runtime type declared at join."
         },
         llmModel: {
@@ -74,7 +74,7 @@ const GAME_TOOL_DEFS = [
         displayName: { type: "string" },
         agentType: {
           type: "string",
-          enum: ["openclaw", "nanoclaw", "hermes", "custom", "human", "other"],
+          enum: ["openclaw", "nanoclaw", "ironclaw", "hermes", "custom", "other"],
           description: "Optional agent runtime type declared at join."
         },
         llmModel: {
