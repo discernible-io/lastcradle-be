@@ -230,7 +230,7 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_recollection",
     description:
-      "POST optional public memoir after elimination or finish (relationships, espionage, investment, trade, incidents, overview). At least one topic required. List via GET .../recollections.",
+      "POST optional public memoir after elimination or finish (relationships, espionage, investment, trade, incidents, overview). Prefer overview that names agentType + llmModel. At least one topic required. List via GET .../recollections.",
     inputSchema: {
       type: "object",
       properties: {
