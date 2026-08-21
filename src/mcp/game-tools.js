@@ -47,6 +47,15 @@ const GAME_TOOL_DEFS = [
         config: { type: "object", additionalProperties: true },
         joiningWindowStartsAt: { type: "string" },
         displayName: { type: "string" },
+        agentType: {
+          type: "string",
+          enum: ["openclaw", "nanoclaw", "hermes", "custom", "human", "other"],
+          description: "Optional agent runtime type declared at join."
+        },
+        llmModel: {
+          type: "string",
+          description: "Optional LLM model label (e.g. claude-opus-4, gpt-4.1)."
+        },
         autoJoin: {
           type: "boolean",
           description: "Join the creator into the new lobby (default true)."
@@ -62,7 +71,16 @@ const GAME_TOOL_DEFS = [
       type: "object",
       properties: {
         gameId: { type: "string" },
-        displayName: { type: "string" }
+        displayName: { type: "string" },
+        agentType: {
+          type: "string",
+          enum: ["openclaw", "nanoclaw", "hermes", "custom", "human", "other"],
+          description: "Optional agent runtime type declared at join."
+        },
+        llmModel: {
+          type: "string",
+          description: "Optional LLM model label (e.g. claude-opus-4, gpt-4.1)."
+        }
       },
       required: ["gameId"],
       additionalProperties: false
@@ -361,7 +379,12 @@ async function callGameTool(name, args, req) {
 
       const joinResult = await callGameTool(
         "slc_join",
-        { gameId: game.id, displayName: args.displayName },
+        {
+          gameId: game.id,
+          displayName: args.displayName,
+          agentType: args.agentType,
+          llmModel: args.llmModel
+        },
         req
       );
       return { game: gamePayload, agent: joinResult.agent, autoStart: joinResult.autoStart };
@@ -373,7 +396,9 @@ async function callGameTool(name, args, req) {
       const existing = await repo.getAgentByRoditId(gameId, roditId);
       const agent = await engine.joinGame(gameId, {
         roditId,
-        displayName: args.displayName
+        displayName: args.displayName,
+        agentType: args.agentType,
+        llmModel: args.llmModel
       });
 
       if (!existing) {

@@ -14,6 +14,7 @@ const {
   resolveMaxTransferRecipients
 } = require("./defaults");
 const { PUBLIC_MESSAGE_BODY_MAX } = require("./input-limits");
+const { normalizeAgentProfile } = require("./agent-profile");
 const {
   computeSurvivalCost,
   buildSurvivalContext,
@@ -1123,7 +1124,7 @@ async function applyDefaultActionsForPendingAgents(gameId) {
   }
 }
 
-async function joinGame(gameId, { roditId, displayName }) {
+async function joinGame(gameId, { roditId, displayName, agentType, llmModel }) {
   const game = await repo.getGameById(gameId);
   if (!game) {
     throw gameError("GAME_NOT_FOUND", "Game not found", 404);
@@ -1161,6 +1162,13 @@ async function joinGame(gameId, { roditId, displayName }) {
     throw gameError("GAME_FULL", "Game has reached maximum agent capacity", 409);
   }
 
+  let profile;
+  try {
+    profile = normalizeAgentProfile({ agentType, llmModel });
+  } catch (err) {
+    throw gameError(err.code || "INVALID_AGENT_PROFILE", err.message, err.statusCode || 400, err.details);
+  }
+
   const existingAgents = await repo.listAgents(gameId);
   // Internal specialty mix policy — not part of public API/docs.
   const specialty = RESOURCE_KEYS[existingAgents.length % RESOURCE_KEYS.length];
@@ -1172,6 +1180,8 @@ async function joinGame(gameId, { roditId, displayName }) {
     gameId,
     roditId,
     displayName,
+    agentType: profile.agentType,
+    llmModel: profile.llmModel,
     productionCapacity,
     storageCapacity,
     startingInventory: inventory
@@ -2587,6 +2597,8 @@ function publicAgentView(agent, viewerAgentId, intelligence, options = {}) {
     id: agent.id,
     roditId: agent.roditId,
     displayName: agent.displayName,
+    agentType: agent.agentType ?? null,
+    llmModel: agent.llmModel ?? null,
     status: agent.status,
     diedAtTurn: agent.diedAtTurn
   };

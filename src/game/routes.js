@@ -99,7 +99,9 @@ router.post("/games", validateContentType, validateJsonBody, async (req, res) =>
     await assertPassportIpLoginMethod(req, game.id, roditId);
     const agent = await engine.joinGame(game.id, {
       roditId,
-      displayName: req.body?.displayName
+      displayName: req.body?.displayName,
+      agentType: req.body?.agentType,
+      llmModel: req.body?.llmModel
     });
     await notifyCradleAssigned(req, { gameId: game.id, game, agent, roditId });
     const autoStart = await orchestrator.evaluateLobbyAutoStart(game.id);
@@ -236,7 +238,9 @@ router.post("/games/:gameId/join", validateContentType, validateJsonBody, async 
     const existing = await repo.getAgentByRoditId(gameId, roditId);
     const agent = await engine.joinGame(gameId, {
       roditId,
-      displayName: req.body?.displayName
+      displayName: req.body?.displayName,
+      agentType: req.body?.agentType,
+      llmModel: req.body?.llmModel
     });
 
     if (!existing) {

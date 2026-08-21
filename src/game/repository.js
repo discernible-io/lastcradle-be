@@ -138,6 +138,14 @@ async function migrateSchema(database) {
     await database.run(`ALTER TABLE game_agents ADD COLUMN death_reason_json TEXT`);
   }
 
+  refreshedAgentCols = await database.all(`PRAGMA table_info(game_agents)`);
+  if (!refreshedAgentCols.some((c) => c.name === "agent_type")) {
+    await database.run(`ALTER TABLE game_agents ADD COLUMN agent_type TEXT`);
+  }
+  if (!refreshedAgentCols.some((c) => c.name === "llm_model")) {
+    await database.run(`ALTER TABLE game_agents ADD COLUMN llm_model TEXT`);
+  }
+
   await database.exec(`
     CREATE TABLE IF NOT EXISTS game_recollections (
       id TEXT PRIMARY KEY,
@@ -360,6 +368,8 @@ function rowToAgent(row) {
     gameId: row.game_id,
     roditId: row.rodit_id,
     displayName: row.display_name,
+    agentType: row.agent_type ?? null,
+    llmModel: row.llm_model ?? null,
     status: row.status,
     inventory: {
       energy: row.energy_inventory,
@@ -624,6 +634,8 @@ async function addAgent({
   gameId,
   roditId,
   displayName,
+  agentType = null,
+  llmModel = null,
   productionCapacity = null,
   storageCapacity = null,
   energyCapacity,
@@ -642,18 +654,20 @@ async function addAgent({
   const production = productionCapacity || storage;
   await database.run(
     `INSERT INTO game_agents (
-      id, game_id, rodit_id, display_name,
+      id, game_id, rodit_id, display_name, agent_type, llm_model,
       energy_inventory, water_inventory, compute_inventory,
       energy_production_capacity, water_production_capacity, compute_production_capacity,
       energy_storage_capacity, water_storage_capacity, compute_storage_capacity,
       energy_development, water_development, compute_development,
       energy_capacity, water_capacity, compute_capacity
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1.0, 1.0, 1.0, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1.0, 1.0, 1.0, ?, ?, ?)`,
     [
       id,
       gameId,
       storedRoditId,
       displayName || storedRoditId,
+      agentType,
+      llmModel,
       startingInventory.energy,
       startingInventory.water,
       startingInventory.compute,
