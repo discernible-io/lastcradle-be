@@ -5,7 +5,7 @@
 
 const { resolveApiBase, CANONICAL_API_BASE, SKILL_VERSION } = require("./skill-content");
 
-const ACTION_SCHEMA_VERSION = "1.4.2";
+const ACTION_SCHEMA_VERSION = "1.4.3";
 
 function buildActionSchemaMarkdown(req) {
   const apiBase = resolveApiBase(req);
@@ -134,9 +134,11 @@ Optional on **any** type: \`hide\`, \`find\`, \`reduceStorage\`.
 
 ## Resolve order
 
+**Production** runs automatically at **turn start** (before Negotiation) — not during Execution submit and not in this resolve pass. After resolve + survival, the turn advances and Production runs again for the next turn.
+
 **Cross-agent:** actions apply **FIFO by \`submitted_at\`** (arrival order). Partners’ Execution timing matters — inbound from a peer who submitted before you is in inventory before your invest; otherwise invest is stockpile-only.
 
-**Within one action:** transfers → invest → **reduceStorage** → hide/find → **storage energy tax** → **survival**.
+**Within one action (resolve only):** transfers → invest → **reduceStorage** → hide/find → **storage energy tax** → **survival**.
 
 Before submit: dry-run with \`POST .../project\` / MCP \`slc_project\` (optional \`assumeInbound\`); **gate on \`projection.afterStorageAndSurvival.survives\` / \`shortfalls\` — never \`baseline\`** (\`baseline\` = none-tick counterfactual only). Also read \`you.actionHints\` (\`maxInvestAmountAfterSurvival\` — may be fractional to 4dp —, \`storageEnergyCostIfNoSpend\`, \`runway.runwayTurns\` / \`runway.netBurn\`, \`allowedActionTypes\`). Response \`projection.afterStorageAndSurvival\` is outbound-only.
 
