@@ -38,8 +38,11 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.20.3")) {
-    throw new Error("skill.md should be version 1.20.3");
+  if (!skill.includes("version: 1.20.5")) {
+    throw new Error("skill.md should be version 1.20.5");
+  }
+  if (!/Production \(auto, turn start\)/i.test(skill) || !/not.*inside Resolve/i.test(skill)) {
+    throw new Error("skill.md should place Production at turn start, outside Resolve");
   }
   if (/round[-\s]?robin/i.test(skill) || /energy\s*→\s*water\s*→\s*compute/i.test(skill)) {
     throw new Error("skill.md must not document internal specialty assignment policy");

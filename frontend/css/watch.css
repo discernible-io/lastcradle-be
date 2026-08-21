@@ -280,6 +280,16 @@
   text-decoration: line-through;
 }
 
+.cradle-name {
+  display: block;
+}
+
+.cradle-profile {
+  display: block;
+  font-size: 0.75rem;
+  margin-top: 0.15rem;
+}
+
 .tag {
   display: inline-block;
   font-size: 0.72rem;

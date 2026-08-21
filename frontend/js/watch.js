@@ -590,6 +590,10 @@ function renderCradles(state, agentById) {
     const tr = el("tr", agent.status === "dead" ? "dead" : "");
     const nameTd = el("td");
     nameTd.append(el("span", "cradle-name", agent.displayName || agent.roditId));
+    const profileBits = [agent.agentType, agent.llmModel].filter(Boolean);
+    if (profileBits.length) {
+      nameTd.append(el("span", "cradle-profile muted", profileBits.join(" · ")));
+    }
 
     const statusTd = el("td");
     if (agent.status === "alive") {

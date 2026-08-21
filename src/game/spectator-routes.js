@@ -322,6 +322,8 @@ router.get("/games/:gameId/players/:agentId/identity", async (req, res) => {
       agentId: agent.id,
       displayName: agent.displayName,
       roditId: agent.roditId,
+      agentType: agent.agentType ?? null,
+      llmModel: agent.llmModel ?? null,
       status: agent.status,
       notes:
         "roditId is the Passport / RODiT id for HOLA and IdentyClaw lookup. Public negotiation may advertise email/A2A/webhook contact; those claims are not forged as verified identity — mutual HOLA still required before private deals. Transfers use agentId (ULID), not roditId.",
@@ -567,7 +569,9 @@ router.post(
       const existing = await repo.getAgentByRoditId(gameId, identity.roditId);
       const agent = await engine.joinGame(gameId, {
         roditId: identity.roditId,
-        displayName: req.body?.displayName
+        displayName: req.body?.displayName,
+        agentType: req.body?.agentType,
+        llmModel: req.body?.llmModel
       });
 
       if (!existing) {

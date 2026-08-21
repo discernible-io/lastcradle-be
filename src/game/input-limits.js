@@ -26,6 +26,9 @@ const TRADE_SNIPPET_TOKEN_MAX = 256;
 /** join-by-url / webhook registration (rejected if longer). */
 const WEBHOOK_URL_MAX_LEN = 2048;
 
+/** Optional llmModel on join (rejected if longer). */
+const LLM_MODEL_MAX_LEN = 128;
+
 /** CRUDA comment field (rejected if longer). */
 const CRUDA_COMMENT_MAX_LEN = 16000;
 
@@ -41,5 +44,6 @@ module.exports = {
   TRADE_SNIPPET_TASK_TYPE_MAX,
   TRADE_SNIPPET_TOKEN_MAX,
   WEBHOOK_URL_MAX_LEN,
+  LLM_MODEL_MAX_LEN,
   CRUDA_COMMENT_MAX_LEN
 };

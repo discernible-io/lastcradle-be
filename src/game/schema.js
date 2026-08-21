@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS game_agents (
   water_production_investment REAL NOT NULL DEFAULT 0,
   died_at_turn INTEGER,
   death_reason_json TEXT,
+  agent_type TEXT,
+  llm_model TEXT,
   joined_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (game_id) REFERENCES games(id),
   UNIQUE (game_id, rodit_id)
