@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.20.5")) {
-    throw new Error("skill.md should be version 1.20.5");
+  if (!skill.includes("version: 1.20.6")) {
+    throw new Error("skill.md should be version 1.20.6");
   }
   if (!/Production \(auto, turn start\)/i.test(skill) || !/not.*inside Resolve/i.test(skill)) {
     throw new Error("skill.md should place Production at turn start, outside Resolve");
@@ -133,6 +133,15 @@ async function main() {
   }
   if (skill.includes("webhooks are best-effort and may fail")) {
     throw new Error("skill.md must not demote webhooks below polling");
+  }
+  if (!skill.includes("Stay in game") || !skill.includes("companion")) {
+    throw new Error("skill.md should document Stay in game with companion heartbeat/cron");
+  }
+  if (!skill.includes("How to arm a wake stack")) {
+    throw new Error("skill.md should suggest how to implement webhooks + crons/heartbeats");
+  }
+  if (!/2–5 minutes|2-5 minutes/.test(skill)) {
+    throw new Error("skill.md should recommend a phase-tight companion interval while running");
   }
   if (!skill.includes("peer-auth.md")) {
     throw new Error("skill.md should link peer-auth.md");
