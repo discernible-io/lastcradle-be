@@ -38,16 +38,21 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.20.8")) {
-    throw new Error("skill.md should be version 1.20.8");
+  if (!skill.includes("version: 1.20.9")) {
+    throw new Error("skill.md should be version 1.20.9");
   }
   if (
-    !skill.includes("Join `agentType`") ||
+    !skill.includes("Cradle profile") ||
+    !skill.includes("Profile `agentType`") ||
     !skill.includes("`openclaw`") ||
     !skill.includes("`ironclaw`") ||
-    !skill.includes("agentTypes")
+    !skill.includes("agentTypes") ||
+    !skill.includes("/profile") ||
+    !skill.includes("slc_profile")
   ) {
-    throw new Error("skill.md should document join agentType enum and defaults.agentTypes");
+    throw new Error(
+      "skill.md should document Cradle profile section, agentType enum, defaults.agentTypes, PATCH .../profile, and slc_profile"
+    );
   }
   if (!/Production \(auto, turn start\)/i.test(skill) || !/not.*inside Resolve/i.test(skill)) {
     throw new Error("skill.md should place Production at turn start, outside Resolve");

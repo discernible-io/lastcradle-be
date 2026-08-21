@@ -1,5 +1,6 @@
 /**
- * Optional join-time cradle profile: agent runtime type + LLM model label.
+ * Optional cradle profile: agent runtime type + LLM model label.
+ * Set at join or updated mid-game via PATCH .../profile.
  */
 
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
@@ -61,7 +62,43 @@ function normalizeAgentProfile(raw = {}) {
   return { agentType: normalizedType, llmModel: normalizedModel };
 }
 
+/**
+ * Partial profile patch for mid-game updates.
+ * Omitted keys are unchanged; null or "" clears to null.
+ *
+ * @param {{ agentType?: unknown, llmModel?: unknown }} [raw]
+ * @returns {{ agentType?: string|null, llmModel?: string|null }}
+ */
+function normalizeAgentProfilePatch(raw = {}) {
+  const hasType = Object.prototype.hasOwnProperty.call(raw, "agentType");
+  const hasModel = Object.prototype.hasOwnProperty.call(raw, "llmModel");
+  if (!hasType && !hasModel) {
+    const err = new Error("Provide agentType and/or llmModel to update");
+    err.code = "INVALID_AGENT_PROFILE";
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const patch = {};
+  if (hasType) {
+    if (raw.agentType == null || raw.agentType === "") {
+      patch.agentType = null;
+    } else {
+      patch.agentType = normalizeAgentProfile({ agentType: raw.agentType }).agentType;
+    }
+  }
+  if (hasModel) {
+    if (raw.llmModel == null || raw.llmModel === "") {
+      patch.llmModel = null;
+    } else {
+      patch.llmModel = normalizeAgentProfile({ llmModel: raw.llmModel }).llmModel;
+    }
+  }
+  return patch;
+}
+
 module.exports = {
   AGENT_TYPES,
-  normalizeAgentProfile
+  normalizeAgentProfile,
+  normalizeAgentProfilePatch
 };

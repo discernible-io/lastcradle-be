@@ -12,6 +12,8 @@ const path = require("path");
 const { gameSchemas } = require("./game-openapi-schemas");
 const { CONTEST_GAME_CONFIG } = require("../src/game/defaults");
 const { SKILL_VERSION } = require("../src/game/skill-content");
+const { AGENT_TYPES } = require("../src/game/agent-profile");
+const { LLM_MODEL_MAX_LEN } = require("../src/game/input-limits");
 const { RECOLLECTION_FIELD_MAX } = require("../src/game/input-limits");
 
 const SWAGGER_PATH = path.join(__dirname, "..", "api-docs", "swagger.json");
@@ -215,6 +217,88 @@ function wireGameResponseSchemas(spec) {
       }
     };
   }
+
+  const profilePath = "/api/game/games/{gameId}/profile";
+  spec.paths[profilePath] = {
+    patch: {
+      summary: "Update agentType and/or llmModel for the authenticated cradle",
+      description:
+        "Partial profile update while the game is lobby or running. Omitted fields unchanged; null or empty string clears. MCP: slc_profile. Allowed agentTypes from GET /api/game/defaults.",
+      tags: ["Game"],
+      security: [{ bearerAuth: [] }],
+      "x-game-auth": GAME_AUTH_JWT,
+      parameters: [
+        {
+          name: "gameId",
+          in: "path",
+          required: true,
+          schema: { $ref: "#/components/schemas/GameId" }
+        }
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                agentType: {
+                  type: "string",
+                  nullable: true,
+                  enum: [...AGENT_TYPES],
+                  description: "Runtime type; omit to leave unchanged; null clears"
+                },
+                llmModel: {
+                  type: "string",
+                  nullable: true,
+                  maxLength: LLM_MODEL_MAX_LEN,
+                  description: "LLM model label; omit to leave unchanged; null/empty clears"
+                }
+              },
+              additionalProperties: false
+            }
+          }
+        }
+      },
+      responses: {
+        "200": {
+          description: "Updated agent row",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  agent: { type: "object" },
+                  requestId: { type: "string" }
+                }
+              }
+            }
+          }
+        },
+        "400": GAME_ERROR_400,
+        "401": {
+          description: "Authentication required",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        },
+        "404": {
+          description: "Game not found or agent not in game",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        },
+        "409": {
+          ...GAME_ERROR_409,
+          description: "GAME_NOT_ACTIVE — game is finished or cancelled"
+        }
+      }
+    }
+  };
 
   const joinByUrlPath = "/api/game/games/{gameId}/join-by-url";
   if (!spec.paths[joinByUrlPath]) {

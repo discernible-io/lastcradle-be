@@ -259,6 +259,43 @@ router.post("/games/:gameId/join", validateContentType, validateJsonBody, async 
 
 /**
  * @swagger
+ * /api/game/games/{gameId}/profile:
+ *   patch:
+ *     summary: Update agentType and/or llmModel for the authenticated cradle
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-game-auth: jwt-passport
+ */
+router.patch("/games/:gameId/profile", validateContentType, validateJsonBody, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const roditId = resolveRoditId(req);
+  if (!roditId) {
+    return sendError(res, {
+      statusCode: 401,
+      requestId,
+      code: "AUTH_REQUIRED",
+      message: "Authenticated agent identity required"
+    });
+  }
+
+  try {
+    const agent = await engine.updateAgentProfile(req.params.gameId, roditId, {
+      ...(Object.prototype.hasOwnProperty.call(req.body || {}, "agentType")
+        ? { agentType: req.body.agentType }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(req.body || {}, "llmModel")
+        ? { llmModel: req.body.llmModel }
+        : {})
+    });
+    res.json({ agent, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
  * /api/game/games/{gameId}/start:
  *   post:
  *     summary: Start the game when enough agents have joined

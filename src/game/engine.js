@@ -14,7 +14,7 @@ const {
   resolveMaxTransferRecipients
 } = require("./defaults");
 const { PUBLIC_MESSAGE_BODY_MAX } = require("./input-limits");
-const { normalizeAgentProfile } = require("./agent-profile");
+const { normalizeAgentProfile, normalizeAgentProfilePatch } = require("./agent-profile");
 const {
   computeSurvivalCost,
   buildSurvivalContext,
@@ -1186,6 +1186,38 @@ async function joinGame(gameId, { roditId, displayName, agentType, llmModel }) {
     storageCapacity,
     startingInventory: inventory
   });
+}
+
+/**
+ * Update public agentType / llmModel while the game is lobby or running.
+ * Partial body: omitted keys unchanged; null/"" clears.
+ */
+async function updateAgentProfile(gameId, roditId, rawProfile = {}) {
+  const game = await repo.getGameById(gameId);
+  if (!game) {
+    throw gameError("GAME_NOT_FOUND", "Game not found", 404);
+  }
+  if (game.status !== "lobby" && game.status !== "running") {
+    throw gameError(
+      "GAME_NOT_ACTIVE",
+      "Profile can only be updated while the game is lobby or running",
+      409
+    );
+  }
+
+  const agent = await repo.getAgentByRoditId(gameId, roditId);
+  if (!agent) {
+    throw gameError("AGENT_NOT_IN_GAME", "You must join the game before updating profile", 404);
+  }
+
+  let patch;
+  try {
+    patch = normalizeAgentProfilePatch(rawProfile);
+  } catch (err) {
+    throw gameError(err.code || "INVALID_AGENT_PROFILE", err.message, err.statusCode || 400, err.details);
+  }
+
+  return repo.updateAgentProfile(agent.id, patch);
 }
 
 async function startGame(gameId) {
@@ -3030,6 +3062,7 @@ module.exports = {
   createGame,
   assertSimultaneousGameCapacity,
   joinGame,
+  updateAgentProfile,
   startGame,
   publishPublicMessage,
   submitAction,
