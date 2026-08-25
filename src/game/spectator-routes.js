@@ -15,6 +15,7 @@ const { getGameNarrative } = require("./narrative");
 const { buildGameSkillMarkdown } = require("./skill-content");
 const { buildPeerAuthMarkdown } = require("./peer-auth-content");
 const { buildActionSchemaMarkdown } = require("./action-schema-content");
+const { buildEnrollPromptsPayload } = require("./enroll-prompt-content");
 const { buildGameHonors, buildContestHonors, listHallOfFame } = require("./hall-of-fame");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
@@ -281,6 +282,33 @@ router.get("/peer-auth.md", (req, res) => {
 
 /**
  * @swagger
+ * /api/game/enroll-prompts:
+ *   get:
+ *     summary: Operator join prompts for the spectator /enroll page
+ *     description: >
+ *       JSON sit-a-cradle and guest-webhook paste prompts, pinned to the live skill
+ *       version. Public; rate-limited with GET /api/game/* (tighter per-IP cap on this
+ *       path). Spectator frontend displays these — do not duplicate copy in the SPA.
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ *     responses:
+ *       200:
+ *         description: Enroll prompt bundle
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/GameEnrollPromptsResponse"
+ */
+router.get("/enroll-prompts", (req, res) => {
+  res.set("Cache-Control", "public, max-age=60");
+  res.json({
+    ...buildEnrollPromptsPayload(req),
+    requestId: req.requestId || ulid()
+  });
+});
+
+/**
+ * @swagger
  * /api/game/narrative:
  *   get:
  *     summary: Get canonical game lore and mechanic mappings
@@ -342,6 +370,7 @@ router.get("/games/:gameId/players/:agentId/identity", async (req, res) => {
  *     description: >
  *       Optional Bearer JWT upgrades the response for joined players (`you` includes
  *       inventory/capacities, `you.transfersReceivedLastTurn`, and `you.transfersReceived`).
+ *       `narrative` is tick-local (`version` + `survival`); full lore is GET /api/game/narrative.
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */

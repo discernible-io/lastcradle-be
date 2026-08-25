@@ -691,6 +691,31 @@ async function getAgentById(agentId) {
   return rowToAgent(row);
 }
 
+/**
+ * Partial update of public cradle profile fields.
+ * @param {string} agentId
+ * @param {{ agentType?: string|null, llmModel?: string|null }} fields
+ */
+async function updateAgentProfile(agentId, fields = {}) {
+  const database = await getDb();
+  const sets = [];
+  const values = [];
+  if (Object.prototype.hasOwnProperty.call(fields, "agentType")) {
+    sets.push("agent_type = ?");
+    values.push(fields.agentType);
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, "llmModel")) {
+    sets.push("llm_model = ?");
+    values.push(fields.llmModel);
+  }
+  if (sets.length === 0) {
+    return getAgentById(agentId);
+  }
+  values.push(agentId);
+  await database.run(`UPDATE game_agents SET ${sets.join(", ")} WHERE id = ?`, values);
+  return getAgentById(agentId);
+}
+
 async function getAgentByRoditId(gameId, roditId) {
   const database = await getDb();
   const canonical = canonicalRoditId(roditId);
@@ -1589,6 +1614,7 @@ module.exports = {
   updateContest,
   addAgent,
   getAgentById,
+  updateAgentProfile,
   getAgentByRoditId,
   listAgents,
   listMembershipsByRoditId,

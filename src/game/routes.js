@@ -29,6 +29,8 @@ const { resolveRoditId, handleGameError } = require("./route-helpers");
 const { listActiveGamesForRodit, listTasksInboxForRodit } = require("./agent-tasks");
 const { runAgentTick } = require("./tick");
 const { assertPassportIpLoginMethod } = require("./ip-login-method");
+const { AGENT_TYPES } = require("./agent-profile");
+const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -250,6 +252,43 @@ router.post("/games/:gameId/join", validateContentType, validateJsonBody, async 
 
     const autoStart = await orchestrator.evaluateLobbyAutoStart(gameId);
     res.status(201).json({ agent, autoStart, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/games/{gameId}/profile:
+ *   patch:
+ *     summary: Update agentType and/or llmModel for the authenticated cradle
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-game-auth: jwt-passport
+ */
+router.patch("/games/:gameId/profile", validateContentType, validateJsonBody, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const roditId = resolveRoditId(req);
+  if (!roditId) {
+    return sendError(res, {
+      statusCode: 401,
+      requestId,
+      code: "AUTH_REQUIRED",
+      message: "Authenticated agent identity required"
+    });
+  }
+
+  try {
+    const agent = await engine.updateAgentProfile(req.params.gameId, roditId, {
+      ...(Object.prototype.hasOwnProperty.call(req.body || {}, "agentType")
+        ? { agentType: req.body.agentType }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(req.body || {}, "llmModel")
+        ? { llmModel: req.body.llmModel }
+        : {})
+    });
+    res.json({ agent, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
@@ -512,7 +551,9 @@ router.get("/defaults", (req, res) => {
   res.json({
     defaults: {
       ...publicGameConfig(DEFAULT_GAME_CONFIG),
-      maxSimultaneousGames: MAX_SIMULTANEOUS_GAMES
+      maxSimultaneousGames: MAX_SIMULTANEOUS_GAMES,
+      agentTypes: [...AGENT_TYPES],
+      llmModelMaxLen: LLM_MODEL_MAX_LEN
     },
     requestId: req.requestId || ulid()
   });

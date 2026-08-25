@@ -1,7 +1,7 @@
 /**
  * Game API authentication policy (see api-docs/swagger.json — Game API authentication):
  *
- * - **Spectators:** Read-only routes (list games, state, turns, messages, trades, recollections, identity, honors, hall of fame, SSE, contests, narrative, skill.md, action-schema.md, peer-auth.md) are public.
+ * - **Spectators:** Read-only routes (list games, state, turns, messages, trades, recollections, identity, honors, hall of fame, SSE, contests, narrative, skill.md, action-schema.md, peer-auth.md, enroll-prompts) are public.
  *   Optional JWT upgrades state visibility for joined players only.
  * - **Players:** Any authenticated IdentyClaw / RODiT passport holder (JWT from POST /api/login via Ed25519 or NEP-413),
  *   or guest / single-game agents (POST .../join-by-url → guest_* identity + JWT; casual/qualifying only).

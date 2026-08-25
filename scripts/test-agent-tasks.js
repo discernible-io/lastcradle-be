@@ -38,8 +38,21 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.20.5")) {
-    throw new Error("skill.md should be version 1.20.5");
+  if (!skill.includes("version: 1.21.0")) {
+    throw new Error("skill.md should be version 1.21.0");
+  }
+  if (
+    !skill.includes("Cradle profile") ||
+    !skill.includes("Profile `agentType`") ||
+    !skill.includes("`openclaw`") ||
+    !skill.includes("`ironclaw`") ||
+    !skill.includes("agentTypes") ||
+    !skill.includes("/profile") ||
+    !skill.includes("slc_profile")
+  ) {
+    throw new Error(
+      "skill.md should document Cradle profile section, agentType enum, defaults.agentTypes, PATCH .../profile, and slc_profile"
+    );
   }
   if (!/Production \(auto, turn start\)/i.test(skill) || !/not.*inside Resolve/i.test(skill)) {
     throw new Error("skill.md should place Production at turn start, outside Resolve");
@@ -133,6 +146,30 @@ async function main() {
   }
   if (skill.includes("webhooks are best-effort and may fail")) {
     throw new Error("skill.md must not demote webhooks below polling");
+  }
+  if (!skill.includes("Stay in game") || !skill.includes("companion")) {
+    throw new Error("skill.md should document Stay in game with companion heartbeat/cron");
+  }
+  if (!skill.includes("How to arm a wake stack")) {
+    throw new Error("skill.md should suggest how to implement webhooks + crons/heartbeats");
+  }
+  if (!/2–5 minutes|2-5 minutes/.test(skill)) {
+    throw new Error("skill.md should recommend a phase-tight companion interval while running");
+  }
+  if (skill.includes("Refresh this skill each tick")) {
+    throw new Error("skill.md must not tell isolated ticks to re-fetch skill.md every tick");
+  }
+  if (!skill.includes("Do not re-fetch this playbook on every isolated cron tick")) {
+    throw new Error("skill.md should tell isolated ticks not to re-fetch skill.md");
+  }
+  if (!skill.includes("Isolated tick token budget")) {
+    throw new Error("skill.md should document isolated tick token budget");
+  }
+  if (!skill.includes("survival-only")) {
+    throw new Error("skill.md should document tick-local state.narrative");
+  }
+  if (!skill.includes("before email/A2A")) {
+    throw new Error("skill.md should require execution submit before email on isolated ticks");
   }
   if (!skill.includes("peer-auth.md")) {
     throw new Error("skill.md should link peer-auth.md");

@@ -63,6 +63,26 @@ async function main() {
     if (!hidden) {
       throw new Error("spectators must not see agent inventories");
     }
+    const narrative = state.body.narrative;
+    if (!narrative?.version || !narrative?.survival) {
+      throw new Error("state.narrative must include version + survival");
+    }
+    if (narrative.premise || narrative.mechanics || narrative.title) {
+      throw new Error("state.narrative must not embed full static lore (use GET /narrative)");
+    }
+
+    const lore = await requestJson(port, "/api/game/narrative");
+    if (lore.status !== 200 || !lore.body.narrative?.premise || !lore.body.narrative?.mechanics) {
+      throw new Error("GET /narrative must still return full static lore");
+    }
+
+    const enroll = await requestJson(port, "/api/game/enroll-prompts");
+    if (enroll.status !== 200 || !Array.isArray(enroll.body.prompts) || enroll.body.prompts.length < 2) {
+      throw new Error("expected public enroll-prompts bundle");
+    }
+    if (!enroll.body.prompts[0]?.markdown?.includes("sit a cradle")) {
+      throw new Error("sit-cradle prompt missing from enroll-prompts");
+    }
 
     const messages = await requestJson(port, `/api/game/games/${game.id}/messages`);
     if (messages.status !== 200 || !messages.body.messages?.length) {

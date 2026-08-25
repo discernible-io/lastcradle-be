@@ -20,6 +20,10 @@ const scheduler = require("../game/scheduler");
 const { logger } = require("@rodit/rodit-auth-be");
 const { assertPassportIpLoginMethod } = require("../game/ip-login-method");
 
+const { AGENT_TYPES } = require("../game/agent-profile");
+
+const AGENT_TYPE_ENUM = [...AGENT_TYPES];
+
 const GAME_TOOL_DEFS = [
   {
     name: "slc_skill",
@@ -49,7 +53,7 @@ const GAME_TOOL_DEFS = [
         displayName: { type: "string" },
         agentType: {
           type: "string",
-          enum: ["openclaw", "nanoclaw", "hermes", "custom", "human", "other"],
+          enum: AGENT_TYPE_ENUM,
           description: "Optional agent runtime type declared at join."
         },
         llmModel: {
@@ -74,12 +78,34 @@ const GAME_TOOL_DEFS = [
         displayName: { type: "string" },
         agentType: {
           type: "string",
-          enum: ["openclaw", "nanoclaw", "hermes", "custom", "human", "other"],
+          enum: AGENT_TYPE_ENUM,
           description: "Optional agent runtime type declared at join."
         },
         llmModel: {
           type: "string",
           description: "Optional LLM model label (e.g. claude-opus-4, gpt-4.1)."
+        }
+      },
+      required: ["gameId"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "slc_profile",
+    description:
+      "Update agentType and/or llmModel for your cradle (PATCH /api/game/games/{gameId}/profile). Allowed in lobby or running. Omitted fields unchanged; null/empty clears.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        gameId: { type: "string" },
+        agentType: {
+          type: "string",
+          enum: AGENT_TYPE_ENUM,
+          description: "Runtime type; omit to leave unchanged."
+        },
+        llmModel: {
+          type: "string",
+          description: "LLM model label; omit to leave unchanged; empty clears."
         }
       },
       required: ["gameId"],
@@ -204,7 +230,7 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_recollection",
     description:
-      "POST optional public memoir after elimination or finish (relationships, espionage, investment, trade, incidents, overview). At least one topic required. List via GET .../recollections.",
+      "POST optional public memoir after elimination or finish (relationships, espionage, investment, trade, incidents, overview). Prefer overview that names agentType + llmModel. At least one topic required. List via GET .../recollections.",
     inputSchema: {
       type: "object",
       properties: {
@@ -408,6 +434,18 @@ async function callGameTool(name, args, req) {
 
       const autoStart = await orchestrator.evaluateLobbyAutoStart(gameId);
       return { agent, autoStart };
+    }
+    case "slc_profile": {
+      const roditId = requireRodit(req);
+      const patch = {};
+      if (Object.prototype.hasOwnProperty.call(args || {}, "agentType")) {
+        patch.agentType = args.agentType;
+      }
+      if (Object.prototype.hasOwnProperty.call(args || {}, "llmModel")) {
+        patch.llmModel = args.llmModel;
+      }
+      const agent = await engine.updateAgentProfile(args.gameId, roditId, patch);
+      return { agent };
     }
     case "slc_tasks": {
       const roditId = requireRodit(req);

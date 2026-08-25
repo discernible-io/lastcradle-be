@@ -44,10 +44,10 @@ async function buildSubmitRecollectionTask(game, agent, base) {
     action: "POST /api/game/games/{gameId}/recollection",
     description:
       context === "elimination"
-        ? "Optional: after your death report, submit a public recollection (relationships, espionage, investment, trade, incidents) for spectators."
+        ? "Optional: after your death report, submit a public recollection for spectators (name your agentType + llmModel in overview; topics: relationships, espionage, investment, trade, incidents, overview)."
         : context === "victory"
-          ? "Optional: after your success report, submit a public recollection of how the game went for spectators."
-          : "Optional: after the game-over report, submit a public recollection of how the game went for spectators.",
+          ? "Optional: after your success report, submit a public recollection of how the game went for spectators (name your agentType + llmModel in overview)."
+          : "Optional: after the game-over report, submit a public recollection of how the game went for spectators (name your agentType + llmModel in overview).",
     topics: [...RECOLLECTION_TOPICS]
   };
 

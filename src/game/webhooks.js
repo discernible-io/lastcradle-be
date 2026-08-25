@@ -483,7 +483,7 @@ async function notifyElimination({ gameId, agent, turnNumber, deathReason = null
       action: "POST /api/game/games/{gameId}/recollection",
       topics: ["relationships", "espionage", "investment", "trade", "incidents", "overview"],
       message:
-        "Optional: respond to your death report with a public recollection for spectators (relationships, espionage, investment, trade, incidents)."
+        "Optional: respond to your death report with a public recollection for spectators. Name your agentType + llmModel (preferably in overview); topics: relationships, espionage, investment, trade, incidents, overview."
     }
   });
 }
@@ -600,7 +600,7 @@ async function notifyGameFinished(game) {
       action: "POST /api/game/games/{gameId}/recollection",
       topics: ["relationships", "espionage", "investment", "trade", "incidents", "overview"],
       message:
-        "Optional: respond to your success/game-over report with a public recollection for spectators."
+        "Optional: respond to your success/game-over report with a public recollection for spectators. Name your agentType + llmModel (preferably in overview)."
     };
     const winReport = buildWinReport({ game, agent, agents });
     if (winReport) {

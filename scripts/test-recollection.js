@@ -68,6 +68,8 @@ async function main() {
   });
   assert(skill.includes("submit_recollection"), "skill documents task");
   assert(skill.includes("/recollection"), "skill documents endpoint");
+  assert(skill.includes("Name your stack"), "skill asks recollections to name agentType + llmModel");
+  assert(skill.includes("agentType") && skill.includes("llmModel"), "skill mentions agentType and llmModel");
 
   const game = await engine.createGame({
     config: {

@@ -14,13 +14,13 @@ const {
   resolveMaxTransferRecipients
 } = require("./defaults");
 const { PUBLIC_MESSAGE_BODY_MAX } = require("./input-limits");
-const { normalizeAgentProfile } = require("./agent-profile");
+const { normalizeAgentProfile, normalizeAgentProfilePatch } = require("./agent-profile");
 const {
   computeSurvivalCost,
   buildSurvivalContext,
   survivalCostOutlook
 } = require("./survival-cost");
-const { getGameNarrative, buildSurvivalNarrative } = require("./narrative");
+const { buildStateNarrative } = require("./narrative");
 const {
   normalizeTransferDisclosure,
   transferLegsFromPayload,
@@ -1188,6 +1188,38 @@ async function joinGame(gameId, { roditId, displayName, agentType, llmModel }) {
   });
 }
 
+/**
+ * Update public agentType / llmModel while the game is lobby or running.
+ * Partial body: omitted keys unchanged; null/"" clears.
+ */
+async function updateAgentProfile(gameId, roditId, rawProfile = {}) {
+  const game = await repo.getGameById(gameId);
+  if (!game) {
+    throw gameError("GAME_NOT_FOUND", "Game not found", 404);
+  }
+  if (game.status !== "lobby" && game.status !== "running") {
+    throw gameError(
+      "GAME_NOT_ACTIVE",
+      "Profile can only be updated while the game is lobby or running",
+      409
+    );
+  }
+
+  const agent = await repo.getAgentByRoditId(gameId, roditId);
+  if (!agent) {
+    throw gameError("AGENT_NOT_IN_GAME", "You must join the game before updating profile", 404);
+  }
+
+  let patch;
+  try {
+    patch = normalizeAgentProfilePatch(rawProfile);
+  } catch (err) {
+    throw gameError(err.code || "INVALID_AGENT_PROFILE", err.message, err.statusCode || 400, err.details);
+  }
+
+  return repo.updateAgentProfile(agent.id, patch);
+}
+
 async function startGame(gameId) {
   const game = await repo.getGameById(gameId);
   if (!game) {
@@ -2347,13 +2379,13 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
 
   const fogNote =
     hiddenRivalCount > 0 && maxIntelligenceCompute >= 1
-      ? ` ${hiddenRivalCount} living rival(s) have intelligenceHidden — attach find[{ targetAgentId, compute }] (compute 1 beats hide 0); successful find stays visible for intelligenceMemoryTurns (${intelligenceMemoryTurns}) completed turns.`
+      ? ` hiddenRivalCount=${hiddenRivalCount}: attach find. intelligenceMemoryTurns=${intelligenceMemoryTurns}.`
       : hiddenRivalCount > 0
-        ? ` ${hiddenRivalCount} living rival(s) have intelligenceHidden but maxIntelligenceComputeAfterSurvival is 0 — do not spend hide/find this turn.`
-        : ` No hidden living rivals (or you are not seated).`;
+        ? ` hiddenRivalCount=${hiddenRivalCount} but maxIntelligenceComputeAfterSurvival=0 — skip hide/find.`
+        : "";
 
   const capacityNote = storageReadouts
-    ? " Also present: wasteIfNotExportedByNextProduction, storageHeadroom, inventoryAtStorageCap."
+    ? " storageHeadroom / inventoryAtStorageCap / wasteIfNotExportedByNextProduction present."
     : "";
 
   const nextTurnSurvivalCost = fog.nextTurnSurvivalCost
@@ -2363,7 +2395,7 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     ? { ...fog.survivalCostPerTurnIncrement }
     : null;
   const risingNote = nextTurnSurvivalCost
-    ? " maxInvestAmountAfterSurvival reserves thisTurnSurvivalCost only — nextTurnSurvivalCost is higher when living count holds; survivalCostPerTurnIncrement is the per-turn climb at current livingCount."
+    ? " nextTurnSurvivalCost / survivalCostPerTurnIncrement climb at current living count; maxInvestAmountAfterSurvival is this-turn only."
     : "";
 
   const runway = projectRunway(
@@ -2376,10 +2408,10 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
   );
   const runwayNote =
     runway.runwayTurns === 0
-      ? " runway.diesThisTurnIfNone: type none is lethal this turn — read runway.shortfallsIfNone / netBurn."
+      ? " runway.diesThisTurnIfNone."
       : runway.runwayTurns == null
-        ? ` runway.runwayTurns null: no death within ${runway.horizonTurns} status-quo turns (see runway.assumptions).`
-        : ` runway.runwayTurns=${runway.runwayTurns}: survive that many survival checks including this turn under status-quo none; limitingResource=${runway.limitingResource}.`;
+        ? ` runway.runwayTurns null within ${runway.horizonTurns} turns.`
+        : ` runway.runwayTurns=${runway.runwayTurns} limitingResource=${runway.limitingResource}.`;
 
   return {
     allowedActionTypes: [...EXECUTION_ACTION_TYPES],
@@ -2408,11 +2440,9 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
     runway,
     ...(storageReadouts || {}),
     note:
-      "Equal invest is triple-cost: amount N (fractional OK, 4dp) = N of each E/W/C (see equalInvestUnitCost). Read storageEnergyCostIfNoSpend / energyAfterStorageIfNoSpend (and *IfMaxSafeInvest) before investing — tax is storageEnergyCostRate × remaining water+compute after your spend, then thisTurnSurvivalCost. maxInvestAmountAfterSurvival is equal-invest only for a single side (no transfers/hide/find/inbound/reduceStorage); dual production+storage spends both." +
+      "Equal invest is triple-cost: amount N (4dp) = N energy + N water + N compute per side. Tax: storageEnergyCostRate × remaining water+compute after spend, then thisTurnSurvivalCost. Read storageEnergyCostIfNoSpend. Cap hide+find at maxIntelligenceComputeAfterSurvival. GET .../action is not a route. Prefer POST .../project over this note." +
       risingNote +
       runwayNote +
-      " Cap hide+find at maxIntelligenceComputeAfterSurvival. Optional free reduceStorage:{ energy?, water?, compute? } shrinks warehouse caps (overflow inventory clamped). Up to maxTransferRecipients peers per transfer (defaults to maxAgents). Empty tick does not imply none. POST .../action only — GET .../action is not a route." +
-      " invest may include production and/or storage (at most one of each); invest_production / invest_storage are aliases." +
       capacityNote +
       fogNote
   };
@@ -2551,14 +2581,11 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
     execution,
     projectedSurvival,
     openingInventoryReport: openingInventoryReportForViewer(game, viewerAgentId),
-    narrative: {
-      ...getGameNarrative(),
-      survival: buildSurvivalNarrative({
-        livingAgentCount: livingAgents.length,
-        turnNumber: game.current_turn,
-        playerReference: game.config.survivalCostPlayerReference
-      })
-    }
+    narrative: buildStateNarrative({
+      livingAgentCount: livingAgents.length,
+      turnNumber: game.current_turn,
+      playerReference: game.config.survivalCostPlayerReference
+    })
   };
 }
 
@@ -3030,6 +3057,7 @@ module.exports = {
   createGame,
   assertSimultaneousGameCapacity,
   joinGame,
+  updateAgentProfile,
   startGame,
   publishPublicMessage,
   submitAction,

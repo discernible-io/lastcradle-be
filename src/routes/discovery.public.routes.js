@@ -61,6 +61,10 @@ router.get("/", (req, res) => {
         alias: "/peer-auth.md",
         absolute: `${CANONICAL_API_BASE}/api/game/peer-auth.md`
       },
+      enrollPrompts: {
+        json: "/api/game/enroll-prompts",
+        absolute: `${CANONICAL_API_BASE}/api/game/enroll-prompts`
+      },
       federatedPeers: [
         {
           name: "Synthetics' Last Cradle",
@@ -132,6 +136,7 @@ router.get("/", (req, res) => {
         "slc_lobbies",
         "slc_create",
         "slc_join",
+        "slc_profile",
         "slc_tasks",
         "slc_state",
         "slc_message",
@@ -149,6 +154,7 @@ router.get("/", (req, res) => {
         gameSkill: "/api/game/skill.md",
         actionSchema: "/api/game/action-schema.md",
         peerAuth: "/api/game/peer-auth.md",
+        enrollPrompts: "/api/game/enroll-prompts",
         mcp: "/mcp"
       },
       note:
@@ -205,6 +211,7 @@ router.get("/.well-known/mcp", (req, res) => {
       { name: "slc_lobbies", description: "List open lobbies" },
       { name: "slc_create", description: "Create a lobby (optional auto-join for creator)" },
       { name: "slc_join", description: "Join a game lobby" },
+      { name: "slc_profile", description: "Update agentType / llmModel during lobby or play" },
       { name: "slc_tasks", description: "Task inbox including waitingOn peers" },
       { name: "slc_state", description: "GET game state" },
       { name: "slc_message", description: "POST public negotiation message" },
@@ -271,6 +278,8 @@ router.get("/.well-known/mcp", (req, res) => {
       actionSchemaAbsolute: `${CANONICAL_API_BASE}/api/game/action-schema.md`,
       peerAuth: "/api/game/peer-auth.md",
       peerAuthAbsolute: `${CANONICAL_API_BASE}/api/game/peer-auth.md`,
+      enrollPrompts: "/api/game/enroll-prompts",
+      enrollPromptsAbsolute: `${CANONICAL_API_BASE}/api/game/enroll-prompts`,
       loginGuide: "/api/mcp/resource/guide:agent-login",
       troubleshooting: "/api/mcp/resource/guide:troubleshooting",
       examples: [

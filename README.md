@@ -69,7 +69,7 @@ Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at c
                          │
                          ▼
               ┌──────────────────────┐
-              │   nginx (Port 9443)  │
+              │ nginx (9443 / 13443) │
               │   - TLS 1.2/1.3      │
               │   - Security Headers │
               │   - CORS Handling    │
@@ -94,12 +94,17 @@ Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at c
 
 ### Deployment
 
-- **Platform**: DigitalOcean Droplet (Ubuntu)
+- **Platform**: Hetzner Cloud VM (Linux)
 - **Container Runtime**: Podman (rootless containers)
 - **Pod Architecture**: Single pod with nginx + Node.js containers
 - **CI/CD**: GitHub Actions (`.github/workflows/deploy.yml`)
-- **Deployment Target**: 178.62.195.21
+- **Deployment Targets**: branch-specific hosts via GitHub secrets (`SSH_HOST_MAIN`, `SSH_HOST_DEVELOPMENT`)
 - **TLS Certificates**: Let's Encrypt (mounted at `/app/certs`)
+
+| Branch | App directory | Pod | External port |
+| --- | --- | --- | --- |
+| **`main`** | `~/slcbackend-app` | `slcbackend-pod` | `13443` |
+| **`development`** | `~/syntheticlc-app` | `syntheticlc-pod` | `9443` |
 
 ## Features
 
@@ -217,32 +222,36 @@ The **`legacy`** branch is archived and does not deploy. See [docs/BRANCHING.md]
 
 ### Manual Deployment
 
+Prefer CI/GHCR (see [docs/BRANCHING.md](docs/BRANCHING.md)). For local parity on the Hetzner host:
+
 ```bash
-# SSH to main-tier server
-ssh user@178.62.195.21
-
-# Navigate to application directory
-cd ~/syntheticlc-app
-
-# Prefer CI/GHCR (see docs/BRANCHING.md). Local parity:
-./scripts/deploy-local-podman.sh
-TARGET=main ./scripts/deploy-local-podman.sh
-
-# Create pod and run containers
-podman pod create --name syntheticlc-pod -p 9443:9443
-podman run -d --pod syntheticlc-pod --name syntheticlc-container \
-  -v ~/syntheticlc-app/data:/app/data:Z \
-  -v ~/syntheticlc-app/logs:/app/logs:Z \
-  -v ~/syntheticlc-app/certs:/app/certs:ro,Z \
-  -e NODE_ENV=main \
-  [... other env vars ...] \
-  syntheticlc-image:latest
-
-podman run -d --pod syntheticlc-pod --name syntheticlc-nginx \
-  -v ~/syntheticlc-app/certs:/app/certs:ro,Z \
-  -v ~/syntheticlc-app/logs/nginx:/var/log/nginx:Z \
-  syntheticlc-nginx:latest
+./scripts/deploy-local-podman.sh              # development layout
+TARGET=main ./scripts/deploy-local-podman.sh  # main layout
 ```
+
+Each host needs `~/…/secrets/secrets.env` under the branch app directory (see table above). Example manual pod setup for **main**:
+
+```bash
+# Host from SSH_HOST_MAIN; paths match .github/workflows/deploy.yml
+ssh user@<main-host>
+cd ~/slcbackend-app
+
+podman pod create --name slcbackend-pod -p 13443:13443
+podman run -d --pod slcbackend-pod --name slcbackend-container \
+  -v ~/slcbackend-app/data:/app/data:Z \
+  -v ~/slcbackend-app/logs:/app/logs:Z \
+  -v ~/slcbackend-app/certs:/app/certs:ro,Z \
+  --env-file ~/slcbackend-app/secrets/secrets.env \
+  -e NODE_ENV=main \
+  ghcr.io/<org>/<repo>/syntheticlc-api:<tag>
+
+podman run -d --pod slcbackend-pod --name slcbackend-nginx \
+  -v ~/slcbackend-app/certs:/app/certs:ro,Z \
+  -v ~/slcbackend-app/logs/nginx:/var/log/nginx:Z \
+  ghcr.io/<org>/<repo>/syntheticlc-nginx:<tag>
+```
+
+On **development**, use `~/syntheticlc-app`, `syntheticlc-pod`, port `9443`, and `NODE_ENV=development`.
 
 ### nginx Configuration
 
@@ -255,7 +264,7 @@ Environment-specific configs (`nginx/nginx.main.conf`, `nginx/nginx.development.
 - **Health**: Proxies `GET /health` to the API (dependency probes)
 - **Logging**: JSON access logs; `/health` omitted from access log
 
-Local deploy without rsync/GHCR: `./scripts/deploy-local-podman.sh` (requires `~/syntheticlc-app/secrets/secrets.env`).
+Local deploy without rsync/GHCR: `./scripts/deploy-local-podman.sh` (requires `secrets/secrets.env` under the branch app directory — `~/syntheticlc-app` or `~/slcbackend-app`).
 
 ## Security
 
@@ -478,6 +487,7 @@ Player onboarding: [`docs/game-player-onboarding-howto.md`](docs/game-player-onb
 | `GET` | `/api/game/defaults` | Casual game config defaults |
 | `GET` | `/api/game/defaults/contest` | Competition and qualifying presets |
 | `GET` | `/api/game/narrative` | Lore and mechanic-to-fiction mappings |
+| `GET` | `/api/game/enroll-prompts` | Operator join prompts for spectator `/enroll` (JSON) |
 | `GET` | `/api/game/games` | List games (`?status`, `?contestMode`, `?limit`, `?offset`) |
 | `POST` | `/api/game/games` | Create lobby (auto-joins creator by default; `autoJoin: false` for host-only) |
 | `POST` | `/api/game/games/{gameId}/join` | Join lobby → cradle assignment (passport JWT) |
@@ -705,5 +715,5 @@ This is a proprietary project. For contribution guidelines, please contact the d
 
 ---
 
-**Last Updated**: 2026-08-03  
+**Last Updated**: 2026-08-22  
 **Maintained by**: Discernible Inc.
