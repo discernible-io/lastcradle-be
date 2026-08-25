@@ -342,6 +342,7 @@ router.get("/games/:gameId/players/:agentId/identity", async (req, res) => {
  *     description: >
  *       Optional Bearer JWT upgrades the response for joined players (`you` includes
  *       inventory/capacities, `you.transfersReceivedLastTurn`, and `you.transfersReceived`).
+ *       `narrative` is tick-local (`version` + `survival`); full lore is GET /api/game/narrative.
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */

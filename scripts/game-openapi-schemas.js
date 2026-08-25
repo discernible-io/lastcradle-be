@@ -796,7 +796,8 @@ const gameSchemas = {
       narrative: {
         type: "object",
         additionalProperties: true,
-        description: "Canonical lore plus turn survival narrative"
+        description:
+          "Tick-local survival narrative only (`version` + `survival`). Full static lore is GET /api/game/narrative — not repeated on every /state poll."
       }
     }
   },

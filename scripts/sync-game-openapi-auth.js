@@ -360,7 +360,7 @@ function wireGameResponseSchemas(spec) {
   const stateGet = spec.paths["/api/game/games/{gameId}/state"]?.get;
   if (stateGet) {
     stateGet.description =
-      "Get public game state. Optional Bearer JWT upgrades the response for joined players (`you` includes inventory/capacities, `you.transfersReceivedLastTurn` for the last resolved execution, and `you.transfersReceived` for cumulative inbound history with `fromAgentId` / `fromDisplayName`). Spectators see fog-of-war without a self receipt block. Public read-only spectator access — no JWT required.";
+      "Get public game state. Optional Bearer JWT upgrades the response for joined players (`you` includes inventory/capacities, `you.transfersReceivedLastTurn` for the last resolved execution, and `you.transfersReceived` for cumulative inbound history with `fromAgentId` / `fromDisplayName`). `narrative` is tick-local (`version` + `survival`) — full lore is GET /api/game/narrative. Spectators see fog-of-war without a self receipt block.";
     if (stateGet.responses?.["200"]) {
       stateGet.responses["200"].description =
         "Public game state (fog-of-war applied for non-participants and hidden capacities). Authenticated joined players receive `you.transfersReceivedLastTurn` and `you.transfersReceived`.";

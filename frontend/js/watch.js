@@ -568,7 +568,11 @@ function renderPhase(game, state) {
   }
 
   const narrative = document.getElementById("survival-narrative");
-  narrative.textContent = state.narrative?.survival || state.narrative?.premise || "";
+  const survival = state.narrative?.survival;
+  narrative.textContent =
+    (typeof survival === "string" ? survival : survival?.summary) ||
+    state.narrative?.premise ||
+    "";
 }
 
 function renderCradles(state, agentById) {

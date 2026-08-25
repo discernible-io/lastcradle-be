@@ -153,6 +153,14 @@ function getGameNarrative() {
   };
 }
 
+/** Tick-local narrative for GET .../state — static lore lives at GET /api/game/narrative. */
+function buildStateNarrative(context = {}) {
+  return {
+    version: NARRATIVE_VERSION,
+    survival: buildSurvivalNarrative(context)
+  };
+}
+
 function buildSurvivalNarrative(context = {}) {
   const livingCount = context.livingAgentCount ?? context.livingCount ?? 0;
   const turnNumber = context.turnNumber ?? 0;
@@ -183,6 +191,7 @@ module.exports = {
   GAME_LORE,
   MECHANIC_NARRATIVES,
   getGameNarrative,
+  buildStateNarrative,
   buildSurvivalNarrative,
   buildFinishNarrative
 };
