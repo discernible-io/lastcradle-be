@@ -421,6 +421,36 @@ async function getUrlJoinIdentity(roditId) {
   return database.get(`SELECT * FROM url_join_identities WHERE rodit_id = ?`, [canonical]);
 }
 
+async function deleteUrlJoinIdentity(roditId) {
+  const canonical = canonicalRoditId(roditId);
+  if (!canonical) {
+    return false;
+  }
+  const database = await getDb();
+  const result = await database.run(`DELETE FROM url_join_identities WHERE rodit_id = ?`, [
+    canonical
+  ]);
+  return result.changes > 0;
+}
+
+/** Roll back a lobby seat when URL-join finalize fails after joinGame. */
+async function deleteLobbyAgentByRoditId(gameId, roditId) {
+  const id = canonicalRoditId(roditId);
+  if (!gameId || !id) {
+    return false;
+  }
+  const game = await getGameById(gameId);
+  if (!game || game.status !== "lobby") {
+    return false;
+  }
+  const database = await getDb();
+  const result = await database.run(
+    `DELETE FROM game_agents WHERE game_id = ? AND rodit_id = ? AND status = 'alive'`,
+    [gameId, id]
+  );
+  return result.changes > 0;
+}
+
 function parseJson(value, fallback = null) {
   if (value == null || value === "") {
     return fallback;
@@ -1677,9 +1707,12 @@ module.exports = {
   upsertRoditLoginMethod,
   getRoditLoginMethod,
   getGameIpLoginMethod,
+  deleteGameIpLoginMethod,
   bindGameIpLoginMethod,
   insertUrlJoinIdentity,
   getUrlJoinIdentity,
+  deleteUrlJoinIdentity,
+  deleteLobbyAgentByRoditId,
   createGame,
   getGameById,
   updateGame,

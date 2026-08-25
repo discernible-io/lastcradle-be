@@ -282,12 +282,38 @@ async function loadSyntheticPeerRodit(roditId) {
   return peerFromStoredRow(row);
 }
 
-async function createUrlJoinIdentity({ webhookUrl, displayName = null }) {
-  ensureChainLookupWrapped();
+function decodeJwtPayload(jwtToken) {
+  if (typeof jwtToken !== "string" || !jwtToken) {
+    return null;
+  }
+  const parts = jwtToken.split(".");
+  if (parts.length < 2) {
+    return null;
+  }
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
 
-  const validatedUrl = validateWebhookUrl(webhookUrl);
-  await assertWebhookUrlResolvesPublic(validatedUrl);
+function guestJwtHints(jwtToken, identityRow = null) {
+  const jwtLen = typeof jwtToken === "string" ? jwtToken.length : 0;
+  const payload = decodeJwtPayload(jwtToken);
+  let sessionExpiresAt = null;
+  if (payload?.session_exp != null && Number.isFinite(Number(payload.session_exp))) {
+    sessionExpiresAt = new Date(Number(payload.session_exp) * 1000).toISOString();
+  } else if (typeof identityRow?.not_after === "string" && identityRow.not_after) {
+    sessionExpiresAt = identityRow.not_after;
+  } else if (payload?.exp != null && Number.isFinite(Number(payload.exp))) {
+    sessionExpiresAt = new Date(Number(payload.exp) * 1000).toISOString();
+  }
+  return { jwtLen, sessionExpiresAt };
+}
 
+async function loadOwnRoditSigningMaterial() {
   const configOwn = await stateManager.getConfigOwnRodit();
   const ownRodit = configOwn?.own_rodit;
   const privateKeyBytes = toPrivateKeyBytes(configOwn?.own_rodit_bytes_private_key);
@@ -297,7 +323,19 @@ async function createUrlJoinIdentity({ webhookUrl, displayName = null }) {
     err.statusCode = 503;
     throw err;
   }
+  return { ownRodit, privateKeyBytes };
+}
 
+/**
+ * Validate webhook + build in-memory guest peer. No DB row or JWT until join succeeds.
+ */
+async function prepareUrlJoinIdentity({ webhookUrl, displayName = null }) {
+  ensureChainLookupWrapped();
+
+  const validatedUrl = validateWebhookUrl(webhookUrl);
+  await assertWebhookUrlResolvesPublic(validatedUrl);
+
+  const { ownRodit, privateKeyBytes } = await loadOwnRoditSigningMaterial();
   const roditId = `guest_${ulid()}`;
   const peer = buildSyntheticPeerRodit({
     roditId,
@@ -306,6 +344,20 @@ async function createUrlJoinIdentity({ webhookUrl, displayName = null }) {
     privateKeyBytes,
     displayName
   });
+
+  return {
+    roditId,
+    webhookUrl: validatedUrl,
+    displayName,
+    peer,
+    ownRodit,
+    privateKeyBytes
+  };
+}
+
+async function finalizeUrlJoinIdentity(prepared) {
+  ensureChainLookupWrapped();
+  const { roditId, webhookUrl, displayName, peer, ownRodit, privateKeyBytes } = prepared;
 
   await repo.insertUrlJoinIdentity({
     roditId: peer.token_id,
@@ -339,15 +391,20 @@ async function createUrlJoinIdentity({ webhookUrl, displayName = null }) {
   logger.infoWithContext("URL-join identity minted", {
     component: "UrlJoinIdentity",
     roditId,
-    hasWebhookUrl: Boolean(validatedUrl)
+    hasWebhookUrl: Boolean(webhookUrl)
   });
 
   return {
     roditId,
-    webhookUrl: validatedUrl,
+    webhookUrl,
     jwtToken,
     peer
   };
+}
+
+async function createUrlJoinIdentity({ webhookUrl, displayName = null }) {
+  const prepared = await prepareUrlJoinIdentity({ webhookUrl, displayName });
+  return finalizeUrlJoinIdentity(prepared);
 }
 
 async function lookupUrlJoinWebhookUrl(roditId) {
@@ -369,7 +426,11 @@ module.exports = {
   assertWebhookUrlResolvesPublic,
   isBlockedHostname,
   isBlockedIpAddress,
+  prepareUrlJoinIdentity,
+  finalizeUrlJoinIdentity,
   createUrlJoinIdentity,
+  guestJwtHints,
+  decodeJwtPayload,
   lookupUrlJoinWebhookUrl,
   loadSyntheticPeerRodit,
   installUrlJoinIdentitySupport,

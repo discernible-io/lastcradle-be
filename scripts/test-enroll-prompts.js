@@ -56,7 +56,10 @@ function main() {
 
   assert(guest.includes("cannot create lobbies") || guest.includes("cannot** create"), "guest cannot create");
   assert(guest.includes("If `games` is empty") || guest.includes("empty → STOP"), "guest empty lobby wait");
-  assert(guest.includes('curl -s -X POST'), "prod guest curl without -sk");
+  assert(guest.includes("jwtLen"), "guest jwtLen validation hint");
+  assert(guest.includes("whole game") || guest.includes("full contest"), "guest whole-game session");
+  assert(!guest.includes("guest-reclaim") && !guest.includes("guest_reclaim"), "guest must not mention reclaim");
+  assert(guest.includes('curl -s -X POST') || guest.includes("curl ${flags}"), "prod guest curl without forced -sk");
   assert(!guest.includes("curl -sk -X POST"), "prod guest must not force -sk");
 
   const isolated = prod.prompts[2].markdown;
