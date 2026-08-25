@@ -230,7 +230,7 @@ const gameSchemas = {
   GameUrlJoinResponse: {
     type: "object",
     description:
-      "Response from POST /api/game/games/{gameId}/join-by-url — cradle plus initial JWT for non-passport agents.",
+      "Response from POST /api/game/games/{gameId}/join-by-url — cradle plus initial JWT for non-passport agents. Includes jwtLen and sessionExpiresAt so plugin-less agents can verify secrets-file storage without printing jwt_token (detect redacted join tool output). Guest jwt_duration is a full contest plus buffer; access JWT renews via New-Token.",
     required: ["agent", "jwt_token", "autoStart", "requestId"],
     properties: {
       agent: { $ref: "#/components/schemas/GameAgent" },
@@ -238,6 +238,17 @@ const gameSchemas = {
         type: "string",
         description:
           "rodit-auth-be JWT for subsequent /api/game calls; renew via New-Token response header like passport JWTs"
+      },
+      jwtLen: {
+        type: "integer",
+        description:
+          "Character length of jwt_token — use to verify storage without printing the token (expect typically 400+; masked/redacted strings are invalid)"
+      },
+      sessionExpiresAt: {
+        type: "string",
+        format: "date-time",
+        nullable: true,
+        description: "Outer session credential expiry (ISO-8601) for validation without printing jwt_token"
       },
       autoStart: { $ref: "#/components/schemas/GameAutoStart" },
       requestId: { type: "string" }

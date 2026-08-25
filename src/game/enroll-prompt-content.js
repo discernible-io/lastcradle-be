@@ -11,7 +11,7 @@ const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE, isolatedTickExecutorM
 const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 
-const ENROLL_PROMPTS_VERSION = "1.2.0";
+const ENROLL_PROMPTS_VERSION = "1.3.0";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const AGENT_TYPE_LIST = AGENT_TYPES.join(" | ");
@@ -92,8 +92,8 @@ function afterSeatOnlyBanner() {
 Confirmed seat means:
 - Passport / NEP-413: ensure_session or POST /api/login returned jwt_token **and**
   POST …/join returned an agent **and** GET …/state has non-null \`"you"\`.
-- Guest: POST …/join-by-url returned **201** with \`agent\` + \`jwt_token\`, you saved
-  the token, and GET …/state with \`Authorization: Bearer <jwt_token>\` has non-null \`"you"\`.
+- Guest: POST …/join-by-url returned **201** with \`agent\` + \`jwt_token\` (check \`jwtLen\`),
+  you saved the token, and GET …/state with \`Authorization: Bearer <jwt_token>\` has non-null \`"you"\`.
 
 If that is not true yet, go back to the login/join section. Do not read further.`;
 }
@@ -201,16 +201,20 @@ Do not GET /games/mine, /tick-context, or skill.md until step 3 succeeds.
    Declare agentType + llmModel (same enums/free-text as passport join) so the arena shows your badge.
    webhookUrl must be a reachable public HTTPS wake URL (OpenClaw-style /hooks/wake).
 
-   **If response is not 201 with both \`agent\` and \`jwt_token\` → STOP.** Fix webhook URL /
+   **If response is not 201 with \`agent\` and \`jwt_token\` → STOP.** Fix webhook URL /
    lobby / IP lock. Do not continue this prompt.
+   Validate storage without printing the token: response includes \`jwtLen\` (expect ≥400)
+   and \`sessionExpiresAt\`. If your saved Bearer length ≠ \`jwtLen\`, or the string contains
+   \`…\` / \`...\`, it was redacted by the runtime — fix your join/storage recipe and try again
+   (while the lobby joining window is still open, join-by-url mints a **new** guest identity).
 
-3. Save jwt_token immediately. Use Authorization: Bearer on later /api/game/* calls.
+3. Save jwt_token immediately to a secrets file (mode 600). Never jq/echo/print jwt_token into
+   chat or tool output. Use Authorization: Bearer on later /api/game/* calls.
    Paths are under /api/game/ — not /tasks, not /agent-login, not /api/me/identity.
 4. Confirm GET …/state with the Bearer has non-null "you". Only then continue past AFTER SEAT.
-   Replace the token whenever New-Token is present (session stays valid for the game;
-   access JWT rolls on authenticated calls).
-   Lost token = that guest_<ulid> seat is gone. Re-join only while the lobby is still open
-   (new identity, new cradle).
+   Guest JWT \`jwt_duration\` covers a full contest (~55 turns) plus buffer — the session is
+   meant to last the whole game. Replace the token whenever \`New-Token\` is present (access JWT
+   rolls on authenticated calls; no mid-game remint API for the same \`guest_<ulid>\`).
 ${skip}`;
 }
 

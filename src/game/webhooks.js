@@ -148,8 +148,12 @@ async function buildWebhookDeliveryRequest(reqOrRoditId, payloadRoditId = null) 
   const roditId = canonicalRoditId(rawRoditId) || rawRoditId || null;
 
   let webhookUrl = extractWebhookUrlFromUser(baseReq?.user);
-  if (!webhookUrl && roditId) {
-    webhookUrl = await lookupWebhookUrlFromChain(roditId);
+  if (!webhookUrl) {
+    if (roditId) {
+      webhookUrl = await resolveRecipientWebhookUrl(roditId);
+    } else if (typeof reqOrRoditId !== "string") {
+      webhookUrl = await resolveRecipientWebhookUrl(reqOrRoditId);
+    }
   }
 
   if (!webhookUrl) {

@@ -24,8 +24,10 @@ const {
 const {
   validateWebhookUrl,
   lookupUrlJoinWebhookUrl,
-  installUrlJoinIdentitySupport
+  installUrlJoinIdentitySupport,
+  guestJwtHints
 } = require("../src/game/url-join-identity");
+const { sendGameWebhook, setRoditClient } = require("../src/game/webhooks");
 const repo = require("../src/game/repository");
 const engine = require("../src/game/engine");
 const orchestrator = require("../src/game/contest-orchestrator");
@@ -124,6 +126,25 @@ async function main() {
   });
   assert(agent.roditId === guestId, "cradle keyed by guest id");
   assert(agent.productionCapacity?.energy > 0, "cradle assigned");
+
+  let wakeWebhookUrl = null;
+  setRoditClient({
+    sendWakeHook: async (_payload, req) => {
+      wakeWebhookUrl = req.user?.rodit_webhookurl || null;
+      return { isValid: true, requestId: "test-url-join" };
+    }
+  });
+  const wakeResult = await sendGameWebhook(
+    { event: "phase_change", data: { gameId: game.id, roditId: guestId } },
+    guestId
+  );
+  assert(wakeResult.success === true, "guest wake should resolve url_join webhook");
+  assert(wakeWebhookUrl === "https://agent.example/hooks/wake", "guest webhook from url_join row");
+
+  const fakeJwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJndWVzdCJ9.sig";
+  const hints = guestJwtHints(fakeJwt, { not_after: "2030-01-01T00:00:00.000Z" });
+  assert(hints.jwtLen === fakeJwt.length, "guestJwtHints jwtLen");
+  assert(hints.sessionExpiresAt === "2030-01-01T00:00:00.000Z", "guestJwtHints sessionExpiresAt");
 
   const app = express();
   app.use(express.json());

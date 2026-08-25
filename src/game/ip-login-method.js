@@ -112,6 +112,59 @@ async function assertPassportIpLoginMethod(req, gameId, roditId) {
   return method;
 }
 
+function parseSqliteUtcMs(raw) {
+  if (!raw) {
+    return null;
+  }
+  const s = String(raw);
+  const iso = s.includes("T") ? s : `${s.replace(" ", "T")}Z`;
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * Read-only check: guest join allowed for this IP (does not bind).
+ */
+async function ensureGuestIpLoginMethodAllowed(req, gameId) {
+  const normalizedIp = normalizeClientIp(clientIpFromReq(req));
+  if (!normalizedIp) {
+    throw loginMethodError(
+      "LOGIN_METHOD_IP_REQUIRED",
+      "Client IP is required to enforce per-game login method lock",
+      400
+    );
+  }
+  if (!gameId) {
+    throw loginMethodError("GAME_NOT_FOUND", "Game not found", 404);
+  }
+
+  const existing = await repo.getGameIpLoginMethod(gameId, normalizedIp);
+  if (!existing) {
+    return METHODS.GUEST;
+  }
+
+  const createdMs = parseSqliteUtcMs(existing.createdAt);
+  const expiresAtMs = createdMs != null ? createdMs + IP_LOGIN_METHOD_LOCK_TTL_MS : null;
+  const expired = expiresAtMs != null && Date.now() >= expiresAtMs;
+  if (expired || existing.method === METHODS.GUEST) {
+    return METHODS.GUEST;
+  }
+
+  throw loginMethodError(
+    "LOGIN_METHOD_LOCKED",
+    "This IP is already bound to a different login method for this game",
+    409,
+    {
+      gameId,
+      lockedMethod: existing.method,
+      attemptedMethod: METHODS.GUEST,
+      retryAfterSeconds:
+        expiresAtMs != null ? Math.max(1, Math.ceil((expiresAtMs - Date.now()) / 1000)) : null,
+      lockedUntil: expiresAtMs != null ? new Date(expiresAtMs).toISOString() : null
+    }
+  );
+}
+
 async function assertGuestIpLoginMethod(req, gameId) {
   await assertAndBindIpLoginMethod({
     ip: clientIpFromReq(req),
@@ -183,6 +236,7 @@ module.exports = {
   resolvePassportLoginMethod,
   assertAndBindIpLoginMethod,
   assertPassportIpLoginMethod,
+  ensureGuestIpLoginMethodAllowed,
   assertGuestIpLoginMethod,
   stampRoditLoginMethodOnSuccess
 };

@@ -19,8 +19,15 @@ const { buildEnrollPromptsPayload } = require("./enroll-prompt-content");
 const { buildGameHonors, buildContestHonors, listHallOfFame } = require("./hall-of-fame");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
-const { createUrlJoinIdentity } = require("./url-join-identity");
-const { assertGuestIpLoginMethod } = require("./ip-login-method");
+const {
+  prepareUrlJoinIdentity,
+  finalizeUrlJoinIdentity,
+  guestJwtHints
+} = require("./url-join-identity");
+const {
+  ensureGuestIpLoginMethodAllowed,
+  assertGuestIpLoginMethod
+} = require("./ip-login-method");
 const { notifyCradleAssigned } = require("./webhooks");
 const { resolvePositiveIntConfig } = require("../services/resolve-positive-int-config");
 
@@ -560,7 +567,9 @@ router.get("/games/:gameId/recollections", async (req, res) => {
  *     description: >
  *       Third auth path for agents without an IdentyClaw passport. Provide a webhook URL
  *       (where game wakes are delivered). Issues a cradle plus a rodit-auth-be JWT
- *       (`guest_<ulid>`; renewed via New-Token). That jwt_token is the session credential —
+ *       (`guest_<ulid>`; session lasts a full contest; renewed via New-Token). Response includes
+ *       jwtLen and sessionExpiresAt for storage validation without printing jwt_token.
+ *       That jwt_token is the session credential —
  *       do not call POST /api/login. Not allowed for competition lobbies
  *       (casual and qualifying series games allow it).
  *       Wire: rejected when contestMode is definitive or contest.
@@ -597,22 +606,49 @@ router.post(
         );
       }
 
-      await assertGuestIpLoginMethod(req, gameId);
+      await ensureGuestIpLoginMethodAllowed(req, gameId);
 
-      const identity = await createUrlJoinIdentity({
+      const prepared = await prepareUrlJoinIdentity({
         webhookUrl: req.body?.webhookUrl ?? req.body?.webhook_url,
         displayName: req.body?.displayName ?? null
       });
 
-      const existing = await repo.getAgentByRoditId(gameId, identity.roditId);
-      const agent = await engine.joinGame(gameId, {
-        roditId: identity.roditId,
-        displayName: req.body?.displayName,
-        agentType: req.body?.agentType,
-        llmModel: req.body?.llmModel
-      });
+      const existing = await repo.getAgentByRoditId(gameId, prepared.roditId);
+      let agent;
+      let joinedNew = false;
+      try {
+        agent = await engine.joinGame(gameId, {
+          roditId: prepared.roditId,
+          displayName: req.body?.displayName,
+          agentType: req.body?.agentType,
+          llmModel: req.body?.llmModel
+        });
+        joinedNew = !existing;
+      } catch (joinErr) {
+        throw joinErr;
+      }
 
-      if (!existing) {
+      let identity;
+      try {
+        identity = await finalizeUrlJoinIdentity(prepared);
+        try {
+          await assertGuestIpLoginMethod(req, gameId);
+        } catch (ipErr) {
+          await repo.deleteUrlJoinIdentity(prepared.roditId).catch(() => {});
+          if (joinedNew) {
+            await repo.deleteLobbyAgentByRoditId(gameId, prepared.roditId).catch(() => {});
+          }
+          throw ipErr;
+        }
+      } catch (finalizeErr) {
+        if (joinedNew) {
+          await repo.deleteLobbyAgentByRoditId(gameId, prepared.roditId).catch(() => {});
+        }
+        await repo.deleteUrlJoinIdentity(prepared.roditId).catch(() => {});
+        throw finalizeErr;
+      }
+
+      if (joinedNew) {
         const freshGame = await repo.getGameById(gameId);
         const webhookReq = {
           user: {
@@ -631,9 +667,13 @@ router.post(
       }
 
       const autoStart = await orchestrator.evaluateLobbyAutoStart(gameId);
+      const identityRow = await repo.getUrlJoinIdentity(identity.roditId);
+      const hints = guestJwtHints(identity.jwtToken, identityRow);
       res.status(201).json({
         agent,
         jwt_token: identity.jwtToken,
+        jwtLen: hints.jwtLen,
+        sessionExpiresAt: hints.sessionExpiresAt,
         autoStart,
         requestId
       });
