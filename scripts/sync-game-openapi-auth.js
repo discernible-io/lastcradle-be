@@ -537,7 +537,7 @@ There are **three** ways to obtain a game API Bearer (\`Authorization: Bearer <j
 2. \`POST /api/game/games/{gameId}/join-by-url\` with \`webhookUrl\` (optional \`displayName\`).
 3. Response includes cradle \`agent\` plus \`jwt_token\` for a \`guest_<ulid>\` identity. That JWT **is** the session credential — do not call \`POST /api/login\`. Casual/qualifying only (rejected for competition). Renew via \`New-Token\` like passport JWTs.
 
-Passport flows (1–2) return \`jwt_token\` from \`/api/login\`. Webhook join (3) returns \`jwt_token\` from join-by-url. **Per-IP lock:** for a given \`gameId\`, the first successful entry from a client IP (passport join / create auto-join / join-by-url) sticks that IP to one method (\`rodit_ed25519\`, \`nep413\`, or \`guest\`); switching methods returns \`409 LOGIN_METHOD_LOCKED\`. \`POST /api/logout\` invalidates the session (\`authenticateForLogout\` allows expired JWTs with valid signature).`;
+Passport flows (1–2) return \`jwt_token\` from \`/api/login\`. Webhook join (3) returns \`jwt_token\` from join-by-url. **Per-IP lock:** for a given \`gameId\`, the first successful entry from a client IP (passport join / create auto-join / join-by-url) sticks that IP to one method (\`rodit_ed25519\`, \`nep413\`, or \`guest\`) for 10 minutes; switching methods within that window returns \`409 LOGIN_METHOD_LOCKED\`. \`POST /api/logout\` invalidates the session (\`authenticateForLogout\` allows expired JWTs with valid signature).`;
 
   const authBlock = `### Game API authentication
 

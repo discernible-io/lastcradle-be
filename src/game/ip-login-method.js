@@ -1,5 +1,5 @@
 /**
- * Per-game sticky login method lock by client IP.
+ * Per-game sticky login method lock by client IP (10-minute cool-down).
  * Methods: rodit_ed25519 | nep413 | guest
  */
 
@@ -13,6 +13,9 @@ const METHODS = Object.freeze({
 });
 
 const DEFAULT_PASSPORT_METHOD = METHODS.RODIT_ED25519;
+
+/** How long an IP stays locked to one login method per gameId. */
+const IP_LOGIN_METHOD_LOCK_TTL_MS = 10 * 60 * 1000;
 
 function loginMethodError(code, message, statusCode = 400, details = null) {
   const err = new Error(message);
@@ -79,7 +82,8 @@ async function assertAndBindIpLoginMethod({ ip, gameId, method }) {
   const result = await repo.bindGameIpLoginMethod({
     gameId,
     ip: normalizedIp,
-    method
+    method,
+    ttlMs: IP_LOGIN_METHOD_LOCK_TTL_MS
   });
   if (!result.ok) {
     throw loginMethodError(
@@ -89,7 +93,9 @@ async function assertAndBindIpLoginMethod({ ip, gameId, method }) {
       {
         gameId,
         lockedMethod: result.lockedMethod,
-        attemptedMethod: method
+        attemptedMethod: method,
+        retryAfterSeconds: result.retryAfterSeconds ?? null,
+        lockedUntil: result.lockedUntil ?? null
       }
     );
   }
@@ -171,6 +177,7 @@ function stampRoditLoginMethodOnSuccess(req, res, method) {
 module.exports = {
   METHODS,
   DEFAULT_PASSPORT_METHOD,
+  IP_LOGIN_METHOD_LOCK_TTL_MS,
   normalizeClientIp,
   clientIpFromReq,
   resolvePassportLoginMethod,
