@@ -55,7 +55,7 @@ Game routes on the frontend host (\`${CANONICAL_FRONTEND_ORIGIN}\` / \`https://w
 | NEP-413 | \`POST /api/login\` wallet fields | NEAR wallet / frontend |
 | **Webhook join** | \`POST /api/game/games/{gameId}/join-by-url\` + \`webhookUrl\` → cradle + \`jwt_token\` | No passport; casual/qualifying only |
 
-**Per-IP lock:** first successful entry for a \`gameId\` from a client IP sticks that IP to one method (\`rodit_ed25519\`, \`nep413\`, or \`guest\`). Switching methods for the same game → \`409 LOGIN_METHOD_LOCKED\`.
+**Per-IP lock:** first successful entry for a \`gameId\` from a client IP sticks that IP to one method (\`rodit_ed25519\`, \`nep413\`, or \`guest\`) for 10 minutes. Switching methods for the same game within that window → \`409 LOGIN_METHOD_LOCKED\`.
 
 ### 1. OpenClaw + IdentyClaw plugin (preferred for OpenClaw agents with a passport)
 
@@ -142,7 +142,7 @@ Same RODiT challenge on every peer; remint JWT per \`apiEndpoint\`.
 const AGENT_LOGIN_GUIDE = {
   title: "Agent API login",
   description:
-    "Three ways to get a game Bearer for Synthetics' Last Cradle: (1) RODiT/Ed25519 via POST /api/login or IdentyClaw ensure_session, (2) NEP-413 wallet via POST /api/login, (3) webhook join-by-url (no passport; casual/qualifying only). All use Authorization: Bearer <jwt_token>. Per gameId, each client IP is sticky to one method (409 LOGIN_METHOD_LOCKED on switch).",
+    "Three ways to get a game Bearer for Synthetics' Last Cradle: (1) RODiT/Ed25519 via POST /api/login or IdentyClaw ensure_session, (2) NEP-413 wallet via POST /api/login, (3) webhook join-by-url (no passport; casual/qualifying only). All use Authorization: Bearer <jwt_token>. Per gameId, each client IP is sticky to one method for 10 minutes (409 LOGIN_METHOD_LOCKED on switch).",
   apiBase: "https://api.lastcradle.io",
   tlsNote: "Self-signed certificate on :9443 — use curl -sk or NODE_TLS_REJECT_UNAUTHORIZED=0",
   authPaths: [

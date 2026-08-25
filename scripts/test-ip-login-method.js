@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Verifies per-game IP login method lock:
- * guest bind on game A blocks passport join on A; game B allows rodit_ed25519; same-method re-bind OK.
+ * guest bind on game A blocks passport join on A; game B allows rodit_ed25519;
+ * same-method re-bind OK; after TTL expiry a different method is allowed.
  */
 
 const fs = require("fs");
@@ -19,6 +20,7 @@ const engine = require("../src/game/engine");
 const repo = require("../src/game/repository");
 const {
   METHODS,
+  IP_LOGIN_METHOD_LOCK_TTL_MS,
   assertAndBindIpLoginMethod,
   assertGuestIpLoginMethod,
   assertPassportIpLoginMethod
@@ -26,6 +28,10 @@ const {
 
 function fakeReq(ip) {
   return { ip };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function expectError(label, promise, code) {
@@ -42,6 +48,10 @@ async function expectError(label, promise, code) {
 
 async function main() {
   await repo.initializeDatabase();
+
+  if (IP_LOGIN_METHOD_LOCK_TTL_MS !== 10 * 60 * 1000) {
+    throw new Error(`expected 10-minute TTL, got ${IP_LOGIN_METHOD_LOCK_TTL_MS}`);
+  }
 
   const lobbyConfig = {
     maxAgents: 5,
@@ -81,6 +91,12 @@ async function main() {
   if (locked.details?.attemptedMethod !== METHODS.RODIT_ED25519) {
     throw new Error(`expected attemptedMethod rodit_ed25519`);
   }
+  if (!(locked.details?.retryAfterSeconds > 0)) {
+    throw new Error(`expected retryAfterSeconds > 0, got ${locked.details?.retryAfterSeconds}`);
+  }
+  if (!locked.details?.lockedUntil) {
+    throw new Error("expected lockedUntil");
+  }
 
   await repo.upsertRoditLoginMethod({
     roditId: "abcdefghijkl",
@@ -115,7 +131,43 @@ async function main() {
     "LOGIN_METHOD_LOCKED"
   );
 
-  console.log("ok: per-game IP login method lock");
+  // Cool-down expiry: short TTL via repository bind
+  const gameD = await engine.createGame({
+    config: lobbyConfig,
+    allowParallelLobbies: true
+  });
+  // SQLite datetime('now') is second-precision; keep TTL > 1s for the in-window check.
+  const shortTtlMs = 2000;
+  let r = await repo.bindGameIpLoginMethod({
+    gameId: gameD.id,
+    ip,
+    method: METHODS.GUEST,
+    ttlMs: shortTtlMs
+  });
+  if (!r.ok) {
+    throw new Error("short-ttl guest bind should succeed");
+  }
+  r = await repo.bindGameIpLoginMethod({
+    gameId: gameD.id,
+    ip,
+    method: METHODS.RODIT_ED25519,
+    ttlMs: shortTtlMs
+  });
+  if (r.ok || r.lockedMethod !== METHODS.GUEST) {
+    throw new Error("short-ttl switch should be locked to guest");
+  }
+  await sleep(shortTtlMs + 50);
+  r = await repo.bindGameIpLoginMethod({
+    gameId: gameD.id,
+    ip,
+    method: METHODS.RODIT_ED25519,
+    ttlMs: shortTtlMs
+  });
+  if (!r.ok || r.lockedMethod !== METHODS.RODIT_ED25519) {
+    throw new Error("after TTL, rodit_ed25519 bind should succeed");
+  }
+
+  console.log("ok: per-game IP login method lock (10-minute cool-down)");
   await repo.closeDatabase();
 }
 

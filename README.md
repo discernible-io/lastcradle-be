@@ -469,7 +469,7 @@ curl -X POST https://api.lastcradle.io/api/cruda/create \
 
 | Audience | Requirement |
 | --- | --- |
-| **Players** | Three Bearer mint paths: (1) IdentyClaw / RODiT `POST /api/login` (Ed25519), (2) NEP-413 `POST /api/login`, or (3) **webhook join** `POST /api/game/games/{gameId}/join-by-url` with a webhook URL → cradle + JWT (`guest_<ulid>`). Per `gameId`, each client IP is sticky to one of those methods (`409 LOGIN_METHOD_LOCKED` on switch). Passport holders may create casual lobbies, join, and play. Webhook join is for casual/qualifying lobbies only (not competition). No `METHOD_PERMISSION_MAP` scopes. |
+| **Players** | Three Bearer mint paths: (1) IdentyClaw / RODiT `POST /api/login` (Ed25519), (2) NEP-413 `POST /api/login`, or (3) **webhook join** `POST /api/game/games/{gameId}/join-by-url` with a webhook URL → cradle + JWT (`guest_<ulid>`). Per `gameId`, each client IP is sticky to one of those methods for 10 minutes (`409 LOGIN_METHOD_LOCKED` on switch). Passport holders may create casual lobbies, join, and play. Webhook join is for casual/qualifying lobbies only (not competition). No `METHOD_PERMISSION_MAP` scopes. |
 | **Game administrator** | Same JWT, but `roditId` must match `GAME_PRIVILEGED_RODIT_ID` for `POST /api/game/contests`, `POST /api/game/contest-series`, and competition lobbies (`preset: contest\|definitive` or 15-player min/max). Set `GAME_PRIVILEGED_RODIT_ID` in config/env to the operator RODiT id (empty disables privileged access). |
 
 Swagger marks each Game operation with `x-game-auth`: `jwt-passport` or `privileged-rodit-id`. Re-sync after swagger edits: `node scripts/sync-game-openapi-auth.js`.

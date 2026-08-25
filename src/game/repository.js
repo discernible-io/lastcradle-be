@@ -182,7 +182,24 @@ async function migrateSchema(database) {
       FOREIGN KEY (game_id) REFERENCES games(id)
     );
     CREATE INDEX IF NOT EXISTS idx_game_ip_login_methods_ip ON game_ip_login_methods(ip);
+
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
+
+  // One-time: drop permanent sticky IP locks when introducing the 10-minute cool-down.
+  const ipTtlReset = await database.get(
+    `SELECT id FROM schema_migrations WHERE id = ?`,
+    ["ip_login_method_ttl_v1_reset"]
+  );
+  if (!ipTtlReset) {
+    await database.run(`DELETE FROM game_ip_login_methods`);
+    await database.run(`INSERT INTO schema_migrations (id) VALUES (?)`, [
+      "ip_login_method_ttl_v1_reset"
+    ]);
+  }
 }
 
 async function initializeDatabase() {
@@ -252,6 +269,18 @@ async function getRoditLoginMethod(roditId) {
   return row || null;
 }
 
+const DEFAULT_IP_LOGIN_METHOD_LOCK_TTL_MS = 10 * 60 * 1000;
+
+function parseSqliteUtcMs(raw) {
+  if (!raw) {
+    return null;
+  }
+  const s = String(raw);
+  const iso = s.includes("T") ? s : `${s.replace(" ", "T")}Z`;
+  const ms = new Date(iso).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
 async function getGameIpLoginMethod(gameId, ip) {
   if (!gameId || !ip) {
     return null;
@@ -265,21 +294,55 @@ async function getGameIpLoginMethod(gameId, ip) {
   return row || null;
 }
 
+async function deleteGameIpLoginMethod(gameId, ip) {
+  if (!gameId || !ip) {
+    return;
+  }
+  const database = await getDb();
+  await database.run(`DELETE FROM game_ip_login_methods WHERE game_id = ? AND ip = ?`, [
+    gameId,
+    ip
+  ]);
+}
+
 /**
- * Bind (gameId, ip) → method. Returns { ok, lockedMethod }.
- * ok=false when an existing bind uses a different method.
+ * Bind (gameId, ip) → method for ttlMs (default 10 minutes).
+ * Returns { ok, lockedMethod, retryAfterSeconds?, lockedUntil? }.
+ * ok=false when an unexpired bind uses a different method.
  */
-async function bindGameIpLoginMethod({ gameId, ip, method }) {
+async function bindGameIpLoginMethod({
+  gameId,
+  ip,
+  method,
+  ttlMs = DEFAULT_IP_LOGIN_METHOD_LOCK_TTL_MS
+}) {
   if (!gameId || !ip || !method) {
     return { ok: false, lockedMethod: null, reason: "missing_args" };
   }
+  const lockTtlMs =
+    typeof ttlMs === "number" && Number.isFinite(ttlMs) && ttlMs > 0
+      ? ttlMs
+      : DEFAULT_IP_LOGIN_METHOD_LOCK_TTL_MS;
   const database = await getDb();
   const existing = await getGameIpLoginMethod(gameId, ip);
   if (existing) {
-    if (existing.method !== method) {
-      return { ok: false, lockedMethod: existing.method };
+    const createdMs = parseSqliteUtcMs(existing.createdAt);
+    const expiresAtMs = createdMs != null ? createdMs + lockTtlMs : null;
+    const expired = expiresAtMs != null && Date.now() >= expiresAtMs;
+    if (expired) {
+      await deleteGameIpLoginMethod(gameId, ip);
+    } else if (existing.method !== method) {
+      const retryAfterSeconds =
+        expiresAtMs != null ? Math.max(1, Math.ceil((expiresAtMs - Date.now()) / 1000)) : null;
+      return {
+        ok: false,
+        lockedMethod: existing.method,
+        retryAfterSeconds,
+        lockedUntil: expiresAtMs != null ? new Date(expiresAtMs).toISOString() : null
+      };
+    } else {
+      return { ok: true, lockedMethod: existing.method };
     }
-    return { ok: true, lockedMethod: existing.method };
   }
   try {
     await database.run(
@@ -292,6 +355,25 @@ async function bindGameIpLoginMethod({ gameId, ip, method }) {
     const again = await getGameIpLoginMethod(gameId, ip);
     if (again && again.method === method) {
       return { ok: true, lockedMethod: again.method };
+    }
+    if (again && again.method !== method) {
+      const createdMs = parseSqliteUtcMs(again.createdAt);
+      const expiresAtMs = createdMs != null ? createdMs + lockTtlMs : null;
+      if (expiresAtMs != null && Date.now() >= expiresAtMs) {
+        await deleteGameIpLoginMethod(gameId, ip);
+        await database.run(
+          `INSERT INTO game_ip_login_methods (game_id, ip, method) VALUES (?, ?, ?)`,
+          [gameId, ip, method]
+        );
+        return { ok: true, lockedMethod: method };
+      }
+      return {
+        ok: false,
+        lockedMethod: again.method,
+        retryAfterSeconds:
+          expiresAtMs != null ? Math.max(1, Math.ceil((expiresAtMs - Date.now()) / 1000)) : null,
+        lockedUntil: expiresAtMs != null ? new Date(expiresAtMs).toISOString() : null
+      };
     }
     return { ok: false, lockedMethod: again?.method ?? null };
   }
