@@ -1355,6 +1355,72 @@ const gameSchemas = {
       requestId: { type: "string" }
     }
   },
+  GameTickState: {
+    type: "object",
+    description:
+      "Isolated-tick diet: compact execute payload (no lore, inbound history, rival inventories, or actionHints.note).",
+    required: ["diet", "game"],
+    properties: {
+      diet: { type: "string", enum: ["tick"] },
+      game: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          status: { type: "string" },
+          currentTurn: { type: "integer", nullable: true },
+          phase: { type: "string", nullable: true },
+          negotiationEndsAt: { type: "string", format: "date-time", nullable: true },
+          executionEndsAt: { type: "string", format: "date-time", nullable: true },
+          endsAt: { type: "string", format: "date-time", nullable: true },
+          contestMode: { type: "string", nullable: true },
+          finishSurvivorCount: { type: "integer", nullable: true }
+        }
+      },
+      secondsRemaining: { type: "integer", nullable: true },
+      livingAgentCount: { type: "integer" },
+      you: { type: "object", nullable: true, additionalProperties: true },
+      livingPeers: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            displayName: { type: "string" },
+            status: { type: "string" }
+          }
+        }
+      }
+    }
+  },
+  GameTickContextResponse: {
+    type: "object",
+    required: ["tasks", "waitingOn", "contexts", "requestId"],
+    description:
+      "Bearer isolated-tick diet: task inbox plus one compact context per membership. Companion crons should project then submit from this payload.",
+    properties: {
+      tasks: { type: "array", items: { $ref: "#/components/schemas/GameAgentTask" } },
+      waitingOn: {
+        type: "array",
+        items: { type: "object", additionalProperties: true }
+      },
+      contexts: {
+        type: "array",
+        items: {
+          allOf: [
+            { $ref: "#/components/schemas/GameTickState" },
+            {
+              type: "object",
+              properties: {
+                gameId: { type: "string" },
+                tasks: { type: "array", items: { $ref: "#/components/schemas/GameAgentTask" } }
+              }
+            }
+          ]
+        }
+      },
+      requestId: { type: "string" }
+    }
+  },
   GameMineEntry: {
     type: "object",
     additionalProperties: true,
@@ -1372,7 +1438,7 @@ const gameSchemas = {
     type: "object",
     required: ["id", "title", "blurb", "copyLabel", "markdown"],
     properties: {
-      id: { type: "string", enum: ["sit-cradle", "guest-webhook"] },
+      id: { type: "string", enum: ["sit-cradle", "guest-webhook", "isolated-tick"] },
       title: { type: "string" },
       blurb: { type: "string" },
       copyLabel: { type: "string" },
@@ -1383,7 +1449,7 @@ const gameSchemas = {
     type: "object",
     required: ["version", "skillVersion", "apiBase", "prompts", "docs", "requestId"],
     description:
-      "Spectator /enroll paste prompts. Public; pinned to live skill.md version. Rate-limited on GET /api/game/*.",
+      "Spectator /enroll paste prompts (sit-cradle, guest-webhook, isolated-tick). Public; pinned to live skill.md version. Rate-limited on GET /api/game/*.",
     properties: {
       version: { type: "string", description: "Enroll prompt bundle version" },
       skillVersion: { type: "string", description: "Live skill.md pin interpolated into the prompts" },

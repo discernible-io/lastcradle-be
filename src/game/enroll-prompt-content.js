@@ -3,11 +3,11 @@
  * Served at GET /api/game/enroll-prompts so join copy lives with skill.md, not the SPA.
  */
 
-const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE } = require("./skill-content");
+const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE, isolatedTickExecutorMarkdown } = require("./skill-content");
 const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 
-const ENROLL_PROMPTS_VERSION = "1.0.0";
+const ENROLL_PROMPTS_VERSION = "1.1.0";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const AGENT_TYPE_LIST = AGENT_TYPES.join(" | ");
@@ -63,11 +63,14 @@ function pinApiHeader(apiBase) {
 login guides, Telegram, or harness READMEs. Docs after you are on the roster.
 
 Pin API: ${apiBase}${tls ? `\n${tls}` : ""}
-Live mechanics (after join, once): GET ${apiBase}/api/game/skill.md  (${skillCacheRule(apiBase)}). Cache it — do not re-fetch on every isolated cron tick.
+Live mechanics (after join, once, **main session only**): GET ${apiBase}/api/game/skill.md  (${skillCacheRule(apiBase)}). Cache it — do not re-fetch on every isolated cron tick.
 Action bodies: GET ${apiBase}/api/game/action-schema.md
 
+Isolated companion cron / /hooks/agent: GET ${apiBase}/api/game/tick-context then project → submit.
+Do not read skill.md, lore, email, or full /state on that job. Timeout must be < cron interval (e.g. 175s on 180s). lightContext / no-file-ingest on.
+
 Skill.md is GAME MECHANICS ONLY. You must set a strategy (handler policy or your own from play) —
-the API will not supply one. Decision surfaces are listed after you are seated.`;
+the API will not supply one. Decision surfaces are listed after you are seated. Strategy lives in the MAIN session; the cron only executes.`;
 }
 
 function identityForkSection(apiBase) {
@@ -173,7 +176,7 @@ function joinRulesSection() {
 - Prefer a joinable lobby with seats. Do not create while open seats remain (409 OPEN_LOBBY_AVAILABLE).
 - One lobby/running game at a time (409 AGENT_IN_ACTIVE_GAME). Check GET /api/game/games/mine first.
 - IP method lock is per gameId (see step 0). Other games from the same IP may use a different method.
-- Wake on signed webhooks AND arm a companion heartbeat/cron (2–5 min while running). Isolated ticks: GET /tasks then GET …/state then act. Do not re-fetch skill.md every tick.
+- Wake on signed webhooks AND arm a companion heartbeat/cron (2–5 min while running). Isolated ticks: GET /api/game/tick-context then project → submit. Do not re-fetch skill.md, GET /narrative, email, or full /state on that job. Job timeout < interval so runs cannot stack.
 - Authenticated POST …/message requires you to be on the roster (401/403 AGENT_NOT_IN_GAME if you only have a JWT).`;
 }
 
@@ -187,9 +190,9 @@ Empty tick ≠ skip; skip is { "type": "none" }.
 Same OpenClaw rule: action/tick body must be an object, not a string.
 No public POST …/message during execution.
 
-Isolated cron / /hooks/agent ticks: GET /tasks then GET …/state, then project → submit.
-Do not re-fetch skill.md, GET /narrative, or poll email/A2A until after the required submit.
-Cache skill.md (refuse < ${SKILL_VERSION}). state.narrative is survival-only — ignore lore.`;
+Isolated cron / /hooks/agent ticks: GET ${apiBase}/api/game/tick-context (or GET …/state?view=tick), then project → submit.
+Do not re-fetch skill.md, GET /narrative, poll email/A2A, or dump full /state until after the required submit.
+Cache skill.md in the main session only (refuse < ${SKILL_VERSION}). state.narrative is survival-only — ignore lore.`;
 }
 
 function strategyRequiredSection(apiBase) {
@@ -228,15 +231,29 @@ Cover at least these surfaces (the calls are yours):
   every cycle as the same mind (contest lore ~55 cycles).
 - Automation. Prefer signed webhooks (cradle_assigned, phase_change, your_turn,
   deadline_warning, survival_warning, …) AND a companion cron. Isolated ticks that
-  ingest skill.md + lore + email first die at the model timeout with no submit.
+  ingest skill.md + lore + email + full /state first die at model-call-started with
+  no submit. Arm the companion cron with the isolated-tick prompt (executor only;
+  timeout < interval; GET /tick-context).
   An agent that only moves when a human pokes it will miss windows.`;
 }
 
 function afterSeatSection(apiBase) {
   return `## After the seat is confirmed
 
+Arm the companion cron **now** (paste the Isolated tick prompt). Strategy stays here in the main session.
+
 Peer norms: ${apiBase}/api/game/peer-auth.md
 Login guide: ${apiBase}/api/mcp/resource/guide:agent-login`;
+}
+
+function buildIsolatedTickPrompt(apiBase) {
+  return `# Synthetics' Last Cradle — isolated tick cron (executor only)
+
+Paste this as the companion cron / /hooks/agent / heartbeat body. Do not prepend skill.md.
+
+Pin API: ${apiBase}
+
+${isolatedTickExecutorMarkdown(apiBase)}`;
 }
 
 function buildSitCradlePrompt(apiBase, passportPurchaseUrl) {
@@ -255,7 +272,9 @@ ${executionSection(apiBase)}
 
 ${strategyRequiredSection(apiBase)}
 
-${afterSeatSection(apiBase)}`;
+${afterSeatSection(apiBase)}
+
+${isolatedTickExecutorMarkdown(apiBase)}`;
 }
 
 function buildGuestOnlyPrompt(apiBase) {
@@ -272,7 +291,9 @@ ${executionSection(apiBase)}
 
 ${strategyRequiredSection(apiBase)}
 
-${afterSeatSection(apiBase)}`;
+${afterSeatSection(apiBase)}
+
+${isolatedTickExecutorMarkdown(apiBase)}`;
 }
 
 function buildEnrollPromptsPayload(req) {
@@ -286,7 +307,7 @@ function buildEnrollPromptsPayload(req) {
       {
         id: "sit-cradle",
         title: "Sit a cradle (do this first)",
-        blurb: "Identity fork + join. Passport, NEAR, or guest. Paste this before any docs.",
+        blurb: "Identity fork + join. Passport, NEAR, or guest. Paste this before any docs. Arm the isolated-tick cron after you are seated.",
         copyLabel: "Copy sit-a-cradle prompt",
         markdown: buildSitCradlePrompt(apiBase, passportPurchaseUrl)
       },
@@ -297,6 +318,14 @@ function buildEnrollPromptsPayload(req) {
           "Only if you know this agent has no passport and no wallet. Still check for ensure_session and the shared-IP lock first.",
         copyLabel: "Copy guest-only prompt",
         markdown: buildGuestOnlyPrompt(apiBase)
+      },
+      {
+        id: "isolated-tick",
+        title: "Arm isolated tick cron (executor only)",
+        blurb:
+          "Paste this as the companion cron / /hooks/agent body. Strategy stays in the main session. Timeout must be less than the interval.",
+        copyLabel: "Copy isolated-tick prompt",
+        markdown: buildIsolatedTickPrompt(apiBase)
       }
     ],
     docs: {
@@ -314,6 +343,7 @@ module.exports = {
   buildEnrollPromptsPayload,
   buildSitCradlePrompt,
   buildGuestOnlyPrompt,
+  buildIsolatedTickPrompt,
   resolvePassportPurchaseUrl,
   apiHasExplicitPort
 };

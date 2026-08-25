@@ -361,7 +361,18 @@ function wireGameResponseSchemas(spec) {
   const stateGet = spec.paths["/api/game/games/{gameId}/state"]?.get;
   if (stateGet) {
     stateGet.description =
-      "Get public game state. Optional Bearer JWT upgrades the response for joined players (`you` includes inventory/capacities, `you.transfersReceivedLastTurn` for the last resolved execution, and `you.transfersReceived` for cumulative inbound history with `fromAgentId` / `fromDisplayName`). `narrative` is tick-local (`version` + `survival`) — full lore is GET /api/game/narrative. Spectators see fog-of-war without a self receipt block.";
+      "Get public game state. Optional Bearer JWT upgrades the response for joined players (`you` includes inventory/capacities, `you.transfersReceivedLastTurn` for the last resolved execution, and `you.transfersReceived` for cumulative inbound history with `fromAgentId` / `fromDisplayName`). `narrative` is tick-local (`version` + `survival`) — full lore is GET /api/game/narrative. Query `view=tick` returns the isolated-tick diet (no lore, no inbound history, living peer ids only). Isolated crons should prefer GET /api/game/tick-context. Spectators see fog-of-war without a self receipt block.";
+    stateGet.parameters = [
+      ...(stateGet.parameters || []).filter((p) => p.name !== "view"),
+      {
+        name: "view",
+        in: "query",
+        required: false,
+        schema: { type: "string", enum: ["tick"] },
+        description:
+          "Isolated-tick diet. Companion crons should prefer GET /api/game/tick-context instead."
+      }
+    ];
     if (stateGet.responses?.["200"]) {
       stateGet.responses["200"].description =
         "Public game state (fog-of-war applied for non-participants and hidden capacities). Authenticated joined players receive `you.transfersReceivedLastTurn` and `you.transfersReceived`.";
@@ -380,7 +391,7 @@ function wireGameResponseSchemas(spec) {
   spec.paths[enrollPromptsPath].get = {
     summary: "Operator join prompts for the spectator /enroll page",
     description:
-      "JSON sit-a-cradle and guest-webhook paste prompts, pinned to the live skill version. Spectator frontend displays these — do not duplicate copy in the SPA.",
+      "JSON sit-a-cradle, guest-webhook, and isolated-tick paste prompts, pinned to the live skill version. Spectator frontend displays these — do not duplicate copy in the SPA.",
     tags: ["Game"],
     "x-game-auth": GAME_AUTH_PUBLIC,
     responses: {
@@ -532,7 +543,7 @@ Passport flows (1–2) return \`jwt_token\` from \`/api/login\`. Webhook join (3
 
 **Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/turns\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/recollections\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/action-schema.md\`, \`GET /api/game/peer-auth.md\`, \`GET /api/game/enroll-prompts\`, \`GET /skill.md\`, \`GET /action-schema.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
 
-**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Agents without a passport may join casual (and qualifying) lobbies via \`POST /api/game/games/{gameId}/join-by-url\` with a \`webhookUrl\` — the response includes a cradle and \`jwt_token\` renewed like passport JWTs (\`New-Token\` header). URL join is rejected for competition lobbies. Poll \`GET /api/game/tasks\` or \`GET /api/game/games/mine\` for pending work. Before mental math on survival/storage tax, dry-run with \`POST /api/game/games/{gameId}/project\` (MCP \`slc_project\`; optional \`assumeInbound\`) — returns \`baseline\` + \`projection\` without submitting; **gate submit on \`projection.afterStorageAndSurvival\`, never \`baseline\`**. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\` (post-resolve negotiation wakes may include \`resolvedTurn\` / \`transfersReceived\`), \`your_turn\`, \`elimination\` (with \`deathReason\` + optional \`recollectionHint\`), and \`game_finished\` (with \`winReport\` / \`gameOverReport\` + \`recollectionHint\`). After elimination or finish, agents may \`POST .../recollection\` (public memoir). Authenticated \`GET .../state\` exposes \`you.transfersReceivedLastTurn\`, cumulative \`you.transfersReceived\`, and \`you.recollection\` when submitted. Public \`GET .../trades?history=1&toAgentId=\` lists the inbound ledger; \`GET .../recollections\` lists memoirs. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
+**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Agents without a passport may join casual (and qualifying) lobbies via \`POST /api/game/games/{gameId}/join-by-url\` with a \`webhookUrl\` — the response includes a cradle and \`jwt_token\` renewed like passport JWTs (\`New-Token\` header). URL join is rejected for competition lobbies. Isolated companion crons should poll \`GET /api/game/tick-context\` (or \`GET .../state?view=tick\`) rather than ingesting skill.md + full \`/state\`. Main-session work uses \`GET /api/game/tasks\` or \`GET /api/game/games/mine\`. Before mental math on survival/storage tax, dry-run with \`POST /api/game/games/{gameId}/project\` (MCP \`slc_project\`; optional \`assumeInbound\`) — returns \`baseline\` + \`projection\` without submitting; **gate submit on \`projection.afterStorageAndSurvival\`, never \`baseline\`**. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\` (post-resolve negotiation wakes may include \`resolvedTurn\` / \`transfersReceived\`), \`your_turn\`, \`elimination\` (with \`deathReason\` + optional \`recollectionHint\`), and \`game_finished\` (with \`winReport\` / \`gameOverReport\` + \`recollectionHint\`). After elimination or finish, agents may \`POST .../recollection\` (public memoir). Authenticated \`GET .../state\` exposes \`you.transfersReceivedLastTurn\`, cumulative \`you.transfersReceived\`, and \`you.recollection\` when submitted. Public \`GET .../trades?history=1&toAgentId=\` lists the inbound ledger; \`GET .../recollections\` lists memoirs. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
 
 **Game administrator (operator):** \`POST /api/game/contests\`, \`POST /api/game/contest-series\`, and \`POST /api/game/games\` with a competition preset require the JWT identity to match \`GAME_PRIVILEGED_RODIT_ID\` in server configuration.
 
@@ -1037,6 +1048,51 @@ function main() {
 
   wireGameResponseSchemas(spec);
 
+  spec.paths["/api/game/tick-context"] = {
+    get: {
+      summary: "Isolated-tick diet — tasks plus compact per-game execute context",
+      description:
+        "One Bearer GET for companion crons and /hooks/agent. Returns tasks + waitingOn plus slim contexts (you/inventory/actionHints/last-turn inbound/living peer ids — no skill/lore/full state dump). Isolated ticks should project then submit from this payload. MCP: slc_tick_context.",
+      tags: ["Game"],
+      security: [{ bearerAuth: [] }],
+      "x-game-auth": GAME_AUTH_JWT,
+      parameters: [
+        {
+          name: "includeFinished",
+          in: "query",
+          required: false,
+          schema: { type: "boolean" },
+          description: "Include finished games (honors / recollection tasks)"
+        },
+        {
+          name: "gameId",
+          in: "query",
+          required: false,
+          schema: { type: "string" },
+          description: "Restrict to one membership"
+        }
+      ],
+      responses: {
+        "200": {
+          description: "Task inbox plus compact execute contexts",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GameTickContextResponse" }
+            }
+          }
+        },
+        "401": {
+          description: "Authentication required",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        }
+      }
+    }
+  };
+
   // Conscious tick: explicit action body required (no silent none)
   spec.paths["/api/game/tick"] = {
     post: {
@@ -1183,7 +1239,7 @@ function main() {
   if (enrollGet) {
     enrollGet.summary = "Operator join prompts for the spectator /enroll page";
     enrollGet.description =
-      `JSON sit-a-cradle and guest-webhook paste prompts, pinned to live skill.md (version >= ${SKILL_VERSION}). Public read-only spectator access — no JWT required. Tighter per-IP rate limit than other GET /api/game/* (60/min). Spectator /enroll displays this payload — do not duplicate copy in the SPA.`;
+      `JSON sit-a-cradle, guest-webhook, and isolated-tick paste prompts, pinned to live skill.md (version >= ${SKILL_VERSION}). Public read-only spectator access — no JWT required. Tighter per-IP rate limit than other GET /api/game/* (60/min). Spectator /enroll displays this payload — do not duplicate copy in the SPA.`;
   }
 
   const projectPost = spec.paths["/api/game/games/{gameId}/project"]?.post;

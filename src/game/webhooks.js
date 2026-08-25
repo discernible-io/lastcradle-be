@@ -461,7 +461,7 @@ async function notifyDeadlineWarningForGame(gameId) {
           urgency: "deadline",
           action: "POST /api/game/games/{gameId}/action",
           message:
-            "SLC deadline warning: required submit_execution_action pending; GET /api/game/tasks then tick/action before deadline."
+            "SLC deadline warning: required submit_execution_action pending; GET /api/game/tick-context then project → tick/action before deadline. Do not re-fetch skill.md."
         },
         { channel: "agent" }
       )

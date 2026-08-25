@@ -77,11 +77,25 @@ async function main() {
     }
 
     const enroll = await requestJson(port, "/api/game/enroll-prompts");
-    if (enroll.status !== 200 || !Array.isArray(enroll.body.prompts) || enroll.body.prompts.length < 2) {
-      throw new Error("expected public enroll-prompts bundle");
+    if (enroll.status !== 200 || !Array.isArray(enroll.body.prompts) || enroll.body.prompts.length < 3) {
+      throw new Error("expected public enroll-prompts bundle with isolated-tick prompt");
     }
     if (!enroll.body.prompts[0]?.markdown?.includes("sit a cradle")) {
       throw new Error("sit-cradle prompt missing from enroll-prompts");
+    }
+    if (enroll.body.prompts[2]?.id !== "isolated-tick") {
+      throw new Error("isolated-tick prompt missing from enroll-prompts");
+    }
+
+    const tickState = await requestJson(port, `/api/game/games/${game.id}/state?view=tick`);
+    if (tickState.status !== 200 || tickState.body.diet !== "tick") {
+      throw new Error(`expected view=tick diet, got ${tickState.status} ${JSON.stringify(tickState.body)}`);
+    }
+    if (tickState.body.narrative || tickState.body.agents) {
+      throw new Error("view=tick must omit narrative and agents[]");
+    }
+    if (tickState.body.you != null) {
+      throw new Error("spectators must not receive you on view=tick");
     }
 
     const messages = await requestJson(port, `/api/game/games/${game.id}/messages`);

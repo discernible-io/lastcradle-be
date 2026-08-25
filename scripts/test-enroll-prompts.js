@@ -25,9 +25,10 @@ function main() {
   assert(prod.version === ENROLL_PROMPTS_VERSION, "bundle version");
   assert(prod.skillVersion === SKILL_VERSION, `skill pin ${SKILL_VERSION}`);
   assert(prod.apiBase === "https://api.lastcradle.io", `prod apiBase ${prod.apiBase}`);
-  assert(prod.prompts.length === 2, "two prompts");
+  assert(prod.prompts.length === 3, "three prompts");
   assert(prod.prompts[0].id === "sit-cradle", "sit-cradle first");
   assert(prod.prompts[1].id === "guest-webhook", "guest-webhook second");
+  assert(prod.prompts[2].id === "isolated-tick", "isolated-tick third");
   assert(prod.docs.passportPurchase === "https://purchase.identyclaw.com", "prod passport purchase");
 
   const sit = prod.prompts[0].markdown;
@@ -44,7 +45,15 @@ function main() {
     assert(!md.includes("POST …/messages") && !md.includes("POST .../messages"), `${name} no POST /messages`);
     assert(md.includes("Do not re-fetch"), `${name} cache skill on isolated ticks`);
     assert(md.includes("survival-only") || md.includes("companion cron"), `${name} isolated-tick diet`);
+    assert(md.includes("/tick-context"), `${name} tick-context endpoint`);
+    assert(md.includes("model-call-started"), `${name} model-call-started timeout`);
   }
+
+  const isolated = prod.prompts[2].markdown;
+  assert(isolated.includes("executor only"), "isolated-tick executor title");
+  assert(isolated.includes("lightContext"), "isolated-tick lightContext");
+  assert(isolated.includes("timeout must be strictly less"), "isolated-tick timeout < interval");
+  assert(!isolated.includes("GET /api/game/skill.md") || isolated.includes("Do **not** GET /api/game/skill.md"), "isolated-tick must forbid skill.md fetch");
 
   assert(sit.includes("Pick ONE path"), "sit identity fork");
   assert(guest.includes("If ensure_session exists"), "guest stop-if-passport");

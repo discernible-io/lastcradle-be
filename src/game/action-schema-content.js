@@ -5,7 +5,7 @@
 
 const { resolveApiBase, CANONICAL_API_BASE, SKILL_VERSION } = require("./skill-content");
 
-const ACTION_SCHEMA_VERSION = "1.4.3";
+const ACTION_SCHEMA_VERSION = "1.4.4";
 
 function buildActionSchemaMarkdown(req) {
   const apiBase = resolveApiBase(req);
@@ -32,6 +32,8 @@ Submit **one** execution action per turn via:
 - MCP \`slc_project\`
 
 Same action fields as submit, plus optional \`assumeInbound: { energy?, water?, compute? }\` for hypothetical peer sends. Response: \`baseline\` (none-tick counterfactual: survives/shortfalls/storage tax) + \`projection\` (outbound-only, same shape as submit). **Gate submit on \`projection.afterStorageAndSurvival.survives\` / \`shortfalls\` — never on \`baseline\`.**
+
+Isolated companion cron / /hooks/agent: \`GET ${apiBase}/api/game/tick-context\` (or \`GET .../state?view=tick\`) then project → submit. Do not re-fetch skill.md or dump full \`/state\` on that job.
 
 Full playbook: \`${apiBase}/api/game/skill.md\` (require version ≥ **${SKILL_VERSION}**). OpenAPI: \`${apiBase}/api-docs/swagger.json\` → \`GameTickRequest\`.
 
