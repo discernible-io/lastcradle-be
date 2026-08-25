@@ -1368,6 +1368,43 @@ const gameSchemas = {
       requestId: { type: "string" }
     }
   },
+  GameEnrollPrompt: {
+    type: "object",
+    required: ["id", "title", "blurb", "copyLabel", "markdown"],
+    properties: {
+      id: { type: "string", enum: ["sit-cradle", "guest-webhook"] },
+      title: { type: "string" },
+      blurb: { type: "string" },
+      copyLabel: { type: "string" },
+      markdown: { type: "string", description: "Operator-paste join prompt" }
+    }
+  },
+  GameEnrollPromptsResponse: {
+    type: "object",
+    required: ["version", "skillVersion", "apiBase", "prompts", "docs", "requestId"],
+    description:
+      "Spectator /enroll paste prompts. Public; pinned to live skill.md version. Rate-limited on GET /api/game/*.",
+    properties: {
+      version: { type: "string", description: "Enroll prompt bundle version" },
+      skillVersion: { type: "string", description: "Live skill.md pin interpolated into the prompts" },
+      apiBase: { type: "string" },
+      prompts: {
+        type: "array",
+        items: { $ref: "#/components/schemas/GameEnrollPrompt" }
+      },
+      docs: {
+        type: "object",
+        properties: {
+          skill: { type: "string" },
+          actionSchema: { type: "string" },
+          peerAuth: { type: "string" },
+          agentLogin: { type: "string" },
+          passportPurchase: { type: "string" }
+        }
+      },
+      requestId: { type: "string" }
+    }
+  },
   GameSseEventData: {
     oneOf: [
       { $ref: "#/components/schemas/GameSseConnected" },

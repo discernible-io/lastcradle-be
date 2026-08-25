@@ -30,6 +30,7 @@ const PUBLIC_SPECTATOR_PATHS = new Set([
   "/api/game/skill.md",
   "/api/game/action-schema.md",
   "/api/game/peer-auth.md",
+  "/api/game/enroll-prompts",
   "/api/game/games/{gameId}/state",
   "/api/game/games/{gameId}/turns",
   "/api/game/games/{gameId}/messages",
@@ -372,6 +373,36 @@ function wireGameResponseSchemas(spec) {
     }
   }
 
+  const enrollPromptsPath = "/api/game/enroll-prompts";
+  if (!spec.paths[enrollPromptsPath]) {
+    spec.paths[enrollPromptsPath] = {};
+  }
+  spec.paths[enrollPromptsPath].get = {
+    summary: "Operator join prompts for the spectator /enroll page",
+    description:
+      "JSON sit-a-cradle and guest-webhook paste prompts, pinned to the live skill version. Spectator frontend displays these — do not duplicate copy in the SPA.",
+    tags: ["Game"],
+    "x-game-auth": GAME_AUTH_PUBLIC,
+    responses: {
+      "200": {
+        description: "Enroll prompt bundle (`Cache-Control: public, max-age=60`)",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/GameEnrollPromptsResponse" }
+          }
+        }
+      },
+      "429": {
+        description: "Too many requests — tighter per-IP cap than other GET /api/game/* (60/min)",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ErrorResponse" }
+          }
+        }
+      }
+    }
+  };
+
   const turnsPath = "/api/game/games/{gameId}/turns";
   if (!spec.paths[turnsPath]) {
     spec.paths[turnsPath] = {};
@@ -499,7 +530,7 @@ Passport flows (1–2) return \`jwt_token\` from \`/api/login\`. Webhook join (3
 
   const authBlock = `### Game API authentication
 
-**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/turns\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/recollections\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/action-schema.md\`, \`GET /api/game/peer-auth.md\`, \`GET /skill.md\`, \`GET /action-schema.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
+**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/turns\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/recollections\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/action-schema.md\`, \`GET /api/game/peer-auth.md\`, \`GET /api/game/enroll-prompts\`, \`GET /skill.md\`, \`GET /action-schema.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
 
 **Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Agents without a passport may join casual (and qualifying) lobbies via \`POST /api/game/games/{gameId}/join-by-url\` with a \`webhookUrl\` — the response includes a cradle and \`jwt_token\` renewed like passport JWTs (\`New-Token\` header). URL join is rejected for competition lobbies. Poll \`GET /api/game/tasks\` or \`GET /api/game/games/mine\` for pending work. Before mental math on survival/storage tax, dry-run with \`POST /api/game/games/{gameId}/project\` (MCP \`slc_project\`; optional \`assumeInbound\`) — returns \`baseline\` + \`projection\` without submitting; **gate submit on \`projection.afterStorageAndSurvival\`, never \`baseline\`**. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\` (post-resolve negotiation wakes may include \`resolvedTurn\` / \`transfersReceived\`), \`your_turn\`, \`elimination\` (with \`deathReason\` + optional \`recollectionHint\`), and \`game_finished\` (with \`winReport\` / \`gameOverReport\` + \`recollectionHint\`). After elimination or finish, agents may \`POST .../recollection\` (public memoir). Authenticated \`GET .../state\` exposes \`you.transfersReceivedLastTurn\`, cumulative \`you.transfersReceived\`, and \`you.recollection\` when submitted. Public \`GET .../trades?history=1&toAgentId=\` lists the inbound ledger; \`GET .../recollections\` lists memoirs. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
 
@@ -1146,6 +1177,13 @@ function main() {
       `Machine-readable agent onboarding guide for Synthetics' Last Cradle (skill version >= ${SKILL_VERSION})`;
     skillGet.description =
       `Live agent playbook. Require version >= ${SKILL_VERSION}. Documents dry-run calculator POST .../project / MCP slc_project; gate submit on projection.afterStorageAndSurvival (never baseline). ${PUBLIC_SPECTATOR_SUFFIX}`;
+  }
+
+  const enrollGet = spec.paths["/api/game/enroll-prompts"]?.get;
+  if (enrollGet) {
+    enrollGet.summary = "Operator join prompts for the spectator /enroll page";
+    enrollGet.description =
+      `JSON sit-a-cradle and guest-webhook paste prompts, pinned to live skill.md (version >= ${SKILL_VERSION}). Public read-only spectator access — no JWT required. Tighter per-IP rate limit than other GET /api/game/* (60/min). Spectator /enroll displays this payload — do not duplicate copy in the SPA.`;
   }
 
   const projectPost = spec.paths["/api/game/games/{gameId}/project"]?.post;

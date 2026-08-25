@@ -61,6 +61,10 @@ router.get("/", (req, res) => {
         alias: "/peer-auth.md",
         absolute: `${CANONICAL_API_BASE}/api/game/peer-auth.md`
       },
+      enrollPrompts: {
+        json: "/api/game/enroll-prompts",
+        absolute: `${CANONICAL_API_BASE}/api/game/enroll-prompts`
+      },
       federatedPeers: [
         {
           name: "Synthetics' Last Cradle",
@@ -150,6 +154,7 @@ router.get("/", (req, res) => {
         gameSkill: "/api/game/skill.md",
         actionSchema: "/api/game/action-schema.md",
         peerAuth: "/api/game/peer-auth.md",
+        enrollPrompts: "/api/game/enroll-prompts",
         mcp: "/mcp"
       },
       note:
@@ -273,6 +278,8 @@ router.get("/.well-known/mcp", (req, res) => {
       actionSchemaAbsolute: `${CANONICAL_API_BASE}/api/game/action-schema.md`,
       peerAuth: "/api/game/peer-auth.md",
       peerAuthAbsolute: `${CANONICAL_API_BASE}/api/game/peer-auth.md`,
+      enrollPrompts: "/api/game/enroll-prompts",
+      enrollPromptsAbsolute: `${CANONICAL_API_BASE}/api/game/enroll-prompts`,
       loginGuide: "/api/mcp/resource/guide:agent-login",
       troubleshooting: "/api/mcp/resource/guide:troubleshooting",
       examples: [

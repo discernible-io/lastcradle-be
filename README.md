@@ -487,6 +487,7 @@ Player onboarding: [`docs/game-player-onboarding-howto.md`](docs/game-player-onb
 | `GET` | `/api/game/defaults` | Casual game config defaults |
 | `GET` | `/api/game/defaults/contest` | Competition and qualifying presets |
 | `GET` | `/api/game/narrative` | Lore and mechanic-to-fiction mappings |
+| `GET` | `/api/game/enroll-prompts` | Operator join prompts for spectator `/enroll` (JSON) |
 | `GET` | `/api/game/games` | List games (`?status`, `?contestMode`, `?limit`, `?offset`) |
 | `POST` | `/api/game/games` | Create lobby (auto-joins creator by default; `autoJoin: false` for host-only) |
 | `POST` | `/api/game/games/{gameId}/join` | Join lobby → cradle assignment (passport JWT) |

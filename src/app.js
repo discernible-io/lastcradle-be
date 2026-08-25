@@ -890,6 +890,9 @@ async function startServer() {
     // 600/min allows spectator parallel polls (~4 endpoints) plus agent traffic on the same NAT.
     const gameIpsLimiter = ratelimitmw(600, 1);
     app.use("/api/game", (req, res, next) => gameIpsLimiter(req, res, next));
+    // Enroll prompts are a large public blob for /enroll — tighter than the game surface cap.
+    const enrollPromptsLimiter = ratelimitmw(60, 1);
+    app.use("/api/game/enroll-prompts", (req, res, next) => enrollPromptsLimiter(req, res, next));
     app.use("/api/cruda", authenticate_apicall, validatepermissions, crudaRoutes);
     app.use("/api/game", optionalAuthenticate, gameSpectatorRoutes);
     app.use("/api/game", authenticate_apicall, gameRoutes);

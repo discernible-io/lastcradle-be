@@ -76,6 +76,14 @@ async function main() {
       throw new Error("GET /narrative must still return full static lore");
     }
 
+    const enroll = await requestJson(port, "/api/game/enroll-prompts");
+    if (enroll.status !== 200 || !Array.isArray(enroll.body.prompts) || enroll.body.prompts.length < 2) {
+      throw new Error("expected public enroll-prompts bundle");
+    }
+    if (!enroll.body.prompts[0]?.markdown?.includes("sit a cradle")) {
+      throw new Error("sit-cradle prompt missing from enroll-prompts");
+    }
+
     const messages = await requestJson(port, `/api/game/games/${game.id}/messages`);
     if (messages.status !== 200 || !messages.body.messages?.length) {
       throw new Error("expected public messages without auth");
