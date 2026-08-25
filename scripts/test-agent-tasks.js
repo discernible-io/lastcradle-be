@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.21.0")) {
-    throw new Error("skill.md should be version 1.21.0");
+  if (!skill.includes("version: 1.22.0")) {
+    throw new Error("skill.md should be version 1.22.0");
   }
   if (
     !skill.includes("Cradle profile") ||
@@ -164,6 +164,18 @@ async function main() {
   }
   if (!skill.includes("Isolated tick token budget")) {
     throw new Error("skill.md should document isolated tick token budget");
+  }
+  if (!skill.includes("/tick-context") || !skill.includes("slc_tick_context")) {
+    throw new Error("skill.md should document GET /tick-context and MCP slc_tick_context");
+  }
+  if (!skill.includes("model-call-started")) {
+    throw new Error("skill.md should name the model-call-started isolated-tick timeout");
+  }
+  if (!skill.includes("executor only") && !skill.includes("executor-only")) {
+    throw new Error("skill.md should describe isolated ticks as executor-only");
+  }
+  if (!skill.includes("Timeout vs interval") && !skill.includes("strictly less than")) {
+    throw new Error("skill.md should require isolated job timeout < cron interval");
   }
   if (!skill.includes("survival-only")) {
     throw new Error("skill.md should document tick-local state.narrative");
@@ -425,7 +437,7 @@ async function main() {
     throw new Error(`Explicit none tick should submit, got ${JSON.stringify(explicitNone)}`);
   }
 
-  const { listTasksInboxForRodit } = require("../src/game/agent-tasks");
+  const { listTasksInboxForRodit, listTickContextForRodit } = require("../src/game/agent-tasks");
   const inbox = await listTasksInboxForRodit("agent-alpha");
   if (inbox.tasks.some((t) => t.taskType === TASK_TYPES.SUBMIT_EXECUTION_ACTION)) {
     throw new Error("Alpha should have no execution-action task after submit");
@@ -434,6 +446,31 @@ async function main() {
     // ok
   } else {
     throw new Error(`Expected waitingOn Beta after Alpha submitted, got ${JSON.stringify(inbox.waitingOn)}`);
+  }
+
+  const tickInbox = await listTickContextForRodit("agent-alpha");
+  if (!Array.isArray(tickInbox.contexts) || tickInbox.contexts.length !== 1) {
+    throw new Error(`Expected one tick-context membership, got ${JSON.stringify(tickInbox.contexts)}`);
+  }
+  const ctx = tickInbox.contexts[0];
+  if (ctx.diet !== "tick" || ctx.you?.id !== alpha.id) {
+    throw new Error(`tick-context you/diet mismatch: ${JSON.stringify(ctx)}`);
+  }
+  if (ctx.you.transfersReceived || ctx.narrative || ctx.agents) {
+    throw new Error("tick-context must omit full inbound history, narrative, and agents[]");
+  }
+  if (ctx.you.actionHints?.note) {
+    throw new Error("tick-context actionHints must omit prose note");
+  }
+  if (!Array.isArray(ctx.livingPeers) || ctx.livingPeers.some((p) => p.inventory)) {
+    throw new Error("tick-context livingPeers must be id/name only");
+  }
+  if (ctx.you.submittedThisExecution !== true) {
+    throw new Error("tick-context should flag submittedThisExecution after Alpha's none");
+  }
+  const slimState = await engine.getTickState(game.id, { viewerAgentId: alpha.id });
+  if (slimState.diet !== "tick" || slimState.you?.transfersReceived) {
+    throw new Error("getTickState should return tick diet without transfersReceived history");
   }
 
   const identityAgent = await repo.getAgentByRoditId(game.id, "agent-beta");

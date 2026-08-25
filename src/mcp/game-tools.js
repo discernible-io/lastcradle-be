@@ -7,7 +7,8 @@ const repo = require("../game/repository");
 const orchestrator = require("../game/contest-orchestrator");
 const {
   listActiveGamesForRodit,
-  listTasksInboxForRodit
+  listTasksInboxForRodit,
+  listTickContextForRodit
 } = require("../game/agent-tasks");
 const { buildGameSkillMarkdown, SKILL_VERSION } = require("../game/skill-content");
 const { notifyCradleAssigned, onGamePhaseUpdated } = require("../game/webhooks");
@@ -122,11 +123,32 @@ const GAME_TOOL_DEFS = [
     }
   },
   {
-    name: "slc_state",
-    description: "GET /api/game/games/{gameId}/state",
+    name: "slc_tick_context",
+    description:
+      "Isolated-tick diet: GET /api/game/tick-context — tasks + compact execute context (no skill/lore/full state). Prefer this over slc_tasks + slc_state on companion crons.",
     inputSchema: {
       type: "object",
-      properties: { gameId: { type: "string" } },
+      properties: {
+        includeFinished: { type: "boolean" },
+        gameId: { type: "string", description: "Optional: one membership only" }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: "slc_state",
+    description:
+      "GET /api/game/games/{gameId}/state. Pass view=tick for the isolated-tick diet; prefer slc_tick_context on companion crons.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        gameId: { type: "string" },
+        view: {
+          type: "string",
+          enum: ["full", "tick"],
+          description: "tick = slim execute payload (no lore / inbound history / rival inventories)"
+        }
+      },
       required: ["gameId"],
       additionalProperties: false
     }
@@ -453,11 +475,24 @@ async function callGameTool(name, args, req) {
         includeFinished: Boolean(args.includeFinished)
       });
     }
+    case "slc_tick_context": {
+      const roditId = requireRodit(req);
+      return listTickContextForRodit(roditId, {
+        includeFinished: Boolean(args.includeFinished),
+        gameId: args.gameId || null
+      });
+    }
     case "slc_state": {
       requireRodit(req);
       const roditId = requireRodit(req);
       const agent = await repo.getAgentByRoditId(args.gameId, roditId);
-      return engine.getPublicState(args.gameId, { viewerAgentId: agent?.id ?? null });
+      const viewerAgentId = agent?.id ?? null;
+      const diet = args.view === "tick" ? "tick" : "full";
+      const state = await engine.getPublicState(args.gameId, { viewerAgentId, diet });
+      if (diet === "tick") {
+        return engine.toTickState(state, { viewerAgentId });
+      }
+      return state;
     }
     case "slc_message": {
       const roditId = requireRodit(req);

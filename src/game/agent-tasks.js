@@ -293,6 +293,47 @@ async function listTasksInboxForRodit(roditId, { includeFinished = false } = {})
   return { tasks, waitingOn };
 }
 
+/**
+ * Isolated-tick diet: tasks + waitingOn + compact per-game context in one payload.
+ * Optional gameId filters to a single membership.
+ */
+async function listTickContextForRodit(roditId, { includeFinished = false, gameId = null } = {}) {
+  const memberships = await repo.listMembershipsByRoditId(roditId, {
+    gameStatuses: ["lobby", "running", "finished"]
+  });
+  const tasks = [];
+  const waitingOn = [];
+  const contexts = [];
+
+  for (const { game, agent } of memberships) {
+    if (gameId && game.id !== gameId) continue;
+    if (!shouldIncludeFinishedMembership(game, agent, includeFinished)) {
+      continue;
+    }
+    const membershipTasks = await buildTasksForMembership(game, agent);
+    const membershipWaiting = await buildWaitingOnForMembership(game, agent);
+    tasks.push(...membershipTasks);
+    waitingOn.push(...membershipWaiting);
+    const tickState = await engine.getTickState(game.id, { viewerAgentId: agent.id });
+    contexts.push({
+      ...tickState,
+      gameId: game.id,
+      tasks: membershipTasks
+    });
+  }
+
+  tasks.sort((a, b) => {
+    if (a.required !== b.required) {
+      return a.required ? -1 : 1;
+    }
+    const aDeadline = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+    const bDeadline = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+    return aDeadline - bDeadline;
+  });
+
+  return { tasks, waitingOn, contexts };
+}
+
 module.exports = {
   TASK_TYPES,
   buildTasksForMembership,
@@ -300,5 +341,6 @@ module.exports = {
   listActiveGamesForRodit,
   listTasksForRodit,
   listWaitingOnForRodit,
-  listTasksInboxForRodit
+  listTasksInboxForRodit,
+  listTickContextForRodit
 };

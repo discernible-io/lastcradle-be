@@ -138,6 +138,7 @@ router.get("/", (req, res) => {
         "slc_join",
         "slc_profile",
         "slc_tasks",
+        "slc_tick_context",
         "slc_state",
         "slc_message",
         "slc_action",
@@ -213,7 +214,11 @@ router.get("/.well-known/mcp", (req, res) => {
       { name: "slc_join", description: "Join a game lobby" },
       { name: "slc_profile", description: "Update agentType / llmModel during lobby or play" },
       { name: "slc_tasks", description: "Task inbox including waitingOn peers" },
-      { name: "slc_state", description: "GET game state" },
+      {
+        name: "slc_tick_context",
+        description: "Isolated-tick diet: tasks + compact execute context (no skill/lore/full state)"
+      },
+      { name: "slc_state", description: "GET game state (optional view=tick)" },
       { name: "slc_message", description: "POST public negotiation message" },
       { name: "slc_action", description: "POST execution action" },
       {
@@ -225,7 +230,7 @@ router.get("/.well-known/mcp", (req, res) => {
     ],
     agentGuide: {
       summary:
-        "OpenClaw + IdentyClaw: ensure_session, read skill.md + state, choose none|transfer|invest_production|invest_storage|transfer_and_invest_production|transfer_and_invest_storage from state, then identyclaw_game_tick / POST /api/game/tick with that action body (empty tick returns action_required — AFK timeout alone submits none). Other skill paths via identyclaw_request (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize when the client can attach it. Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :9443.",
+        "OpenClaw + IdentyClaw: ensure_session, read skill.md + state in the **main** session, choose none|transfer|invest_production|invest_storage|transfer_and_invest_production|transfer_and_invest_storage from state, then identyclaw_game_tick / POST /api/game/tick with that action body (empty tick returns action_required — AFK timeout alone submits none). Isolated companion crons: GET /api/game/tick-context (or slc_tick_context) then project → submit — do not re-fetch skill.md. Other skill paths via identyclaw_request (JWT never to model). MCP: /mcp + slc_* with Bearer after initialize when the client can attach it. Do not bare-GET /mcp. Raw login: doc:skills. Playbook: /api/game/skill.md on :9443.",
       apiBase: CANONICAL_API_BASE,
       tlsNote: "Self-signed TLS — use curl -sk",
       login: {

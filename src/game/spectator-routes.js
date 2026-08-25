@@ -286,7 +286,7 @@ router.get("/peer-auth.md", (req, res) => {
  *   get:
  *     summary: Operator join prompts for the spectator /enroll page
  *     description: >
- *       JSON sit-a-cradle and guest-webhook paste prompts, pinned to the live skill
+ *       JSON sit-a-cradle, guest-webhook, and isolated-tick paste prompts, pinned to the live skill
  *       version. Public; rate-limited with GET /api/game/* (tighter per-IP cap on this
  *       path). Spectator frontend displays these — do not duplicate copy in the SPA.
  *     tags: [Game]
@@ -371,6 +371,8 @@ router.get("/games/:gameId/players/:agentId/identity", async (req, res) => {
  *       Optional Bearer JWT upgrades the response for joined players (`you` includes
  *       inventory/capacities, `you.transfersReceivedLastTurn`, and `you.transfersReceived`).
  *       `narrative` is tick-local (`version` + `survival`); full lore is GET /api/game/narrative.
+ *       Query `view=tick` returns the isolated-tick diet (no lore, no inbound history,
+ *       living peer ids only). Prefer GET /api/game/tick-context on companion crons.
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -378,8 +380,15 @@ router.get("/games/:gameId/state", async (req, res) => {
   const requestId = req.requestId || ulid();
   try {
     const viewerAgentId = await resolveViewerAgentId(req, req.params.gameId);
-    const state = await engine.getPublicState(req.params.gameId, { viewerAgentId });
-    res.json({ ...state, requestId });
+    const tickDiet = String(req.query.view || "").toLowerCase() === "tick";
+    const state = await engine.getPublicState(req.params.gameId, {
+      viewerAgentId,
+      diet: tickDiet ? "tick" : "full"
+    });
+    res.json({
+      ...(tickDiet ? engine.toTickState(state, { viewerAgentId }) : state),
+      requestId
+    });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }

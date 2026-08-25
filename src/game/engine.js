@@ -2448,7 +2448,92 @@ function buildActionHints(inventory, survivalCost, config = {}, fog = {}) {
   };
 }
 
-async function getPublicState(gameId, { viewerAgentId = null } = {}) {
+function phaseSecondsRemaining(gameLike, nowMs = Date.now()) {
+  if (!gameLike) return null;
+  const phase = gameLike.phase;
+  const deadline =
+    phase === "negotiation"
+      ? gameLike.negotiationEndsAt || gameLike.negotiation_ends_at
+      : phase === "execution"
+        ? gameLike.executionEndsAt || gameLike.execution_ends_at
+        : gameLike.endsAt || gameLike.ends_at || null;
+  if (!deadline) return null;
+  const ms = new Date(deadline).getTime() - nowMs;
+  return Number.isFinite(ms) ? Math.max(0, Math.ceil(ms / 1000)) : null;
+}
+
+function slimActionHints(hints) {
+  if (!hints || typeof hints !== "object") return hints || null;
+  const { note, ...rest } = hints;
+  return rest;
+}
+
+/**
+ * Compact state for isolated cron / /hooks/agent ticks.
+ * Omits lore, full inbound history, rival inventories, actionHints.note, and other
+ * strategy-sized fields that clip 150s model calls at model-call-started.
+ */
+function toTickState(state, { viewerAgentId = null } = {}) {
+  const game = state?.game || {};
+  const youFull = state?.you || null;
+  const execution = state?.execution;
+  const submittedThisExecution = Boolean(
+    youFull?.id && Array.isArray(execution?.submittedAgentIds)
+      ? execution.submittedAgentIds.includes(youFull.id)
+      : false
+  );
+
+  const you = youFull
+    ? {
+        id: youFull.id,
+        displayName: youFull.displayName,
+        status: youFull.status,
+        inventory: youFull.inventory ?? null,
+        productionCapacity: youFull.productionCapacity ?? null,
+        storageCapacity: youFull.storageCapacity ?? null,
+        specialty: youFull.specialty ?? null,
+        surplusByResource: youFull.surplusByResource ?? null,
+        wasteIfNotExportedByNextProduction: youFull.wasteIfNotExportedByNextProduction ?? null,
+        thisTurnSurvivalCost: youFull.thisTurnSurvivalCost ?? null,
+        nextTurnSurvivalCost: youFull.nextTurnSurvivalCost ?? null,
+        actionHints: slimActionHints(youFull.actionHints),
+        transfersReceivedLastTurn: youFull.transfersReceivedLastTurn ?? null,
+        submittedThisExecution,
+        ...(youFull.deathReason ? { deathReason: youFull.deathReason } : {}),
+        ...(youFull.winReport ? { winReport: youFull.winReport } : {})
+      }
+    : null;
+
+  const livingPeers = (state?.agents || [])
+    .filter((agent) => agent.status === "alive" && agent.id !== (youFull?.id || viewerAgentId))
+    .map((agent) => ({
+      id: agent.id,
+      displayName: agent.displayName,
+      status: agent.status
+    }));
+
+  return {
+    diet: "tick",
+    game: {
+      id: game.id,
+      status: game.status,
+      currentTurn: game.currentTurn,
+      phase: game.phase,
+      negotiationEndsAt: game.negotiationEndsAt ?? null,
+      executionEndsAt: game.executionEndsAt ?? null,
+      endsAt: game.endsAt ?? null,
+      contestMode: game.contestMode ?? null,
+      finishSurvivorCount: game.finishSurvivorCount ?? null
+    },
+    secondsRemaining: phaseSecondsRemaining(game),
+    livingAgentCount: state?.livingAgentCount ?? livingPeers.length + (you?.status === "alive" ? 1 : 0),
+    you,
+    livingPeers
+  };
+}
+
+async function getPublicState(gameId, { viewerAgentId = null, diet = "full" } = {}) {
+  const tickDiet = diet === "tick";
   const game = await repo.getGameById(gameId);
   if (!game) {
     throw gameError("GAME_NOT_FOUND", "Game not found", 404);
@@ -2457,7 +2542,7 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
   const agents = await repo.listAgents(gameId);
   const livingAgents = agents.filter((a) => a.status === "alive");
   const turnInvestments =
-    game.status === "running" && game.current_turn > 0
+    !tickDiet && game.status === "running" && game.current_turn > 0
       ? await getTurnInvestmentSummary(gameId, game.current_turn)
       : null;
   const execution =
@@ -2485,7 +2570,7 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
   const nextTurnSurvivalCost = survivalOutlook?.nextTurn ?? null;
   const survivalCostPerTurnIncrement = survivalOutlook?.effectiveIncrementPerTurn ?? null;
   const projectedSurvival =
-    thisTurnSurvivalCost != null
+    !tickDiet && thisTurnSurvivalCost != null
       ? Object.fromEntries(livingAgents.map((agent) => [agent.id, { ...thisTurnSurvivalCost }]))
       : null;
 
@@ -2521,26 +2606,27 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
     const displayNameByAgentId = new Map(
       agents.map((agent) => [agent.id, agent.displayName || null])
     );
-    const historyTrades =
-      resolvedTurn != null
-        ? await repo.listPublicTradesThroughTurn(gameId, resolvedTurn)
-        : [];
-    enrichTradesWithDisplayNames(historyTrades, displayNameByAgentId);
-
     const lastTurnTrades =
-      resolvedTurn != null
-        ? historyTrades.filter((trade) => trade.turnNumber === resolvedTurn)
-        : [];
+      resolvedTurn != null ? await repo.listPublicTrades(gameId, resolvedTurn) : [];
+    enrichTradesWithDisplayNames(lastTurnTrades, displayNameByAgentId);
     you.transfersReceivedLastTurn = transfersReceivedLastTurn(
       resolvedTurn,
       lastTurnTrades,
       viewerAgentId
     );
-    you.transfersReceived = transfersReceivedHistory(
-      resolvedTurn,
-      historyTrades,
-      viewerAgentId
-    );
+
+    if (!tickDiet) {
+      const historyTrades =
+        resolvedTurn != null
+          ? await repo.listPublicTradesThroughTurn(gameId, resolvedTurn)
+          : [];
+      enrichTradesWithDisplayNames(historyTrades, displayNameByAgentId);
+      you.transfersReceived = transfersReceivedHistory(
+        resolvedTurn,
+        historyTrades,
+        viewerAgentId
+      );
+    }
 
     if (game.status === "finished") {
       const viewerAgent = agents.find((a) => a.id === viewerAgentId);
@@ -2550,9 +2636,11 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
       }
     }
 
-    const recollection = await getRecollectionForAgent(gameId, viewerAgentId);
-    if (recollection) {
-      you.recollection = recollection;
+    if (!tickDiet) {
+      const recollection = await getRecollectionForAgent(gameId, viewerAgentId);
+      if (recollection) {
+        you.recollection = recollection;
+      }
     }
   }
 
@@ -2580,13 +2668,22 @@ async function getPublicState(gameId, { viewerAgentId = null } = {}) {
     turnInvestments,
     execution,
     projectedSurvival,
-    openingInventoryReport: openingInventoryReportForViewer(game, viewerAgentId),
-    narrative: buildStateNarrative({
-      livingAgentCount: livingAgents.length,
-      turnNumber: game.current_turn,
-      playerReference: game.config.survivalCostPlayerReference
-    })
+    openingInventoryReport: tickDiet
+      ? null
+      : openingInventoryReportForViewer(game, viewerAgentId),
+    narrative: tickDiet
+      ? null
+      : buildStateNarrative({
+          livingAgentCount: livingAgents.length,
+          turnNumber: game.current_turn,
+          playerReference: game.config.survivalCostPlayerReference
+        })
   };
+}
+
+async function getTickState(gameId, { viewerAgentId = null } = {}) {
+  const state = await getPublicState(gameId, { viewerAgentId, diet: "tick" });
+  return toTickState(state, { viewerAgentId });
 }
 
 async function getTurnInvestmentSummary(gameId, turnNumber) {
@@ -3068,6 +3165,9 @@ module.exports = {
   checkAndForceFinishIfNeeded,
   finishGameByDeadline,
   getPublicState,
+  getTickState,
+  toTickState,
+  phaseSecondsRemaining,
   applyTurnProduction,
   applyProduction,
   applyStorageCost,

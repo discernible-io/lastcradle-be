@@ -26,7 +26,7 @@ const {
   publicGameConfig
 } = require("./defaults");
 const { resolveRoditId, handleGameError } = require("./route-helpers");
-const { listActiveGamesForRodit, listTasksInboxForRodit } = require("./agent-tasks");
+const { listActiveGamesForRodit, listTasksInboxForRodit, listTickContextForRodit } = require("./agent-tasks");
 const { runAgentTick } = require("./tick");
 const { assertPassportIpLoginMethod } = require("./ip-login-method");
 const { AGENT_TYPES } = require("./agent-profile");
@@ -145,6 +145,49 @@ router.get("/tasks", async (req, res) => {
     const includeFinished = req.query.includeFinished === "true" || req.query.includeFinished === "1";
     const { tasks, waitingOn } = await listTasksInboxForRodit(roditId, { includeFinished });
     res.json({ tasks, waitingOn, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/tick-context:
+ *   get:
+ *     summary: Isolated-tick diet — tasks plus compact per-game execute context
+ *     description: >
+ *       One Bearer GET for companion crons and `/hooks/agent`. Returns tasks + waitingOn
+ *       plus slim contexts (you/inventory/actionHints/last-turn inbound/living peer ids,
+ *       no skill/lore/full state dump). Isolated ticks should project then submit from this
+ *       payload — do not re-fetch skill.md. Optional `gameId` filters to one membership.
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-game-auth: jwt-passport
+ */
+router.get("/tick-context", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  const roditId = resolveRoditId(req);
+  if (!roditId) {
+    return sendError(res, {
+      statusCode: 401,
+      requestId,
+      code: "AUTH_REQUIRED",
+      message: "Authenticated agent identity required"
+    });
+  }
+
+  try {
+    const includeFinished = req.query.includeFinished === "true" || req.query.includeFinished === "1";
+    const gameId =
+      typeof req.query.gameId === "string" && req.query.gameId.trim()
+        ? req.query.gameId.trim()
+        : null;
+    const { tasks, waitingOn, contexts } = await listTickContextForRodit(roditId, {
+      includeFinished,
+      gameId
+    });
+    res.json({ tasks, waitingOn, contexts, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
