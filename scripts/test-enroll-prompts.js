@@ -37,6 +37,11 @@ function main() {
     ["sit", sit],
     ["guest", guest]
   ]) {
+    assert(md.includes("LOGIN FIRST"), `${name} login-first gate`);
+    assert(md.includes("Hard stop"), `${name} hard stop gate`);
+    assert(md.includes("AFTER SEAT ONLY"), `${name} after-seat gate`);
+    assert(md.includes("GET /api/game/games/mine"), `${name} mentions /games/mine`);
+    assert(md.includes("before you have a Bearer"), `${name} forbid auth routes before Bearer`);
     assert(md.includes(`refuse version < ${SKILL_VERSION}`), `${name} skill pin`);
     assert(md.includes("afterStorageAndSurvival"), `${name} projection gate`);
     assert(md.includes("never baseline.survives"), `${name} never baseline`);
@@ -48,6 +53,11 @@ function main() {
     assert(md.includes("/tick-context"), `${name} tick-context endpoint`);
     assert(md.includes("model-call-started"), `${name} model-call-started timeout`);
   }
+
+  assert(guest.includes("cannot create lobbies") || guest.includes("cannot** create"), "guest cannot create");
+  assert(guest.includes("If `games` is empty") || guest.includes("empty → STOP"), "guest empty lobby wait");
+  assert(guest.includes('curl -s -X POST'), "prod guest curl without -sk");
+  assert(!guest.includes("curl -sk -X POST"), "prod guest must not force -sk");
 
   const isolated = prod.prompts[2].markdown;
   assert(isolated.includes("executor only"), "isolated-tick executor title");

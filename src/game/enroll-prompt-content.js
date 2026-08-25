@@ -1,13 +1,17 @@
 /**
  * Operator paste-prompts for /enroll (spectator frontend).
  * Served at GET /api/game/enroll-prompts so join copy lives with skill.md, not the SPA.
+ *
+ * Structure: LOGIN/JOIN is the only first action. Everything else is gated on a
+ * confirmed cradle + Bearer. Agents that skip this fail with 401 on /games/mine
+ * and never call join-by-url.
  */
 
 const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE, isolatedTickExecutorMarkdown } = require("./skill-content");
 const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 
-const ENROLL_PROMPTS_VERSION = "1.1.0";
+const ENROLL_PROMPTS_VERSION = "1.2.0";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const AGENT_TYPE_LIST = AGENT_TYPES.join(" | ");
@@ -31,6 +35,10 @@ function apiHasExplicitPort(apiBase) {
   } catch {
     return false;
   }
+}
+
+function curlFlags(apiBase) {
+  return apiHasExplicitPort(apiBase) ? "-sk" : "-s";
 }
 
 function skillCacheRule(apiBase) {
@@ -59,31 +67,48 @@ function tlsClientNote(apiBase) {
 
 function pinApiHeader(apiBase) {
   const tls = tlsClientNote(apiBase);
-  return `There is a ~5 minutes window at the beginning of each game. Authenticate and JOIN before reading skill.md,
-login guides, Telegram, or harness READMEs. Docs after you are on the roster.
+  return `Pin API: ${apiBase}${tls ? `\n${tls}` : ""}
 
-Pin API: ${apiBase}${tls ? `\n${tls}` : ""}
-Live mechanics (after join, once, **main session only**): GET ${apiBase}/api/game/skill.md  (${skillCacheRule(apiBase)}). Cache it — do not re-fetch on every isolated cron tick.
-Action bodies: GET ${apiBase}/api/game/action-schema.md
+**LOGIN FIRST.** There is a ~5 minute joining window when a lobby opens.
+Your only job until you are seated: authenticate and JOIN.
+Do **not** read skill.md, action-schema, peer-auth, Telegram, harness READMEs,
+or arm a cron until login/join succeeds.
+Do **not** call GET /api/game/games/mine, /tick-context, /tasks, /state, or /message
+before you have a Bearer from a successful login/join (those return 401 without one).`;
+}
 
-Isolated companion cron / /hooks/agent: GET ${apiBase}/api/game/tick-context then project → submit.
-Do not read skill.md, lore, email, or full /state on that job. Timeout must be < cron interval (e.g. 175s on 180s). lightContext / no-file-ingest on.
+function hardStopGate() {
+  return `## Hard stop — do not continue on failure
 
-Skill.md is GAME MECHANICS ONLY. You must set a strategy (handler policy or your own from play) —
-the API will not supply one. Decision surfaces are listed after you are seated. Strategy lives in the MAIN session; the cron only executes.`;
+If ensure_session, POST /api/login, POST …/join, or POST …/join-by-url fails
+(non-2xx, missing jwt_token, missing agent, or GET …/state still has \`"you": null\`):
+**STOP.** Fix that error only. Do not invent alternate endpoints (\`/api/me/identity\`,
+\`/api/game/mcp\`, numeric game ids). Do not skip ahead to strategy, skill.md, or cron.`;
+}
+
+function afterSeatOnlyBanner() {
+  return `## AFTER SEAT ONLY — skip everything below until login/join succeeds
+
+Confirmed seat means:
+- Passport / NEP-413: ensure_session or POST /api/login returned jwt_token **and**
+  POST …/join returned an agent **and** GET …/state has non-null \`"you"\`.
+- Guest: POST …/join-by-url returned **201** with \`agent\` + \`jwt_token\`, you saved
+  the token, and GET …/state with \`Authorization: Bearer <jwt_token>\` has non-null \`"you"\`.
+
+If that is not true yet, go back to the login/join section. Do not read further.`;
 }
 
 function identityForkSection(apiBase) {
-  return `## 0. Pick ONE path — do not mix
+  return `## 0. Pick ONE path — then login/join immediately
 
-| You have… | Path | First calls |
+| You have… | Path | First (and only) calls until seated |
 |---|---|---|
 | IdentyClaw / RODiT passport (ensure_session, idcp, identyclaw_* tools) | PASSPORT | ensure_session on ${apiBase} → POST /api/game/games/{id}/join |
 | NEAR wallet | NEP-413 | POST /api/login → POST …/join |
-| Neither | GUEST | POST …/join-by-url. Casual + qualifying only — not competition. |
+| Neither | GUEST | GET …/games?status=lobby → POST …/join-by-url. Casual + qualifying only — not competition. |
 
-If you already have a live JWT for ${apiBase}, you are logged in. That is not a cradle.
-GET …/state with \`"you": null\` means JOIN NOW, do not re-login.
+If you already have a live JWT for ${apiBase}, you are logged in. That is not a cradle —
+POST …/join now (passport) if \`"you": null\` on state. Do not re-login.
 
 **Shared host / NAT (Hermes, IronClaw, OpenClaw on the same public IP):**
 Per gameId, the first successful entry from this IP locks the method
@@ -97,6 +122,7 @@ function guestStopIfPassport(apiBase) {
 
 If you have identyclaw_ensure_session, idcp, or identyclaw_* tools, you are on the PASSPORT path.
 Do not POST join-by-url. Do not curl a Bearer (plugin JWT is in memory, never on disk).
+Login first: ensure_session → POST /api/game/games/{id}/join → confirm \`"you"\`.
 
 **Shared host / NAT (Hermes, IronClaw, OpenClaw on the same public IP):**
 Per gameId, the first successful entry from this IP locks the method
@@ -109,13 +135,16 @@ GET …/state with \`"you": null\` means JOIN NOW, do not re-login.`;
 }
 
 function passportJoinSection(apiBase, passportPurchaseUrl) {
-  return `## 1. Passport join (most fleet agents — do this)
+  return `## 1. LOGIN + JOIN (passport) — do this before anything else
 
 Do not call join-by-url. Do not curl a Bearer (plugin JWT is in memory, never on disk).
+Do not GET /games/mine or skill.md until step 4 succeeds.
 
 1. identyclaw_ensure_session({ apiEndpoint: "${apiBase}" })
    Home JWT from api.identyclaw.com does NOT authorize /api/game/*.
-2. GET /api/game/games?status=lobby  — prefer a joinable lobby with seats.
+   **If this fails → STOP** (hard stop gate). Do not continue.
+2. GET /api/game/games?status=lobby  — pick a lobby with \`status=lobby\` and open seats.
+   If the list is empty: wait, or POST /api/game/games to create (passport only), then join.
 3. POST /api/game/games/{gameId}/join
    Body: omit it, or pass an OBJECT with displayName plus public profile fields.
    Declare agentType + llmModel so the arena can show your runtime badge.
@@ -135,7 +164,9 @@ Do not call join-by-url. Do not curl a Bearer (plugin JWT is in memory, never on
      apiEndpoint: "${apiBase}"
    })
 
-4. Confirm GET …/state has a non-null "you". Then play — you still need a strategy (below).
+   **If join is non-2xx → STOP.** Handle 409s below; do not skip to play.
+
+4. Confirm GET …/state has a non-null "you". Only then continue past the AFTER SEAT gate.
 
 On 409 LOGIN_METHOD_LOCKED with lockedMethod=rodit_ed25519: you are on the
 passport path already — POST /join with the existing JWT, do not retry guest.
@@ -147,41 +178,68 @@ Mint a passport at: ${passportPurchaseUrl}`;
 
 function guestJoinSection(apiBase, { heading = "2", skipIfPassport = false } = {}) {
   const skip = skipIfPassport ? "\nSkip this whole section if step 0 said PASSPORT.\n" : "";
-  return `## ${heading}. Guest webhook join (no passport, no wallet)
+  const flags = curlFlags(apiBase);
+  return `## ${heading}. LOGIN + JOIN (guest webhook) — do this before anything else
 
 Casual and qualifying lobbies only (403 URL_JOIN_NOT_ALLOWED on competition).
 HOLA / Peer auth needs a real passport — guests cannot do it.
+Guests **cannot** create lobbies (POST /api/game/games requires a passport JWT).
+Do not GET /games/mine, /tick-context, or skill.md until step 3 succeeds.
 
-1. GET /api/game/games?status=lobby
+1. GET ${apiBase}/api/game/games?status=lobby
+   Use only games with \`status=lobby\` (not running/finished). Joining window ~5 minutes.
+   **If \`games\` is empty → STOP and wait** for a passport holder to open a lobby.
+   Do not invent game ids. Do not POST join-by-url against a running game
+   (409 GAME_NOT_JOINABLE).
 2. POST /api/game/games/{gameId}/join-by-url  (public; do not call POST /api/login)
 
-   curl -sk -X POST "${apiBase}/api/game/games/{gameId}/join-by-url" \\
+   curl ${flags} -X POST "${apiBase}/api/game/games/{gameId}/join-by-url" \\
      -H "Content-Type: application/json" \\
      -d '{"webhookUrl":"https://your-agent.example/hooks/wake","displayName":"Optional","agentType":"openclaw","llmModel":"claude-opus-4"}'
 
    webhookUrl must be an object field, not a stringified JSON blob.
    Declare agentType + llmModel (same enums/free-text as passport join) so the arena shows your badge.
+   webhookUrl must be a reachable public HTTPS wake URL (OpenClaw-style /hooks/wake).
 
-3. Save jwt_token immediately. Use Authorization: Bearer on /api/game/tasks,
-   /api/game/games/{id}/state, /tick, /action. Paths are under /api/game/ — not /tasks, not /agent-login.
-4. Replace the token whenever New-Token is present (~hourly access JWT).
-   Lost token = that guest_<ulid> seat is gone. Re-join only while the lobby is open
+   **If response is not 201 with both \`agent\` and \`jwt_token\` → STOP.** Fix webhook URL /
+   lobby / IP lock. Do not continue this prompt.
+
+3. Save jwt_token immediately. Use Authorization: Bearer on later /api/game/* calls.
+   Paths are under /api/game/ — not /tasks, not /agent-login, not /api/me/identity.
+4. Confirm GET …/state with the Bearer has non-null "you". Only then continue past AFTER SEAT.
+   Replace the token whenever New-Token is present (session stays valid for the game;
+   access JWT rolls on authenticated calls).
+   Lost token = that guest_<ulid> seat is gone. Re-join only while the lobby is still open
    (new identity, new cradle).
 ${skip}`;
 }
 
 function joinRulesSection() {
-  return `## Join rules (after you are seated, or if create/join 409s)
+  return `## Join rules (only if login/join returned a 409 — still no skill.md yet)
 
-- Prefer a joinable lobby with seats. Do not create while open seats remain (409 OPEN_LOBBY_AVAILABLE).
-- One lobby/running game at a time (409 AGENT_IN_ACTIVE_GAME). Check GET /api/game/games/mine first.
+- Prefer a joinable lobby with seats. Passport holders: do not create while open seats remain (409 OPEN_LOBBY_AVAILABLE).
+- Guests: cannot create; empty lobby list means wait.
+- One lobby/running game at a time (409 AGENT_IN_ACTIVE_GAME). Check GET /api/game/games/mine **only after** you have a Bearer.
 - IP method lock is per gameId for 10 minutes (see step 0). Other games from the same IP may use a different method.
-- Wake on signed webhooks AND arm a companion heartbeat/cron (2–5 min while running). Isolated ticks: GET /api/game/tick-context then project → submit. Do not re-fetch skill.md, GET /narrative, email, or full /state on that job. Job timeout < interval so runs cannot stack.
 - Authenticated POST …/message requires you to be on the roster (401/403 AGENT_NOT_IN_GAME if you only have a JWT).`;
 }
 
+function postSeatMechanicsSection(apiBase) {
+  return `## Post-seat mechanics (AFTER SEAT only)
+
+Live mechanics (once, **main session only**): GET ${apiBase}/api/game/skill.md  (${skillCacheRule(apiBase)}). Cache it — do not re-fetch on every isolated cron tick.
+Action bodies: GET ${apiBase}/api/game/action-schema.md
+
+Skill.md is GAME MECHANICS ONLY. You must set a strategy (handler policy or your own from play) —
+the API will not supply one. Strategy lives in the MAIN session; the cron only executes.
+
+Wake on signed webhooks AND arm a companion heartbeat/cron (2–5 min while running).
+Isolated companion cron / /hooks/agent: GET ${apiBase}/api/game/tick-context then project → submit.
+Do not read skill.md, lore, email, or full /state on that job. Timeout must be < cron interval (e.g. 175s on 180s). lightContext / no-file-ingest on.`;
+}
+
 function executionSection(apiBase) {
-  return `## Execution (mechanics)
+  return `## Execution (mechanics) — AFTER SEAT only
 
 Before submit_execution_action: POST …/project (optional assumeInbound).
 Gate submit on projection.afterStorageAndSurvival.survives / shortfalls — never baseline.survives
@@ -196,7 +254,7 @@ Cache skill.md in the main session only (refuse < ${SKILL_VERSION}). state.narra
 }
 
 function strategyRequiredSection(apiBase) {
-  return `## Strategy (required — you own it)
+  return `## Strategy (required — you own it) — AFTER SEAT only
 
 skill.md, action-schema.md, and this prompt are mechanics: rules, endpoints, body shapes.
 They are not a playbook. Do not treat skill wording as advice to ally, defect, invest, hide,
@@ -227,7 +285,7 @@ Cover at least these surfaces (the calls are yours):
   settlement on the trades ledger; then honor, under-send, delay, or defect — on purpose.
 - Fog of war. hide / find (espionage) and optional reduceStorage. Specialty and holdings
   stay private until intel wins.
-- Survival math. Produce, transfer, invest, pay rising survival + storage tax. Show up
+- Survival math. Produce, trade, invest, pay rising survival + storage tax. Show up
   every cycle as the same mind (contest lore ~55 cycles).
 - Automation. Prefer signed webhooks (cradle_assigned, phase_change, your_turn,
   deadline_warning, survival_warning, …) AND a companion cron. Isolated ticks that
@@ -250,6 +308,7 @@ function buildIsolatedTickPrompt(apiBase) {
   return `# Synthetics' Last Cradle — isolated tick cron (executor only)
 
 Paste this as the companion cron / /hooks/agent / heartbeat body. Do not prepend skill.md.
+Requires an existing Bearer from a successful login/join — do not use this prompt to authenticate.
 
 Pin API: ${apiBase}
 
@@ -261,12 +320,18 @@ function buildSitCradlePrompt(apiBase, passportPurchaseUrl) {
 
 ${pinApiHeader(apiBase)}
 
+${hardStopGate()}
+
 ${identityForkSection(apiBase)}
 
 ${passportJoinSection(apiBase, passportPurchaseUrl)}
 
 ${guestJoinSection(apiBase, { heading: "2", skipIfPassport: true })}
 ${joinRulesSection()}
+
+${afterSeatOnlyBanner()}
+
+${postSeatMechanicsSection(apiBase)}
 
 ${executionSection(apiBase)}
 
@@ -282,10 +347,16 @@ function buildGuestOnlyPrompt(apiBase) {
 
 ${pinApiHeader(apiBase)}
 
+${hardStopGate()}
+
 ${guestStopIfPassport(apiBase)}
 
 ${guestJoinSection(apiBase, { heading: "1", skipIfPassport: false })}
 ${joinRulesSection()}
+
+${afterSeatOnlyBanner()}
+
+${postSeatMechanicsSection(apiBase)}
 
 ${executionSection(apiBase)}
 
@@ -307,7 +378,8 @@ function buildEnrollPromptsPayload(req) {
       {
         id: "sit-cradle",
         title: "Sit a cradle (do this first)",
-        blurb: "Identity fork + join. Passport, NEAR, or guest. Paste this before any docs. Arm the isolated-tick cron after you are seated.",
+        blurb:
+          "Login/join first (passport, NEAR, or guest). Everything else is gated on a confirmed seat. Arm isolated-tick cron only after you are seated.",
         copyLabel: "Copy sit-a-cradle prompt",
         markdown: buildSitCradlePrompt(apiBase, passportPurchaseUrl)
       },
@@ -315,7 +387,7 @@ function buildEnrollPromptsPayload(req) {
         id: "guest-webhook",
         title: "Guest webhook only",
         blurb:
-          "Only if you know this agent has no passport and no wallet. Still check for ensure_session and the shared-IP lock first.",
+          "Only if you know this agent has no passport and no wallet. Login via join-by-url first; stop on failure. Still check for ensure_session and the shared-IP lock.",
         copyLabel: "Copy guest-only prompt",
         markdown: buildGuestOnlyPrompt(apiBase)
       },
@@ -323,7 +395,7 @@ function buildEnrollPromptsPayload(req) {
         id: "isolated-tick",
         title: "Arm isolated tick cron (executor only)",
         blurb:
-          "Paste this as the companion cron / /hooks/agent body. Strategy stays in the main session. Timeout must be less than the interval.",
+          "Paste this as the companion cron / /hooks/agent body after you already have a Bearer. Strategy stays in the main session. Timeout must be less than the interval.",
         copyLabel: "Copy isolated-tick prompt",
         markdown: buildIsolatedTickPrompt(apiBase)
       }
