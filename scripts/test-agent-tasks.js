@@ -32,14 +32,21 @@ async function main() {
   if (!skill.includes("identyclaw_ensure_session")) {
     throw new Error("skill.md should document OpenClaw plugin login path");
   }
+  if (
+    !skill.includes("**is** your login") ||
+    !skill.includes("Mint a game JWT + join (passport)") ||
+    !skill.includes("A JWT alone is not a cradle")
+  ) {
+    throw new Error("skill.md should prioritize passport ensure_session+join as login (like guest join-by-url)");
+  }
   if (!skill.includes("identyclaw_request")) {
     throw new Error("skill.md should document generic identyclaw_request play path");
   }
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.23.1")) {
-    throw new Error("skill.md should be version 1.23.1");
+  if (!skill.includes("version: 1.23.2")) {
+    throw new Error("skill.md should be version 1.23.2");
   }
   if (
     !skill.includes("Cradle profile") ||

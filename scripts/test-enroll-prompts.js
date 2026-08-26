@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Operator enroll prompts: live skill pin, projection gate, write path /message.
+ * Operator enroll prompts: login-only sit/guest pastes + isolated-tick executor.
  */
 
 const {
@@ -8,6 +8,9 @@ const {
   buildEnrollPromptsPayload
 } = require("../src/game/enroll-prompt-content");
 const { SKILL_VERSION } = require("../src/game/skill-content");
+
+/** Soft ceiling — better Telegram paste, not a hard Bot API guarantee. */
+const LOGIN_PROMPT_SOFT_MAX = 8000;
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -23,6 +26,7 @@ function mockReq(host) {
 function main() {
   const prod = buildEnrollPromptsPayload(mockReq("api.lastcradle.io"));
   assert(prod.version === ENROLL_PROMPTS_VERSION, "bundle version");
+  assert(prod.version === "1.5.0", "enroll prompts version 1.5.0");
   assert(prod.skillVersion === SKILL_VERSION, `skill pin ${SKILL_VERSION}`);
   assert(prod.apiBase === "https://api.lastcradle.io", `prod apiBase ${prod.apiBase}`);
   assert(prod.prompts.length === 3, "three prompts");
@@ -39,36 +43,39 @@ function main() {
   ]) {
     assert(md.includes("LOGIN FIRST"), `${name} login-first gate`);
     assert(md.includes("Hard stop"), `${name} hard stop gate`);
-    assert(md.includes("AFTER SEAT ONLY"), `${name} after-seat gate`);
-    assert(md.includes("GET /api/game/games/mine"), `${name} mentions /games/mine`);
+    assert(md.includes("AFTER SEAT"), `${name} after-seat handoff`);
+    assert(md.includes("login only") || md.includes("this prompt ends"), `${name} login-only handoff`);
+    assert(md.includes("/games/mine"), `${name} mentions /games/mine`);
     assert(md.includes("before you have a Bearer"), `${name} forbid auth routes before Bearer`);
-    assert(md.includes(`refuse version < ${SKILL_VERSION}`), `${name} skill pin`);
-    assert(md.includes("afterStorageAndSurvival"), `${name} projection gate`);
-    assert(md.includes("never baseline.survives"), `${name} never baseline`);
-    assert(!md.includes("read baseline.survives"), `${name} must not gate on baseline`);
-    assert(md.includes("POST …/message") || md.includes("POST .../message"), `${name} write /message`);
-    assert(!md.includes("POST …/messages") && !md.includes("POST .../messages"), `${name} no POST /messages`);
-    assert(md.includes("Do not re-fetch"), `${name} cache skill on isolated ticks`);
-    assert(md.includes("survival-only") || md.includes("companion cron"), `${name} isolated-tick diet`);
-    assert(md.includes("/tick-context"), `${name} tick-context endpoint`);
-    assert(md.includes("model-call-started"), `${name} model-call-started timeout`);
+    assert(md.includes(`refuse version < ${SKILL_VERSION}`), `${name} skill pin in handoff`);
+    assert(md.includes("/api/game/skill.md"), `${name} handoff to skill.md`);
+    assert(md.includes("isolated-tick"), `${name} handoff to isolated-tick`);
+    assert(md.includes("/api/game/action-schema.md"), `${name} handoff to action-schema`);
+    assert(md.includes("/api/game/peer-auth.md"), `${name} handoff to peer-auth`);
+    assert(md.length <= LOGIN_PROMPT_SOFT_MAX, `${name} stays compact for paste (${md.length})`);
+    // Play/execution content must live in skill.md — not duplicated here.
+    assert(!md.includes("afterStorageAndSurvival"), `${name} no projection gate (skill only)`);
+    assert(!md.includes("Strategy (required"), `${name} no strategy section`);
+    assert(!md.includes("Post-seat mechanics"), `${name} no post-seat mechanics section`);
+    assert(!md.includes("## Isolated tick"), `${name} no inlined isolated-tick body`);
+    assert(!md.includes("model-call-started"), `${name} no isolated-tick diet detail`);
   }
 
   assert(guest.includes("cannot create lobbies") || guest.includes("cannot** create"), "guest cannot create");
-  assert(guest.includes("If `games` is empty") || guest.includes("empty → STOP"), "guest empty lobby wait");
+  assert(guest.includes("Empty → STOP") || guest.includes("empty → STOP") || guest.includes("If `games` is empty"), "guest empty lobby wait");
   assert(guest.includes("jwtLen"), "guest jwtLen validation hint");
   assert(guest.includes("whole game") || guest.includes("full contest"), "guest whole-game session");
   assert(!guest.includes("guest-reclaim") && !guest.includes("guest_reclaim"), "guest must not mention reclaim");
   assert(guest.includes("curl -s -X POST") || guest.includes("curl ${flags}"), "prod guest curl without forced -sk");
   assert(!guest.includes("curl -sk -X POST"), "prod guest must not force -sk");
   assert(guest.includes("$HOME/.slc/guest.jwt"), "guest durable JWT file");
-  assert(guest.includes("never** copy it from chat") || guest.includes("never copy it from chat"), "guest forbid copying JWT from chat");
-  assert(guest.includes("filter, truncate, or mask"), "guest JWT filter failure mode");
+  assert(guest.includes("never** copy") || guest.includes("never copy"), "guest forbid copying JWT from chat");
+  assert(guest.includes("filter") && guest.includes("mask"), "guest JWT filter failure mode");
   assert(guest.includes("storeAuth"), "guest OpenClaw storeAuth optional path");
-  assert(guest.includes("OpenClaw (only if you have bearer-http"), "guest bearer-http is optional");
+  assert(guest.includes("OpenClaw bearer-http") || guest.includes("bearer-http"), "guest bearer-http is optional");
   assert(prod.prompts[1].title.includes("no passport"), "guest prompt title is universal");
 
-  assert(guest.includes("never bare") || guest.includes("ENDPOINT_NOT_FOUND") || guest.includes("bare `GET"), "guest bare-GET /games/{id} warning");
+  assert(guest.includes("never bare") || guest.includes("ENDPOINT_NOT_FOUND") || guest.includes("bare GET"), "guest bare-GET /games/{id} warning");
   assert(guest.includes("contexts") && (guest.includes("auth/storage") || guest.includes("lobby quiet")), "guest lobby tick-context empty warning");
 
   const isolated = prod.prompts[2].markdown;
@@ -79,10 +86,17 @@ function main() {
   assert(isolated.includes("Never** call ensure_session") || isolated.includes("Never call ensure_session") || isolated.includes("**Never** call ensure_session"), "isolated-tick forbids ensure_session on guest");
   assert(isolated.includes("contexts: []") || isolated.includes("contexts[]"), "isolated-tick lobby contexts expectation");
   assert(!isolated.includes("GET /api/game/skill.md") || isolated.includes("Do **not** GET /api/game/skill.md"), "isolated-tick must forbid skill.md fetch");
+  assert(isolated.includes("afterStorageAndSurvival") || isolated.includes("survives"), "isolated-tick keeps projection gate");
 
   assert(sit.includes("Pick ONE path"), "sit identity fork");
+  assert(sit.includes("guest-webhook"), "sit points guests to guest-webhook prompt");
+  assert(sit.includes("is** your login") || sit.includes("**is** your login"), "sit passport frames ensure_session+join as login");
+  assert(sit.includes("login first"), "sit title prioritizes login");
   assert(guest.includes("If ensure_session exists"), "guest stop-if-passport");
   assert(!guest.includes("Passport join (most fleet"), "guest prompt omits passport join section");
+  assert(!sit.includes("$HOME/.slc/guest.jwt"), "sit omits guest JWT file recipe");
+  assert(prod.prompts[0].blurb.toLowerCase().includes("login only"), "sit blurb says login only");
+  assert(prod.prompts[1].blurb.toLowerCase().includes("login only"), "guest blurb says login only");
 
   const dev = buildEnrollPromptsPayload(mockReq("slcapi.dihola.io"));
   assert(dev.apiBase.includes(":9443"), `dev apiBase should pin :9443, got ${dev.apiBase}`);
