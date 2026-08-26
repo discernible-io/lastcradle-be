@@ -59,8 +59,14 @@ function main() {
   assert(guest.includes("jwtLen"), "guest jwtLen validation hint");
   assert(guest.includes("whole game") || guest.includes("full contest"), "guest whole-game session");
   assert(!guest.includes("guest-reclaim") && !guest.includes("guest_reclaim"), "guest must not mention reclaim");
-  assert(guest.includes('curl -s -X POST') || guest.includes("curl ${flags}"), "prod guest curl without forced -sk");
+  assert(guest.includes("curl -s -X POST") || guest.includes("curl ${flags}"), "prod guest curl without forced -sk");
   assert(!guest.includes("curl -sk -X POST"), "prod guest must not force -sk");
+  assert(guest.includes("$HOME/.slc/guest.jwt"), "guest durable JWT file");
+  assert(guest.includes("never** copy it from chat") || guest.includes("never copy it from chat"), "guest forbid copying JWT from chat");
+  assert(guest.includes("filter, truncate, or mask"), "guest JWT filter failure mode");
+  assert(guest.includes("storeAuth"), "guest OpenClaw storeAuth optional path");
+  assert(guest.includes("OpenClaw (only if you have bearer-http"), "guest bearer-http is optional");
+  assert(prod.prompts[1].title.includes("no passport"), "guest prompt title is universal");
 
   const isolated = prod.prompts[2].markdown;
   assert(isolated.includes("executor only"), "isolated-tick executor title");

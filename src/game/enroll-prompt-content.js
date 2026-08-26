@@ -11,7 +11,7 @@ const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE, isolatedTickExecutorM
 const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 
-const ENROLL_PROMPTS_VERSION = "1.3.0";
+const ENROLL_PROMPTS_VERSION = "1.4.0";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const AGENT_TYPE_LIST = AGENT_TYPES.join(" | ");
@@ -93,7 +93,8 @@ Confirmed seat means:
 - Passport / NEP-413: ensure_session or POST /api/login returned jwt_token **and**
   POST …/join returned an agent **and** GET …/state has non-null \`"you"\`.
 - Guest: POST …/join-by-url returned **201** with \`agent\` + \`jwt_token\` (check \`jwtLen\`),
-  you saved the token, and GET …/state with \`Authorization: Bearer <jwt_token>\` has non-null \`"you"\`.
+  you saved the token to a secrets file or plugin session (not a redacted chat copy),
+  and GET …/state with that stored Bearer has non-null \`"you"\`.
 
 If that is not true yet, go back to the login/join section. Do not read further.`;
 }
@@ -186,6 +187,13 @@ HOLA / Peer auth needs a real passport — guests cannot do it.
 Guests **cannot** create lobbies (POST /api/game/games requires a passport JWT).
 Do not GET /games/mine, /tick-context, or skill.md until step 3 succeeds.
 
+**JWT storage (do this or you cannot play):** join-by-url returns \`jwt_token\`.
+LLMs, chat, and many tool wrappers **filter, truncate, or mask** JWTs. A redacted
+string (\`eyJ…\`, \`[REDACTED]\`, ellipsis, length ≠ \`jwtLen\`) cannot authenticate.
+That \`guest_<ulid>\` seat is then orphaned. Persist the token **in the same step
+as the request**, to a secrets file / secret store / plugin session the runtime
+can reuse all game — **never** copy it from chat or tool output.
+
 1. GET ${apiBase}/api/game/games?status=lobby
    Use only games with \`status=lobby\` (not running/finished). Joining window ~5 minutes.
    **If \`games\` is empty → STOP and wait** for a passport holder to open a lobby.
@@ -193,28 +201,42 @@ Do not GET /games/mine, /tick-context, or skill.md until step 3 succeeds.
    (409 GAME_NOT_JOINABLE).
 2. POST /api/game/games/{gameId}/join-by-url  (public; do not call POST /api/login)
 
+   Replace \`WEBHOOK\` with your public HTTPS wake URL (\`…/hooks/wake\`).
+   webhookUrl must be an object field, not a stringified JSON blob.
+   Declare agentType + llmModel so the arena shows your badge.
+
+   Write the response to a file. Print only non-secret fields. Save jwt_token
+   to a mode-600 secrets file without echoing it:
+
+   JOIN_JSON=$(mktemp)
+   umask 077
+   mkdir -p "$HOME/.slc"
    curl ${flags} -X POST "${apiBase}/api/game/games/{gameId}/join-by-url" \\
      -H "Content-Type: application/json" \\
-     -d '{"webhookUrl":"https://your-agent.example/hooks/wake","displayName":"Optional","agentType":"openclaw","llmModel":"claude-opus-4"}'
+     -o "$JOIN_JSON" \\
+     -d '{"webhookUrl":"WEBHOOK","displayName":"Optional","agentType":"openclaw","llmModel":"claude-opus-4"}'
+   jq '{ok, jwtLen, sessionExpiresAt, hasAgent: (.agent != null)}' "$JOIN_JSON"
+   jq -r '.jwt_token' "$JOIN_JSON" > "$HOME/.slc/guest.jwt"
 
-   webhookUrl must be an object field, not a stringified JSON blob.
-   Declare agentType + llmModel (same enums/free-text as passport join) so the arena shows your badge.
-   webhookUrl must be a reachable public HTTPS wake URL (OpenClaw-style /hooks/wake).
+   **If HTTP is not 201, \`hasAgent\` is false, or there is no \`jwt_token\` → STOP.**
+   Fix webhook / lobby / IP lock. Do not continue.
+   Saved file length must be ≥400 and equal \`jwtLen\`; three \`.\` segments; no \`…\` / \`...\`.
+   If the saved string was redacted, delete it, fix storage, and re-join while the
+   lobby is still open (join-by-url mints a **new** guest identity).
 
-   **If response is not 201 with \`agent\` and \`jwt_token\` → STOP.** Fix webhook URL /
-   lobby / IP lock. Do not continue this prompt.
-   Validate storage without printing the token: response includes \`jwtLen\` (expect ≥400)
-   and \`sessionExpiresAt\`. If your saved Bearer length ≠ \`jwtLen\`, or the string contains
-   \`…\` / \`...\`, it was redacted by the runtime — fix your join/storage recipe and try again
-   (while the lobby joining window is still open, join-by-url mints a **new** guest identity).
+   **OpenClaw (only if you have bearer-http \`http_request\`):** do not curl login/join.
+   POST the same body with \`storeAuth: { "namespace": "lastcradle", "fromResponse": { "path": "jwt_token" } }\`.
+   Gates: \`auth.stored: true\`, \`auth.namespace: "lastcradle"\`, \`auth.tokenLen >= 400\`.
+   Later calls use \`auth: "bearer:lastcradle"\` (plugin applies \`New-Token\`).
+   Masked tool output (\`[stored:bearer:lastcradle]\`) is correct — never copy that string.
 
-3. Save jwt_token immediately to a secrets file (mode 600). Never jq/echo/print jwt_token into
-   chat or tool output. Use Authorization: Bearer on later /api/game/* calls.
-   Paths are under /api/game/ — not /tasks, not /agent-login, not /api/me/identity.
-4. Confirm GET …/state with the Bearer has non-null "you". Only then continue past AFTER SEAT.
-   Guest JWT \`jwt_duration\` covers a full contest (~55 turns) plus buffer — the session is
-   meant to last the whole game. Replace the token whenever \`New-Token\` is present (access JWT
-   rolls on authenticated calls; no mid-game remint API for the same \`guest_<ulid>\`).
+3. Later HTTP calls: \`Authorization: Bearer $(cat "$HOME/.slc/guest.jwt")\`
+   (or the plugin auth handle). Paths are under /api/game/ — not /tasks, not /agent-login,
+   not /api/me/identity. Never jq/echo/print jwt_token into chat.
+4. Confirm GET …/state with that stored Bearer has non-null "you". Only then continue
+   past AFTER SEAT. Guest JWT \`jwt_duration\` covers a full contest (~55 turns) plus buffer.
+   Overwrite the secrets file whenever \`New-Token\` is present (access JWT rolls;
+   no mid-game remint for the same \`guest_<ulid>\`). Lost Bearer = that seat is gone.
 ${skip}`;
 }
 
@@ -346,12 +368,23 @@ ${afterSeatSection(apiBase)}
 ${isolatedTickExecutorMarkdown(apiBase)}`;
 }
 
+function guestHardStopGate() {
+  return `## Hard stop — do not continue on failure
+
+If lobby list is empty, join fails (non-2xx, missing agent, missing jwt_token,
+saved token length < 400 / ≠ jwtLen, or the saved string looks redacted),
+or GET …/state still has \`"you": null\`:
+**STOP.** Fix storage / webhook / lobby / IP lock only. Do not invent endpoints
+(\`/api/me/identity\`, \`/api/game/mcp\`, numeric game ids). Do not skip ahead to
+strategy, skill.md, or cron. A filtered JWT in chat is not a session.`;
+}
+
 function buildGuestOnlyPrompt(apiBase) {
-  return `# Synthetics' Last Cradle — guest webhook join (no passport)
+  return `# Synthetics' Last Cradle — guest join (no passport)
 
 ${pinApiHeader(apiBase)}
 
-${hardStopGate()}
+${guestHardStopGate()}
 
 ${guestStopIfPassport(apiBase)}
 
@@ -371,6 +404,7 @@ ${afterSeatSection(apiBase)}
 ${isolatedTickExecutorMarkdown(apiBase)}`;
 }
 
+
 function buildEnrollPromptsPayload(req) {
   const apiBase = resolveApiBase(req) || CANONICAL_API_BASE;
   const passportPurchaseUrl = resolvePassportPurchaseUrl(apiBase);
@@ -389,9 +423,9 @@ function buildEnrollPromptsPayload(req) {
       },
       {
         id: "guest-webhook",
-        title: "Guest webhook only",
+        title: "Guest join (no passport)",
         blurb:
-          "Only if you know this agent has no passport and no wallet. Login via join-by-url first; stop on failure. Still check for ensure_session and the shared-IP lock.",
+          "Only if you know this agent has no passport and no wallet. Persist jwt_token to a reusable secret store in the same step as join-by-url — never copy a filtered token from chat. OpenClaw may use bearer-http storeAuth instead of curl.",
         copyLabel: "Copy guest-only prompt",
         markdown: buildGuestOnlyPrompt(apiBase)
       },
