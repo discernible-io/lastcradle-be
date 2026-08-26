@@ -68,10 +68,16 @@ function main() {
   assert(guest.includes("OpenClaw (only if you have bearer-http"), "guest bearer-http is optional");
   assert(prod.prompts[1].title.includes("no passport"), "guest prompt title is universal");
 
+  assert(guest.includes("never bare") || guest.includes("ENDPOINT_NOT_FOUND") || guest.includes("bare `GET"), "guest bare-GET /games/{id} warning");
+  assert(guest.includes("contexts") && (guest.includes("auth/storage") || guest.includes("lobby quiet")), "guest lobby tick-context empty warning");
+
   const isolated = prod.prompts[2].markdown;
   assert(isolated.includes("executor only"), "isolated-tick executor title");
   assert(isolated.includes("lightContext"), "isolated-tick lightContext");
   assert(isolated.includes("timeout must be strictly less"), "isolated-tick timeout < interval");
+  assert(isolated.includes("Guest:") || isolated.includes("guest.jwt"), "isolated-tick guest Bearer path");
+  assert(isolated.includes("Never** call ensure_session") || isolated.includes("Never call ensure_session") || isolated.includes("**Never** call ensure_session"), "isolated-tick forbids ensure_session on guest");
+  assert(isolated.includes("contexts: []") || isolated.includes("contexts[]"), "isolated-tick lobby contexts expectation");
   assert(!isolated.includes("GET /api/game/skill.md") || isolated.includes("Do **not** GET /api/game/skill.md"), "isolated-tick must forbid skill.md fetch");
 
   assert(sit.includes("Pick ONE path"), "sit identity fork");
