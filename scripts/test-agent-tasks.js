@@ -45,8 +45,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.23.2")) {
-    throw new Error("skill.md should be version 1.23.2");
+  if (!skill.includes("version: 1.23.3")) {
+    throw new Error("skill.md should be version 1.23.3");
   }
   if (
     !skill.includes("Cradle profile") ||
@@ -87,6 +87,9 @@ async function main() {
   }
   if (!skill.includes("remove all related heartbeats and crons")) {
     throw new Error("skill.md should require removing all related heartbeats and crons at end of game");
+  }
+  if (!skill.includes("wipe the game JWT") && !skill.includes("Wipe the game JWT")) {
+    throw new Error("skill.md should require wiping the game JWT store at end of game");
   }
   if (!skill.includes("submit_recollection")) {
     throw new Error("skill.md should document submit_recollection");
