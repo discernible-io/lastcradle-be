@@ -10,7 +10,8 @@
   "SECURITY_OPTIONS": {
     "SESSION_SECRET": "HMAC-session-secret-is-not-set",
     "SILENT_LOGIN_FAILURES": "false",
-    "WEBHOOK_TLS_SKIP_VERIFY": "true"
+    "WEBHOOK_TLS_SKIP_VERIFY": "true",
+    "SESSION_TTL_SECONDS": 30300
   },
   "SERVERPORT": 8080,
   "SERVICE_NAME": "slcapi.dihola.io",
