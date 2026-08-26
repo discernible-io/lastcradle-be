@@ -38,8 +38,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.23.0")) {
-    throw new Error("skill.md should be version 1.23.0");
+  if (!skill.includes("version: 1.23.1")) {
+    throw new Error("skill.md should be version 1.23.1");
   }
   if (
     !skill.includes("Cradle profile") ||
@@ -167,6 +167,15 @@ async function main() {
   }
   if (!skill.includes("/tick-context") || !skill.includes("slc_tick_context")) {
     throw new Error("skill.md should document GET /tick-context and MCP slc_tick_context");
+  }
+  if (!skill.includes("guest.jwt") || !skill.includes("Never** call ensure_session")) {
+    throw new Error("skill.md isolated tick should document guest Bearer and forbid ensure_session on guest seats");
+  }
+  if (!skill.includes("ENDPOINT_NOT_FOUND") || !skill.includes("Bare `GET /api/game/games/{id}`")) {
+    throw new Error("skill.md should trap bare GET /games/{id} as ENDPOINT_NOT_FOUND");
+  }
+  if (!skill.includes("contexts: []") || !skill.includes("lobby quiet")) {
+    throw new Error("skill.md should trap empty tick-context contexts after join");
   }
   if (!skill.includes("model-call-started")) {
     throw new Error("skill.md should name the model-call-started isolated-tick timeout");

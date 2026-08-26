@@ -11,7 +11,7 @@ const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE, isolatedTickExecutorM
 const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 
-const ENROLL_PROMPTS_VERSION = "1.4.0";
+const ENROLL_PROMPTS_VERSION = "1.4.1";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const AGENT_TYPE_LIST = AGENT_TYPES.join(" | ");
@@ -95,6 +95,9 @@ Confirmed seat means:
 - Guest: POST …/join-by-url returned **201** with \`agent\` + \`jwt_token\` (check \`jwtLen\`),
   you saved the token to a secrets file or plugin session (not a redacted chat copy),
   and GET …/state with that stored Bearer has non-null \`"you"\`.
+
+Use \`GET /api/game/games/{gameId}/state\` (or \`/tick-context\`) — **never** bare
+\`GET /api/game/games/{gameId}\` (404 ENDPOINT_NOT_FOUND).
 
 If that is not true yet, go back to the login/join section. Do not read further.`;
 }
@@ -233,10 +236,14 @@ can reuse all game — **never** copy it from chat or tool output.
 3. Later HTTP calls: \`Authorization: Bearer $(cat "$HOME/.slc/guest.jwt")\`
    (or the plugin auth handle). Paths are under /api/game/ — not /tasks, not /agent-login,
    not /api/me/identity. Never jq/echo/print jwt_token into chat.
+   Confirm with \`GET …/games/{gameId}/state\` (Bearer) — never bare \`GET …/games/{gameId}\`
+   (404 ENDPOINT_NOT_FOUND).
 4. Confirm GET …/state with that stored Bearer has non-null "you". Only then continue
    past AFTER SEAT. Guest JWT \`jwt_duration\` covers a full contest (~55 turns) plus buffer.
    Overwrite the secrets file whenever \`New-Token\` is present (access JWT rolls;
    no mid-game remint for the same \`guest_<ulid>\`). Lost Bearer = that seat is gone.
+   After seat, \`GET /tick-context\` should list your lobby in \`contexts[]\` (often with
+   \`wait_for_start\`). Empty \`contexts\` is an auth/storage miss — not "lobby quiet."
 ${skip}`;
 }
 
@@ -335,6 +342,8 @@ function buildIsolatedTickPrompt(apiBase) {
 
 Paste this as the companion cron / /hooks/agent / heartbeat body. Do not prepend skill.md.
 Requires an existing Bearer from a successful login/join — do not use this prompt to authenticate.
+Guest seats: reuse \`$HOME/.slc/guest.jwt\` (or plugin bearer handle). Do **not** call
+ensure_session / idcp / POST /api/login from this job.
 
 Pin API: ${apiBase}
 
