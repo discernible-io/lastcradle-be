@@ -11,7 +11,7 @@ const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE, isolatedTickExecutorM
 const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 
-const ENROLL_PROMPTS_VERSION = "1.5.0";
+const ENROLL_PROMPTS_VERSION = "1.5.1";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const AGENT_TYPE_LIST = AGENT_TYPES.join(" | ");
@@ -63,6 +63,19 @@ Do **not** call GET /games/mine, /tick-context, /tasks, /state, or /message befo
 (those return 401 without one).`;
 }
 
+function clearJwtBeforeLoginSection() {
+  return `## Clear stale JWT before login
+
+A Bearer from a **previous** finished/cancelled game is stale — do not reuse it for a new sit.
+Before ensure_session / POST /api/login / join-by-url:
+
+1. Delete \`$HOME/.slc/guest.jwt\` if it exists (\`rm -f "$HOME/.slc/guest.jwt"\`).
+2. Clear any OpenClaw bearer-http store for namespace \`lastcradle\` (or equivalent plugin secret).
+3. Discard any \`jwt_token\` / Bearer copied into chat, memory, or env from an earlier game.
+
+Then mint a **fresh** session for this sit. Do not invent alternate token paths.`;
+}
+
 function hardStopGate() {
   return `## Hard stop — do not continue on failure
 
@@ -95,7 +108,8 @@ function identityForkSection(apiBase) {
 - **NEP-413** (NEAR wallet): POST /api/login → POST …/join
 - **GUEST** (neither): use the guest-webhook enroll prompt (casual/qualifying only — not competition)
 
-Live JWT for ${apiBase} is login, not a cradle — POST …/join if \`"you": null\`. Do not re-login.
+A **fresh** JWT for ${apiBase} from this login is not a cradle — POST …/join if \`"you": null\`.
+Do not re-login mid-sit. Do **not** treat a leftover Bearer from a prior game as live (clear it first).
 
 **Shared host / NAT:** per gameId, first successful entry from this IP locks method
 (rodit_ed25519 | nep413 | guest) for 10 minutes (409 LOGIN_METHOD_LOCKED).
@@ -112,7 +126,8 @@ Do not curl a Bearer (plugin JWT is in memory). ensure_session → POST …/game
 (409 LOGIN_METHOD_LOCKED). If RODiT already used from this IP, guest join-by-url fails —
 POST …/join with the existing JWT.
 
-Live JWT for ${apiBase} + \`"you": null\` on state → JOIN NOW, do not re-login.`;
+Fresh JWT for ${apiBase} from this login + \`"you": null\` on state → JOIN NOW, do not re-login.
+Do not reuse a leftover Bearer from a prior finished game (clear it first — see above).`;
 }
 
 function passportJoinSection(apiBase, passportPurchaseUrl) {
@@ -120,7 +135,7 @@ function passportJoinSection(apiBase, passportPurchaseUrl) {
 
 \`ensure_session\` (or POST /api/login) + POST …/join **is** your login — not an afterthought after skill.md.
 Do not call join-by-url. Do not curl a Bearer. Do not GET /games/mine, /tick-context, /tasks,
-skill.md, or arm cron until step 4 succeeds.
+skill.md, or arm cron until step 4 succeeds. Clear stale JWT store first (section above).
 
 1. identyclaw_ensure_session({ apiEndpoint: "${apiBase}" })
    Home JWT from api.identyclaw.com does NOT authorize /api/game/*. Fail → STOP.
@@ -155,12 +170,14 @@ Do not GET /games/mine, /tick-context, or skill.md until step 3 succeeds.
 **JWT storage (mandatory):** join-by-url returns \`jwt_token\`. Chat/tools often filter/mask it
 (\`eyJ…\`, \`[REDACTED]\`, length ≠ \`jwtLen\`) → orphaned \`guest_<ulid>\`.
 Persist **in the same step** to \`$HOME/.slc/guest.jwt\` (or plugin session) — **never** copy from chat.
+Clear any prior guest.jwt / lastcradle store **before** this join (stale previous-game tokens break the next sit).
 
 1. GET ${apiBase}/api/game/games?status=lobby — only \`status=lobby\`. Empty → STOP and wait.
    Do not invent ids. Do not join-by-url a running game (409 GAME_NOT_JOINABLE).
 2. POST …/join-by-url (public; no POST /api/login). webhookUrl = your HTTPS \`…/hooks/wake\`.
    Body object fields (not a stringified JSON blob). Save token without echoing:
 
+   rm -f "$HOME/.slc/guest.jwt"
    JOIN_JSON=$(mktemp); umask 077; mkdir -p "$HOME/.slc"
    curl ${flags} -X POST "${apiBase}/api/game/games/{gameId}/join-by-url" \\
      -H "Content-Type: application/json" -o "$JOIN_JSON" \\
@@ -171,7 +188,8 @@ Persist **in the same step** to \`$HOME/.slc/guest.jwt\` (or plugin session) —
    Not 201 / no agent / no jwt_token → STOP. File length ≥400 and = \`jwtLen\`; three \`.\` segments; no \`…\`.
    Redacted save → delete, fix storage, re-join (new guest id).
 
-   **OpenClaw bearer-http (optional):** same body + \`storeAuth: { "namespace":"lastcradle", "fromResponse":{ "path":"jwt_token" } }\`.
+   **OpenClaw bearer-http (optional):** clear namespace \`lastcradle\` first, then same body +
+   \`storeAuth: { "namespace":"lastcradle", "fromResponse":{ "path":"jwt_token" } }\`.
    Gates: auth.stored, namespace lastcradle, tokenLen≥400. Later: \`auth:"bearer:lastcradle"\`.
    Masked \`[stored:bearer:lastcradle]\` is correct — never copy it.
 
@@ -213,6 +231,8 @@ ${pinApiHeader(apiBase)}
 
 ${hardStopGate()}
 
+${clearJwtBeforeLoginSection()}
+
 ${identityForkSection(apiBase)}
 
 ${passportJoinSection(apiBase, passportPurchaseUrl)}
@@ -239,6 +259,8 @@ function buildGuestOnlyPrompt(apiBase) {
 ${pinApiHeader(apiBase)}
 
 ${guestHardStopGate()}
+
+${clearJwtBeforeLoginSection()}
 
 ${guestStopIfPassport(apiBase)}
 

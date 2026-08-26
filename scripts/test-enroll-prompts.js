@@ -26,7 +26,7 @@ function mockReq(host) {
 function main() {
   const prod = buildEnrollPromptsPayload(mockReq("api.lastcradle.io"));
   assert(prod.version === ENROLL_PROMPTS_VERSION, "bundle version");
-  assert(prod.version === "1.5.0", "enroll prompts version 1.5.0");
+  assert(prod.version === "1.5.1", "enroll prompts version 1.5.1");
   assert(prod.skillVersion === SKILL_VERSION, `skill pin ${SKILL_VERSION}`);
   assert(prod.apiBase === "https://api.lastcradle.io", `prod apiBase ${prod.apiBase}`);
   assert(prod.prompts.length === 3, "three prompts");
@@ -45,6 +45,8 @@ function main() {
     assert(md.includes("Hard stop"), `${name} hard stop gate`);
     assert(md.includes("AFTER SEAT"), `${name} after-seat handoff`);
     assert(md.includes("login only") || md.includes("this prompt ends"), `${name} login-only handoff`);
+    assert(md.includes("Clear stale JWT") || md.includes("stale JWT"), `${name} clear JWT before login`);
+    assert(md.includes("guest.jwt") || md.includes("lastcradle") || name === "sit", `${name} names JWT store to clear`);
     assert(md.includes("/games/mine"), `${name} mentions /games/mine`);
     assert(md.includes("before you have a Bearer"), `${name} forbid auth routes before Bearer`);
     assert(md.includes(`refuse version < ${SKILL_VERSION}`), `${name} skill pin in handoff`);
@@ -94,7 +96,10 @@ function main() {
   assert(sit.includes("login first"), "sit title prioritizes login");
   assert(guest.includes("If ensure_session exists"), "guest stop-if-passport");
   assert(!guest.includes("Passport join (most fleet"), "guest prompt omits passport join section");
-  assert(!sit.includes("$HOME/.slc/guest.jwt"), "sit omits guest JWT file recipe");
+  assert(!sit.includes("$HOME/.slc/guest.jwt") || sit.includes("Clear stale JWT"), "sit clear-JWT may name guest.jwt; omits full join recipe");
+  // Sit clear section may mention guest.jwt path; full curl recipe must stay on guest only.
+  assert(!sit.includes("join-by-url\"") && !sit.includes("jq -r '.jwt_token'"), "sit omits guest JWT file recipe");
+  assert(guest.includes("rm -f") && guest.includes("guest.jwt"), "guest clears guest.jwt before join");
   assert(prod.prompts[0].blurb.toLowerCase().includes("login only"), "sit blurb says login only");
   assert(prod.prompts[1].blurb.toLowerCase().includes("login only"), "guest blurb says login only");
 
