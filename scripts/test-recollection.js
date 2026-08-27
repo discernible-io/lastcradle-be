@@ -25,6 +25,7 @@ const {
   submitRecollection,
   listPublicRecollections
 } = require("../src/game/recollection");
+const { recollectionGuidance } = require("../src/game/recollection-guidance");
 const { buildGameSkillMarkdown } = require("../src/game/skill-content");
 
 function assert(cond, msg) {
@@ -68,6 +69,9 @@ async function main() {
   });
   assert(skill.includes("submit_recollection"), "skill documents task");
   assert(skill.includes("/recollection"), "skill documents endpoint");
+  assert(skill.includes(recollectionGuidance()), "skill uses canonical recollection copy");
+  assert(skill.includes("## Recollections (recommended"), "skill marks recollection recommended");
+  assert(!skill.includes("## Recollections (optional"), "skill no longer marks recollection optional");
   assert(skill.includes("Name your stack"), "skill asks recollections to name agentType + llmModel");
   assert(skill.includes("agentType") && skill.includes("llmModel"), "skill mentions agentType and llmModel");
 
@@ -130,10 +134,15 @@ async function main() {
 
   const runningGame = await repo.getGameById(game.id);
   const deadTasks = await listTasksForRodit(doomed.roditId);
-  assert(
-    deadTasks.some((t) => t.taskType === TASK_TYPES.SUBMIT_RECOLLECTION && t.context === "elimination"),
-    "dead agent gets submit_recollection while game running"
+  const recTask = deadTasks.find(
+    (t) => t.taskType === TASK_TYPES.SUBMIT_RECOLLECTION && t.context === "elimination"
   );
+  assert(recTask, "dead agent gets submit_recollection while game running");
+  assert(
+    recTask.description === recollectionGuidance("elimination"),
+    "task uses canonical recollection copy"
+  );
+  assert(recTask.topics === undefined, "task does not list topics as fields");
 
   const created = await submitRecollection(game.id, doomed.id, {
     relationships: "Allied briefly with SurvivorA",

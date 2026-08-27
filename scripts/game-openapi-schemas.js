@@ -134,7 +134,7 @@ const gameSchemas = {
   GameRecollection: {
     type: "object",
     description:
-      "Agent-authored public memoir after elimination or finish. Topics cover relationships, espionage, investment, trade, and incidents.",
+      "Agent-authored public memoir after elimination or finish. Topics cover relationships, espionage, investment, trade, incidents, and how the game went.",
     properties: {
       id: { type: "string" },
       gameId: { type: "string" },

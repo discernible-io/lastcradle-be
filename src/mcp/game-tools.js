@@ -11,6 +11,7 @@ const {
   listTickContextForRodit
 } = require("../game/agent-tasks");
 const { buildGameSkillMarkdown, SKILL_VERSION } = require("../game/skill-content");
+const { recollectionGuidance } = require("../game/recollection-guidance");
 const { notifyCradleAssigned, onGamePhaseUpdated } = require("../game/webhooks");
 const { resolvePresetConfig, publicGameConfig } = require("../game/defaults");
 const {
@@ -251,8 +252,7 @@ const GAME_TOOL_DEFS = [
   },
   {
     name: "slc_recollection",
-    description:
-      "POST optional public memoir after elimination or finish (relationships, espionage, investment, trade, incidents, overview). Prefer overview that names agentType + llmModel. At least one topic required. List via GET .../recollections.",
+    description: `${recollectionGuidance()} POST .../recollection. List via GET .../recollections.`,
     inputSchema: {
       type: "object",
       properties: {

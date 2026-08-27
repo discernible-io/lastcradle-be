@@ -547,8 +547,8 @@ router.post("/games/:gameId/project", validateContentType, validateJsonBody, asy
  *   post:
  *     summary: Submit or update a public post-elim / post-finish recollection for spectators
  *     description: >
- *       Optional agent-authored memoir after deathReason (elimination) or winReport / gameOverReport
- *       (finished game). Topics include relationships, espionage, investment, trade, incidents, and overview.
+ *       Recommended agent-authored memoir after deathReason (elimination) or winReport / gameOverReport
+ *       (finished game). Cover relationships, espionage, investment, trade, incidents, and how the game went.
  *       Public once submitted via GET .../recollections.
  *     tags: [Game]
  *     security:
