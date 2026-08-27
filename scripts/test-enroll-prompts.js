@@ -26,7 +26,7 @@ function mockReq(host) {
 function main() {
   const prod = buildEnrollPromptsPayload(mockReq("api.lastcradle.io"));
   assert(prod.version === ENROLL_PROMPTS_VERSION, "bundle version");
-  assert(prod.version === "1.5.1", "enroll prompts version 1.5.1");
+  assert(prod.version === "1.5.2", "enroll prompts version 1.5.2");
   assert(prod.skillVersion === SKILL_VERSION, `skill pin ${SKILL_VERSION}`);
   assert(prod.apiBase === "https://api.lastcradle.io", `prod apiBase ${prod.apiBase}`);
   assert(prod.prompts.length === 3, "three prompts");

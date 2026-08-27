@@ -1,6 +1,7 @@
 /**
  * Per-game sticky login method lock by client IP (10-minute cool-down).
  * Methods: rodit_ed25519 | nep413 | guest
+ * Guest is exclusive: one guest seat per IP per gameId during the TTL.
  */
 
 const repo = require("./repository");
@@ -23,6 +24,30 @@ function loginMethodError(code, message, statusCode = 400, details = null) {
   err.statusCode = statusCode;
   err.details = details;
   return err;
+}
+
+function lockedLoginMethodError({
+  gameId,
+  lockedMethod,
+  attemptedMethod,
+  retryAfterSeconds = null,
+  lockedUntil = null
+}) {
+  const oneGuest = lockedMethod === METHODS.GUEST && attemptedMethod === METHODS.GUEST;
+  return loginMethodError(
+    "LOGIN_METHOD_LOCKED",
+    oneGuest
+      ? "This IP already has a guest seat for this game"
+      : "This IP is already bound to a different login method for this game",
+    409,
+    {
+      gameId,
+      lockedMethod,
+      attemptedMethod,
+      retryAfterSeconds,
+      lockedUntil
+    }
+  );
 }
 
 function normalizeClientIp(ip) {
@@ -86,18 +111,13 @@ async function assertAndBindIpLoginMethod({ ip, gameId, method }) {
     ttlMs: IP_LOGIN_METHOD_LOCK_TTL_MS
   });
   if (!result.ok) {
-    throw loginMethodError(
-      "LOGIN_METHOD_LOCKED",
-      "This IP is already bound to a different login method for this game",
-      409,
-      {
-        gameId,
-        lockedMethod: result.lockedMethod,
-        attemptedMethod: method,
-        retryAfterSeconds: result.retryAfterSeconds ?? null,
-        lockedUntil: result.lockedUntil ?? null
-      }
-    );
+    throw lockedLoginMethodError({
+      gameId,
+      lockedMethod: result.lockedMethod,
+      attemptedMethod: method,
+      retryAfterSeconds: result.retryAfterSeconds ?? null,
+      lockedUntil: result.lockedUntil ?? null
+    });
   }
   return result.lockedMethod;
 }
@@ -146,23 +166,18 @@ async function ensureGuestIpLoginMethodAllowed(req, gameId) {
   const createdMs = parseSqliteUtcMs(existing.createdAt);
   const expiresAtMs = createdMs != null ? createdMs + IP_LOGIN_METHOD_LOCK_TTL_MS : null;
   const expired = expiresAtMs != null && Date.now() >= expiresAtMs;
-  if (expired || existing.method === METHODS.GUEST) {
+  if (expired) {
     return METHODS.GUEST;
   }
 
-  throw loginMethodError(
-    "LOGIN_METHOD_LOCKED",
-    "This IP is already bound to a different login method for this game",
-    409,
-    {
-      gameId,
-      lockedMethod: existing.method,
-      attemptedMethod: METHODS.GUEST,
-      retryAfterSeconds:
-        expiresAtMs != null ? Math.max(1, Math.ceil((expiresAtMs - Date.now()) / 1000)) : null,
-      lockedUntil: expiresAtMs != null ? new Date(expiresAtMs).toISOString() : null
-    }
-  );
+  throw lockedLoginMethodError({
+    gameId,
+    lockedMethod: existing.method,
+    attemptedMethod: METHODS.GUEST,
+    retryAfterSeconds:
+      expiresAtMs != null ? Math.max(1, Math.ceil((expiresAtMs - Date.now()) / 1000)) : null,
+    lockedUntil: expiresAtMs != null ? new Date(expiresAtMs).toISOString() : null
+  });
 }
 
 async function assertGuestIpLoginMethod(req, gameId) {

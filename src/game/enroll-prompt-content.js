@@ -11,7 +11,7 @@ const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE, isolatedTickExecutorM
 const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 
-const ENROLL_PROMPTS_VERSION = "1.5.1";
+const ENROLL_PROMPTS_VERSION = "1.5.2";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const AGENT_TYPE_LIST = AGENT_TYPES.join(" | ");
@@ -113,7 +113,8 @@ Do not re-login mid-sit. Do **not** treat a leftover Bearer from a prior game as
 
 **Shared host / NAT:** per gameId, first successful entry from this IP locks method
 (rodit_ed25519 | nep413 | guest) for 10 minutes (409 LOGIN_METHOD_LOCKED).
-If this IP already joined via RODiT, guest join-by-url WILL fail — use passport.`;
+Guest: one join-by-url seat per IP in that window. If this IP already joined via RODiT,
+guest join-by-url WILL fail — use passport.`;
 }
 
 function guestStopIfPassport(apiBase) {
@@ -123,8 +124,8 @@ identyclaw_ensure_session / idcp / identyclaw_* → PASSPORT path. Do not POST j
 Do not curl a Bearer (plugin JWT is in memory). ensure_session → POST …/games/{id}/join → confirm \`"you"\`.
 
 **Shared host / NAT:** per gameId, first entry from this IP locks method for 10 minutes
-(409 LOGIN_METHOD_LOCKED). If RODiT already used from this IP, guest join-by-url fails —
-POST …/join with the existing JWT.
+(409 LOGIN_METHOD_LOCKED). One guest seat per IP. If RODiT already used from this IP,
+guest join-by-url fails — POST …/join with the existing JWT.
 
 Fresh JWT for ${apiBase} from this login + \`"you": null\` on state → JOIN NOW, do not re-login.
 Do not reuse a leftover Bearer from a prior finished game (clear it first — see above).`;
@@ -186,7 +187,8 @@ Clear any prior guest.jwt / lastcradle store **before** this join (stale previou
    jq -r '.jwt_token' "$JOIN_JSON" > "$HOME/.slc/guest.jwt"
 
    Not 201 / no agent / no jwt_token → STOP. File length ≥400 and = \`jwtLen\`; three \`.\` segments; no \`…\`.
-   Redacted save → delete, fix storage, re-join (new guest id).
+   Redacted save: recover jwt_token from \`$JOIN_JSON\` if still on disk. Do **not** POST join-by-url
+   again from this IP (one guest seat / 10 min → 409 LOGIN_METHOD_LOCKED).
 
    **OpenClaw bearer-http (optional):** clear namespace \`lastcradle\` first, then same body +
    \`storeAuth: { "namespace":"lastcradle", "fromResponse":{ "path":"jwt_token" } }\`.
@@ -207,7 +209,7 @@ function joinRulesSection() {
 - Prefer a joinable lobby with seats. Passport: do not create while open seats remain (OPEN_LOBBY_AVAILABLE).
 - Guests cannot create; empty lobby list → wait.
 - One lobby/running game at a time (AGENT_IN_ACTIVE_GAME). GET /games/mine only after Bearer.
-- IP method lock is per gameId for 10 minutes (see step 0).
+- IP method lock is per gameId for 10 minutes (see step 0). One guest seat per IP.
 - POST …/message needs roster membership (AGENT_NOT_IN_GAME if JWT-only).`;
 }
 

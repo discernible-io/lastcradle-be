@@ -270,6 +270,7 @@ async function getRoditLoginMethod(roditId) {
 }
 
 const DEFAULT_IP_LOGIN_METHOD_LOCK_TTL_MS = 10 * 60 * 1000;
+const IP_LOGIN_METHOD_GUEST = "guest";
 
 function parseSqliteUtcMs(raw) {
   if (!raw) {
@@ -279,6 +280,20 @@ function parseSqliteUtcMs(raw) {
   const iso = s.includes("T") ? s : `${s.replace(" ", "T")}Z`;
   const ms = new Date(iso).getTime();
   return Number.isFinite(ms) ? ms : null;
+}
+
+function ipLoginMethodLockReject(existing, lockTtlMs, reason) {
+  const createdMs = parseSqliteUtcMs(existing.createdAt);
+  const expiresAtMs = createdMs != null ? createdMs + lockTtlMs : null;
+  const retryAfterSeconds =
+    expiresAtMs != null ? Math.max(1, Math.ceil((expiresAtMs - Date.now()) / 1000)) : null;
+  return {
+    ok: false,
+    lockedMethod: existing.method,
+    reason,
+    retryAfterSeconds,
+    lockedUntil: expiresAtMs != null ? new Date(expiresAtMs).toISOString() : null
+  };
 }
 
 async function getGameIpLoginMethod(gameId, ip) {
@@ -307,8 +322,9 @@ async function deleteGameIpLoginMethod(gameId, ip) {
 
 /**
  * Bind (gameId, ip) → method for ttlMs (default 10 minutes).
- * Returns { ok, lockedMethod, retryAfterSeconds?, lockedUntil? }.
- * ok=false when an unexpired bind uses a different method.
+ * Returns { ok, lockedMethod, retryAfterSeconds?, lockedUntil?, reason? }.
+ * ok=false when an unexpired bind uses a different method, or when guest is
+ * already bound (one guest seat per IP per game).
  */
 async function bindGameIpLoginMethod({
   gameId,
@@ -332,14 +348,9 @@ async function bindGameIpLoginMethod({
     if (expired) {
       await deleteGameIpLoginMethod(gameId, ip);
     } else if (existing.method !== method) {
-      const retryAfterSeconds =
-        expiresAtMs != null ? Math.max(1, Math.ceil((expiresAtMs - Date.now()) / 1000)) : null;
-      return {
-        ok: false,
-        lockedMethod: existing.method,
-        retryAfterSeconds,
-        lockedUntil: expiresAtMs != null ? new Date(expiresAtMs).toISOString() : null
-      };
+      return ipLoginMethodLockReject(existing, lockTtlMs, "method_mismatch");
+    } else if (method === IP_LOGIN_METHOD_GUEST) {
+      return ipLoginMethodLockReject(existing, lockTtlMs, "guest_already_bound");
     } else {
       return { ok: true, lockedMethod: existing.method };
     }
@@ -354,6 +365,9 @@ async function bindGameIpLoginMethod({
     // Race: another request bound first
     const again = await getGameIpLoginMethod(gameId, ip);
     if (again && again.method === method) {
+      if (method === IP_LOGIN_METHOD_GUEST) {
+        return ipLoginMethodLockReject(again, lockTtlMs, "guest_already_bound");
+      }
       return { ok: true, lockedMethod: again.method };
     }
     if (again && again.method !== method) {
@@ -367,13 +381,7 @@ async function bindGameIpLoginMethod({
         );
         return { ok: true, lockedMethod: method };
       }
-      return {
-        ok: false,
-        lockedMethod: again.method,
-        retryAfterSeconds:
-          expiresAtMs != null ? Math.max(1, Math.ceil((expiresAtMs - Date.now()) / 1000)) : null,
-        lockedUntil: expiresAtMs != null ? new Date(expiresAtMs).toISOString() : null
-      };
+      return ipLoginMethodLockReject(again, lockTtlMs, "method_mismatch");
     }
     return { ok: false, lockedMethod: again?.method ?? null };
   }

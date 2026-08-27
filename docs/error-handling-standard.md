@@ -170,7 +170,7 @@ OUTPUTS:
 | `OPEN_LOBBY_AVAILABLE` | 409 | Create blocked; join an existing open casual lobby first (`details.openLobbies`) |
 | `TOO_MANY_ACTIVE_GAMES` | 409 | Create blocked; host already at `GAME_MAX_SIMULTANEOUS_GAMES` lobby/running games (`details.activeGames`, `details.maxSimultaneousGames`) |
 | `AGENT_IN_ACTIVE_GAME` | 409 | Join blocked; rodit already in another `lobby` or `running` game (`details.activeGameId`) |
-| `LOGIN_METHOD_LOCKED` | 409 | IP already bound to a different login method for this game within the 10-minute cool-down (`details.lockedMethod`, `details.attemptedMethod`, `details.retryAfterSeconds`, `details.lockedUntil`) |
+| `LOGIN_METHOD_LOCKED` | 409 | IP already bound to a different login method for this game within the 10-minute cool-down, or a second guest join from the same IP (`details.lockedMethod`, `details.attemptedMethod`, `details.retryAfterSeconds`, `details.lockedUntil`) |
 | `GAME_NOT_FINISHED` | 409 | `GET .../honors` while game status is not `finished` |
 | `GAME_NOT_JOINABLE` | 409 | Game not in lobby status |
 | `GAME_ALREADY_STARTED` | 409 | Manual start after game began |

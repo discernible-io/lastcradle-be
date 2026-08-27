@@ -572,6 +572,7 @@ router.get("/games/:gameId/recollections", async (req, res) => {
  *       That jwt_token is the session credential —
  *       do not call POST /api/login. Not allowed for competition lobbies
  *       (casual and qualifying series games allow it).
+ *       One guest seat per client IP per game for 10 minutes (409 LOGIN_METHOD_LOCKED).
  *       Wire: rejected when contestMode is definitive or contest.
  *     tags: [Game]
  *     x-game-auth: public-spectator
