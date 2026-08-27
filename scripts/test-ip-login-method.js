@@ -2,7 +2,8 @@
 /**
  * Verifies per-game IP login method lock:
  * guest bind on game A blocks passport join on A; game B allows rodit_ed25519;
- * same-method re-bind OK; after TTL expiry a different method is allowed.
+ * passport same-method re-bind OK; guest is exclusive (one seat per IP);
+ * after TTL expiry a different method (or a new guest) is allowed.
  */
 
 const fs = require("fs");
@@ -23,7 +24,8 @@ const {
   IP_LOGIN_METHOD_LOCK_TTL_MS,
   assertAndBindIpLoginMethod,
   assertGuestIpLoginMethod,
-  assertPassportIpLoginMethod
+  assertPassportIpLoginMethod,
+  ensureGuestIpLoginMethodAllowed
 } = require("../src/game/ip-login-method");
 
 function fakeReq(ip) {
@@ -68,13 +70,35 @@ async function main() {
     allowParallelLobbies: true
   });
   const ip = "203.0.113.10";
+  const otherIp = "203.0.113.11";
 
   await assertGuestIpLoginMethod(fakeReq(ip), gameA.id);
-  await assertAndBindIpLoginMethod({
-    ip,
-    gameId: gameA.id,
-    method: METHODS.GUEST
-  });
+
+  const secondGuest = await expectError(
+    "second guest on A from same IP",
+    assertGuestIpLoginMethod(fakeReq(ip), gameA.id),
+    "LOGIN_METHOD_LOCKED"
+  );
+  if (secondGuest.details?.lockedMethod !== METHODS.GUEST) {
+    throw new Error(`expected lockedMethod guest, got ${secondGuest.details?.lockedMethod}`);
+  }
+  if (secondGuest.details?.attemptedMethod !== METHODS.GUEST) {
+    throw new Error(`expected attemptedMethod guest`);
+  }
+  if (!(secondGuest.details?.retryAfterSeconds > 0)) {
+    throw new Error(`expected retryAfterSeconds > 0, got ${secondGuest.details?.retryAfterSeconds}`);
+  }
+  if (!/guest seat/i.test(secondGuest.message || "")) {
+    throw new Error(`expected one-guest message, got ${secondGuest.message}`);
+  }
+
+  await expectError(
+    "ensureGuest after guest bind on A",
+    ensureGuestIpLoginMethodAllowed(fakeReq(ip), gameA.id),
+    "LOGIN_METHOD_LOCKED"
+  );
+
+  await assertGuestIpLoginMethod(fakeReq(otherIp), gameA.id);
 
   const locked = await expectError(
     "passport after guest on A",
@@ -104,12 +128,19 @@ async function main() {
     ip
   });
   await assertPassportIpLoginMethod(fakeReq(ip), gameB.id, "abcdefghijkl");
+  await assertPassportIpLoginMethod(fakeReq(ip), gameB.id, "abcdefghijkl");
 
   await expectError(
     "guest after passport on B",
     assertGuestIpLoginMethod(fakeReq(ip), gameB.id),
     "LOGIN_METHOD_LOCKED"
   );
+
+  const gameGuestB = await engine.createGame({
+    config: lobbyConfig,
+    allowParallelLobbies: true
+  });
+  await assertGuestIpLoginMethod(fakeReq(ip), gameGuestB.id);
 
   // NEP413 vs ed25519 on same game
   const gameC = await engine.createGame({
@@ -130,6 +161,11 @@ async function main() {
     }),
     "LOGIN_METHOD_LOCKED"
   );
+  await assertAndBindIpLoginMethod({
+    ip,
+    gameId: gameC.id,
+    method: METHODS.NEP413
+  });
 
   // Cool-down expiry: short TTL via repository bind
   const gameD = await engine.createGame({
@@ -146,6 +182,15 @@ async function main() {
   });
   if (!r.ok) {
     throw new Error("short-ttl guest bind should succeed");
+  }
+  r = await repo.bindGameIpLoginMethod({
+    gameId: gameD.id,
+    ip,
+    method: METHODS.GUEST,
+    ttlMs: shortTtlMs
+  });
+  if (r.ok || r.lockedMethod !== METHODS.GUEST || r.reason !== "guest_already_bound") {
+    throw new Error("short-ttl second guest should be locked (one guest per IP)");
   }
   r = await repo.bindGameIpLoginMethod({
     gameId: gameD.id,
@@ -167,7 +212,31 @@ async function main() {
     throw new Error("after TTL, rodit_ed25519 bind should succeed");
   }
 
-  console.log("ok: per-game IP login method lock (10-minute cool-down)");
+  const gameE = await engine.createGame({
+    config: lobbyConfig,
+    allowParallelLobbies: true
+  });
+  r = await repo.bindGameIpLoginMethod({
+    gameId: gameE.id,
+    ip,
+    method: METHODS.GUEST,
+    ttlMs: shortTtlMs
+  });
+  if (!r.ok) {
+    throw new Error("game E guest bind should succeed");
+  }
+  await sleep(shortTtlMs + 50);
+  r = await repo.bindGameIpLoginMethod({
+    gameId: gameE.id,
+    ip,
+    method: METHODS.GUEST,
+    ttlMs: shortTtlMs
+  });
+  if (!r.ok || r.lockedMethod !== METHODS.GUEST) {
+    throw new Error("after TTL, a new guest bind should succeed");
+  }
+
+  console.log("ok: per-game IP login method lock (10-minute cool-down, one guest per IP)");
   await repo.closeDatabase();
 }
 
