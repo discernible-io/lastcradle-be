@@ -18,6 +18,7 @@ const engine = require("../src/game/engine");
 const repo = require("../src/game/repository");
 const { listTasksForRodit, listActiveGamesForRodit, TASK_TYPES } = require("../src/game/agent-tasks");
 const { buildGameSkillMarkdown, resolveApiBase } = require("../src/game/skill-content");
+const { recollectionGuidance } = require("../src/game/recollection-guidance");
 
 async function main() {
   await repo.initializeDatabase();
@@ -45,8 +46,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.23.4")) {
-    throw new Error("skill.md should be version 1.23.4");
+  if (!skill.includes("version: 1.23.5")) {
+    throw new Error("skill.md should be version 1.23.5");
   }
   if (
     !skill.includes("Cradle profile") ||
@@ -96,6 +97,9 @@ async function main() {
   }
   if (!skill.includes("POST") || !skill.includes("/recollection")) {
     throw new Error("skill.md should document POST .../recollection");
+  }
+  if (!skill.includes(recollectionGuidance())) {
+    throw new Error("skill.md should use canonical recommended recollection copy");
   }
   if (!skill.includes("action-schema.md")) {
     throw new Error("skill.md should link action-schema.md");

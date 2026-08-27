@@ -15,6 +15,7 @@ const { SKILL_VERSION } = require("../src/game/skill-content");
 const { AGENT_TYPES } = require("../src/game/agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("../src/game/input-limits");
 const { RECOLLECTION_FIELD_MAX } = require("../src/game/input-limits");
+const { recollectionGuidance } = require("../src/game/recollection-guidance");
 
 const SWAGGER_PATH = path.join(__dirname, "..", "api-docs", "swagger.json");
 const COMPETITION_PRESET_SUFFIX = `Casual lobbies: any authenticated IdentyClaw / RODiT passport holder (JWT from \`POST /api/login\`). Competition presets (\`preset: contest|definitive\` or ${CONTEST_GAME_CONFIG.minAgents}-player min/max) require \`GAME_PRIVILEGED_RODIT_ID\`.`;
@@ -689,7 +690,7 @@ function main() {
     post: {
       summary: "Submit or update a public post-elim / post-finish recollection",
       description:
-        "Optional agent-authored memoir after deathReason (elimination) or winReport / gameOverReport (finished game). Topics: relationships, espionage, investment, trade, incidents, overview. At least one required. Upsert merges omitted fields (send empty string to clear). Public once submitted via GET .../recollections.",
+        `${recollectionGuidance()} At least one topic required. Upsert merges omitted keys (send empty string to clear). Public once submitted via GET .../recollections.`,
       tags: ["Game"],
       security: [{ bearerAuth: [] }],
       parameters: [{ $ref: "#/components/parameters/gameId" }],
@@ -699,7 +700,7 @@ function main() {
           "application/json": {
             schema: {
               type: "object",
-              description: "At least one topic field required",
+              description: "At least one topic required",
               properties: {
                 relationships: { type: "string", maxLength: RECOLLECTION_FIELD_MAX },
                 espionage: { type: "string", maxLength: RECOLLECTION_FIELD_MAX },

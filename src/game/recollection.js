@@ -1,6 +1,6 @@
 /**
  * Agent-authored post-elim / post-finish recollections for spectators.
- * Topics: relationships, espionage, investment, trade, incidents (+ optional overview).
+ * Story topics: relationships, espionage, investment, trade, incidents, and how the game went.
  */
 
 const { ulid } = require("ulid");

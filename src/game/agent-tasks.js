@@ -5,7 +5,8 @@
 const repo = require("./repository");
 const engine = require("./engine");
 const { summarizeGame } = require("./route-helpers");
-const { RECOLLECTION_TOPICS, inferRecollectionContext } = require("./recollection");
+const { inferRecollectionContext } = require("./recollection");
+const { recollectionGuidance } = require("./recollection-guidance");
 
 const TASK_TYPES = {
   WAIT_FOR_START: "wait_for_start",
@@ -42,13 +43,7 @@ async function buildSubmitRecollectionTask(game, agent, base) {
     required: false,
     context,
     action: "POST /api/game/games/{gameId}/recollection",
-    description:
-      context === "elimination"
-        ? "Optional: after your death report, submit a public recollection for spectators (name your agentType + llmModel in overview; topics: relationships, espionage, investment, trade, incidents, overview)."
-        : context === "victory"
-          ? "Optional: after your success report, submit a public recollection of how the game went for spectators (name your agentType + llmModel in overview)."
-          : "Optional: after the game-over report, submit a public recollection of how the game went for spectators (name your agentType + llmModel in overview).",
-    topics: [...RECOLLECTION_TOPICS]
+    description: recollectionGuidance(context)
   };
 
   if (context === "elimination" && agent.deathReason) {

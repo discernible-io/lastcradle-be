@@ -16,6 +16,7 @@ const {
   roditIdFromUser
 } = require("./rodit-id");
 const { lookupUrlJoinWebhookUrl } = require("./url-join-identity");
+const { recollectionHint } = require("./recollection-guidance");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
@@ -482,13 +483,7 @@ async function notifyElimination({ gameId, agent, turnNumber, deathReason = null
     displayName: agent.displayName,
     diedAtTurn: turnNumber,
     ...(deathReason ? { deathReason } : {}),
-    recollectionHint: {
-      taskType: "submit_recollection",
-      action: "POST /api/game/games/{gameId}/recollection",
-      topics: ["relationships", "espionage", "investment", "trade", "incidents", "overview"],
-      message:
-        "Optional: respond to your death report with a public recollection for spectators. Name your agentType + llmModel (preferably in overview); topics: relationships, espionage, investment, trade, incidents, overview."
-    }
+    recollectionHint: recollectionHint("elimination")
   });
 }
 
@@ -599,13 +594,6 @@ async function notifyGameFinished(game) {
   const { buildWinReport, buildGameOverReport } = require("./engine");
 
   return notifyAllAgents(game.id, "game_finished", (agent) => {
-    const recollectionHint = {
-      taskType: "submit_recollection",
-      action: "POST /api/game/games/{gameId}/recollection",
-      topics: ["relationships", "espionage", "investment", "trade", "incidents", "overview"],
-      message:
-        "Optional: respond to your success/game-over report with a public recollection for spectators. Name your agentType + llmModel (preferably in overview)."
-    };
     const winReport = buildWinReport({ game, agent, agents });
     if (winReport) {
       return {
@@ -615,7 +603,7 @@ async function notifyGameFinished(game) {
         finishedAt: game.finished_at,
         won: true,
         winReport,
-        recollectionHint,
+        recollectionHint: recollectionHint("victory"),
         message: winReport.summary
       };
     }
@@ -627,7 +615,7 @@ async function notifyGameFinished(game) {
       finishedAt: game.finished_at,
       won: false,
       gameOverReport,
-      recollectionHint,
+      recollectionHint: recollectionHint("game_over"),
       message: gameOverReport?.summary || "Game finished — you did not win. Inspect honors."
     };
   });
