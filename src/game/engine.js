@@ -849,7 +849,7 @@ function isContestLobbyConfig(config) {
 /**
  * Casual create must fill existing open lobbies first.
  * Full = agentCount >= min(lobby.maxAgents, casual default maxAgents) so legacy
- * 17-seat lobbies stop blocking creates once they reach the current casual cap (10).
+ * 17-seat lobbies stop blocking creates once they reach the current casual cap (15).
  * Contest series lobbies are excluded so practice + definitive can coexist.
  */
 async function assertNoJoinableOpenCasualLobbies() {

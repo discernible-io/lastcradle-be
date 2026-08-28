@@ -176,10 +176,10 @@ const DEFAULT_GAME_CONFIG = {
   joiningWindowDelayMs: 0,
 
   /** Minimum agents required to start */
-  minAgents: 3,
+  minAgents: 5,
 
   /** Maximum agents per game (casual lobbies fill to this before a new lobby may be opened) */
-  maxAgents: 10,
+  maxAgents: 15,
 
   /**
    * Max distinct transfer recipients in one execution action.
@@ -218,7 +218,7 @@ const CONTEST_GAME_CONFIG = {
 /** Softer preset for qualifying week — same timing, no duration pressure. */
 const PRACTICE_GAME_CONFIG = {
   ...CONTEST_GAME_CONFIG,
-  minAgents: 3,
+  minAgents: 5,
   maxTurns: null,
   maxGameDurationMs: null,
   contestMode: "practice"
@@ -280,7 +280,7 @@ function resolveMaxTransferRecipients(config = {}) {
   if (config.maxTransferRecipients != null) {
     return config.maxTransferRecipients;
   }
-  return config.maxAgents ?? DEFAULT_GAME_CONFIG.maxAgents ?? 10;
+  return config.maxAgents ?? DEFAULT_GAME_CONFIG.maxAgents ?? 15;
 }
 
 function randomInt(min, max) {

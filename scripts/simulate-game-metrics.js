@@ -323,7 +323,7 @@ async function main() {
 
   const startingCradle = {};
 
-  const game = await engine.createGame({});
+  const game = await engine.createGame({ config: { minAgents: 4 } });
   const gameId = game.id;
   const agents = [];
 
