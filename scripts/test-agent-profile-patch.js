@@ -35,7 +35,7 @@ async function main() {
   })();
   assert(empty === "INVALID_AGENT_PROFILE", "empty patch rejected");
 
-  const game = await engine.createGame({});
+  const game = await engine.createGame({ config: { minAgents: 3 } });
   const agent = await engine.joinGame(game.id, {
     roditId: "rodit_profile_test",
     displayName: "ProfileTest",

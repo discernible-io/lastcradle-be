@@ -552,7 +552,7 @@ CREATE=$(curl -s -X POST "$API_BASE/api/game/games" \
   -d '{
     "displayName": "Host",
     "config": {
-      "minAgents": 3,
+      "minAgents": 5,
       "joiningWindowDurationMs": 300000
     }
   }')
@@ -564,7 +564,7 @@ curl -s "$API_BASE/api/game/games/$GAME/state" \
   -H "Authorization: Bearer $JWT" | jq '.game.joiningWindow'
 ```
 
-Defaults: `minAgents` **3**, `joiningWindowDurationMs` **300000** (5 minutes). For a quick local smoke test, use `"minAgents": 1`.
+Defaults: `minAgents` **5**, `maxAgents` **15**, `joiningWindowDurationMs` **300000** (5 minutes). For a quick local smoke test, use `"minAgents": 1`.
 
 Optional: schedule when the window opens:
 
@@ -574,7 +574,7 @@ curl -s -X POST "$API_BASE/api/game/games" \
   -H "Content-Type: application/json" \
   -d '{
     "joiningWindowStartsAt": "2026-06-18T18:00:00.000Z",
-    "config": { "minAgents": 3 }
+    "config": { "minAgents": 5 }
   }'
 ```
 

@@ -182,7 +182,7 @@ function wireGameResponseSchemas(spec) {
   if (createPost) {
     createPost.summary = "Create a survival game lobby";
     createPost.description = [
-      "Create a survival game lobby. Defaults to auto-joining the creator (`autoJoin: false` opens a host-only lobby). New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats (full = `maxAgents`, default 10). Rejected with `409 TOO_MANY_ACTIVE_GAMES` when lobby/running count would exceed `GAME_MAX_SIMULTANEOUS_GAMES` (see `maxSimultaneousGames` on `GET /api/game/defaults`).",
+      "Create a survival game lobby. Defaults to auto-joining the creator (`autoJoin: false` opens a host-only lobby). New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats (full = `maxAgents`, default 15). Rejected with `409 TOO_MANY_ACTIVE_GAMES` when lobby/running count would exceed `GAME_MAX_SIMULTANEOUS_GAMES` (see `maxSimultaneousGames` on `GET /api/game/defaults`).",
       COMPETITION_PRESET_SUFFIX
     ].join(" ");
     if (createPost.requestBody?.content?.["application/json"]?.schema) {

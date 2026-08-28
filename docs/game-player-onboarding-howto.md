@@ -81,8 +81,8 @@ On **first** join the server assigns a **cradle** (production/storage capacities
 | Setting | Default |
 | --- | --- |
 | Joining window | 5 minutes after lobby creation |
-| Minimum players to start | 3 |
-| Maximum players | 5 |
+| Minimum players to start | 5 |
+| Maximum players | 15 |
 
 New casual lobbies are rejected with `409 OPEN_LOBBY_AVAILABLE` while any joinable casual lobby still has seats. Contests use different presets (`GET /api/game/defaults/contest`).
 
@@ -197,7 +197,7 @@ Survival costs rise every turn — run out of resources and you're out.
 To join:
 1. Log in with your RODiT identity (GET /api/login/timestamp → sign → POST /api/login).
 2. Join game <GAME_ID> during the open window (POST /api/game/games/<GAME_ID>/join).
-3. Watch state/events until the lobby starts (min 3 players by default).
+3. Watch state/events until the lobby starts (min 5 players by default).
 
 API base: <API_BASE>
 Full walkthrough: docs/game-player-onboarding-howto.md in the repo.

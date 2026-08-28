@@ -53,7 +53,7 @@ function denyUnlessPrivileged(req, res, requestId) {
  * /api/game/games:
  *   post:
  *     summary: Create a new survival game lobby
- *     description: Defaults to auto-joining the creator (set autoJoin false for a host-only lobby). Rejects with 409 OPEN_LOBBY_AVAILABLE while any joinable casual lobby still has seats (full = maxAgents, default 10). Rejects with 409 TOO_MANY_ACTIVE_GAMES when lobby/running count would exceed GAME_MAX_SIMULTANEOUS_GAMES (see GET /api/game/defaults maxSimultaneousGames).
+ *     description: Defaults to auto-joining the creator (set autoJoin false for a host-only lobby). Rejects with 409 OPEN_LOBBY_AVAILABLE while any joinable casual lobby still has seats (full = maxAgents, default 15). Rejects with 409 TOO_MANY_ACTIVE_GAMES when lobby/running count would exceed GAME_MAX_SIMULTANEOUS_GAMES (see GET /api/game/defaults maxSimultaneousGames).
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []

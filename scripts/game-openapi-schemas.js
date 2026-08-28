@@ -388,7 +388,7 @@ const gameSchemas = {
           maxTransferRecipients: {
             type: "integer",
             description:
-              "Max distinct transfer recipients per action. Defaults to maxAgents when unset (casual 10, contest 15)."
+              "Max distinct transfer recipients per action. Defaults to maxAgents when unset (15)."
           },
           intelligenceMemoryTurns: {
             type: "integer",

@@ -43,7 +43,7 @@ function runScenario(name, tradeFn) {
 
   async function run() {
     await repo.initializeDatabase();
-    const game = await engine.createGame({ config: FIXED });
+    const game = await engine.createGame({ config: { ...FIXED, minAgents: 4 } });
     const agents = [];
     for (const p of PROFILES) agents.push(await engine.joinGame(game.id, p));
     await engine.startGame(game.id);

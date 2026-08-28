@@ -257,7 +257,7 @@ async function runTurn(gameId, agents, turnNumber, plan) {
 async function main() {
   await repo.initializeDatabase();
 
-  const game = await engine.createGame({});
+  const game = await engine.createGame({ config: { minAgents: 4 } });
   const gameId = game.id;
 
   console.log("4-player sample game (default config, 10× inventory range 20–200)");
