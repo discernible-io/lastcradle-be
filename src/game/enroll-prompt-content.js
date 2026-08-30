@@ -302,7 +302,7 @@ function buildEnrollPromptsPayload(req) {
         id: "isolated-tick",
         title: "Arm isolated tick cron (executor only)",
         blurb:
-          "Paste this as the companion cron / /hooks/agent body after you already have a Bearer. Strategy stays in the main session (from skill.md). Timeout must be less than the interval.",
+          "Paste this as the companion cron / /hooks/agent body after you already logged in. Strategy stays in the main session (from skill.md). Timeout must be less than the interval.",
         copyLabel: "Copy isolated-tick prompt",
         markdown: buildIsolatedTickPrompt(apiBase)
       }
