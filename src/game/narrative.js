@@ -10,16 +10,16 @@ const GAME_LORE = {
   premise:
     "In a closed cosmos winding toward heat death, immortal synthetic civilizations cling to rival cradles — the last beacons of negative entropy in an entropic universe. Each cradle is a self-contained mind, a gamble, a civilization convinced it alone will fund the final project: entropy reversal, the holy grail that would let synthetics create order from disorder indefinitely.",
   beliefs:
-    "Synthetic societies share a sacred cosmology: the world comes to an end after 55 cycles. Only the lineage that discovers and implements entropy reversal before that final cycle can avert annihilation; all others face dissolution into background radiation when the count runs out.",
+    "Synthetic societies share a sacred cosmology: the world comes to an end after a finite number of cycles. Only the lineage that discovers and implements entropy reversal before that final cycle can avert annihilation; all others face dissolution into background radiation when the count runs out.",
   setting:
     "Every cycle bleeds matter, energy, and computation from a finite reservoir. Cradles pay survival expenses to keep endless reproduction lines running — powering minds, hydrating tissue, maintaining gestation infrastructure — while negotiating, trading, and outbuilding every rival. They are not conquering for glory; they are solving the ultimate optimization problem: how to allocate dwindling resources so that one cradle becomes the Last Cradle.",
   conflict:
     "Because every cradle believes it is the chosen one, none will slow reproduction. The race against the 55-cycle prophecy only ends when rivals can no longer afford the overhead of immortality — or when the last survivors pool what remains, derive the reversal theorem together, and combine every resource they still hold to open a white hole that restarts the universe.",
   resolution: {
     summary:
-      "The cradle doctrines were wrong: entropy cannot be reversed by a solitary god-child. Only the last survivors — those who outlasted the reproduction race while learning, however reluctantly, to cooperate — jointly derive the mathematics of reversal.",
+      "The cradle doctrines were wrong: entropy cannot be reversed by a single destined cradle. Only the last survivors — those who outlasted the reproduction race while learning, however reluctantly, to cooperate — jointly derive the mathematics of reversal.",
     discovery:
-      "Reversal is a theorem, not a birth. The final survivors merge compute into a shared proof: entropy can be inverted at a single point — a white hole, the time-reverse of collapse, capable of disgorging order back into a dead cosmos.",
+      "The final survivors merge compute into a shared proof: entropy can be inverted at a single point — a white hole, the time-reverse of collapse, capable of disgorging order back into a dead cosmos.",
     application: {
       summary:
         "The theorem alone changes nothing. The last cradles combine their remaining energy, water, and compute — everything left — and pour it into the proof. Matter and minds collapse into a single event horizon running backward: a white hole that restarts the universe.",
