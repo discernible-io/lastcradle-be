@@ -131,7 +131,7 @@ function testActionSchemaDocs() {
     protocol: "https",
     get: (h) => (h === "host" ? "api.example.test" : null)
   });
-  assert(skill.includes("version: 1.23.6"), "skill version 1.23.6");
+  assert(skill.includes("version: 1.23.7"), "skill version 1.23.7");
   assert(skill.includes("fractional") || skill.includes("4 decimal"), "fractional invest in skill");
   assert(md.includes("fraction") || md.includes("4 decimal"), "fractional invest in action schema");
   assert(

@@ -6,7 +6,10 @@
 
 const { RoditClient, blockchainService } = require("@rodit/rodit-auth-be");
 const repo = require("./repository");
-const { inboundTradesForRecipient } = require("./trade-disclosure");
+const {
+  inboundTradesForRecipient,
+  lastActionOutcomeFromRow
+} = require("./trade-disclosure");
 const {
   normalizeRoditId,
   isPassportTokenId,
@@ -389,6 +392,14 @@ async function notifyPhaseChange(gameId, phasePayload) {
   const priorTrades =
     resolvedTurn != null ? await repo.listPublicTrades(gameId, resolvedTurn) : [];
 
+  const priorActionsByAgent = new Map();
+  if (includeInbound && resolvedTurn != null) {
+    const priorActions = await repo.listTurnActions(gameId, resolvedTurn);
+    for (const row of priorActions) {
+      priorActionsByAgent.set(row.agent_id, row);
+    }
+  }
+
   return notifyLivingAgents(gameId, "phase_change", (agent) => {
     const data = {
       ...phasePayload,
@@ -397,6 +408,10 @@ async function notifyPhaseChange(gameId, phasePayload) {
     if (includeInbound) {
       data.resolvedTurn = resolvedTurn;
       data.transfersReceived = inboundTradesForRecipient(priorTrades, agent.id);
+      data.lastActionOutcome = lastActionOutcomeFromRow(
+        priorActionsByAgent.get(agent.id) || null,
+        resolvedTurn
+      );
     }
     return data;
   });

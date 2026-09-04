@@ -182,6 +182,10 @@ function publicTradeFromLeg(actionRow, payload, transfer, index, totalLegs) {
     executedAt: actionRow.executed_at || null
   };
 
+  if (actionRow.status === "failed" && actionRow.error_message) {
+    trade.errorMessage = actionRow.error_message;
+  }
+
   if (transfer.rationale) {
     trade.rationale = transfer.rationale;
   }
@@ -249,6 +253,26 @@ function transfersReceivedLastTurn(turnNumber, trades, recipientAgentId) {
 }
 
 /**
+ * Compact view of the viewer's own action from the last resolved execution.
+ * Surfaces resolve-time failures (e.g. insufficient inventory) that submit accepted.
+ * @returns {{ turnNumber: number|null, actionType: string|null, status: string|null, error: string|null } | null}
+ */
+function lastActionOutcomeFromRow(actionRow, turnNumber) {
+  if (turnNumber == null || turnNumber <= 0) {
+    return null;
+  }
+  if (!actionRow) {
+    return { turnNumber, actionType: null, status: null, error: null };
+  }
+  return {
+    turnNumber: actionRow.turn_number ?? turnNumber,
+    actionType: actionRow.action_type || null,
+    status: actionRow.status || null,
+    error: actionRow.error_message || null
+  };
+}
+
+/**
  * Cumulative inbound receipt history through the last resolved execution.
  * @returns {{ throughTurn: number|null, transfers: object[] }}
  */
@@ -290,5 +314,6 @@ module.exports = {
   inboundTradesForRecipient,
   transfersReceivedLastTurn,
   transfersReceivedHistory,
+  lastActionOutcomeFromRow,
   enrichTradesWithDisplayNames
 };
