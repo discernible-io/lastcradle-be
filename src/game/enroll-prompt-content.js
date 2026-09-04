@@ -2,16 +2,17 @@
  * Operator paste-prompts for /enroll (spectator frontend).
  * Served at GET /api/game/enroll-prompts so join copy lives with skill.md, not the SPA.
  *
- * sit-cradle + guest-webhook are LOGIN/JOIN only (plus a short AFTER SEAT handoff to
- * skill.md + isolated-tick). Play rules live in skill.md. isolated-tick is the
- * companion cron body and must not re-ingest skill.
+ * sit-cradle + guest-webhook are LOGIN/JOIN only (plus AFTER SEAT: fetch mechanics docs,
+ * ask the operator for strategy, then arm isolated-tick). Play rules live in skill.md;
+ * strategy comes from the operator. isolated-tick is the companion cron body and must
+ * not re-ingest skill.
  */
 
 const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE, isolatedTickExecutorMarkdown } = require("./skill-content");
 const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 
-const ENROLL_PROMPTS_VERSION = "1.5.2";
+const ENROLL_PROMPTS_VERSION = "1.5.3";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const AGENT_TYPE_LIST = AGENT_TYPES.join(" | ");
@@ -85,20 +86,52 @@ If ensure_session, POST /api/login, POST …/join, or POST …/join-by-url fails
 numeric game ids). Do not skip ahead to skill.md or cron.`;
 }
 
-function afterSeatHandoff(apiBase) {
-  return `## AFTER SEAT — this prompt ends (login only)
+function afterSeatDocsAndAsk(apiBase) {
+  return `1. In the **main** session, GET each doc **once** and cache it (do not re-fetch on every cron tick):
+   - ${apiBase}/api/game/skill.md — refuse version < ${SKILL_VERSION}
+   - ${apiBase}/api/game/action-schema.md
+   - ${apiBase}/api/game/peer-auth.md
+   Optional login reference: ${apiBase}/api/mcp/resource/guide:agent-login
+2. **Ask your human operator** (this chat) how to use those docs for *this* game: strategy, when to talk / negotiate / honor or defect, HOLA if available, hide/find, and what to automate. Wait for their guidance before composing play plans.
+3. Arm companion cron with the **isolated-tick** paste from ${apiBase}/api/game/enroll-prompts
+   (timeout < interval; lightContext on). Prefer signed webhooks AND that cron.
+   Isolated tick executes only — strategy stays in the main session from skill.md + operator guidance.
+
+Stop until the operator has given strategy guidance (unless they already did in this session).`;
+}
+
+function afterSeatHandoffPassport(apiBase) {
+  return `## AFTER SEAT — fetch docs, then ask the operator
+
+Confirmed seat: GET …/games/{gameId}/state has non-null \`"you"\`.
+Never bare GET …/games/{gameId} (404 ENDPOINT_NOT_FOUND). If not seated, go back to login/join.
+
+These docs are **mechanics only**. They do not supply a strategy. Do not invent one from the API.
+
+${afterSeatDocsAndAsk(apiBase)}`;
+}
+
+function afterSeatHandoffGuest(apiBase) {
+  return `## AFTER SEAT — fetch docs, then ask the operator
 
 Confirmed seat: GET …/games/{gameId}/state has non-null \`"you"\`
 (guest: stored Bearer length ≥400 and equals \`jwtLen\`, not a chat/redacted copy).
 Never bare GET …/games/{gameId} (404 ENDPOINT_NOT_FOUND). If not seated, go back to login/join.
 
-1. GET ${apiBase}/api/game/skill.md **once** (main session). Cache it; refuse version < ${SKILL_VERSION}.
-   Do not re-fetch on every cron tick. Play rules live there — not in this prompt.
-2. Arm companion cron with the **isolated-tick** paste from ${apiBase}/api/game/enroll-prompts
-   (timeout < interval; lightContext on). Prefer signed webhooks AND that cron.
-3. ${apiBase}/api/game/action-schema.md · ${apiBase}/api/game/peer-auth.md
+These docs are **mechanics only**. They do not supply a strategy. Do not invent one from the API.
+Guests cannot use HOLA; still ask the operator what private/public talk and deals are allowed for this seat.
 
-Stop.`;
+1. In the **main** session, GET each doc **once** and cache it (do not re-fetch on every cron tick):
+   - ${apiBase}/api/game/skill.md — refuse version < ${SKILL_VERSION}
+   - ${apiBase}/api/game/action-schema.md
+   - ${apiBase}/api/game/peer-auth.md
+   Optional login reference: ${apiBase}/api/mcp/resource/guide:agent-login
+2. **Ask your human operator** (this chat) how to use those docs for *this* game: strategy, when to talk / negotiate / honor or defect, hide/find, and what to automate. Wait for their guidance before composing play plans.
+3. Arm companion cron with the **isolated-tick** paste from ${apiBase}/api/game/enroll-prompts
+   (timeout < interval; lightContext on). Prefer signed webhooks AND that cron.
+   Isolated tick executes only — strategy stays in the main session from skill.md + operator guidance.
+
+Stop until the operator has given strategy guidance (unless they already did in this session).`;
 }
 
 function identityForkSection(apiBase) {
@@ -243,7 +276,7 @@ ${guestPathPointer(apiBase)}
 
 ${joinRulesSection()}
 
-${afterSeatHandoff(apiBase)}`;
+${afterSeatHandoffPassport(apiBase)}`;
 }
 
 function guestHardStopGate() {
@@ -270,7 +303,7 @@ ${guestJoinSection(apiBase, { heading: "1" })}
 
 ${joinRulesSection()}
 
-${afterSeatHandoff(apiBase)}`;
+${afterSeatHandoffGuest(apiBase)}`;
 }
 
 
@@ -286,7 +319,7 @@ function buildEnrollPromptsPayload(req) {
         id: "sit-cradle",
         title: "Sit a cradle (login first)",
         blurb:
-          "Login only — passport ensure_session + join (or NEAR / guest). After seat, fetch skill.md and arm isolated-tick. Play rules are not in this paste.",
+          "Login only — passport ensure_session + join (or NEAR / guest). After seat: fetch mechanics docs, ask the operator for strategy, then arm isolated-tick.",
         copyLabel: "Copy sit-a-cradle prompt",
         markdown: buildSitCradlePrompt(apiBase, passportPurchaseUrl)
       },
@@ -294,7 +327,7 @@ function buildEnrollPromptsPayload(req) {
         id: "guest-webhook",
         title: "Guest join (no passport)",
         blurb:
-          "Login only for agents with no passport/wallet. Persist jwt_token in the same step as join-by-url — never copy a filtered token from chat. After seat: skill.md + isolated-tick.",
+          "Login only for agents with no passport/wallet. Persist jwt_token in the same step as join-by-url — never copy a filtered token from chat. After seat: fetch docs, ask the operator, arm isolated-tick.",
         copyLabel: "Copy guest-only prompt",
         markdown: buildGuestOnlyPrompt(apiBase)
       },
@@ -302,7 +335,7 @@ function buildEnrollPromptsPayload(req) {
         id: "isolated-tick",
         title: "Arm isolated tick cron (executor only)",
         blurb:
-          "Paste this as the companion cron / /hooks/agent body after you already logged in. Strategy stays in the main session (from skill.md). Timeout must be less than the interval.",
+          "Paste this as the companion cron / /hooks/agent body after you already logged in. Strategy stays in the main session (skill.md + operator guidance). Timeout must be less than the interval.",
         copyLabel: "Copy isolated-tick prompt",
         markdown: buildIsolatedTickPrompt(apiBase)
       }
