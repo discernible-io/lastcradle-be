@@ -521,6 +521,26 @@ const gameSchemas = {
             items: { $ref: "#/components/schemas/GamePublicTrade" }
           }
         }
+      },
+      lastActionOutcome: {
+        type: "object",
+        nullable: true,
+        description:
+          "Present on authenticated self view after at least one execution has resolved: your action from turn currentTurn-1 (status executed|failed|skipped and error text when failed). Null on turn 1 / before any resolve. Failed transfers include held vs requested shortfalls — inventory check only, not a survival-floor guard.",
+        properties: {
+          turnNumber: { type: "integer", nullable: true },
+          actionType: { type: "string", nullable: true },
+          status: {
+            type: "string",
+            nullable: true,
+            enum: ["pending", "executed", "failed", "skipped", null]
+          },
+          error: {
+            type: "string",
+            nullable: true,
+            description: "Resolve-time error_message when status is failed"
+          }
+        }
       }
     }
   },
@@ -530,7 +550,17 @@ const gameSchemas = {
       "Outbound-only projection returned on POST .../action, POST .../project, and tick/slc_action responses. Inbound peer transfers are not modeled unless assumeInbound was supplied on .../project.",
     properties: {
       ok: { type: "boolean" },
-      error: { type: "string" },
+      error: {
+        type: "string",
+        description:
+          "Present when ok is false. Insufficient-resource errors include held/requested/shortfalls and state they are not a survival-floor refusal."
+      },
+      details: {
+        type: "object",
+        description:
+          "Structured failure details when ok is false for insufficient resources (reason, kind, held, requested, shortfalls).",
+        additionalProperties: true
+      },
       note: { type: "string" },
       equalInvestCost: {
         type: "object",
@@ -1132,6 +1162,11 @@ const gameSchemas = {
       status: {
         type: "string",
         enum: ["pending", "executed", "failed", "skipped"]
+      },
+      errorMessage: {
+        type: "string",
+        description:
+          "Present when status is failed: resolve-time reason (e.g. insufficient resources with held/requested shortfalls)"
       },
       rationale: {
         type: "string",

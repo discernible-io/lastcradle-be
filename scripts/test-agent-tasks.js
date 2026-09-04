@@ -46,8 +46,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.23.6")) {
-    throw new Error("skill.md should be version 1.23.6");
+  if (!skill.includes("version: 1.23.7")) {
+    throw new Error("skill.md should be version 1.23.7");
   }
   if (!skill.includes("`minAgents` **5**") || !skill.includes("`maxAgents` **15**")) {
     throw new Error("skill.md should document casual minAgents 5 and maxAgents 15");
@@ -139,6 +139,9 @@ async function main() {
   }
   if (!skill.includes("transfersReceivedLastTurn")) {
     throw new Error("skill.md should document you.transfersReceivedLastTurn");
+  }
+  if (!skill.includes("lastActionOutcome")) {
+    throw new Error("skill.md should document you.lastActionOutcome");
   }
   if (!skill.includes("you.transfersReceived")) {
     throw new Error("skill.md should document you.transfersReceived cumulative inbound history");

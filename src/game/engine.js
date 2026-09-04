@@ -27,6 +27,7 @@ const {
   lastResolvedTurnNumber,
   transfersReceivedLastTurn,
   transfersReceivedHistory,
+  lastActionOutcomeFromRow,
   enrichTradesWithDisplayNames
 } = require("./trade-disclosure");
 const repo = require("./repository");
@@ -99,6 +100,58 @@ function hasSufficient(inventory, cost) {
     inventory.water >= cost.water &&
     inventory.compute >= cost.compute
   );
+}
+
+/**
+ * Per-resource shortfalls when inventory cannot cover a cost (transfer/invest/etc.).
+ * @returns {{ energy?: number, water?: number, compute?: number } | null}
+ */
+function resourceShortfalls(inventory, cost) {
+  const held = roundInventory(inventory);
+  const need = roundInventory(cost);
+  const shortfalls = {};
+  for (const key of RESOURCE_KEYS) {
+    const deficit = roundResource((need[key] || 0) - (held[key] || 0));
+    if (deficit > 0) shortfalls[key] = deficit;
+  }
+  return Object.keys(shortfalls).length ? shortfalls : null;
+}
+
+/**
+ * Error for outbound spends that exceed holdings at apply time.
+ * Inventory check only — not a survival-floor / anti-self-gift guard.
+ */
+function insufficientResourcesError(kind, inventory, cost) {
+  const held = roundInventory(inventory);
+  const requested = roundInventory(cost);
+  const shortfalls = resourceShortfalls(held, requested) || {};
+  const shortfallText = Object.entries(shortfalls)
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, amount]) => `${key} short ${amount}`)
+    .join(", ");
+  const label =
+    kind === "transfer"
+      ? "transfer"
+      : kind === "invest" || kind === "investment"
+        ? "investment"
+        : kind === "intelligence" || kind === "hide/find"
+          ? "hide/find"
+          : String(kind || "spend");
+  const err = new Error(
+    `Insufficient resources for ${label}: ${shortfallText || "unknown shortfall"} ` +
+      `(held ${formatResourceTriple(held)}, requested ${formatResourceTriple(requested)}). ` +
+      `Inventory check only — not a survival-floor refusal; amounts must fit holdings at resolve ` +
+      `(after earlier FIFO inbound).`
+  );
+  err.code = "INSUFFICIENT_RESOURCES";
+  err.details = {
+    reason: "insufficient_resources",
+    kind: label,
+    held,
+    requested,
+    shortfalls: Object.keys(shortfalls).length ? shortfalls : null
+  };
+  return err;
 }
 
 /** Resource / invest precision: four decimal places. */
@@ -1649,7 +1702,7 @@ function executeTransferLeg(state, allStates, payload) {
     throw new Error("Transfer must include at least one resource");
   }
   if (!hasSufficient(state.inventory, transfer)) {
-    throw new Error("Insufficient resources for transfer");
+    throw insufficientResourcesError("transfer", state.inventory, transfer);
   }
   const recipient = allStates.get(payload.toAgentId);
   if (!recipient) {
@@ -1678,7 +1731,7 @@ function executeInvest(state, payload) {
     compute: payload.compute || 0
   };
   if (!hasSufficient(state.inventory, cost)) {
-    throw new Error("Insufficient resources for investment");
+    throw insufficientResourcesError("investment", state.inventory, cost);
   }
   state.inventory = deduct(state.inventory, cost);
 }
@@ -1690,7 +1743,11 @@ function executeIntelligenceSpend(state, payload) {
   const totalCompute = hideSpend + totalFind;
   if (totalCompute <= 0) return;
   if (state.inventory.compute < totalCompute) {
-    throw new Error("Insufficient compute for hide/find actions");
+    throw insufficientResourcesError(
+      "hide/find",
+      state.inventory,
+      { energy: 0, water: 0, compute: totalCompute }
+    );
   }
   state.inventory.compute -= totalCompute;
 }
@@ -1884,7 +1941,7 @@ function applyOutboundActionToState(state, action, config) {
         throw new Error("Transfer must include at least one resource");
       }
       if (!hasSufficient(state.inventory, transfer)) {
-        throw new Error("Insufficient resources for transfer");
+        throw insufficientResourcesError("transfer", state.inventory, transfer);
       }
       state.inventory = deduct(state.inventory, transfer);
     }
@@ -2166,8 +2223,13 @@ function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
     return {
       ok: false,
       error: err.message,
+      ...(err.details ? { details: err.details } : {}),
       ...(equalInvestCost ? { equalInvestCost } : {}),
-      note: "Could not project this action against current holdings."
+      note:
+        "Could not project this action against current holdings (outbound-only). " +
+        "If ok is false for insufficient resources, fix amounts to fit inventory — " +
+        "this is not a survival-floor gate. FIFO inbound before your slot may still " +
+        "cover a borderline transfer at resolve."
     };
   }
 
@@ -2498,6 +2560,7 @@ function toTickState(state, { viewerAgentId = null } = {}) {
         nextTurnSurvivalCost: youFull.nextTurnSurvivalCost ?? null,
         actionHints: slimActionHints(youFull.actionHints),
         transfersReceivedLastTurn: youFull.transfersReceivedLastTurn ?? null,
+        lastActionOutcome: youFull.lastActionOutcome ?? null,
         submittedThisExecution,
         ...(youFull.deathReason ? { deathReason: youFull.deathReason } : {}),
         ...(youFull.winReport ? { winReport: youFull.winReport } : {})
@@ -2614,6 +2677,13 @@ async function getPublicState(gameId, { viewerAgentId = null, diet = "full" } = 
       lastTurnTrades,
       viewerAgentId
     );
+
+    if (resolvedTurn != null) {
+      const priorAction = await repo.getAction(gameId, resolvedTurn, viewerAgentId);
+      you.lastActionOutcome = lastActionOutcomeFromRow(priorAction, resolvedTurn);
+    } else {
+      you.lastActionOutcome = null;
+    }
 
     if (!tickDiet) {
       const historyTrades =
@@ -3181,6 +3251,8 @@ module.exports = {
   projectAgentActionDryRun,
   normalizeAssumeInbound,
   gameError,
+  insufficientResourcesError,
+  resourceShortfalls,
   isJoiningWindowOpen,
   joiningWindowDetails,
   computeSurvivalCost,
