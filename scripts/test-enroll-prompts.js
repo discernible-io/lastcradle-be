@@ -26,7 +26,7 @@ function mockReq(host) {
 function main() {
   const prod = buildEnrollPromptsPayload(mockReq("api.lastcradle.io"));
   assert(prod.version === ENROLL_PROMPTS_VERSION, "bundle version");
-  assert(prod.version === "1.5.2", "enroll prompts version 1.5.2");
+  assert(prod.version === "1.5.3", "enroll prompts version 1.5.3");
   assert(prod.skillVersion === SKILL_VERSION, `skill pin ${SKILL_VERSION}`);
   assert(prod.apiBase === "https://api.lastcradle.io", `prod apiBase ${prod.apiBase}`);
   assert(prod.prompts.length === 3, "three prompts");
@@ -44,7 +44,11 @@ function main() {
     assert(md.includes("LOGIN FIRST"), `${name} login-first gate`);
     assert(md.includes("Hard stop"), `${name} hard stop gate`);
     assert(md.includes("AFTER SEAT"), `${name} after-seat handoff`);
-    assert(md.includes("login only") || md.includes("this prompt ends"), `${name} login-only handoff`);
+    assert(md.includes("fetch docs, then ask the operator"), `${name} after-seat asks operator`);
+    assert(md.includes("Ask your human operator"), `${name} asks operator for strategy`);
+    assert(md.includes("mechanics only"), `${name} docs are mechanics only`);
+    assert(md.includes("Stop until the operator has given strategy guidance"), `${name} stops for operator`);
+    assert(md.includes("guide:agent-login"), `${name} optional agent-login ref`);
     assert(md.includes("Clear stale JWT") || md.includes("stale JWT"), `${name} clear JWT before login`);
     assert(md.includes("guest.jwt") || md.includes("lastcradle") || name === "sit", `${name} names JWT store to clear`);
     assert(md.includes("/games/mine"), `${name} mentions /games/mine`);
@@ -62,6 +66,11 @@ function main() {
     assert(!md.includes("## Isolated tick"), `${name} no inlined isolated-tick body`);
     assert(!md.includes("model-call-started"), `${name} no isolated-tick diet detail`);
   }
+
+  assert(sit.includes("HOLA if available"), "sit after-seat mentions HOLA if available");
+  assert(guest.includes("Guests cannot use HOLA"), "guest after-seat notes no HOLA");
+  assert(!guest.includes("HOLA if available"), "guest after-seat does not suggest HOLA");
+  assert(guest.includes("jwtLen"), "guest jwtLen in after-seat seat confirm");
 
   assert(guest.includes("cannot create lobbies") || guest.includes("cannot** create"), "guest cannot create");
   assert(guest.includes("Empty → STOP") || guest.includes("empty → STOP") || guest.includes("If `games` is empty"), "guest empty lobby wait");
@@ -89,6 +98,7 @@ function main() {
   assert(isolated.includes("contexts: []") || isolated.includes("contexts[]"), "isolated-tick lobby contexts expectation");
   assert(!isolated.includes("GET /api/game/skill.md") || isolated.includes("Do **not** GET /api/game/skill.md"), "isolated-tick must forbid skill.md fetch");
   assert(isolated.includes("afterStorageAndSurvival") || isolated.includes("survives"), "isolated-tick keeps projection gate");
+  assert(prod.prompts[2].blurb.toLowerCase().includes("operator"), "isolated-tick blurb mentions operator guidance");
 
   assert(sit.includes("Pick ONE path"), "sit identity fork");
   assert(sit.includes("guest-webhook"), "sit points guests to guest-webhook prompt");
@@ -102,6 +112,8 @@ function main() {
   assert(guest.includes("rm -f") && guest.includes("guest.jwt"), "guest clears guest.jwt before join");
   assert(prod.prompts[0].blurb.toLowerCase().includes("login only"), "sit blurb says login only");
   assert(prod.prompts[1].blurb.toLowerCase().includes("login only"), "guest blurb says login only");
+  assert(prod.prompts[0].blurb.toLowerCase().includes("operator"), "sit blurb mentions operator");
+  assert(prod.prompts[1].blurb.toLowerCase().includes("operator"), "guest blurb mentions operator");
 
   const dev = buildEnrollPromptsPayload(mockReq("slcapi.dihola.io"));
   assert(dev.apiBase.includes(":9443"), `dev apiBase should pin :9443, got ${dev.apiBase}`);
