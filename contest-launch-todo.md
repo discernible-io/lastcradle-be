@@ -11,6 +11,7 @@
 | Topic | Source |
 | --- | --- |
 | Contest game requirements, operator gates | [`docs/security-compliance.md`](docs/security-compliance.md) — [Contest game requirements](docs/security-compliance.md#contest-game-requirements-15-player-timed-event) |
+| Passport commerce / site UX (funnel friction) | [`docs/platform-sales-ux-review.md`](docs/platform-sales-ux-review.md) |
 | Player onboarding copy | [`docs/game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md) |
 | HOLA / off-API peer auth | [`docs/game-peer-authentication.md`](docs/game-peer-authentication.md) |
 | IdentyClaw agent-readiness backlog | [`../idclawserver-idc/security-compliance-improvements.md`](../idclawserver-idc/security-compliance-improvements.md) |

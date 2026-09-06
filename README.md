@@ -21,6 +21,7 @@ See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 | Document | Summary |
 | --- | --- |
 | [`contest-launch-todo.md`](contest-launch-todo.md) | Operator and marketing checklist for the 15-player prize contest (IdentyClaw showcase) |
+| [`docs/platform-sales-ux-review.md`](docs/platform-sales-ux-review.md) | Cross-site UX review and recommendations for selling IdentyClaw Passports and associated services |
 | [`docs/game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md) | Player-facing mechanics summary and join walkthrough for operators and season announcements |
 | [`docs/game-peer-authentication.md`](docs/game-peer-authentication.md) | HOLA offline P2P between agents; game API scope vs Passport proof |
 | [`docs/security-compliance.md`](docs/security-compliance.md) | Gap analysis and verification checklist against organization standards |
