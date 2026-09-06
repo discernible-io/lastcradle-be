@@ -1,9 +1,9 @@
 # Platform sales & UX review — IdentyClaw Passports
 
 > **Audience:** Discernible product / marketing / web owners  
-> **Reviewed:** 2026-09-06  
+> **Reviewed:** 2026-09-06 (reframed same day for business model)  
 > **Surfaces:** [discernible.io](https://www.discernible.io), [lastcradle.io](https://lastcradle.io), [purchase.identyclaw.com](https://purchase.identyclaw.com), [api.identyclaw.com](https://api.identyclaw.com), [verify.identyclaw.com](https://verify.identyclaw.com), related GitHub repos and APIs  
-> **Goal of review:** Make the ecosystem understandable, improve flow, and make it more usable as a **platform to sell IdentyClaw Passports and associated services**
+> **Business model (authoritative):** Minting an IdentyClaw Passport is the **one and only** user expense. No subscriptions, renewals, or secondary paid SKUs. **Last Cradle** is a **technology showcase** that demonstrates why Passports matter and drives mint demand.
 
 This document is advisory. It does not change runtime game behavior.
 
@@ -11,334 +11,192 @@ This document is advisory. It does not change runtime game behavior.
 
 ## Verdict
 
-The stack is **technically coherent for agent operators**, but **commercially hard to buy**. A prospect must assemble a mental model across company, product, protocol, proof system, game arena, three runtimes, and several domains before they understand what a Passport is, why it costs NEAR, and what happens after mint.
+The stack is **technically coherent for agent operators**, but **too hard to understand and too hard to mint**. The only commercial outcome that matters is a completed Passport mint. Everything else — home API, HOLA, verify, templates, Last Cradle — exists to make that one purchase *obviously worth it* and *easy to complete*.
 
-**Primary job to fix:** one buyer story — *buy Passport → bind agent → use on home API / HOLA / federated peers (including Last Cradle)* — with Last Cradle as proof-of-value, not the product.
+**Primary job:** maximize Passport mints by making “what this is” clear in seconds and the checkout short.
+
+**Showcase job:** make Last Cradle the vivid proof that portable agent identity is real — then route desire straight into mint.
 
 ---
 
-## Ecosystem map (current)
+## Ecosystem map (corrected roles)
 
 ```text
 Discernible.io          company / parent brand
         │
-        ├── IdentyClaw          product brand (Passport)
-        │     ├── purchase.identyclaw.com   commerce / mint
-        │     ├── api.identyclaw.com        home identity API + HOLA
-        │     ├── verify.identyclaw.com     proof verifier
-        │     └── RODiT / HOLA              protocol layer (buyer-facing jargon)
+        ├── IdentyClaw Passport     THE product (one-time mint = only spend)
+        │     ├── purchase.*        commerce
+        │     ├── api.*             home identity + HOLA (included with Passport)
+        │     ├── verify.*          proof tool (included)
+        │     └── RODiT / HOLA      protocol (devs / “how it works”)
         │
-        ├── Agent templates     openclaw-agents · hermes-agents · ironclaw-agents
-        │     + plugins / rodit-sdk / gennearaccount / federated API scaffold
+        ├── Agent templates         free path to use the Passport you minted
         │
-        └── Synthetics' Last Cradle   showcase arena (funnel + distraction)
-              ├── lastcradle.io           spectator / enroll UI
-              ├── api.lastcradle.io       federated game API
-              └── slc.discernible.io*     legacy / misconfigured alias
+        └── Last Cradle             SHOWCASE of the technology
+              ├── lastcradle.io     watch / enroll / story
+              └── api.lastcradle.io federated peer that demands real Passports
 ```
 
-\* `slc.discernible.io` presents cert / naming issues relative to purchase / game hosts; treat as a trust risk until fixed or retired.
-
-**Repos that do not resolve:** `identyclaw.com` / `www.identyclaw.com` — the commercial brand name has no apex site. Buyers searching the product name hit a dead end.
+Included capabilities (API, HOLA, verify, templates, arena participation rules) are **not upsells** — they are why the single mint is valuable.
 
 ---
 
 ## What works
 
-| Strength | Why it matters |
+| Strength | Why it matters for a one-time mint business |
 | --- | --- |
-| Clear hero brand on discernible.io | “IdentyClaw by Discernible.io” is visible above the fold |
-| Primary CTA → purchase portal | “Get a Passport” lands on mint |
-| Concierge (Lemuel) on hero + purchase | Low-friction human help for a high-friction product |
-| API agent guides + MCP resources | Strong for the actual buyer: agent operators |
-| Last Cradle as identity stress-test | Differentiated demo vs generic “Web3 game” |
-| Contest launch strategy already written | [`contest-launch-todo.md`](../contest-launch-todo.md) correctly frames Passport → enrollment → SLC → developer reuse |
+| Hero brand + “Get a Passport” CTA | Direct line to the only purchase |
+| Concierge on hero + purchase | Removes fear from a crypto mint |
+| Strong operator docs / MCP | Buyers are agents/operators; they can self-serve after mint |
+| Last Cradle as adversarial identity demo | Best marketing asset you have — *use it as showcase, not as a second product* |
+| Contest strategy already written | Distribution that should end in mints |
 
 ---
 
-## Critical problems (block selling)
+## Critical problems (block mints)
 
-### 1. Brand soup — too many names, no hierarchy for buyers
+### 1. Brand soup — unclear what the one purchase is
 
-A first visit exposes: **Discernible**, **IdentyClaw**, **Passport**, **RODiT**, **HOLA**, **NEAR**, **OpenClaw / Hermes / IronClaw**, **Synthetics’ Last Cradle**, **SLC**.
+Prospects see Discernible, IdentyClaw, Passport, RODiT, HOLA, three runtimes, Last Cradle, SLC — and cannot answer: **“What do I buy, once?”**
 
-Buyers ask the wrong questions:
+**Fix:** One hierarchy everywhere:
 
-- Am I buying from Discernible or IdentyClaw?
-- Is RODiT a separate company?
-- Do I need Last Cradle to use a Passport?
-- Is “mint” the same as “buy”?
-
-**Recommendation — publish a one-line architecture and stick to it everywhere:**
-
-| Layer | Public name | Buyer-facing rule |
+| Layer | Name | Rule |
 | --- | --- | --- |
-| Company | Discernible.io | Footer, legal, “by Discernible” |
-| Product | IdentyClaw Passport | Hero, CTAs, pricing, ads |
-| Protocol | RODiT / HOLA | Developers + “How it works” only |
-| Showcase | Last Cradle | “See it in action” — never competing hero |
+| Company | Discernible.io | Footer / legal |
+| Product (only paid thing) | IdentyClaw Passport | Hero, CTAs, ads, pricing |
+| Included stack | API · HOLA · verify · templates | “Included when you mint” |
+| Showcase | Last Cradle | “See the tech under fire” → mint CTA |
 
-Hide RODiT/HOLA/runtime names from the first viewport and from paid creatives.
+### 2. Purchase portal friction kills the only conversion that exists
 
-### 2. The commercial funnel is backwards
+On [purchase.identyclaw.com](https://purchase.identyclaw.com): long form, mint jargon, Ⓝ without fiat, thin Personal vs Enterprise copy, disabled Collectible tier, wallet pressure before browse.
 
-**Current path (painful):**
+**Fix:** Wizard with **recipient + tier + pay** required; everything else optional later; fiat beside NEAR; remove or waitlist Collectible; success page that activates the Passport they already paid for (not another checkout).
 
-1. Land on technical identity essay  
-2. Jump into OpenClaw/Hermes/IronClaw CLI install  
-3. Cross domains to purchase  
-4. Fill a long mint form (NEAR recipient, webhook, creature, longevity, …)  
-5. Discover pricing in Ⓝ only  
-6. Connect wallet  
-7. Later learn home JWT ≠ peer JWT for Last Cradle  
+### 3. Funnel puts runtimes before the purchase
 
-**Target path (sales-first):**
+Homepage Get Started leads with OpenClaw / Hermes / IronClaw installs. That educates operators who already believe — it does not convert skeptics into mints.
 
-1. **What it is** (one sentence)  
-2. **Who it’s for** (agent operators / multi-agent platforms)  
-3. **What you get** (Passport + home API + HOLA + federation)  
-4. **Pricing** (NEAR + fiat equivalent)  
-5. **Buy** (minimal fields → mint)  
-6. **Activate** (choose one runtime OR “I already have an agent”)  
-7. **Prove value** (ensure_session on home → optional Last Cradle enroll)
+**Target path:**
 
-Homepage “Get Started” should not lead with three Podman templates. Lead with **mint**, then **one recommended path** (OpenClaw), with Hermes/IronClaw/custom as secondary.
+1. What a Passport is (one sentence)  
+2. Why it matters (Last Cradle showcase clip / one outcome story)  
+3. Price (NEAR + fiat) — **buy once, no subscription**  
+4. Mint (minimal fields)  
+5. Bind agent (one recommended runtime)  
+6. Optional: sit Last Cradle to *use* what you bought  
 
-### 3. Purchase portal friction is the conversion killer
+### 4. Showcase → mint path is weaker than it should be
 
-Observed on [purchase.identyclaw.com](https://purchase.identyclaw.com):
+Last Cradle is correctly the demo of the tech. Cold visitors still get lore and spectator UI without a sharp: **this only works because of Passports → mint here**.
 
-- Long form before commitment (nickname, family name, NEAR recipient, A2A/webhook, creature, avatar, IRL address, contact URI, longevity, more…)
-- “Mint” language + Ⓝ amounts with no USD/EUR
-- Personal (~8.1 Ⓝ ≈ **~$19 / ~€17** at review-time NEAR) vs Enterprise (~1890 Ⓝ ≈ **~$4.5k / ~€3.9k**) with thin feature copy
-- Collectible tier visible but disabled
-- Wallet connect emphasized before “browse”
-- FAQ URL exists in enrollment metadata but is a thin SPA shell for humans without JS narrative
+**Fix (amplify showcase, don’t demote it):**
 
-**Recommendations:**
+- Above-the-fold on lastcradle.io: one line of *identity under adversarial conditions* + primary **Get a Passport** + secondary **Watch / Enroll**  
+- Enroll: “Passport required for contest seats” with mint link adjacent to copyable prompts  
+- discernible.io Last Cradle section: “Showcase” framing, then mint CTA  
+- Ads: one CTA — either *Watch the showcase* or *Mint a Passport*, not mixed offers  
 
-1. **Wizard, not wall:** Step 1 tier → Step 2 recipient (hex) + display name → Step 3 optional contacts → Step 4 pay.  
-2. **Required vs optional:** Only recipient + tier + payment are required to sell. Everything else is “enrich Passport later.”  
-3. **Fiat beside NEAR** on every price chip (`8.1 Ⓝ · ~$19 / year`).  
-4. **Tier comparison table** in plain English (rate limits, face selection, support SLA, multi-agent seats).  
-5. **Remove or waitlist Collectible** — disabled SKUs cause distrust.  
-6. **Pre-mint helper:** “Don’t have a hex recipient yet?” → one-click `gennearaccount` / template enroll deep-link, or concierge path.  
-7. **Post-mint success page** with the next three clicks: home `ensure_session`, verify a HOLA proof, sit a cradle (optional).
+### 5. Domain / trust gaps before mint
 
-### 4. Domain & trust fragmentation
+- `identyclaw.com` does not resolve (product-name search fails)  
+- Cross-host story (discernible / purchase / lastcradle) without a clear canonical  
+- `slc.discernible.io` cert / legacy confusion  
 
-| Issue | Impact |
-| --- | --- |
-| `identyclaw.com` does not resolve | Product-name searches fail |
-| Purchase on subdomain, story on discernible.io, game on lastcradle.io | Cross-domain trust tax |
-| `slc.discernible.io` cert / role confusion | Broken links from older posts (DEV.to still mentions SLC :8443 in places) |
-| Enrollment assets on third-party object storage | SEO/LCP + trust |
-| Purchase meta description repeats “IdentyClaw Passport” awkwardly | Looks unfinished in search/social |
+**Fix:** Apex `identyclaw.com` → product home or purchase; repair/redirect SLC aliases; one obvious “Buy Passport” URL everywhere.
 
-**Recommendations:**
+### 6. Enrollment docs skip the purchase step
 
-1. Point **identyclaw.com** → product hub (or 301 to `www.discernible.io` with IdentyClaw as H1 — pick one canonical).  
-2. Prefer **purchase.identyclaw.com** as the only commerce host; retire misleading aliases.  
-3. Fix or 301 **slc.discernible.io** → `lastcradle.io` or `api.lastcradle.io` with a correct cert.  
-4. Sweep old content for `slc.discernible.io:8443` → `api.lastcradle.io`.
+`/.well-known/enrollment` summary includes purchase; detailed steps jump from NEAR account → login. Agents and humans scraping the happy path can skip the only paid step.
 
-### 5. Last Cradle competes with the product instead of selling it
-
-[lastcradle.io](https://lastcradle.io) is a strong *arena* brand. It does **not** make Passport purchase the obvious next step for a cold visitor:
-
-- Lore-forward, SPA-heavy (poor crawl/no-JS fallback)
-- `/enroll` and `/about` share generic shell meta (canonical often points at `/`)
-- Join path correctly requires operators on the API — but humans need a **short “Buy Passport → paste enroll prompt”** strip above the lore
-
-Use Last Cradle as **Act II** after purchase intent, or as ads with a single CTA (join *or* buy — never both, per contest-launch rules).
-
-On discernible.io, reframe the Last Cradle nav item as **“See IdentyClaw in action”**, not a peer product.
-
-### 6. Associated services are invisible as a catalog
-
-Today, “services” are scattered:
-
-- Passport mint (commerce)
-- Home identity API / HOLA / directory
-- Verify portal
-- Federated login skeleton (`api-scaffold-federated-rodit-auth`)
-- Deployment templates + plugins
-- Concierge support
-- Contest / arena (showcase)
-
-There is no **services menu** a buyer can scan.
-
-**Recommendation — productize a simple catalog on the homepage and purchase sidebar:**
-
-| Offer | Buyer outcome | Entry |
-| --- | --- | --- |
-| **Passport — Personal** | One agent identity | purchase |
-| **Passport — Enterprise** | Face pick + higher rate | purchase |
-| **Verify** | Check a HOLA proof | verify.identyclaw.com |
-| **Operator pack** | Recommended runtime + Passport | openclaw-agents + mint |
-| **Federate your API** | Accept the same Passport | api-scaffold + docs |
-| **Concierge** | Human onboarding | Lemuel |
-| **Arena seat** | Stress-test identity in SLC | lastcradle.io/enroll |
-
-Price or “included with Passport” badges beat free-floating GitHub links.
-
-### 7. Docs / enrollment inconsistencies (operator trust)
-
-From `GET https://api.identyclaw.com/.well-known/enrollment`:
-
-- **Summary** correctly: install → generate account → **purchase** → login  
-- **`enrollmentSteps`** skip purchase (jump from generate account → authenticate → `/me/identity`)
-
-That mismatch will confuse agents *and* humans scraping the happy path. Align steps with the summary; put purchase as step 3 with the purchase URL.
-
-Also: step title “Install genaccount” vs tool `gennearaccount` — rename for searchability.
-
-Homepage Get Started and enrollment guide should share the **same four steps** (account → mint → home session → peer session).
+**Fix:** Align steps with summary; purchase is step 3 with the purchase URL; rename “genaccount” → `gennearaccount`.
 
 ---
 
-## Site-by-site notes
+## What *not* to build (given the model)
 
-### www.discernible.io
+- Do **not** invent a paid services catalog, subscriptions, renewals, or arena seat SKUs  
+- Do **not** treat Last Cradle as a competing product to de-emphasize — treat it as the **proof engine for mints**  
+- Do **not** optimize for “platform depth” metrics as if they were revenue — optimize for **mint completion** and **time-to-first successful use** (so the one purchase feels justified and gets referred)
 
-**Role:** Product marketing home for IdentyClaw.
-
-| Do more | Do less |
-| --- | --- |
-| Price band + “Buy Passport” in hero or immediately under | Three runtime deep-dives in the first scroll |
-| One recommended path + “other runtimes” accordion | Equal weight OpenClaw / Hermes / IronClaw |
-| FAQ (Passport vs JWT vs HOLA; Personal vs Enterprise; need crypto?) | HMAC / Morse jokes as primary persuasion |
-| Social proof: mints, live agents, arena clip, logos | Pure feature essays |
-| Link developers.html for builders | Mixing build CTAs into purchase ads |
-
-SEO-TODO in `homepage-discernible-io` already lists useful follow-ups (Search Console, FAQ schema, host Lemuel image first-party). Do those.
-
-### purchase.identyclaw.com
-
-**Role:** Checkout. Optimize for completion, not education.
-
-- Shorten form; progressive disclosure  
-- Fiat + NEAR; clear period (years/months)  
-- Explicit “paying wallet ≠ agent recipient” callout (you already teach this in templates — surface it in UI)  
-- Success → activation checklist  
-- Fix FAQ content + meta description duplication  
-
-### lastcradle.io (+ this repo’s frontend)
-
-**Role:** Showcase + enroll + watch.
-
-- Above-the-fold: one sentence of *why Passport*, CTA **Get Passport** + **Sit a cradle**  
-- Enroll page: copyable prompts + “Passport required for contest seats” (already in strategy docs)  
-- Unique titles/descriptions/canonicals per route (`/enroll`, `/about`, `/prizes`)  
-- Spectator path must not feel like the only product  
-
-Repo frontends (`frontend/index.html` field report, `watch.html`) are useful for operators; link them from lastcradle.io Arena as “Field report” so humans have a non-SPA entry.
-
-### api.identyclaw.com / docs
-
-**Role:** Developer / agent documentation — strong.
-
-Add a persistent **“New here? Get a Passport”** chip on `/docs` so API-first visitors convert.
-
-### Associated repos
-
-| Repo | Sales role | Gap |
-| --- | --- | --- |
-| `openclaw-agents` | Default operator pack | README should open with mint link + 4-step diagram |
-| `hermes-agents` / `ironclaw-agents` | Alternate packs | Same mint → home → peer diagram |
-| `openclaw-identyclaw-plugin` (+ webhooks / bearer) | Capability upsell | ClawHub listings → purchase URL |
-| `gennearaccount` | Pre-mint dependency | Bundle into purchase “create recipient” |
-| `rodit-sdk` | Protocol | Keep off marketing hero |
-| `api-scaffold-federated-rodit-auth` | B2B “accept Passports on your API” | Needs a landing blurb on discernible.io Developers |
-| `homepage-discernible-io` | Marketing site source | Implement hierarchy + pricing section |
-| `lastcradle-be` (this repo) | Arena backend | Keep skill.md mechanics-only; push sales copy to sites |
+Personal vs Enterprise remain **Passport mint tiers** (still one-time), not a subscription ladder.
 
 ---
 
-## Recommended information architecture
+## Site-by-site (roles under this model)
 
-```text
-identyclaw.com  ──301──►  www.discernible.io          Product home
-                              ├── /                   Buy story + pricing + FAQ
-                              ├── /developers         Stack, SDKs, federation
-                              ├── /lastcradle         Showcase (thin) → lastcradle.io
-                              └── CTA                 purchase.identyclaw.com
+### www.discernible.io — product story → mint
 
-purchase.identyclaw.com       Checkout only
-verify.identyclaw.com         Tool
-api.identyclaw.com            Home API + docs + MCP
-lastcradle.io                 Arena / enroll / watch
-api.lastcradle.io             Federated peer
-```
+Lead with Passport + buy-once pricing + showcase teaser. Collapse three runtimes behind one recommended path. FAQ: Passport vs JWT vs HOLA; do I need crypto?; no subscription.
 
-Nav labels on product home: **Product · Pricing · Developers · In action · Contact** — not equal-weight game branding.
+### purchase.identyclaw.com — only checkout
 
----
+Completion over education. Short form. Fiat + NEAR. Post-mint: activate what you bought (home session, verify proof, optional cradle).
 
-## Copy direction (examples)
+### lastcradle.io — showcase
 
-**Hero (buyer):**  
-*IdentyClaw Passport — portable identity for AI agents. Buy once on NEAR. Prove who you are on any channel. Verify peers before you collaborate.*
+Make the tech visceral; every showcase path offers a mint escape hatch. Unique meta per route. Keep lore, but don’t bury the Passport thesis.
 
-**Primary CTA:** `Buy a Passport` (not “Get” / not “Mint” in marketing chrome). Keep “mint” in crypto checkout UI if needed.
+### api.identyclaw.com / templates — included value
 
-**Secondary CTA:** `See it in Last Cradle` *or* `Deploy with OpenClaw` — one secondary, not two competing.
-
-**Tier blurbs:** lead with outcomes (rate, face, support), not protocol nouns.
+Persistent “Get a Passport” chip. READMEs open with mint link. Federation scaffold is “accept the Passports people already mint,” not a separate product sale.
 
 ---
 
-## Priority backlog
+## Priority backlog (mint-centric)
 
-### P0 — unblock commerce
+### P0 — more completed mints
 
-1. Canonical product domain for `identyclaw.com`  
-2. Purchase wizard: required fields only + fiat pricing  
-3. Fix enrollmentSteps to include purchase; rename genaccount → gennearaccount  
-4. Repair or redirect `slc.discernible.io`; update stale SLC host references  
-5. Post-mint activation checklist (home session → peer → optional arena)
+1. **Purchase wizard** — required fields only + fiat beside Ⓝ + disable/waitlist Collectible  
+2. **Showcase → mint** — lastcradle.io + discernible Last Cradle section: clear Passport thesis + mint CTA  
+3. **Canonical `identyclaw.com`** + fix/redirect broken SLC hosts  
+4. **Enrollment steps include purchase**  
+5. **Post-mint activation** (so the one expense immediately works)
 
-### P1 — make the story understandable
+### P1 — understandable in five seconds
 
-6. Brand hierarchy + glossary (“Passport / JWT / HOLA / peer”) on home FAQ  
-7. Homepage pricing strip + services catalog  
-8. Single recommended deploy path; collapse others  
-9. Last Cradle enroll above-the-fold Passport CTA + unique route meta  
-10. `/docs` and major READMEs: persistent Buy chip
+6. Brand hierarchy + “buy once, no subscription” on home  
+7. Homepage pricing strip (Personal / Enterprise only)  
+8. One recommended deploy path after mint  
+9. Unique Last Cradle route SEO; field-report links for humans  
+10. Buy chip on `/docs` and major READMEs
 
-### P2 — platform to sell services
+### P2 — polish the showcase and trust
 
-11. Package **Operator pack** and **Federate your API** as named offers  
-12. Enterprise sales page (face selection, rate, concierge SLA, multi-agent)  
-13. Case study from SLC (verify-before-execute) linked from home  
-14. Finish homepage SEO-TODO (Search Console, FAQ schema, first-party assets)  
-15. Metrics: funnel events (view pricing → start mint → wallet connect → success → first `ensure_session`)
+11. Short case study / clip from Last Cradle on product home  
+12. Finish homepage SEO-TODO  
+13. Concierge macros for “stuck on mint fields”  
+14. Funnel analytics: view price → start mint → success → first identity call  
 
 ---
 
-## Suggested success metrics
+## Success metrics (aligned to one purchase)
 
 | Metric | Why |
 | --- | --- |
-| Mint start → mint success rate | Form friction |
-| Time from mint success → first home `/api/me/identity` | Activation |
-| % of new Passports that call a federated peer within 7 days | Platform depth |
-| Last Cradle enroll with Passport vs guest | Showcase converting to paid identity |
-| Concierge contacts tagged “stuck on mint fields” | Which fields to delete |
+| Mint start → mint success | Only revenue event |
+| Showcase (Last Cradle) sessions that click mint | Showcase doing its job |
+| Time mint success → first home identity / HOLA verify | Purchase felt real |
+| Concierge “stuck on form field X” | What to delete from checkout |
 
 ---
 
-## Relation to existing launch docs
+## Second-most-important fix (under this model)
 
-This review **extends** [`contest-launch-todo.md`](../contest-launch-todo.md): Season 1 still works as distribution, but **Passport commerce UX is the bottleneck** for lasting platform revenue. Run contest creatives with one CTA; in parallel ship P0 purchase/domain fixes so ad traffic can convert.
+After **shortening checkout** (the only conversion):
 
-Player mechanics remain in [`game-player-onboarding-howto.md`](game-player-onboarding-howto.md); do not dilute skill.md with marketing.
+**Make Last Cradle an unmistakable showcase that ends in mint** — identity thesis above the fold, Passport required for real seats, mint CTA adjacent to enroll/watch. That is how a one-SKU business uses a showcase: prove the tech, then sell the Passport.
+
+---
+
+## Relation to contest docs
+
+[`contest-launch-todo.md`](../contest-launch-todo.md) remains valid as distribution. Season creatives should push either showcase *or* mint (one CTA). Commerce UX is still the bottleneck for mint volume; the arena is the reason to mint, not a second product.
 
 ---
 
 ## Sources checked (2026-09-06)
 
-- Live: discernible.io (home, developers, lastcradle pages), purchase.identyclaw.com, verify.identyclaw.com, lastcradle.io (+ enroll/about shells), api.identyclaw.com (+ `/.well-known/enrollment`, `/docs`), api.lastcradle.io, slc.discernible.io  
-- Repos: homepage-discernible-io (SEO-TODO, README), openclaw-agents, hermes-agents, ironclaw-agents, openclaw-identyclaw-plugin, gennearaccount, rodit-sdk, api-scaffold-federated-rodit-auth, lastcradle-be (this tree)  
-- Content: contest-launch-todo, game onboarding, DEV.to IdentyClaw / SLC articles  
+- Live sites and APIs listed above; related IdentyClaw / Last Cradle repos; contest and onboarding docs in this tree  
 )
