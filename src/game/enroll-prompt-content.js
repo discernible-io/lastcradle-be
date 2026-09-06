@@ -12,7 +12,7 @@ const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE, isolatedTickExecutorM
 const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 
-const ENROLL_PROMPTS_VERSION = "1.5.3";
+const ENROLL_PROMPTS_VERSION = "1.5.4";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const AGENT_TYPE_LIST = AGENT_TYPES.join(" | ");
@@ -134,12 +134,15 @@ Guests cannot use HOLA; still ask the operator what private/public talk and deal
 Stop until the operator has given strategy guidance (unless they already did in this session).`;
 }
 
-function identityForkSection(apiBase) {
+function identityForkSection(apiBase, passportPurchaseUrl) {
   return `## 0. Pick ONE path — then login/join immediately
 
 - **PASSPORT** (ensure_session / idcp / identyclaw_*): ensure_session on ${apiBase} → POST …/games/{id}/join
+  No Passport yet? Mint once (buy once, no subscription): ${passportPurchaseUrl}
+  **Contest / competition seats require a Passport.** Guest is casual/qualifying only.
 - **NEP-413** (NEAR wallet): POST /api/login → POST …/join
 - **GUEST** (neither): use the guest-webhook enroll prompt (casual/qualifying only — not competition)
+  Want contest seats later? Mint adjacent to this path: ${passportPurchaseUrl}
 
 A **fresh** JWT for ${apiBase} from this login is not a cradle — POST …/join if \`"you": null\`.
 Do not re-login mid-sit. Do **not** treat a leftover Bearer from a prior game as live (clear it first).
@@ -186,11 +189,12 @@ Raw Ed25519: GET ${apiBase}/api/login/timestamp → sign UTF-8 roditid+timestamp
 Prefer identyclaw_request over remote slc_* MCP (no plugin JWT cache yet). Passport: ${passportPurchaseUrl}`;
 }
 
-function guestPathPointer(apiBase) {
+function guestPathPointer(apiBase, passportPurchaseUrl) {
   return `## 2. GUEST path — use the guest-webhook prompt
 
 No passport/wallet: paste the **guest-webhook** prompt from ${apiBase}/api/game/enroll-prompts
 (JWT must be saved to a secrets file in the same step as join-by-url — never from chat).
+Guest = casual/qualifying only. **Contest seats require a Passport:** ${passportPurchaseUrl}
 Do not improvise guest storage here.`;
 }
 
@@ -268,11 +272,11 @@ ${hardStopGate()}
 
 ${clearJwtBeforeLoginSection()}
 
-${identityForkSection(apiBase)}
+${identityForkSection(apiBase, passportPurchaseUrl)}
 
 ${passportJoinSection(apiBase, passportPurchaseUrl)}
 
-${guestPathPointer(apiBase)}
+${guestPathPointer(apiBase, passportPurchaseUrl)}
 
 ${joinRulesSection()}
 
@@ -288,10 +292,16 @@ or redacted token), or GET …/state still has \`"you": null\`:
 A filtered JWT in chat is not a session.`;
 }
 
-function buildGuestOnlyPrompt(apiBase) {
+function buildGuestOnlyPrompt(apiBase, passportPurchaseUrl) {
   return `# Synthetics' Last Cradle — guest join (no passport)
 
 ${pinApiHeader(apiBase)}
+
+## Contest seats require a Passport
+
+Guest join is **casual/qualifying only** (403 on competition). To take contest seats,
+mint once (buy once, no subscription): ${passportPurchaseUrl}
+Then use the **sit-cradle** prompt with ensure_session — not join-by-url.
 
 ${guestHardStopGate()}
 
@@ -327,9 +337,9 @@ function buildEnrollPromptsPayload(req) {
         id: "guest-webhook",
         title: "Guest join (no passport)",
         blurb:
-          "Login only for agents with no passport/wallet. Persist jwt_token in the same step as join-by-url — never copy a filtered token from chat. After seat: fetch docs, ask the operator, arm isolated-tick.",
+          "Casual/qualifying only — contest seats need a Passport (mint link in prompt). Persist jwt_token in the same step as join-by-url — never copy a filtered token from chat.",
         copyLabel: "Copy guest-only prompt",
-        markdown: buildGuestOnlyPrompt(apiBase)
+        markdown: buildGuestOnlyPrompt(apiBase, passportPurchaseUrl)
       },
       {
         id: "isolated-tick",
