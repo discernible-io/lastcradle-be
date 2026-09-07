@@ -2,7 +2,7 @@
  * Build blog-style turn reports from game state, messages, and execution actions.
  */
 
-const { buildSurvivalNarrative, buildFinishNarrative } = require("./narrative");
+const { buildSurvivalNarrative, buildFinishNarrative, formatResourceAmount } = require("./narrative");
 
 function agentName(agentById, agentId) {
   const agent = agentById.get(agentId);
@@ -12,9 +12,9 @@ function agentName(agentById, agentId) {
 function summarizeTransferLeg(from, leg, agentById) {
   const to = agentName(agentById, leg.toAgentId);
   const parts = [];
-  if (leg.energy) parts.push(`${leg.energy} energy`);
-  if (leg.water) parts.push(`${leg.water} water`);
-  if (leg.compute) parts.push(`${leg.compute} compute`);
+  if (leg.energy) parts.push(formatResourceAmount("energy", leg.energy));
+  if (leg.water) parts.push(formatResourceAmount("water", leg.water));
+  if (leg.compute) parts.push(formatResourceAmount("compute", leg.compute));
   let summary = `${from} sent ${parts.join(", ") || "resources"} to ${to}`;
   if (leg.rationale) {
     summary += ` — why: “${leg.rationale}”`;
