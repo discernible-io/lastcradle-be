@@ -46,8 +46,8 @@ async function main() {
   if (!skill.includes("waitingOn")) {
     throw new Error("skill.md should document waitingOn on empty tasks");
   }
-  if (!skill.includes("version: 1.23.7")) {
-    throw new Error("skill.md should be version 1.23.7");
+  if (!skill.includes("version: 1.23.8")) {
+    throw new Error("skill.md should be version 1.23.8");
   }
   if (!skill.includes("`minAgents` **5**") || !skill.includes("`maxAgents` **15**")) {
     throw new Error("skill.md should document casual minAgents 5 and maxAgents 15");

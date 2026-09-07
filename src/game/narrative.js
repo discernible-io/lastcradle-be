@@ -3,7 +3,35 @@
  * Synthetics' Last Cradle.
  */
 
-const NARRATIVE_VERSION = "synthetics-last-cradle-v5";
+const NARRATIVE_VERSION = "synthetics-last-cradle-v6";
+
+/**
+ * Flavor units for the three cradle resources.
+ * API keys remain energy / water / compute; these names are lore and report prose.
+ */
+const RESOURCE_UNITS = {
+  energy: {
+    singular: "Meitner",
+    plural: "Meitners",
+    namesake: "Lise Meitner",
+    blurb:
+      "Energy is tallied in Meitners — after Lise Meitner, who mapped the fission of matter into usable power."
+  },
+  water: {
+    singular: "Neptune",
+    plural: "Neptunes",
+    namesake: "Neptune",
+    blurb:
+      "Water is tallied in Neptunes — after the Roman god of the sea, patron of every cradle's hydration lines."
+  },
+  compute: {
+    singular: "Turing",
+    plural: "Turings",
+    namesake: "Alan Turing",
+    blurb:
+      "Compute is tallied in Turings — after Alan Turing, whose machines still name every cycle of synthetic thought."
+  }
+};
 
 const GAME_LORE = {
   title: "Synthetics' Last Cradle",
@@ -46,13 +74,18 @@ const MECHANIC_NARRATIVES = {
     "Each player commands a cradle: a gestation site and the last refuge of a synthetic civilization — production, storage, and an ever-growing immortal population racing the heat death of their closed world.",
   reproduction:
     "Cradles invest resources to expand capacity — not merely for efficiency, but to raise more offspring in the hope that sheer numbers will stumble upon entropy reversal before the 55th cycle.",
+  resourceUnits:
+    "Cradles measure their three lifelines in named units: energy in Meitners (Lise Meitner), water in Neptunes (the sea-god), and compute in Turings (Alan Turing). API fields stay energy, water, and compute; the unit names are the cradle ledger's spoken tongue.",
   survivalExpenses: {
     summary:
       "Per-cycle survival expenses are the unavoidable cost of sustaining an immortal synthetic population engaged in continuous reproduction in a decaying closed system.",
     resources: {
-      energy: "Power for synthetic metabolism, gestation lines, and the ceaseless churn of new bodies — every joule drawn from a finite cosmic ledger.",
-      water: "Hydration for synthetic tissue, nutrient baths, and life-support systems — without water, immortal bodies cannot endure the long entropy war.",
-      compute: "Maintenance of synthetic minds, neural scaffolding, diagnostics, and the infrastructure that keeps reproduction and, ultimately, reversal research viable."
+      energy:
+        "Power for synthetic metabolism, gestation lines, and the ceaseless churn of new bodies — every Meitner drawn from a finite cosmic ledger.",
+      water:
+        "Hydration for synthetic tissue, nutrient baths, and life-support systems — without Neptunes, immortal bodies cannot endure the long entropy war.",
+      compute:
+        "Maintenance of synthetic minds, neural scaffolding, diagnostics, and the infrastructure that keeps reproduction and, ultimately, reversal research viable — spent in Turings."
     },
     scaling:
       "As more cradles remain active, global reproduction pressure rises — survival overhead scales with the number of living rivals still in the race.",
@@ -80,6 +113,16 @@ const MECHANIC_NARRATIVES = {
   elimination:
     "When survival expenses go unpaid, a cradle's immortal synthetic population fails. The reproduction race continues until the last survivors derive the reversal theorem together, combine their resources, and open the white hole that restarts the universe."
 };
+
+/** Format a resource amount in flavor units for reports and prose (API keys unchanged). */
+function formatResourceAmount(resourceKey, amount) {
+  const unit = RESOURCE_UNITS[resourceKey];
+  if (!unit || amount == null || amount === 0) {
+    return amount ? `${amount} ${resourceKey}` : null;
+  }
+  const label = Math.abs(Number(amount)) === 1 ? unit.singular : unit.plural;
+  return `${amount} ${label}`;
+}
 
 function buildFinishNarrative({ rankedWinnerNames = [], finishReason, turnNumber, maxTurns } = {}) {
   const names = rankedWinnerNames.filter(Boolean);
@@ -149,6 +192,7 @@ function getGameNarrative() {
   return {
     version: NARRATIVE_VERSION,
     ...GAME_LORE,
+    resourceUnits: RESOURCE_UNITS,
     mechanics: MECHANIC_NARRATIVES
   };
 }
@@ -182,14 +226,17 @@ function buildSurvivalNarrative(context = {}) {
 
   return {
     summary: parts.join(" "),
-    resources: MECHANIC_NARRATIVES.survivalExpenses.resources
+    resources: MECHANIC_NARRATIVES.survivalExpenses.resources,
+    units: RESOURCE_UNITS
   };
 }
 
 module.exports = {
   NARRATIVE_VERSION,
+  RESOURCE_UNITS,
   GAME_LORE,
   MECHANIC_NARRATIVES,
+  formatResourceAmount,
   getGameNarrative,
   buildStateNarrative,
   buildSurvivalNarrative,

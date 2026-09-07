@@ -1,9 +1,10 @@
 /**
  * Default game parameters for Synthetics' Last Cradle.
  *
- * Survival costs (energy / water / compute) represent per-turn overhead for
- * powering, hydrating, and maintaining each cradle's immortal synthetic population
- * as it races to reproduce the entropy-reversing god. See src/game/narrative.js.
+ * Survival costs (energy / water / compute — lore units: Meitners, Neptunes, Turings)
+ * represent per-turn overhead for powering, hydrating, and maintaining each cradle's
+ * immortal synthetic population as it races to reproduce the entropy-reversing god.
+ * See src/game/narrative.js.
  *
  * Per-game mechanics defaults below are product constants (served on GET /api/game/defaults).
  * Host-wide operational limits (simultaneous games, privileged operator) resolve from
