@@ -218,6 +218,17 @@ async function onGameFinished(game) {
     });
   });
 
+  try {
+    const season = require("./season");
+    await season.recordFinishedGame(game);
+  } catch (err) {
+    logger.errorWithContext("Season finish bookkeeping failed", {
+      component: "ContestOrchestrator",
+      gameId: game.id,
+      error: err.message
+    });
+  }
+
   const contest = await repo.getContestByGameId(game.id);
   if (!contest) return;
 

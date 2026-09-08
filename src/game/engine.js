@@ -896,7 +896,8 @@ function isLobbyStillAcceptingJoins(game, now = Date.now()) {
 }
 
 function isContestLobbyConfig(config) {
-  return config?.contestMode === "practice" || config?.contestMode === "definitive";
+  const mode = config?.contestMode;
+  return mode === "practice" || mode === "qualifying" || mode === "definitive";
 }
 
 /**
@@ -970,7 +971,9 @@ async function createGame({
   allowParallelLobbies = false,
   bypassSimultaneousCap = false
 } = {}) {
-  const gameConfig = mergeGameConfig(configOverrides);
+  const season = require("./season");
+  const withSeason = await season.applySeasonCreatePolicy(configOverrides);
+  const gameConfig = mergeGameConfig(withSeason);
   const skipFillFirst =
     allowParallelLobbies || isContestLobbyConfig(gameConfig);
 
@@ -1255,6 +1258,9 @@ async function joinGame(gameId, { roditId, displayName, agentType, llmModel }) {
   if ((await repo.countAgents(gameId)) >= config.maxAgents) {
     throw gameError("GAME_FULL", "Game has reached maximum agent capacity", 409);
   }
+
+  const season = require("./season");
+  await season.assertSeasonJoinAllowed(game, roditId);
 
   let profile;
   try {

@@ -22,10 +22,12 @@ const {
   DEFAULT_GAME_CONFIG,
   CONTEST_GAME_CONFIG,
   PRACTICE_GAME_CONFIG,
+  QUALIFYING_GAME_CONFIG,
   MAX_SIMULTANEOUS_GAMES,
   publicGameConfig
 } = require("./defaults");
 const { resolveRoditId, handleGameError } = require("./route-helpers");
+const season = require("./season");
 const { listActiveGamesForRodit, listTasksInboxForRodit, listTickContextForRodit } = require("./agent-tasks");
 const { runAgentTick } = require("./tick");
 const { assertPassportIpLoginMethod } = require("./ip-login-method");
@@ -414,6 +416,86 @@ router.post("/contest-series", validateContentType, validateJsonBody, handleCrea
 
 /**
  * @swagger
+ * /api/game/seasons:
+ *   post:
+ *     summary: Create a multi-phase contest season (practice → qualifying → rostered final)
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-game-auth: privileged-rodit-id
+ */
+router.post("/seasons", validateContentType, validateJsonBody, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  if (!denyUnlessPrivileged(req, res, requestId)) {
+    return;
+  }
+  try {
+    const created = await season.createSeason({
+      name: req.body?.name,
+      practiceStartsAt: req.body?.practiceStartsAt,
+      practiceEndsAt: req.body?.practiceEndsAt,
+      qualifyingStartsAt: req.body?.qualifyingStartsAt,
+      qualifyingEndsAt: req.body?.qualifyingEndsAt,
+      finalJoiningStartsAt: req.body?.finalJoiningStartsAt,
+      prizeAmountYoctoNear: req.body?.prizeAmountYoctoNear
+    });
+    res.status(201).json({ season: created, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/seasons/{seasonId}/roster:
+ *   put:
+ *     summary: Publish the authorized final roster (subset of qualifying winners)
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-game-auth: privileged-rodit-id
+ */
+router.put("/seasons/:seasonId/roster", validateContentType, validateJsonBody, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  if (!denyUnlessPrivileged(req, res, requestId)) {
+    return;
+  }
+  try {
+    const updated = await season.setFinalRoster(req.params.seasonId, req.body?.roditIds || []);
+    res.json({ season: updated, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/seasons/{seasonId}/final:
+ *   post:
+ *     summary: Create the definitive final lobby for a season (roster must be set)
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     x-game-auth: privileged-rodit-id
+ */
+router.post("/seasons/:seasonId/final", validateContentType, validateJsonBody, async (req, res) => {
+  const requestId = req.requestId || ulid();
+  if (!denyUnlessPrivileged(req, res, requestId)) {
+    return;
+  }
+  try {
+    const result = await season.createSeasonFinal(req.params.seasonId, {
+      joiningWindowStartsAt: req.body?.joiningWindowStartsAt,
+      configOverrides: req.body?.config || {}
+    });
+    res.status(201).json({ ...result, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
  * /api/game/games/{gameId}/message:
  *   post:
  *     summary: Publish a negotiation message publicly (private messaging and HOLA are offline P2P between agents — not routed through this API)
@@ -616,6 +698,7 @@ router.get("/defaults/contest", (req, res) => {
   res.json({
     definitive: publicGameConfig(CONTEST_GAME_CONFIG),
     practice: publicGameConfig(PRACTICE_GAME_CONFIG),
+    qualifying: publicGameConfig(QUALIFYING_GAME_CONFIG),
     requestId: req.requestId || ulid()
   });
 });

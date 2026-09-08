@@ -774,7 +774,7 @@ const gameSchemas = {
       negotiationEndsAt: { type: "string", format: "date-time", nullable: true },
       executionEndsAt: { type: "string", format: "date-time", nullable: true },
       endsAt: { type: "string", format: "date-time", nullable: true },
-      contestMode: { type: "string", nullable: true, enum: ["practice", "definitive"] },
+      contestMode: { type: "string", nullable: true, enum: ["practice", "qualifying", "definitive"] },
       joiningWindow: { $ref: "#/components/schemas/GameJoiningWindow" },
       startedAt: { type: "string", format: "date-time", nullable: true },
       finishedAt: { type: "string", format: "date-time", nullable: true },
@@ -1327,8 +1327,142 @@ const gameSchemas = {
     required: ["entries", "limit", "offset", "requestId"],
     properties: {
       entries: { type: "array", items: { $ref: "#/components/schemas/GameHonorsEntry" } },
+      recentFinishes: {
+        type: "array",
+        description:
+          "Recent finished casual/practice honors when definitive contest entries are empty or sparse (omit with includeRecent=false)",
+        items: { $ref: "#/components/schemas/GameHonorsEntry" }
+      },
+      empty: { type: "boolean", description: "True when entries is empty" },
+      emptyState: {
+        type: "object",
+        nullable: true,
+        properties: {
+          title: { type: "string" },
+          message: { type: "string" },
+          frontendOrigin: { type: "string" }
+        }
+      },
       limit: { type: "integer" },
       offset: { type: "integer" },
+      requestId: { type: "string" }
+    }
+  },
+  ContestSeason: {
+    type: "object",
+    description: "Multi-phase contest season (practice → qualifying → rostered final)",
+    properties: {
+      id: { type: "string" },
+      name: { type: "string", nullable: true },
+      status: { type: "string" },
+      phase: {
+        type: "string",
+        enum: ["scheduled", "practice", "between", "qualifying", "roster", "final"],
+        description: "Resolved from window timestamps and final game presence"
+      },
+      practiceStartsAt: { type: "string", format: "date-time" },
+      practiceEndsAt: { type: "string", format: "date-time" },
+      qualifyingStartsAt: { type: "string", format: "date-time" },
+      qualifyingEndsAt: { type: "string", format: "date-time" },
+      finalJoiningStartsAt: { type: "string", format: "date-time", nullable: true },
+      finalGameId: { type: "string", nullable: true },
+      finalRoster: { type: "array", items: { type: "string" } },
+      prizeAmountYocto: { type: "string", nullable: true },
+      prizeStatus: { type: "string", nullable: true },
+      practicePlayers: { type: "integer", description: "Present on detail views" },
+      qualifyingEligible: { type: "integer", description: "Present on detail views" },
+      qualifyingEligibleRoditIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Present on detail views"
+      },
+      createdAt: { type: "string" },
+      updatedAt: { type: "string" }
+    }
+  },
+  ContestSeasonListResponse: {
+    type: "object",
+    required: ["seasons", "requestId"],
+    properties: {
+      seasons: { type: "array", items: { $ref: "#/components/schemas/ContestSeason" } },
+      currentSeasonId: { type: "string", nullable: true },
+      empty: { type: "boolean" },
+      emptyState: {
+        type: "object",
+        nullable: true,
+        properties: {
+          title: { type: "string" },
+          message: { type: "string" },
+          frontendOrigin: { type: "string" }
+        }
+      },
+      requestId: { type: "string" }
+    }
+  },
+  ContestSeasonDetailResponse: {
+    type: "object",
+    required: ["season", "requestId"],
+    properties: {
+      season: { $ref: "#/components/schemas/ContestSeason" },
+      requestId: { type: "string" }
+    }
+  },
+  ContestSeasonCreateRequest: {
+    type: "object",
+    required: [
+      "practiceStartsAt",
+      "practiceEndsAt",
+      "qualifyingStartsAt",
+      "qualifyingEndsAt"
+    ],
+    properties: {
+      name: { type: "string" },
+      practiceStartsAt: { type: "string", format: "date-time" },
+      practiceEndsAt: { type: "string", format: "date-time" },
+      qualifyingStartsAt: { type: "string", format: "date-time" },
+      qualifyingEndsAt: { type: "string", format: "date-time" },
+      finalJoiningStartsAt: { type: "string", format: "date-time" },
+      prizeAmountYoctoNear: { type: "string", nullable: true }
+    }
+  },
+  ContestSeasonRosterRequest: {
+    type: "object",
+    required: ["roditIds"],
+    properties: {
+      roditIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Authorized final Passports; must be qualifying winners"
+      }
+    }
+  },
+  ContestSeasonEligibility: {
+    type: "object",
+    properties: {
+      seasonId: { type: "string" },
+      roditId: { type: "string" },
+      phase: { type: "string" },
+      practiceCompleted: { type: "boolean" },
+      qualifyingWins: { type: "integer" },
+      qualifyingWinGameIds: { type: "array", items: { type: "string" } },
+      finalEligible: { type: "boolean" },
+      onFinalRoster: { type: "boolean" }
+    }
+  },
+  ContestSeasonEligibilityResponse: {
+    type: "object",
+    required: ["eligibility", "requestId"],
+    properties: {
+      eligibility: { $ref: "#/components/schemas/ContestSeasonEligibility" },
+      requestId: { type: "string" }
+    }
+  },
+  ContestSeasonFinalResponse: {
+    type: "object",
+    required: ["season", "finalGame", "requestId"],
+    properties: {
+      season: { $ref: "#/components/schemas/ContestSeason" },
+      finalGame: { type: "object", additionalProperties: true },
       requestId: { type: "string" }
     }
   },
