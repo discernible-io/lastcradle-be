@@ -1279,6 +1279,37 @@ async function listFinishedDefinitiveContests({ limit = 20, offset = 0 } = {}) {
   }));
 }
 
+/** Finished games for spectator empty-state / recent finishes (contest + casual). */
+async function listFinishedGames({ limit = 20, offset = 0, excludeContestDefinitive = false } = {}) {
+  const database = await getDb();
+  const cappedLimit = Math.min(Math.max(limit, 1), 100);
+  const cappedOffset = Math.max(offset, 0);
+  let rows;
+  if (excludeContestDefinitive) {
+    rows = await database.all(
+      `SELECT g.*
+       FROM games g
+       WHERE g.status = 'finished'
+         AND g.id NOT IN (
+           SELECT definitive_game_id FROM contests WHERE definitive_game_id IS NOT NULL
+         )
+       ORDER BY COALESCE(g.finished_at, g.created_at) DESC
+       LIMIT ? OFFSET ?`,
+      [cappedLimit, cappedOffset]
+    );
+  } else {
+    rows = await database.all(
+      `SELECT g.*
+       FROM games g
+       WHERE g.status = 'finished'
+       ORDER BY COALESCE(g.finished_at, g.created_at) DESC
+       LIMIT ? OFFSET ?`,
+      [cappedLimit, cappedOffset]
+    );
+  }
+  return rows.map((row) => rowToGame(row));
+}
+
 async function getExecutionSubmissionStatus(gameId, turnNumber) {
   const database = await getDb();
   const livingAgents = await listAgents(gameId, { status: "alive" });
@@ -1761,6 +1792,7 @@ module.exports = {
   listGameMessageReportsForGame,
   countPublicMessagesByAgent,
   listFinishedDefinitiveContests,
+  listFinishedGames,
   getExecutionSubmissionStatus,
   allLivingAgentsSubmitted,
   getActualMessageCounts,

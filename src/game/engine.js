@@ -13,7 +13,7 @@ const {
   MAX_SIMULTANEOUS_GAMES,
   resolveMaxTransferRecipients
 } = require("./defaults");
-const { PUBLIC_MESSAGE_BODY_MAX } = require("./input-limits");
+const { PUBLIC_MESSAGE_BODY_MAX, DISPLAY_NAME_MAX_LEN } = require("./input-limits");
 const { normalizeAgentProfile, normalizeAgentProfilePatch } = require("./agent-profile");
 const {
   computeSurvivalCost,
@@ -1177,6 +1177,47 @@ async function applyDefaultActionsForPendingAgents(gameId) {
   }
 }
 
+function normalizeDisplayName(displayName, roditId) {
+  const fallback = String(roditId || "").trim();
+  if (displayName == null || displayName === "") {
+    return fallback || null;
+  }
+  if (typeof displayName !== "string") {
+    throw gameError("INVALID_DISPLAY_NAME", "displayName must be a string", 400);
+  }
+  const trimmed = displayName.trim().replace(/\s+/g, " ");
+  if (!trimmed) {
+    throw gameError("INVALID_DISPLAY_NAME", "displayName cannot be blank", 400);
+  }
+  if (trimmed.length > DISPLAY_NAME_MAX_LEN) {
+    throw gameError(
+      "INVALID_DISPLAY_NAME",
+      `displayName must be at most ${DISPLAY_NAME_MAX_LEN} characters`,
+      400,
+      { maxLength: DISPLAY_NAME_MAX_LEN }
+    );
+  }
+  return trimmed;
+}
+
+function assertUniqueDisplayName(existingAgents, displayName, { excludeAgentId = null } = {}) {
+  if (!displayName) return;
+  const needle = displayName.toLowerCase();
+  const clash = existingAgents.find(
+    (agent) =>
+      agent.id !== excludeAgentId &&
+      String(agent.displayName || "").trim().toLowerCase() === needle
+  );
+  if (clash) {
+    throw gameError(
+      "DISPLAY_NAME_TAKEN",
+      "That display name is already used in this lobby — choose a unique cradle name",
+      409,
+      { displayName, takenByAgentId: clash.id }
+    );
+  }
+}
+
 async function joinGame(gameId, { roditId, displayName, agentType, llmModel }) {
   const game = await repo.getGameById(gameId);
   if (!game) {
@@ -1223,6 +1264,9 @@ async function joinGame(gameId, { roditId, displayName, agentType, llmModel }) {
   }
 
   const existingAgents = await repo.listAgents(gameId);
+  const resolvedDisplayName = normalizeDisplayName(displayName, roditId);
+  assertUniqueDisplayName(existingAgents, resolvedDisplayName);
+
   // Internal specialty mix policy — not part of public API/docs.
   const specialty = RESOURCE_KEYS[existingAgents.length % RESOURCE_KEYS.length];
 
@@ -1232,7 +1276,7 @@ async function joinGame(gameId, { roditId, displayName, agentType, llmModel }) {
   return repo.addAgent({
     gameId,
     roditId,
-    displayName,
+    displayName: resolvedDisplayName,
     agentType: profile.agentType,
     llmModel: profile.llmModel,
     productionCapacity,
@@ -1330,9 +1374,20 @@ async function applyTurnProduction(gameId, turnNumber) {
   const game = await repo.getGameById(gameId);
   const config = game?.config || mergeGameConfig();
   const agents = await repo.listAgents(gameId, { status: "alive" });
+  const productionWaterRate = config.productionWaterCostRate ?? 0;
+  let productionWaterConsumed = 0;
   for (const agent of agents) {
+    const produced = {
+      energy: agent.productionCapacity.energy,
+      water: agent.productionCapacity.water,
+      compute: agent.productionCapacity.compute
+    };
+    productionWaterConsumed += (produced.energy + produced.compute) * productionWaterRate;
     const newInventory = applyProduction(agent, config);
     await repo.updateAgentInventory(agent.id, newInventory);
+  }
+  if (productionWaterConsumed > 0) {
+    await repo.incrementAggregateWaterConsumed(gameId, productionWaterConsumed);
   }
 }
 
@@ -1628,6 +1683,7 @@ async function executeTurn(gameId) {
   });
 
   const deaths = [];
+  let survivalWaterConsumed = 0;
   for (const agent of livingBefore) {
     const agentId = agent.id;
     const state = agentState.get(agentId);
@@ -1649,10 +1705,16 @@ async function executeTurn(gameId) {
       continue;
     }
     state.inventory = deduct(state.inventory, survivalCost);
+    survivalWaterConsumed += survivalCost.water || 0;
+  }
+
+  if (survivalWaterConsumed > 0) {
+    await repo.incrementAggregateWaterConsumed(gameId, survivalWaterConsumed);
   }
 
   for (const { agentId, agent, deathReason } of deaths) {
     await repo.killAgent(agentId, turnNumber, deathReason);
+    await repo.halveAggregateWaterConsumed(gameId);
     notifyElimination({ gameId, agent, turnNumber, deathReason }).catch(() => {});
   }
 
@@ -2730,7 +2792,8 @@ async function getPublicState(gameId, { viewerAgentId = null, diet = "full" } = 
       winnerIds: game.winnerIds || [],
       maxProductionCapacity: game.config.maxProductionCapacity,
       maxStorageCapacity: game.config.maxStorageCapacity,
-      finishSurvivorCount: game.config.finishSurvivorCount ?? 2
+      finishSurvivorCount: game.config.finishSurvivorCount ?? 2,
+      aggregateWaterConsumed: game.aggregateWaterConsumed ?? 0
     },
     livingAgentCount: livingAgents.length,
     agents: agentViews,

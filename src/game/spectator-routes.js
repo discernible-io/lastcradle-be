@@ -12,11 +12,11 @@ const repo = require("./repository");
 const events = require("./events");
 const orchestrator = require("./contest-orchestrator");
 const { getGameNarrative } = require("./narrative");
-const { buildGameSkillMarkdown } = require("./skill-content");
+const { buildGameSkillMarkdown, CANONICAL_FRONTEND_ORIGIN } = require("./skill-content");
 const { buildPeerAuthMarkdown } = require("./peer-auth-content");
 const { buildActionSchemaMarkdown } = require("./action-schema-content");
 const { buildEnrollPromptsPayload } = require("./enroll-prompt-content");
-const { buildGameHonors, buildContestHonors, listHallOfFame } = require("./hall-of-fame");
+const { buildGameHonors, buildContestHonors, listHallOfFame, listRecentFinishes } = require("./hall-of-fame");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
 const {
@@ -174,7 +174,18 @@ router.get("/contests", async (req, res) => {
     const limit = Number(req.query.limit) || 50;
     const offset = Number(req.query.offset) || 0;
     const contests = await repo.listContests({ status, limit, offset });
-    res.json({ contests, requestId });
+    const payload = { contests, requestId };
+    if (!contests.length) {
+      payload.empty = true;
+      payload.emptyState = {
+        title: "No contest series scheduled yet",
+        message:
+          "Season contests appear here once an operator creates a practice + definitive series. Casual lobbies still run anytime.",
+        frontendOrigin: CANONICAL_FRONTEND_ORIGIN,
+        operatorHint: "POST /api/game/contests (operator JWT) or node scripts/schedule-contest-series.js"
+      };
+    }
+    res.json(payload);
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
@@ -193,8 +204,33 @@ router.get("/hall-of-fame", async (req, res) => {
   try {
     const limit = Number(req.query.limit) || 20;
     const offset = Number(req.query.offset) || 0;
+    const includeRecent =
+      req.query.includeRecent === "1" ||
+      req.query.includeRecent === "true" ||
+      req.query.includeRecent == null;
     const entries = await listHallOfFame({ limit, offset });
-    res.json({ entries, limit, offset, requestId });
+    const recentLimit = Math.min(Math.max(Number(req.query.recentLimit) || limit, 1), 50);
+    const recentFinishes = includeRecent
+      ? await listRecentFinishes({ limit: recentLimit, offset: 0 })
+      : [];
+    const payload = {
+      entries,
+      recentFinishes,
+      limit,
+      offset,
+      requestId
+    };
+    if (!entries.length) {
+      payload.empty = true;
+      payload.emptyState = {
+        title: "No definitive contest honors yet",
+        message: recentFinishes.length
+          ? "Official contest hall of fame fills after a definitive season finishes. Recent casual finishes are listed below."
+          : "Official contest hall of fame fills after a definitive season finishes. Watch a live lobby or open a recent replay once games finish.",
+        frontendOrigin: CANONICAL_FRONTEND_ORIGIN
+      };
+    }
+    res.json(payload);
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
