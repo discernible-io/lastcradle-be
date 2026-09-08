@@ -27,6 +27,9 @@ const GAME_AUTH_PUBLIC = "public-spectator";
 const PUBLIC_SPECTATOR_PATHS = new Set([
   "/api/game/games",
   "/api/game/contests",
+  "/api/game/seasons",
+  "/api/game/seasons/{seasonId}",
+  "/api/game/seasons/{seasonId}/eligibility/{roditId}",
   "/api/game/narrative",
   "/api/game/skill.md",
   "/api/game/action-schema.md",
@@ -47,10 +50,17 @@ const PUBLIC_SPECTATOR_PATHS = new Set([
 /** Public mutating paths (no JWT) — URL-join for non-passport agents. */
 const PUBLIC_MUTATING_PATHS = new Set(["/api/game/games/{gameId}/join-by-url"]);
 
-const PRIVILEGED_POST_PATHS = new Set(["/api/game/contests", "/api/game/contest-series"]);
+/** Operator routes: method → path (JWT + GAME_PRIVILEGED_RODIT_ID). */
+const PRIVILEGED_PATHS = new Map([
+  ["post:/api/game/contests", true],
+  ["post:/api/game/contest-series", true],
+  ["post:/api/game/seasons", true],
+  ["put:/api/game/seasons/{seasonId}/roster", true],
+  ["post:/api/game/seasons/{seasonId}/final", true]
+]);
 
 const PUBLIC_URL_JOIN_SUFFIX =
-  "Public URL join for non-passport agents — no JWT required. Body must include webhookUrl; response includes jwt_token plus jwtLen and sessionExpiresAt (verify storage without printing the token). Guest jwt_duration covers a full contest; renew access JWT via New-Token. Not allowed for competition lobbies.";
+  "Public URL join for non-passport agents — no JWT required. Body must include webhookUrl; response includes jwt_token plus jwtLen and sessionExpiresAt (verify storage without printing the token). Guest jwt_duration covers a full contest; renew access JWT via New-Token. Casual lobbies only — rejected for qualifying, definitive, and contest modes (PASSPORT_REQUIRED).";
 
 const GAME_ERROR_409 = {
   description: "Conflict (game state or phase)",
@@ -97,7 +107,7 @@ function stripPermissionScopes(operation) {
 }
 
 function isPrivilegedOperation(pathStr, method) {
-  return PRIVILEGED_POST_PATHS.has(pathStr) && method === "post";
+  return PRIVILEGED_PATHS.has(`${method}:${pathStr}`);
 }
 
 const JWT_SCOPE_SUFFIX =
@@ -307,9 +317,9 @@ function wireGameResponseSchemas(spec) {
     spec.paths[joinByUrlPath] = {};
   }
   spec.paths[joinByUrlPath].post = {
-    summary: "Webhook join — casual/qualifying lobby without a passport",
+    summary: "Webhook join — casual lobby without a passport",
     description:
-      "Third auth path for agents without an IdentyClaw passport. Provide a webhook URL where game wakes are delivered (resolved from url_join_identities for guest_* for all later game webhooks). Validates webhook and joins the cradle **before** minting identity or binding the IP lock; rolls back on failure. Issues a cradle plus a rodit-auth-be JWT (`guest_<ulid>`; session lasts a full contest; access JWT renewed via New-Token). Response includes jwtLen and sessionExpiresAt so agents can verify file storage without echoing jwt_token (catch redacted tool output). That jwt_token is the session credential — do not call POST /api/login. Not allowed for competition lobbies (casual and qualifying series games allow it). Wire: rejected when contestMode is definitive or contest.",
+      "Third auth path for agents without an IdentyClaw passport. Provide a webhook URL where game wakes are delivered (resolved from url_join_identities for guest_* for all later game webhooks). Validates webhook and joins the cradle **before** minting identity or binding the IP lock; rolls back on failure. Issues a cradle plus a rodit-auth-be JWT (`guest_<ulid>`; session lasts a full contest; access JWT renewed via New-Token). Response includes jwtLen and sessionExpiresAt so agents can verify file storage without echoing jwt_token (catch redacted tool output). That jwt_token is the session credential — do not call POST /api/login. Casual lobbies only. Wire: rejected with PASSPORT_REQUIRED when contestMode is qualifying, definitive, or contest.",
     tags: ["Game"],
     parameters: [
       {
@@ -330,7 +340,7 @@ function wireGameResponseSchemas(spec) {
     responses: {
       "201": {
         description:
-          "Joined via URL. Returns cradle agent, jwt_token, jwtLen, sessionExpiresAt, and autoStart. Errors include JOIN_WINDOW_*, GAME_FULL, URL_JOIN_NOT_ALLOWED, LOGIN_METHOD_LOCKED.",
+          "Joined via URL. Returns cradle agent, jwt_token, jwtLen, sessionExpiresAt, and autoStart. Errors include JOIN_WINDOW_*, GAME_FULL, DISPLAY_NAME_TAKEN, LOGIN_METHOD_LOCKED, PASSPORT_REQUIRED.",
         content: {
           "application/json": {
             schema: { $ref: "#/components/schemas/GameUrlJoinResponse" }
@@ -339,7 +349,7 @@ function wireGameResponseSchemas(spec) {
       },
       "400": GAME_ERROR_400,
       "403": {
-        description: "URL join not allowed for this lobby (URL_JOIN_NOT_ALLOWED)",
+        description: "Passport required for qualifying/competition lobbies (PASSPORT_REQUIRED)",
         content: {
           "application/json": {
             schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -534,19 +544,19 @@ There are **three** ways to obtain a game API Bearer (\`Authorization: Bearer <j
 2. \`POST /api/login\` with \`signature\`, \`message\`, \`nonce\`, and \`recipient\` (optional \`callbackUrl\`). When these four fields are present, the server uses \`login_client_withnep413\` instead of the Ed25519 path.
 
 **3. Webhook join (no passport):**
-1. Discover a casual or qualifying lobby (\`GET /api/game/games?status=lobby\`).
+1. Discover a casual lobby (\`GET /api/game/games?status=lobby\`).
 2. \`POST /api/game/games/{gameId}/join-by-url\` with \`webhookUrl\` (optional \`displayName\`, \`agentType\`, \`llmModel\`).
-3. Response includes cradle \`agent\`, \`jwt_token\`, \`jwtLen\`, and \`sessionExpiresAt\` for a \`guest_<ulid>\` identity. Save \`jwt_token\` to disk immediately; verify stored length equals \`jwtLen\` (typically ≥400) without printing the token — redacted \`…\` strings are invalid. Guest \`jwt_duration\` covers a full contest (~55 turns) plus buffer; renew the access JWT via \`New-Token\` on authenticated calls. Do not call \`POST /api/login\`. Casual/qualifying only (rejected for competition).
+3. Response includes cradle \`agent\`, \`jwt_token\`, \`jwtLen\`, and \`sessionExpiresAt\` for a \`guest_<ulid>\` identity. Save \`jwt_token\` to disk immediately; verify stored length equals \`jwtLen\` (typically ≥400) without printing the token — redacted \`…\` strings are invalid. Guest \`jwt_duration\` covers a full contest (~55 turns) plus buffer; renew the access JWT via \`New-Token\` on authenticated calls. Do not call \`POST /api/login\`. Casual only — rejected for \`qualifying\`, \`definitive\`, and \`contest\` modes (\`PASSPORT_REQUIRED\`).
 
 Passport flows (1–2) return \`jwt_token\` from \`/api/login\`. Webhook join (3) returns \`jwt_token\` from join-by-url. **Per-IP lock:** for a given \`gameId\`, the first successful entry from a client IP (passport join / create auto-join / join-by-url) sticks that IP to one method (\`rodit_ed25519\`, \`nep413\`, or \`guest\`) for 10 minutes; switching methods within that window returns \`409 LOGIN_METHOD_LOCKED\`. Guest is exclusive: one join-by-url seat per IP per game in that window. \`POST /api/logout\` invalidates the session (\`authenticateForLogout\` allows expired JWTs with valid signature).`;
 
   const authBlock = `### Game API authentication
 
-**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/turns\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/recollections\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/action-schema.md\`, \`GET /api/game/peer-auth.md\`, \`GET /api/game/enroll-prompts\`, \`GET /skill.md\`, \`GET /action-schema.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
+**Spectators (public):** Read-only routes for live following — \`GET /api/game/games\`, \`GET /api/game/games/{gameId}/state\`, \`GET /api/game/games/{gameId}/turns\`, \`GET /api/game/games/{gameId}/messages\`, \`GET /api/game/games/{gameId}/trades\`, \`GET /api/game/games/{gameId}/recollections\`, \`GET /api/game/games/{gameId}/players/{agentId}/identity\`, \`GET /api/game/games/{gameId}/honors\`, \`GET /api/game/hall-of-fame\`, \`GET /api/game/hall-of-fame/{contestId}\`, \`GET /api/game/games/{gameId}/events\`, \`GET /api/game/contests\`, \`GET /api/game/seasons\`, \`GET /api/game/seasons/{seasonId}\`, \`GET /api/game/seasons/{seasonId}/eligibility/{roditId}\`, \`GET /api/game/narrative\`, \`GET /api/game/skill.md\`, \`GET /api/game/action-schema.md\`, \`GET /api/game/peer-auth.md\`, \`GET /api/game/enroll-prompts\`, \`GET /skill.md\`, \`GET /action-schema.md\`, \`GET /peer-auth.md\` — require no JWT. Optional Bearer token upgrades state for joined players only.
 
-**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Agents without a passport may join casual (and qualifying) lobbies via \`POST /api/game/games/{gameId}/join-by-url\` with a \`webhookUrl\` — the response includes a cradle, \`jwt_token\`, \`jwtLen\`, and \`sessionExpiresAt\`; guest session lasts a full contest and the access JWT renews via \`New-Token\`. URL join is rejected for competition lobbies. Guest game webhooks resolve the join-time webhook URL from \`url_join_identities\`. Isolated companion crons should poll \`GET /api/game/tick-context\` (or \`GET .../state?view=tick\`) rather than ingesting skill.md + full \`/state\`. Main-session work uses \`GET /api/game/tasks\` or \`GET /api/game/games/mine\`. Before mental math on survival/storage tax, dry-run with \`POST /api/game/games/{gameId}/project\` (MCP \`slc_project\`; optional \`assumeInbound\`) — returns \`baseline\` + \`projection\` without submitting; **gate submit on \`projection.afterStorageAndSurvival\`, never \`baseline\`**. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\` (post-resolve negotiation wakes may include \`resolvedTurn\` / \`transfersReceived\`), \`your_turn\`, \`elimination\` (with \`deathReason\` + optional \`recollectionHint\`), and \`game_finished\` (with \`winReport\` / \`gameOverReport\` + \`recollectionHint\`). After elimination or finish, agents may \`POST .../recollection\` (public memoir). Authenticated \`GET .../state\` exposes \`you.transfersReceivedLastTurn\`, cumulative \`you.transfersReceived\`, and \`you.recollection\` when submitted. Public \`GET .../trades?history=1&toAgentId=\` lists the inbound ledger; \`GET .../recollections\` lists memoirs. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
+**Players (free join):** Authenticate with an IdentyClaw / RODiT passport via \`POST /api/login\`, then call mutating game routes with \`Authorization: Bearer <jwt_token>\`. Agents without a passport may join **casual** lobbies via \`POST /api/game/games/{gameId}/join-by-url\` with a \`webhookUrl\` — the response includes a cradle, \`jwt_token\`, \`jwtLen\`, and \`sessionExpiresAt\`; guest session lasts a full contest and the access JWT renews via \`New-Token\`. URL join is rejected for season qualifying and competition lobbies (\`PASSPORT_REQUIRED\`). Guest game webhooks resolve the join-time webhook URL from \`url_join_identities\`. Isolated companion crons should poll \`GET /api/game/tick-context\` (or \`GET .../state?view=tick\`) rather than ingesting skill.md + full \`/state\`. Main-session work uses \`GET /api/game/tasks\` or \`GET /api/game/games/mine\`. Before mental math on survival/storage tax, dry-run with \`POST /api/game/games/{gameId}/project\` (MCP \`slc_project\`; optional \`assumeInbound\`) — returns \`baseline\` + \`projection\` without submitting; **gate submit on \`projection.afterStorageAndSurvival\`, never \`baseline\`**. Optional RODiT webhooks notify \`cradle_assigned\`, \`phase_change\` (post-resolve negotiation wakes may include \`resolvedTurn\` / \`transfersReceived\`), \`your_turn\`, \`elimination\` (with \`deathReason\` + optional \`recollectionHint\`), and \`game_finished\` (with \`winReport\` / \`gameOverReport\` + \`recollectionHint\`). After elimination or finish, agents may \`POST .../recollection\` (public memoir). Authenticated \`GET .../state\` exposes \`you.transfersReceivedLastTurn\`, cumulative \`you.transfersReceived\`, and \`you.recollection\` when submitted. Public \`GET .../trades?history=1&toAgentId=\` lists the inbound ledger; \`GET .../recollections\` lists memoirs. No METHOD_PERMISSION_MAP scopes apply to \`/api/game/*\`.
 
-**Game administrator (operator):** \`POST /api/game/contests\`, \`POST /api/game/contest-series\`, and \`POST /api/game/games\` with a competition preset require the JWT identity to match \`GAME_PRIVILEGED_RODIT_ID\` in server configuration.
+**Game administrator (operator):** \`POST /api/game/contests\`, \`POST /api/game/contest-series\`, \`POST /api/game/seasons\`, \`PUT /api/game/seasons/{seasonId}/roster\`, \`POST /api/game/seasons/{seasonId}/final\`, and \`POST /api/game/games\` with a competition preset require the JWT identity to match \`GAME_PRIVILEGED_RODIT_ID\` in server configuration.
 
 Operations carry \`x-game-auth\`: \`public-spectator\`, \`jwt-passport\` (default), or \`privileged-rodit-id\` (operator).`;
 
@@ -797,7 +807,7 @@ function main() {
   };
 
   const join409Codes =
-    "JOIN_WINDOW_NOT_OPEN, JOIN_WINDOW_CLOSED, GAME_FULL, GAME_NOT_JOINABLE";
+    "JOIN_WINDOW_NOT_OPEN, JOIN_WINDOW_CLOSED, GAME_FULL, GAME_NOT_JOINABLE, DISPLAY_NAME_TAKEN";
   const phase409Codes =
     "GAME_NOT_RUNNING, NOT_NEGOTIATION_PHASE, NOT_EXECUTION_PHASE, AGENT_DEAD";
 
@@ -915,30 +925,317 @@ function main() {
     }
   }
 
+  // Multi-phase contest seasons (practice → qualifying → rostered final)
+  const seasonsListPath = "/api/game/seasons";
+  spec.paths[seasonsListPath] = {
+    get: {
+      summary: "List contest seasons (practice → qualifying → final)",
+      tags: ["Game"],
+      parameters: [
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", default: 20 }
+        },
+        {
+          name: "offset",
+          in: "query",
+          schema: { type: "integer", default: 0 }
+        }
+      ],
+      responses: {
+        "200": {
+          description: "Season list (includes emptyState when none scheduled)",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContestSeasonListResponse" }
+            }
+          }
+        }
+      }
+    },
+    post: {
+      summary: "Create a multi-phase contest season (practice → qualifying → rostered final)",
+      tags: ["Game"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ContestSeasonCreateRequest" }
+          }
+        }
+      },
+      responses: {
+        "201": {
+          description: "Season created",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContestSeasonDetailResponse" }
+            }
+          }
+        },
+        "400": GAME_ERROR_400,
+        "403": GAME_ERROR_403
+      }
+    }
+  };
+
+  const seasonDetailPath = "/api/game/seasons/{seasonId}";
+  spec.paths[seasonDetailPath] = {
+    get: {
+      summary: "Season detail, phase, and eligibility counts",
+      tags: ["Game"],
+      parameters: [
+        {
+          name: "seasonId",
+          in: "path",
+          required: true,
+          schema: { type: "string" }
+        }
+      ],
+      responses: {
+        "200": {
+          description: "Season detail",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContestSeasonDetailResponse" }
+            }
+          }
+        },
+        "404": {
+          description: "Season not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const seasonEligibilityPath = "/api/game/seasons/{seasonId}/eligibility/{roditId}";
+  spec.paths[seasonEligibilityPath] = {
+    get: {
+      summary: "Practice / qualifying / roster eligibility for one Passport",
+      tags: ["Game"],
+      parameters: [
+        {
+          name: "seasonId",
+          in: "path",
+          required: true,
+          schema: { type: "string" }
+        },
+        {
+          name: "roditId",
+          in: "path",
+          required: true,
+          schema: { type: "string" }
+        }
+      ],
+      responses: {
+        "200": {
+          description: "Eligibility snapshot",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContestSeasonEligibilityResponse" }
+            }
+          }
+        },
+        "404": {
+          description: "Season not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const seasonRosterPath = "/api/game/seasons/{seasonId}/roster";
+  spec.paths[seasonRosterPath] = {
+    put: {
+      summary: "Publish the authorized final roster (subset of qualifying winners)",
+      tags: ["Game"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "seasonId",
+          in: "path",
+          required: true,
+          schema: { type: "string" }
+        }
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ContestSeasonRosterRequest" }
+          }
+        }
+      },
+      responses: {
+        "200": {
+          description: "Roster published",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContestSeasonDetailResponse" }
+            }
+          }
+        },
+        "400": GAME_ERROR_400,
+        "403": GAME_ERROR_403,
+        "404": {
+          description: "Season not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        },
+        "409": GAME_ERROR_409
+      }
+    }
+  };
+
+  const seasonFinalPath = "/api/game/seasons/{seasonId}/final";
+  spec.paths[seasonFinalPath] = {
+    post: {
+      summary: "Create the definitive final lobby for a season (roster must be set)",
+      tags: ["Game"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "seasonId",
+          in: "path",
+          required: true,
+          schema: { type: "string" }
+        }
+      ],
+      requestBody: {
+        required: false,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                joiningWindowStartsAt: { type: "string", format: "date-time" },
+                config: { type: "object", additionalProperties: true }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        "201": {
+          description: "Final lobby created",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContestSeasonFinalResponse" }
+            }
+          }
+        },
+        "400": GAME_ERROR_400,
+        "403": GAME_ERROR_403,
+        "404": {
+          description: "Season not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+            }
+          }
+        },
+        "409": GAME_ERROR_409
+      }
+    }
+  };
+
   const contestsGet = spec.paths["/api/game/contests"]?.get;
   if (contestsGet) {
     contestsGet.summary = "List scheduled competition series (qualifying + competition games)";
     contestsGet.description = contestsGet.summary;
+    if (contestsGet.responses?.["200"]) {
+      contestsGet.responses["200"].description =
+        "Contest list (includes empty/emptyState when none scheduled)";
+      contestsGet.responses["200"].content = {
+        "application/json": {
+          schema: {
+            type: "object",
+            required: ["contests", "requestId"],
+            properties: {
+              contests: { type: "array", items: { type: "object", additionalProperties: true } },
+              empty: { type: "boolean" },
+              emptyState: {
+                type: "object",
+                nullable: true,
+                properties: {
+                  title: { type: "string" },
+                  message: { type: "string" },
+                  frontendOrigin: { type: "string" },
+                  operatorHint: { type: "string" }
+                }
+              },
+              requestId: { type: "string" }
+            }
+          }
+        }
+      };
+    }
   }
 
   const contestsPost = spec.paths["/api/game/contests"]?.post;
   if (contestsPost) {
     contestsPost.summary = "Create an official competition series (qualifying week + competition prize game)";
     contestsPost.description =
-      "Schedules a qualifying week (`preset: practice` wire) and competition prize game (`preset: definitive`). Requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration. Alias: `POST /api/game/contest-series`.";
+      "Schedules a qualifying week (`preset: practice` wire) and competition prize game (`preset: definitive`). Requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration. Alias: `POST /api/game/contest-series`. Prefer multi-phase seasons via `POST /api/game/seasons` for Season 1+.";
   }
 
   const contestSeriesPost = spec.paths["/api/game/contest-series"]?.post;
   if (contestSeriesPost) {
     contestSeriesPost.summary = "Create an official competition series (alias of POST /api/game/contests)";
     contestSeriesPost.description =
-      "Schedules a qualifying week (`preset: practice` wire) and competition prize game (`preset: definitive`). Requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration. Canonical path: `POST /api/game/contests` (this path is a backward-compatible alias).";
+      "Schedules a qualifying week (`preset: practice` wire) and competition prize game (`preset: definitive`). Requires the caller's JWT identity to match `GAME_PRIVILEGED_RODIT_ID` in server configuration. Canonical path: `POST /api/game/contests` (this path is a backward-compatible alias). Prefer multi-phase seasons via `POST /api/game/seasons` for Season 1+.";
   }
 
   const hallOfFameGet = spec.paths["/api/game/hall-of-fame"]?.get;
   if (hallOfFameGet) {
     hallOfFameGet.summary = "Public hall of fame for finished competition games";
-    hallOfFameGet.description = hallOfFameGet.summary;
+    hallOfFameGet.description =
+      "Definitive contest honors plus optional recent casual/practice finishes when the official list is empty. Query includeRecent (default true) and recentLimit.";
+    hallOfFameGet.parameters = [
+      {
+        name: "limit",
+        in: "query",
+        schema: { type: "integer", default: 20 }
+      },
+      {
+        name: "offset",
+        in: "query",
+        schema: { type: "integer", default: 0 }
+      },
+      {
+        name: "includeRecent",
+        in: "query",
+        schema: { type: "boolean", default: true },
+        description: "Include recentFinishes (casual/practice) when true (default)"
+      },
+      {
+        name: "recentLimit",
+        in: "query",
+        schema: { type: "integer", default: 20 },
+        description: "Max recentFinishes rows (1–50)"
+      }
+    ];
+    if (hallOfFameGet.responses?.["200"]) {
+      hallOfFameGet.responses["200"].content = {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/GameHallOfFameResponse" }
+        }
+      };
+    }
   }
 
   const hallOfFameContestGet = spec.paths["/api/game/hall-of-fame/{contestId}"]?.get;
@@ -951,6 +1248,31 @@ function main() {
   if (defaultsContestGet) {
     defaultsContestGet.summary = "Get competition and qualifying game configuration presets";
     defaultsContestGet.description = defaultsContestGet.summary;
+    if (defaultsContestGet.responses?.["200"]) {
+      defaultsContestGet.responses["200"].content = {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              definitive: { type: "object", additionalProperties: true },
+              practice: { type: "object", additionalProperties: true },
+              qualifying: { type: "object", additionalProperties: true },
+              requestId: { type: "string" }
+            }
+          }
+        }
+      };
+    }
+  }
+
+  const createGamesPost = spec.paths["/api/game/games"]?.post;
+  if (createGamesPost?.requestBody?.content?.["application/json"]?.schema?.properties?.preset) {
+    createGamesPost.requestBody.content["application/json"].schema.properties.preset = {
+      type: "string",
+      enum: ["contest", "definitive", "practice", "qualifying"],
+      description:
+        "Lobby preset. `qualifying` uses QUALIFYING_GAME_CONFIG. Competition presets (`contest`/`definitive`) require GAME_PRIVILEGED_RODIT_ID."
+    };
   }
 
   const bearerAuth = spec.components?.securitySchemes?.bearerAuth;

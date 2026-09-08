@@ -171,6 +171,46 @@ CREATE TABLE IF NOT EXISTS contests (
 CREATE INDEX IF NOT EXISTS idx_contests_status ON contests(status);
 CREATE INDEX IF NOT EXISTS idx_games_contest_mode ON games(status, created_at);
 
+CREATE TABLE IF NOT EXISTS contest_seasons (
+  id TEXT PRIMARY KEY,
+  name TEXT,
+  status TEXT NOT NULL DEFAULT 'scheduled',
+  practice_starts_at TEXT NOT NULL,
+  practice_ends_at TEXT NOT NULL,
+  qualifying_starts_at TEXT NOT NULL,
+  qualifying_ends_at TEXT NOT NULL,
+  final_joining_starts_at TEXT,
+  final_game_id TEXT,
+  final_roster_json TEXT,
+  prize_amount_yocto TEXT,
+  prize_status TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (final_game_id) REFERENCES games(id)
+);
+CREATE INDEX IF NOT EXISTS idx_contest_seasons_status ON contest_seasons(status);
+
+CREATE TABLE IF NOT EXISTS season_practice_credits (
+  season_id TEXT NOT NULL,
+  rodit_id TEXT NOT NULL,
+  game_id TEXT NOT NULL,
+  recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (season_id, rodit_id),
+  FOREIGN KEY (season_id) REFERENCES contest_seasons(id),
+  FOREIGN KEY (game_id) REFERENCES games(id)
+);
+
+CREATE TABLE IF NOT EXISTS season_qualifying_wins (
+  season_id TEXT NOT NULL,
+  rodit_id TEXT NOT NULL,
+  game_id TEXT NOT NULL,
+  agent_id TEXT,
+  recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (season_id, rodit_id, game_id),
+  FOREIGN KEY (season_id) REFERENCES contest_seasons(id),
+  FOREIGN KEY (game_id) REFERENCES games(id)
+);
+
 CREATE TABLE IF NOT EXISTS rodit_login_methods (
   rodit_id TEXT PRIMARY KEY,
   method TEXT NOT NULL,

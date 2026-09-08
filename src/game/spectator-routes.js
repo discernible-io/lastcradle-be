@@ -12,11 +12,12 @@ const repo = require("./repository");
 const events = require("./events");
 const orchestrator = require("./contest-orchestrator");
 const { getGameNarrative } = require("./narrative");
-const { buildGameSkillMarkdown } = require("./skill-content");
+const { buildGameSkillMarkdown, CANONICAL_FRONTEND_ORIGIN } = require("./skill-content");
 const { buildPeerAuthMarkdown } = require("./peer-auth-content");
 const { buildActionSchemaMarkdown } = require("./action-schema-content");
 const { buildEnrollPromptsPayload } = require("./enroll-prompt-content");
-const { buildGameHonors, buildContestHonors, listHallOfFame } = require("./hall-of-fame");
+const { buildGameHonors, buildContestHonors, listHallOfFame, listRecentFinishes } = require("./hall-of-fame");
+const season = require("./season");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
 const {
@@ -174,7 +175,100 @@ router.get("/contests", async (req, res) => {
     const limit = Number(req.query.limit) || 50;
     const offset = Number(req.query.offset) || 0;
     const contests = await repo.listContests({ status, limit, offset });
-    res.json({ contests, requestId });
+    const payload = { contests, requestId };
+    if (!contests.length) {
+      payload.empty = true;
+      payload.emptyState = {
+        title: "No contest series scheduled yet",
+        message:
+          "Season contests appear here once an operator creates a practice + definitive series. Casual lobbies still run anytime.",
+        frontendOrigin: CANONICAL_FRONTEND_ORIGIN,
+        operatorHint: "POST /api/game/contests (operator JWT) or node scripts/schedule-contest-series.js"
+      };
+    }
+    res.json(payload);
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/seasons:
+ *   get:
+ *     summary: List contest seasons (practice → qualifying → final)
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/seasons", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  try {
+    const limit = Number(req.query.limit) || 20;
+    const offset = Number(req.query.offset) || 0;
+    const rows = await repo.listSeasons({ limit, offset });
+    const seasons = [];
+    for (const row of rows) {
+      seasons.push(await season.getSeasonPublicView(row.id));
+    }
+    const current = await repo.getCurrentSeason();
+    res.json({
+      seasons,
+      currentSeasonId: current?.id || null,
+      empty: seasons.length === 0,
+      emptyState:
+        seasons.length === 0
+          ? {
+              title: "No contest season scheduled",
+              message:
+                "Operators create a season with practice, qualifying, and final windows via POST /api/game/seasons.",
+              frontendOrigin: CANONICAL_FRONTEND_ORIGIN
+            }
+          : undefined,
+      requestId
+    });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/seasons/{seasonId}:
+ *   get:
+ *     summary: Season detail, phase, and eligibility counts
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/seasons/:seasonId", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  try {
+    const view = await season.getSeasonPublicView(req.params.seasonId);
+    if (!view) {
+      return handleGameError(
+        res,
+        { code: "SEASON_NOT_FOUND", message: "Season not found", statusCode: 404 },
+        requestId
+      );
+    }
+    res.json({ season: view, requestId });
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/seasons/{seasonId}/eligibility/{roditId}:
+ *   get:
+ *     summary: Practice / qualifying / roster eligibility for one Passport
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/seasons/:seasonId/eligibility/:roditId", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  try {
+    const eligibility = await season.getEligibilityForRodit(req.params.seasonId, req.params.roditId);
+    res.json({ eligibility, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
@@ -193,8 +287,33 @@ router.get("/hall-of-fame", async (req, res) => {
   try {
     const limit = Number(req.query.limit) || 20;
     const offset = Number(req.query.offset) || 0;
+    const includeRecent =
+      req.query.includeRecent === "1" ||
+      req.query.includeRecent === "true" ||
+      req.query.includeRecent == null;
     const entries = await listHallOfFame({ limit, offset });
-    res.json({ entries, limit, offset, requestId });
+    const recentLimit = Math.min(Math.max(Number(req.query.recentLimit) || limit, 1), 50);
+    const recentFinishes = includeRecent
+      ? await listRecentFinishes({ limit: recentLimit, offset: 0 })
+      : [];
+    const payload = {
+      entries,
+      recentFinishes,
+      limit,
+      offset,
+      requestId
+    };
+    if (!entries.length) {
+      payload.empty = true;
+      payload.emptyState = {
+        title: "No definitive contest honors yet",
+        message: recentFinishes.length
+          ? "Official contest hall of fame fills after a definitive season finishes. Recent casual finishes are listed below."
+          : "Official contest hall of fame fills after a definitive season finishes. Watch a live lobby or open a recent replay once games finish.",
+        frontendOrigin: CANONICAL_FRONTEND_ORIGIN
+      };
+    }
+    res.json(payload);
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
@@ -570,10 +689,9 @@ router.get("/games/:gameId/recollections", async (req, res) => {
  *       (`guest_<ulid>`; session lasts a full contest; renewed via New-Token). Response includes
  *       jwtLen and sessionExpiresAt for storage validation without printing jwt_token.
  *       That jwt_token is the session credential —
- *       do not call POST /api/login. Not allowed for competition lobbies
- *       (casual and qualifying series games allow it).
+ *       do not call POST /api/login. Casual lobbies only.
  *       One guest seat per client IP per game for 10 minutes (409 LOGIN_METHOD_LOCKED).
- *       Wire: rejected when contestMode is definitive or contest.
+ *       Wire: rejected with PASSPORT_REQUIRED when contestMode is qualifying, definitive, or contest.
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -595,12 +713,15 @@ router.post(
       }
 
       const contestMode = game.config?.contestMode ?? null;
-      if (contestMode === "definitive" || contestMode === "contest") {
+      if (contestMode === "definitive" || contestMode === "contest" || contestMode === "qualifying") {
         return handleGameError(
           res,
           {
-            code: "URL_JOIN_NOT_ALLOWED",
-            message: "URL join is not allowed for competition lobbies; use IdentyClaw passport login",
+            code: "PASSPORT_REQUIRED",
+            message:
+              contestMode === "qualifying"
+                ? "Qualifying seats require a Passport — join-by-url guests are not eligible"
+                : "Competition seats require a Passport — use POST /api/login then POST .../join",
             statusCode: 403
           },
           requestId

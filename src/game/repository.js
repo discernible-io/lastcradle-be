@@ -93,6 +93,46 @@ async function migrateSchema(database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_url_join_identities_webhook ON url_join_identities(webhook_url);
+
+    CREATE TABLE IF NOT EXISTS contest_seasons (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      status TEXT NOT NULL DEFAULT 'scheduled',
+      practice_starts_at TEXT NOT NULL,
+      practice_ends_at TEXT NOT NULL,
+      qualifying_starts_at TEXT NOT NULL,
+      qualifying_ends_at TEXT NOT NULL,
+      final_joining_starts_at TEXT,
+      final_game_id TEXT,
+      final_roster_json TEXT,
+      prize_amount_yocto TEXT,
+      prize_status TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (final_game_id) REFERENCES games(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_contest_seasons_status ON contest_seasons(status);
+
+    CREATE TABLE IF NOT EXISTS season_practice_credits (
+      season_id TEXT NOT NULL,
+      rodit_id TEXT NOT NULL,
+      game_id TEXT NOT NULL,
+      recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (season_id, rodit_id),
+      FOREIGN KEY (season_id) REFERENCES contest_seasons(id),
+      FOREIGN KEY (game_id) REFERENCES games(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS season_qualifying_wins (
+      season_id TEXT NOT NULL,
+      rodit_id TEXT NOT NULL,
+      game_id TEXT NOT NULL,
+      agent_id TEXT,
+      recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (season_id, rodit_id, game_id),
+      FOREIGN KEY (season_id) REFERENCES contest_seasons(id),
+      FOREIGN KEY (game_id) REFERENCES games(id)
+    );
   `);
 
   const agentCols = await database.all(`PRAGMA table_info(game_agents)`);
@@ -1279,6 +1319,238 @@ async function listFinishedDefinitiveContests({ limit = 20, offset = 0 } = {}) {
   }));
 }
 
+/** Finished games for spectator empty-state / recent finishes (contest + casual). */
+async function listFinishedGames({ limit = 20, offset = 0, excludeContestDefinitive = false } = {}) {
+  const database = await getDb();
+  const cappedLimit = Math.min(Math.max(limit, 1), 100);
+  const cappedOffset = Math.max(offset, 0);
+  let rows;
+  if (excludeContestDefinitive) {
+    rows = await database.all(
+      `SELECT g.*
+       FROM games g
+       WHERE g.status = 'finished'
+         AND g.id NOT IN (
+           SELECT definitive_game_id FROM contests WHERE definitive_game_id IS NOT NULL
+         )
+       ORDER BY COALESCE(g.finished_at, g.created_at) DESC
+       LIMIT ? OFFSET ?`,
+      [cappedLimit, cappedOffset]
+    );
+  } else {
+    rows = await database.all(
+      `SELECT g.*
+       FROM games g
+       WHERE g.status = 'finished'
+       ORDER BY COALESCE(g.finished_at, g.created_at) DESC
+       LIMIT ? OFFSET ?`,
+      [cappedLimit, cappedOffset]
+    );
+  }
+  return rows.map((row) => rowToGame(row));
+}
+
+function rowToSeason(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    status: row.status,
+    practiceStartsAt: row.practice_starts_at,
+    practiceEndsAt: row.practice_ends_at,
+    qualifyingStartsAt: row.qualifying_starts_at,
+    qualifyingEndsAt: row.qualifying_ends_at,
+    finalJoiningStartsAt: row.final_joining_starts_at,
+    finalGameId: row.final_game_id,
+    finalRoster: parseJson(row.final_roster_json, []),
+    prizeAmountYocto: row.prize_amount_yocto,
+    prizeStatus: row.prize_status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+async function createSeason(fields) {
+  const database = await getDb();
+  const id = fields.id || ulid();
+  await database.run(
+    `INSERT INTO contest_seasons (
+      id, name, status,
+      practice_starts_at, practice_ends_at,
+      qualifying_starts_at, qualifying_ends_at,
+      final_joining_starts_at, final_game_id, final_roster_json,
+      prize_amount_yocto, prize_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      fields.name || "Season",
+      fields.status || "scheduled",
+      fields.practiceStartsAt,
+      fields.practiceEndsAt,
+      fields.qualifyingStartsAt,
+      fields.qualifyingEndsAt,
+      fields.finalJoiningStartsAt || null,
+      fields.finalGameId || null,
+      fields.finalRosterJson || null,
+      fields.prizeAmountYocto || null,
+      fields.prizeStatus || null
+    ]
+  );
+  return getSeasonById(id);
+}
+
+async function getSeasonById(seasonId) {
+  const database = await getDb();
+  const row = await database.get(`SELECT * FROM contest_seasons WHERE id = ?`, [seasonId]);
+  return rowToSeason(row);
+}
+
+async function listSeasons({ limit = 20, offset = 0 } = {}) {
+  const database = await getDb();
+  const rows = await database.all(
+    `SELECT * FROM contest_seasons
+     ORDER BY practice_starts_at DESC
+     LIMIT ? OFFSET ?`,
+    [Math.min(Math.max(limit, 1), 100), Math.max(offset, 0)]
+  );
+  return rows.map(rowToSeason);
+}
+
+/** Prefer the season whose windows cover now; else upcoming; else latest. */
+async function getCurrentSeason(now = new Date()) {
+  const database = await getDb();
+  const iso = now.toISOString();
+
+  let row = await database.get(
+    `SELECT * FROM contest_seasons
+     WHERE practice_starts_at <= ? AND qualifying_ends_at > ?
+     ORDER BY practice_starts_at DESC
+     LIMIT 1`,
+    [iso, iso]
+  );
+  if (row) return rowToSeason(row);
+
+  row = await database.get(
+    `SELECT s.* FROM contest_seasons s
+     LEFT JOIN games g ON g.id = s.final_game_id
+     WHERE s.qualifying_ends_at <= ?
+       AND (s.final_game_id IS NULL OR IFNULL(g.status, 'lobby') != 'finished')
+     ORDER BY s.qualifying_ends_at DESC
+     LIMIT 1`,
+    [iso]
+  );
+  if (row) return rowToSeason(row);
+
+  row = await database.get(
+    `SELECT * FROM contest_seasons
+     WHERE practice_starts_at > ?
+     ORDER BY practice_starts_at ASC
+     LIMIT 1`,
+    [iso]
+  );
+  if (row) return rowToSeason(row);
+
+  row = await database.get(`SELECT * FROM contest_seasons ORDER BY practice_starts_at DESC LIMIT 1`);
+  return rowToSeason(row);
+}
+
+async function updateSeason(seasonId, fields) {
+  const database = await getDb();
+  const columnMap = {
+    name: "name",
+    status: "status",
+    practiceStartsAt: "practice_starts_at",
+    practiceEndsAt: "practice_ends_at",
+    qualifyingStartsAt: "qualifying_starts_at",
+    qualifyingEndsAt: "qualifying_ends_at",
+    finalJoiningStartsAt: "final_joining_starts_at",
+    finalGameId: "final_game_id",
+    finalRosterJson: "final_roster_json",
+    prizeAmountYocto: "prize_amount_yocto",
+    prizeStatus: "prize_status",
+    updatedAt: "updated_at"
+  };
+  const sets = [];
+  const values = [];
+  for (const [key, column] of Object.entries(columnMap)) {
+    if (Object.prototype.hasOwnProperty.call(fields, key)) {
+      sets.push(`${column} = ?`);
+      values.push(fields[key]);
+    }
+  }
+  if (!sets.length) return getSeasonById(seasonId);
+  values.push(seasonId);
+  await database.run(`UPDATE contest_seasons SET ${sets.join(", ")} WHERE id = ?`, values);
+  return getSeasonById(seasonId);
+}
+
+async function upsertSeasonPracticeCredit({ seasonId, roditId, gameId }) {
+  const database = await getDb();
+  const stored = canonicalRoditId(roditId) || roditId;
+  await database.run(
+    `INSERT INTO season_practice_credits (season_id, rodit_id, game_id)
+     VALUES (?, ?, ?)
+     ON CONFLICT(season_id, rodit_id) DO UPDATE SET
+       game_id = excluded.game_id,
+       recorded_at = datetime('now')`,
+    [seasonId, stored, gameId]
+  );
+}
+
+async function hasSeasonPracticeFinish(seasonId, roditId) {
+  const database = await getDb();
+  const stored = canonicalRoditId(roditId) || roditId;
+  const row = await database.get(
+    `SELECT 1 AS ok FROM season_practice_credits WHERE season_id = ? AND rodit_id = ?`,
+    [seasonId, stored]
+  );
+  return Boolean(row);
+}
+
+async function countSeasonPracticePlayers(seasonId) {
+  const database = await getDb();
+  const row = await database.get(
+    `SELECT COUNT(*) AS count FROM season_practice_credits WHERE season_id = ?`,
+    [seasonId]
+  );
+  return row?.count || 0;
+}
+
+async function upsertSeasonQualifyingWin({ seasonId, roditId, gameId, agentId = null }) {
+  const database = await getDb();
+  const stored = canonicalRoditId(roditId) || roditId;
+  await database.run(
+    `INSERT INTO season_qualifying_wins (season_id, rodit_id, game_id, agent_id)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(season_id, rodit_id, game_id) DO NOTHING`,
+    [seasonId, stored, gameId, agentId]
+  );
+}
+
+async function listSeasonQualifyingEligible(seasonId) {
+  const database = await getDb();
+  return database.all(
+    `SELECT rodit_id AS roditId, COUNT(*) AS wins, MIN(recorded_at) AS firstWinAt
+     FROM season_qualifying_wins
+     WHERE season_id = ?
+     GROUP BY rodit_id
+     ORDER BY firstWinAt ASC`,
+    [seasonId]
+  );
+}
+
+async function listSeasonQualifyingWinsForRodit(seasonId, roditId) {
+  const database = await getDb();
+  const stored = canonicalRoditId(roditId) || roditId;
+  return database.all(
+    `SELECT game_id AS gameId, agent_id AS agentId, recorded_at AS recordedAt
+     FROM season_qualifying_wins
+     WHERE season_id = ? AND rodit_id = ?
+     ORDER BY recorded_at ASC`,
+    [seasonId, stored]
+  );
+}
+
 async function getExecutionSubmissionStatus(gameId, turnNumber) {
   const database = await getDb();
   const livingAgents = await listAgents(gameId, { status: "alive" });
@@ -1761,6 +2033,18 @@ module.exports = {
   listGameMessageReportsForGame,
   countPublicMessagesByAgent,
   listFinishedDefinitiveContests,
+  listFinishedGames,
+  createSeason,
+  getSeasonById,
+  listSeasons,
+  getCurrentSeason,
+  updateSeason,
+  upsertSeasonPracticeCredit,
+  hasSeasonPracticeFinish,
+  countSeasonPracticePlayers,
+  upsertSeasonQualifyingWin,
+  listSeasonQualifyingEligible,
+  listSeasonQualifyingWinsForRodit,
   getExecutionSubmissionStatus,
   allLivingAgentsSubmitted,
   getActualMessageCounts,

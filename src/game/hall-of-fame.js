@@ -348,9 +348,28 @@ async function listHallOfFame({ limit = 20, offset = 0 } = {}) {
   return entries;
 }
 
+/** Recent finished games that are not definitive contest finales (casual / practice). */
+async function listRecentFinishes({ limit = 20, offset = 0 } = {}) {
+  const games = await repo.listFinishedGames({
+    limit,
+    offset,
+    excludeContestDefinitive: true
+  });
+  const entries = [];
+  for (const game of games) {
+    const contest = await repo.getContestByGameId(game.id);
+    const honors = await buildGameHonors(game, { contest });
+    if (honors) {
+      entries.push(honors);
+    }
+  }
+  return entries;
+}
+
 module.exports = {
   buildGameHonors,
   buildContestHonors,
   listHallOfFame,
+  listRecentFinishes,
   SUPERLATIVE_DEFS
 };

@@ -225,6 +225,12 @@ const PRACTICE_GAME_CONFIG = {
   contestMode: "practice"
 };
 
+/** Qualifying week — same timing as practice; wins grant final eligibility. */
+const QUALIFYING_GAME_CONFIG = {
+  ...PRACTICE_GAME_CONFIG,
+  contestMode: "qualifying"
+};
+
 function mergeGameConfig(overrides = {}) {
   return { ...DEFAULT_GAME_CONFIG, ...overrides };
 }
@@ -237,6 +243,9 @@ function resolvePresetConfig(body = {}) {
   }
   if (preset === "practice") {
     return { ...PRACTICE_GAME_CONFIG, ...(body.config || {}) };
+  }
+  if (preset === "qualifying") {
+    return { ...QUALIFYING_GAME_CONFIG, ...(body.config || {}) };
   }
   return body.config || {};
 }
@@ -395,6 +404,7 @@ module.exports = {
   DEFAULT_GAME_CONFIG,
   CONTEST_GAME_CONFIG,
   PRACTICE_GAME_CONFIG,
+  QUALIFYING_GAME_CONFIG,
   PRIVATE_CRADLE_ASSIGNMENT_KEYS,
   mergeGameConfig,
   resolvePresetConfig,
