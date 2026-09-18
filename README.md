@@ -691,9 +691,11 @@ Preferred Season 1 flow. Implemented in the API as a **`contest_seasons`** row p
 
 | Phase | Example window | Behavior |
 | --- | --- | --- |
-| **Practice** | e.g. 10–17 Sep | Players create/join games at will; lobbies auto-tag `contestMode: "practice"` + `contestSeasonId`. Finish → practice credit (**Passport only**; guests do not count). |
-| **Qualifying** | e.g. 17–24 Sep | Creates become `contestMode: "qualifying"`. Join requires practice credit (`403 PRACTICE_REQUIRED`). Guests blocked (`403 PASSPORT_REQUIRED`). Finish → winners recorded as final-eligible. |
-| **Final** | e.g. 24 Sep | Operator sets roster from eligible winners, then creates the definitive lobby. Only roster Passports can join (`403 NOT_ON_FINAL_ROSTER`). |
+| **Practice** | e.g. 10–17 Oct | Players create/join games at will; lobbies auto-tag `contestMode: "practice"` + `contestSeasonId`. Finish → practice credit (**Passport only**; guests do not count). |
+| **Qualifying** | e.g. 17–24 Oct | Creates become `contestMode: "qualifying"`. Join requires practice credit (`403 PRACTICE_REQUIRED`). Guests blocked (`403 PASSPORT_REQUIRED`). Finish → winners recorded as final-eligible. |
+| **Final** | e.g. 24 Oct | Operator sets roster from eligible winners, then creates the definitive lobby. Only roster Passports can join (`403 NOT_ON_FINAL_ROSTER`). |
+
+**Season 1 go/no-go (public):** `GET /api/game/seasons/{id}` includes `viability`. Pass requires ≥14 eligible non-sponsor Passport holders each with ≥1 game in the prior 14 days **and** ≥12 lobbies in the practice week (through T-7) with ≥5 seats. Unmet at T-7 (practice end / qualifying start) → cancel Season 1 and relaunch — do not postpone again. Exclude sponsors via `SEASON_INELIGIBLE_RODIT_IDS`.
 
 **Operator actions**
 
@@ -712,11 +714,11 @@ curl -s -X POST "$API_BASE/api/game/seasons" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Season 1",
-    "practiceStartsAt": "2026-09-10T00:00:00.000Z",
-    "practiceEndsAt": "2026-09-17T00:00:00.000Z",
-    "qualifyingStartsAt": "2026-09-17T00:00:00.000Z",
-    "qualifyingEndsAt": "2026-09-24T00:00:00.000Z",
-    "finalJoiningStartsAt": "2026-09-24T12:00:00.000Z"
+    "practiceStartsAt": "2026-10-10T00:00:00.000Z",
+    "practiceEndsAt": "2026-10-17T00:00:00.000Z",
+    "qualifyingStartsAt": "2026-10-17T00:00:00.000Z",
+    "qualifyingEndsAt": "2026-10-24T00:00:00.000Z",
+    "finalJoiningStartsAt": "2026-10-24T12:00:00.000Z"
   }'
 
 # Inspect current seasons / eligibility
@@ -740,11 +742,11 @@ Dry-run helper (no DB write):
 
 ```bash
 DRY_RUN=1 \
-  PRACTICE_STARTS_AT=2026-09-10T00:00:00.000Z \
-  PRACTICE_ENDS_AT=2026-09-17T00:00:00.000Z \
-  QUALIFYING_STARTS_AT=2026-09-17T00:00:00.000Z \
-  QUALIFYING_ENDS_AT=2026-09-24T00:00:00.000Z \
-  FINAL_JOINING_STARTS_AT=2026-09-24T12:00:00.000Z \
+  PRACTICE_STARTS_AT=2026-10-10T00:00:00.000Z \
+  PRACTICE_ENDS_AT=2026-10-17T00:00:00.000Z \
+  QUALIFYING_STARTS_AT=2026-10-17T00:00:00.000Z \
+  QUALIFYING_ENDS_AT=2026-10-24T00:00:00.000Z \
+  FINAL_JOINING_STARTS_AT=2026-10-24T12:00:00.000Z \
   node scripts/schedule-season.js
 ```
 
@@ -786,5 +788,5 @@ This is a proprietary project. For contribution guidelines, please contact the d
 
 ---
 
-**Last Updated**: 2026-09-08  
+**Last Updated**: 2026-09-18  
 **Maintained by**: Discernible Inc.

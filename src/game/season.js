@@ -456,20 +456,74 @@ async function createSeasonFinal(seasonId, { joiningWindowStartsAt = null, confi
   return { season: publicSeason(updated), finalGame: game };
 }
 
+/** Season 1 pass thresholds (weekly public check; fail at T-7 → cancel, do not postpone). */
+const VIABILITY = {
+  minActivePassports: 14,
+  minFilledLobbies: 12,
+  minSeats: 5,
+  lookbackDays: 14
+};
+
+function parseIneligibleRoditIds() {
+  const raw = process.env.SEASON_INELIGIBLE_RODIT_IDS || process.env.SEASON_SPONSOR_RODIT_IDS || "";
+  return raw
+    .split(/[,;\s]+/)
+    .map((id) => canonicalRoditId(id) || id)
+    .filter(Boolean);
+}
+
+async function getSeasonViability(season, now = new Date()) {
+  const gateAt = season.practiceEndsAt || season.qualifyingStartsAt;
+  const windowStart = season.practiceStartsAt;
+  const windowEnd = gateAt;
+  const ineligibleRoditIds = parseIneligibleRoditIds();
+  const counts = await repo.getSeasonViabilityCounts({
+    lookbackDays: VIABILITY.lookbackDays,
+    windowStartIso: windowStart,
+    windowEndIso: windowEnd,
+    minSeats: VIABILITY.minSeats,
+    ineligibleRoditIds,
+    now
+  });
+  const passportsOk = counts.activePassports >= VIABILITY.minActivePassports;
+  const lobbiesOk = counts.filledLobbies >= VIABILITY.minFilledLobbies;
+  const pass = passportsOk && lobbiesOk;
+  const atOrPastGate = now.getTime() >= new Date(gateAt).getTime();
+  return {
+    thresholds: { ...VIABILITY },
+    gateAt,
+    policy: atOrPastGate && !pass ? "cancel_and_relaunch" : "continue",
+    note:
+      "Pass requires ≥14 eligible non-sponsor Passport holders with ≥1 game in the prior 14 days AND ≥12 lobbies in the practice week (through T-7) with ≥5 seats. Unmet at T-7 → cancel Season 1 and relaunch; do not postpone again.",
+    activePassports: counts.activePassports,
+    filledLobbies: counts.filledLobbies,
+    lookbackStart: counts.lookbackStart,
+    windowStart: counts.windowStart,
+    windowEnd: counts.windowEnd,
+    ineligibleExcluded: ineligibleRoditIds.length,
+    passportsOk,
+    lobbiesOk,
+    pass,
+    atOrPastGate
+  };
+}
+
 async function getSeasonPublicView(seasonId) {
   const season = await repo.getSeasonById(seasonId);
   if (!season) return null;
   const phase = resolveSeasonPhase(season);
-  const [practiceCount, eligible] = await Promise.all([
+  const [practiceCount, eligible, viability] = await Promise.all([
     repo.countSeasonPracticePlayers(seasonId),
-    repo.listSeasonQualifyingEligible(seasonId)
+    repo.listSeasonQualifyingEligible(seasonId),
+    getSeasonViability(season)
   ]);
   return publicSeason(season, {
     phase,
     extras: {
       practicePlayers: practiceCount,
       qualifyingEligible: eligible.length,
-      qualifyingEligibleRoditIds: eligible.map((row) => row.roditId)
+      qualifyingEligibleRoditIds: eligible.map((row) => row.roditId),
+      viability
     }
   });
 }
@@ -507,5 +561,7 @@ module.exports = {
   setFinalRoster,
   createSeasonFinal,
   getSeasonPublicView,
-  getEligibilityForRodit
+  getSeasonViability,
+  getEligibilityForRodit,
+  VIABILITY
 };

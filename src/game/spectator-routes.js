@@ -235,7 +235,11 @@ router.get("/seasons", async (req, res) => {
  * @swagger
  * /api/game/seasons/{seasonId}:
  *   get:
- *     summary: Season detail, phase, and eligibility counts
+ *     summary: Season detail, phase, eligibility counts, and viability (pass/fail)
+ *     description: >
+ *       Includes weekly go/no-go `viability` — ≥14 eligible non-sponsor Passports with ≥1 game
+ *       in the prior 14 days AND ≥12 lobbies in the practice week (through T-7) with ≥5 seats.
+ *       Unmet at T-7 → cancel Season 1 and relaunch (do not postpone again).
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
