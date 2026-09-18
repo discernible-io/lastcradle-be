@@ -135,7 +135,15 @@ async function main() {
 
   await engine.joinGame(finalGame.id, { roditId: "player-a", displayName: "Alpha" });
 
+  const view = await season.getSeasonPublicView(created.id);
+  assert(view?.viability, "public season view should include viability");
+  assert(view.viability.thresholds.minActivePassports === 14, "passport threshold");
+  assert(view.viability.thresholds.minFilledLobbies === 12, "lobby threshold");
+  assert(typeof view.viability.pass === "boolean", "viability.pass");
+  assert(view.viability.policy === "continue" || view.viability.policy === "cancel_and_relaunch", "policy");
+
   console.log("✓ Season practice → qualifying → rostered final gates work");
+  console.log("✓ Season viability public fields present");
   orchestrator.unregisterLobbyGame("all");
   await repo.closeDatabase();
   process.exit(0);
