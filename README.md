@@ -29,6 +29,10 @@ See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 | [`scripts/README-database-init.md`](scripts/README-database-init.md) | SQLite initialization for development and deployment |
 | [`api-docs/swagger.json`](api-docs/swagger.json) | OpenAPI 3.0 spec (authoritative API contract; served at `/api-docs/swagger.json`) |
 
+### Funnel instrumentation (cookieless)
+
+Emits `funnel.play` on first Passport cradle sit and `funnel.complete` on first Season practice credit (eligible completer = non-guest Passport that finished a practice game while seated). Attribution (`utm_*`, `funnel_id`) is query/body/headers only — no stitching cookies. Contract: [idclawserver-idc PR #10](https://github.com/discernible-io/idclawserver-idc/pull/10) · `src/lib/funnel.js` · `src/game/funnel-emit.js`.
+
 ### Organization standards ([`docs/`](docs/))
 
 Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at commit `606b439`. Service-relative links in these files resolve in this repository.

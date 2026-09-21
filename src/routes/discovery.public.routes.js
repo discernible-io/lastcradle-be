@@ -4,6 +4,7 @@ const { ulid } = require("ulid");
 const { logger } = require("@rodit/rodit-auth-be");
 const { version: APP_VERSION } = require("../lib/app-version");
 const { CANONICAL_API_BASE, CANONICAL_FRONTEND_ORIGIN } = require("../game/skill-content");
+const funnel = require("../lib/funnel");
 
 /**
  * @route GET /
@@ -17,6 +18,16 @@ router.get("/", (req, res) => {
     requestId,
     endpoint: "/",
     ip: req.ip
+  });
+
+  funnel.track(funnel.EVENTS.LAND, {
+    step: funnel.STEPS.LAND,
+    stage: "discovery",
+    domain: funnel.DEFAULT_DOMAIN,
+    path: "/",
+    result: "success",
+    requestId,
+    req
   });
 
   return res.status(200).json({

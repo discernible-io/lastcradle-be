@@ -13,6 +13,7 @@ const {
 const { buildGameSkillMarkdown, SKILL_VERSION } = require("../game/skill-content");
 const { recollectionGuidance } = require("../game/recollection-guidance");
 const { notifyCradleAssigned, onGamePhaseUpdated } = require("../game/webhooks");
+const { emitFunnelPlayOnNewSeat } = require("../game/funnel-emit");
 const { resolvePresetConfig, publicGameConfig } = require("../game/defaults");
 const {
   isPrivilegedRoditId,
@@ -452,6 +453,15 @@ async function callGameTool(name, args, req) {
       if (!existing) {
         const game = await repo.getGameById(gameId);
         await notifyCradleAssigned(req, { gameId, game, agent, roditId });
+        emitFunnelPlayOnNewSeat({
+          req,
+          requestId: req?.requestId || null,
+          path: "mcp:slc_join",
+          roditId,
+          gameId,
+          agent,
+          game
+        });
       }
 
       const autoStart = await orchestrator.evaluateLobbyAutoStart(gameId);

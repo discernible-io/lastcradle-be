@@ -13,6 +13,7 @@ const scheduler = require("./scheduler");
 const orchestrator = require("./contest-orchestrator");
 const repo = require("./repository");
 const { notifyCradleAssigned, notifyOpeningInventoryReport, onGamePhaseUpdated } = require("./webhooks");
+const { emitFunnelPlayOnNewSeat } = require("./funnel-emit");
 const {
   isPrivilegedRoditId,
   isOfficialContestConfig
@@ -108,6 +109,15 @@ router.post("/games", validateContentType, validateJsonBody, async (req, res) =>
       llmModel: req.body?.llmModel
     });
     await notifyCradleAssigned(req, { gameId: game.id, game, agent, roditId });
+    emitFunnelPlayOnNewSeat({
+      req,
+      requestId,
+      path: "/api/game/games",
+      roditId,
+      gameId: game.id,
+      agent,
+      game
+    });
     const autoStart = await orchestrator.evaluateLobbyAutoStart(game.id);
 
     res.status(201).json({
@@ -293,6 +303,15 @@ router.post("/games/:gameId/join", validateContentType, validateJsonBody, async 
     if (!existing) {
       const game = await repo.getGameById(gameId);
       await notifyCradleAssigned(req, { gameId, game, agent, roditId });
+      emitFunnelPlayOnNewSeat({
+        req,
+        requestId,
+        path: `/api/game/games/${gameId}/join`,
+        roditId,
+        gameId,
+        agent,
+        game
+      });
     }
 
     const autoStart = await orchestrator.evaluateLobbyAutoStart(gameId);

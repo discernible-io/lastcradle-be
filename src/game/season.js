@@ -11,6 +11,7 @@ const {
   CONTEST_GAME_CONFIG
 } = require("./defaults");
 const { canonicalRoditId } = require("./rodit-id");
+const { emitFunnelComplete } = require("./funnel-emit");
 
 function gameError(code, message, statusCode = 400, details = undefined) {
   const err = new Error(message);
@@ -322,15 +323,28 @@ async function recordFinishedGame(game) {
   const byId = new Map(agents.map((a) => [a.id, a]));
 
   if (mode === "practice") {
+    let credited = 0;
     for (const agent of agents) {
       if (isGuestRoditId(agent.roditId)) continue;
+      // Eligible completer = non-guest Passport that finished a Season practice
+      // game while seated (first credit into season_practice_credits). Win not required.
+      const alreadyCompleted = await repo.hasSeasonPracticeFinish(seasonId, agent.roditId);
       await repo.upsertSeasonPracticeCredit({
         seasonId,
         roditId: agent.roditId,
         gameId: game.id
       });
+      credited += 1;
+      if (!alreadyCompleted) {
+        emitFunnelComplete({
+          roditId: agent.roditId,
+          seasonId,
+          gameId: game.id,
+          kind: "practice_finish_seated"
+        });
+      }
     }
-    return { kind: "practice", credited: agents.filter((a) => !isGuestRoditId(a.roditId)).length };
+    return { kind: "practice", credited };
   }
 
   if (mode === "qualifying") {

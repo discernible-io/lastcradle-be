@@ -8,6 +8,7 @@ const {
   METHODS,
   stampRoditLoginMethodOnSuccess
 } = require("../game/ip-login-method");
+const funnel = require("../lib/funnel");
 
 /**
  * NEP-413 wallet login body (signature over RODiT token id).
@@ -131,6 +132,31 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
     path: req.originalUrl,
     ip: req.ip,
     userAgent: req.get("User-Agent")
+  });
+
+  // Cookieless attribution on login (utm_* / funnel_id via body/query/headers).
+  // No home-API proxy hop here — agents remint JWT against this API; forward
+  // inbound attribution onto funnel.login_* for the shared Loki tenant.
+  funnel.track(funnel.EVENTS.LOGIN_CHALLENGE, {
+    stage: "login",
+    domain: funnel.DEFAULT_DOMAIN,
+    path: "/api/login",
+    result: "attempt",
+    requestId,
+    req
+  });
+
+  res.on("finish", () => {
+    const ok = res.statusCode >= 200 && res.statusCode < 400;
+    funnel.track(funnel.EVENTS.LOGIN_RESULT, {
+      stage: "login",
+      domain: funnel.DEFAULT_DOMAIN,
+      path: "/api/login",
+      result: ok ? "success" : "failed",
+      errorCode: ok ? null : res.statusCode,
+      requestId,
+      req
+    });
   });
 
   const client = req.app.locals.roditClient;
