@@ -20,6 +20,7 @@ const { buildGameHonors, buildContestHonors, listHallOfFame, listRecentFinishes 
 const season = require("./season");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
+const funnel = require("../lib/funnel");
 const {
   prepareUrlJoinIdentity,
   finalizeUrlJoinIdentity,
@@ -750,7 +751,31 @@ router.post(
           llmModel: req.body?.llmModel
         });
         joinedNew = !existing;
+        // Once per new lobby seat; guest tokenIdHash still stitches within Last Cradle.
+        if (joinedNew) {
+          funnel.track(funnel.EVENTS.PLAY, {
+            step: funnel.STEPS.PLAY,
+            domain: funnel.DEFAULT_DOMAIN,
+            path: "/api/game/games/:gameId/join-by-url",
+            result: "success",
+            tokenId: prepared.roditId,
+            requestId,
+            req,
+            extra: { gameId, joinMethod: "guest" }
+          });
+        }
       } catch (joinErr) {
+        funnel.track(funnel.EVENTS.PLAY, {
+          step: funnel.STEPS.PLAY,
+          domain: funnel.DEFAULT_DOMAIN,
+          path: "/api/game/games/:gameId/join-by-url",
+          result: "failed",
+          errorCode: joinErr.code || joinErr.statusCode || "JOIN_FAILED",
+          tokenId: prepared.roditId,
+          requestId,
+          req,
+          extra: { gameId, joinMethod: "guest" }
+        });
         throw joinErr;
       }
 

@@ -8,6 +8,7 @@ const {
   METHODS,
   stampRoditLoginMethodOnSuccess
 } = require("../game/ip-login-method");
+const funnel = require("../lib/funnel");
 
 /**
  * NEP-413 wallet login body (signature over RODiT token id).
@@ -153,6 +154,15 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
   try {
     if (isNep413LoginBody(req.body)) {
       const { signature, message, nonce, recipient, callbackUrl } = req.body;
+
+      // Forward inbound UTMs + funnel_id on federated/login hops (callback URL only;
+      // this API does not proxy outbound mint calls to home — cookieless query params).
+      if (typeof callbackUrl === "string" && callbackUrl.trim()) {
+        req.body.callbackUrl = funnel.appendAttribution(
+          callbackUrl,
+          funnel.extractAttribution(req)
+        );
+      }
 
       logger.infoWithContext("Processing NEP-413 login request", {
         component: "AuthRoutes",

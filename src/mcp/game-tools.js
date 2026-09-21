@@ -21,6 +21,7 @@ const {
 const scheduler = require("../game/scheduler");
 const { logger } = require("@rodit/rodit-auth-be");
 const { assertPassportIpLoginMethod } = require("../game/ip-login-method");
+const funnel = require("../lib/funnel");
 
 const { AGENT_TYPES } = require("../game/agent-profile");
 
@@ -442,12 +443,41 @@ async function callGameTool(name, args, req) {
       const gameId = args.gameId;
       await assertPassportIpLoginMethod(req, gameId, roditId);
       const existing = await repo.getAgentByRoditId(gameId, roditId);
-      const agent = await engine.joinGame(gameId, {
-        roditId,
-        displayName: args.displayName,
-        agentType: args.agentType,
-        llmModel: args.llmModel
-      });
+      let agent;
+      try {
+        agent = await engine.joinGame(gameId, {
+          roditId,
+          displayName: args.displayName,
+          agentType: args.agentType,
+          llmModel: args.llmModel
+        });
+        // Once per new lobby seat (!existing); MCP create+autoJoin goes through slc_join.
+        if (!existing) {
+          funnel.track(funnel.EVENTS.PLAY, {
+            step: funnel.STEPS.PLAY,
+            domain: funnel.DEFAULT_DOMAIN,
+            path: "mcp:slc_join",
+            result: "success",
+            tokenId: roditId,
+            requestId: req?.requestId || null,
+            req,
+            extra: { gameId }
+          });
+        }
+      } catch (joinErr) {
+        funnel.track(funnel.EVENTS.PLAY, {
+          step: funnel.STEPS.PLAY,
+          domain: funnel.DEFAULT_DOMAIN,
+          path: "mcp:slc_join",
+          result: "failed",
+          errorCode: joinErr.code || joinErr.statusCode || "JOIN_FAILED",
+          tokenId: roditId,
+          requestId: req?.requestId || null,
+          req,
+          extra: { gameId }
+        });
+        throw joinErr;
+      }
 
       if (!existing) {
         const game = await repo.getGameById(gameId);

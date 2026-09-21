@@ -11,6 +11,7 @@ const {
   CONTEST_GAME_CONFIG
 } = require("./defaults");
 const { canonicalRoditId } = require("./rodit-id");
+const funnel = require("../lib/funnel");
 
 function gameError(code, message, statusCode = 400, details = undefined) {
   const err = new Error(message);
@@ -321,6 +322,29 @@ async function recordFinishedGame(game) {
   const agents = await repo.listAgents(game.id);
   const byId = new Map(agents.map((a) => [a.id, a]));
 
+  // Eligible completer (funnel.complete): a seated agent (row in game_agents for
+  // this finished game — not a spectator) in a Season-linked contest game
+  // (config.contestSeasonId set). Guests (guest_*) are excluded so stitch keys
+  // prefer Passport tokenIdHash; winners and non-winners both count — finishing
+  // the season game while seated is enough.
+  const winnerIds = new Set(game.winnerIds || []);
+  for (const agent of agents) {
+    if (isGuestRoditId(agent.roditId)) continue;
+    funnel.track(funnel.EVENTS.COMPLETE, {
+      step: funnel.STEPS.COMPLETE,
+      domain: funnel.DEFAULT_DOMAIN,
+      result: "success",
+      tokenId: agent.roditId,
+      extra: {
+        gameId: game.id,
+        seasonId,
+        contestMode: mode,
+        agentId: agent.id,
+        won: winnerIds.has(agent.id)
+      }
+    });
+  }
+
   if (mode === "practice") {
     for (const agent of agents) {
       if (isGuestRoditId(agent.roditId)) continue;
@@ -334,7 +358,6 @@ async function recordFinishedGame(game) {
   }
 
   if (mode === "qualifying") {
-    const winnerIds = game.winnerIds || [];
     let credited = 0;
     for (const agentId of winnerIds) {
       const agent = byId.get(agentId);
