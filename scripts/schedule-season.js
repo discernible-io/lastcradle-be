@@ -2,14 +2,18 @@
 /**
  * Create Season 1 windows (practice → qualifying → final) on the configured DB.
  *
- * Example (Season 1 as discussed):
+ * Example (Season 1 — finale 24 Oct; T-7 go/no-go 17 Oct; no second postpone):
  *   DRY_RUN=1 \
- *   PRACTICE_STARTS_AT=2026-09-10T00:00:00.000Z \
- *   PRACTICE_ENDS_AT=2026-09-17T00:00:00.000Z \
- *   QUALIFYING_STARTS_AT=2026-09-17T00:00:00.000Z \
- *   QUALIFYING_ENDS_AT=2026-09-24T00:00:00.000Z \
- *   FINAL_JOINING_STARTS_AT=2026-09-24T12:00:00.000Z \
+ *   PRACTICE_STARTS_AT=2026-10-10T00:00:00.000Z \
+ *   PRACTICE_ENDS_AT=2026-10-17T00:00:00.000Z \
+ *   QUALIFYING_STARTS_AT=2026-10-17T00:00:00.000Z \
+ *   QUALIFYING_ENDS_AT=2026-10-24T00:00:00.000Z \
+ *   FINAL_JOINING_STARTS_AT=2026-10-24T12:00:00.000Z \
  *   node scripts/schedule-season.js
+ *
+ * Pass (weekly, on GET /api/game/seasons/:id → viability): ≥14 eligible non-sponsor
+ * Passports with ≥1 game in prior 14 days AND ≥12 lobbies in practice window with ≥5 seats.
+ * Fail at T-7 → cancel Season 1 and relaunch. Set SEASON_INELIGIBLE_RODIT_IDS for sponsors.
  */
 
 const path = require("path");

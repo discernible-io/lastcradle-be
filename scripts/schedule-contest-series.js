@@ -6,12 +6,12 @@
  * API process uses when API_DEFAULT_OPTIONS_DB_PATH / NODE_CONFIG_ENV match.
  *
  * Examples:
- *   PRACTICE_STARTS_AT=2026-09-10T12:00:00.000Z node scripts/schedule-contest-series.js
- *   PRACTICE_STARTS_AT=2026-09-10T12:00:00.000Z DEFINITIVE_STARTS_AT=2026-09-17T12:00:00.000Z \\
+ *   PRACTICE_STARTS_AT=2026-10-10T12:00:00.000Z node scripts/schedule-contest-series.js
+ *   PRACTICE_STARTS_AT=2026-10-10T12:00:00.000Z DEFINITIVE_STARTS_AT=2026-10-17T12:00:00.000Z \\
  *     PRIZE_AMOUNT_YOCTO=500000000000000000000000000 node scripts/schedule-contest-series.js
  *
  * Dry-run (no DB write):
- *   DRY_RUN=1 PRACTICE_STARTS_AT=2026-09-10T12:00:00.000Z node scripts/schedule-contest-series.js
+ *   DRY_RUN=1 PRACTICE_STARTS_AT=2026-10-10T12:00:00.000Z node scripts/schedule-contest-series.js
  */
 
 const path = require("path");
@@ -28,7 +28,7 @@ const DRY_RUN = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
 async function main() {
   if (!PRACTICE_STARTS_AT) {
     console.error(
-      "PRACTICE_STARTS_AT is required (ISO timestamp), e.g. 2026-09-10T12:00:00.000Z"
+      "PRACTICE_STARTS_AT is required (ISO timestamp), e.g. 2026-10-10T12:00:00.000Z"
     );
     process.exit(1);
   }

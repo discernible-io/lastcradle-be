@@ -20,6 +20,7 @@ const { buildGameHonors, buildContestHonors, listHallOfFame, listRecentFinishes 
 const season = require("./season");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
+const funnel = require("../lib/funnel");
 const {
   prepareUrlJoinIdentity,
   finalizeUrlJoinIdentity,
@@ -235,7 +236,11 @@ router.get("/seasons", async (req, res) => {
  * @swagger
  * /api/game/seasons/{seasonId}:
  *   get:
- *     summary: Season detail, phase, and eligibility counts
+ *     summary: Season detail, phase, eligibility counts, and viability (pass/fail)
+ *     description: >
+ *       Includes weekly go/no-go `viability` — ≥14 eligible non-sponsor Passports with ≥1 game
+ *       in the prior 14 days AND ≥12 lobbies in the practice week (through T-7) with ≥5 seats.
+ *       Unmet at T-7 → cancel Season 1 and relaunch (do not postpone again).
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -426,10 +431,19 @@ router.get("/peer-auth.md", (req, res) => {
  *               $ref: "#/components/schemas/GameEnrollPromptsResponse"
  */
 router.get("/enroll-prompts", (req, res) => {
+  const requestId = req.requestId || ulid();
+  funnel.track(funnel.EVENTS.DISCOVERY, {
+    step: funnel.STEPS.LAND,
+    domain: funnel.DEFAULT_DOMAIN,
+    path: "/api/game/enroll-prompts",
+    result: "success",
+    requestId,
+    req
+  });
   res.set("Cache-Control", "public, max-age=60");
   res.json({
     ...buildEnrollPromptsPayload(req),
-    requestId: req.requestId || ulid()
+    requestId
   });
 });
 
@@ -746,7 +760,31 @@ router.post(
           llmModel: req.body?.llmModel
         });
         joinedNew = !existing;
+        // Once per new lobby seat; guest tokenIdHash still stitches within Last Cradle.
+        if (joinedNew) {
+          funnel.track(funnel.EVENTS.PLAY, {
+            step: funnel.STEPS.PLAY,
+            domain: funnel.DEFAULT_DOMAIN,
+            path: "/api/game/games/:gameId/join-by-url",
+            result: "success",
+            tokenId: prepared.roditId,
+            requestId,
+            req,
+            extra: { gameId, joinMethod: "guest" }
+          });
+        }
       } catch (joinErr) {
+        funnel.track(funnel.EVENTS.PLAY, {
+          step: funnel.STEPS.PLAY,
+          domain: funnel.DEFAULT_DOMAIN,
+          path: "/api/game/games/:gameId/join-by-url",
+          result: "failed",
+          errorCode: joinErr.code || joinErr.statusCode || "JOIN_FAILED",
+          tokenId: prepared.roditId,
+          requestId,
+          req,
+          extra: { gameId, joinMethod: "guest" }
+        });
         throw joinErr;
       }
 

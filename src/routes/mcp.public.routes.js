@@ -12,6 +12,7 @@ const { sendError } = errorResponse;
 const { loadOpenApiSpec } = require("../lib/app-version");
 const { buildActionSchemaMarkdown } = require("../game/action-schema-content");
 const { CANONICAL_API_BASE, CANONICAL_FRONTEND_ORIGIN } = require("../game/skill-content");
+const funnel = require("../lib/funnel");
 
 const mcpCache = { swagger: null };
 
@@ -397,6 +398,14 @@ router.get("/resource/:uri(*)", async (req, res) => {
       resourceUri: uri,
       result: "success"
     });
+    funnel.track(funnel.EVENTS.MCP_RESOURCE, {
+      path: `/api/mcp/resource/${uri}`,
+      uri,
+      result: "success",
+      requestId,
+      durationMs: duration,
+      req
+    });
 
     return res.json({ ...resource, requestId });
   } catch (error) {
@@ -404,6 +413,15 @@ router.get("/resource/:uri(*)", async (req, res) => {
     const statusCode = error.statusCode || 500;
 
     if (statusCode === 404) {
+      funnel.track(funnel.EVENTS.MCP_RESOURCE, {
+        path: `/api/mcp/resource/${uri}`,
+        uri,
+        result: "failed",
+        errorCode: "MCP_RESOURCE_NOT_FOUND",
+        requestId,
+        durationMs: duration,
+        req
+      });
       return sendError(res, {
         statusCode: 404,
         requestId,
@@ -420,6 +438,15 @@ router.get("/resource/:uri(*)", async (req, res) => {
       "mcp_error",
       { operation: "getResource", resourceUri: uri, result: "error", duration }
     );
+    funnel.track(funnel.EVENTS.MCP_RESOURCE, {
+      path: `/api/mcp/resource/${uri}`,
+      uri,
+      result: "failed",
+      errorCode: "MCP_RESOURCE_FAILED",
+      requestId,
+      durationMs: duration,
+      req
+    });
 
     return sendError(res, {
       statusCode: 500,

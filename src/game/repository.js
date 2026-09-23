@@ -1405,6 +1405,59 @@ async function getSeasonById(seasonId) {
   return rowToSeason(row);
 }
 
+/**
+ * Season 1 go/no-go metrics (public).
+ * - activePassports: distinct non-guest roditIds seated in any game in the prior `lookbackDays`,
+ *   excluding `ineligibleRoditIds` (sponsor / contractor denylist).
+ * - filledLobbies: games created in [windowStart, windowEnd) with at least `minSeats` agents.
+ */
+async function getSeasonViabilityCounts({
+  lookbackDays = 14,
+  windowStartIso,
+  windowEndIso,
+  minSeats = 5,
+  ineligibleRoditIds = [],
+  now = new Date()
+} = {}) {
+  const database = await getDb();
+  const lookbackStart = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
+  const ineligible = [...new Set((ineligibleRoditIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
+
+  let passportSql = `
+    SELECT COUNT(DISTINCT a.rodit_id) AS count
+    FROM game_agents a
+    INNER JOIN games g ON g.id = a.game_id
+    WHERE a.rodit_id IS NOT NULL
+      AND a.rodit_id NOT LIKE 'guest_%'
+      AND g.created_at >= ?`;
+  const passportParams = [lookbackStart];
+  if (ineligible.length) {
+    passportSql += ` AND a.rodit_id NOT IN (${ineligible.map(() => "?").join(", ")})`;
+    passportParams.push(...ineligible);
+  }
+  const passportRow = await database.get(passportSql, passportParams);
+
+  let lobbySql = `
+    SELECT COUNT(*) AS count FROM (
+      SELECT g.id
+      FROM games g
+      INNER JOIN game_agents a ON a.game_id = g.id
+      WHERE g.created_at >= ? AND g.created_at < ?
+      GROUP BY g.id
+      HAVING COUNT(a.id) >= ?
+    )`;
+  const lobbyParams = [windowStartIso, windowEndIso, minSeats];
+  const lobbyRow = await database.get(lobbySql, lobbyParams);
+
+  return {
+    activePassports: Number(passportRow?.count) || 0,
+    filledLobbies: Number(lobbyRow?.count) || 0,
+    lookbackStart,
+    windowStart: windowStartIso,
+    windowEnd: windowEndIso
+  };
+}
+
 async function listSeasons({ limit = 20, offset = 0 } = {}) {
   const database = await getDb();
   const rows = await database.all(
@@ -2036,6 +2089,7 @@ module.exports = {
   listFinishedGames,
   createSeason,
   getSeasonById,
+  getSeasonViabilityCounts,
   listSeasons,
   getCurrentSeason,
   updateSeason,

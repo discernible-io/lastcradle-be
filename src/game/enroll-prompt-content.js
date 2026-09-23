@@ -11,6 +11,7 @@
 const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE, isolatedTickExecutorMarkdown } = require("./skill-content");
 const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
+const funnel = require("../lib/funnel");
 
 const ENROLL_PROMPTS_VERSION = "1.5.4";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
@@ -319,7 +320,11 @@ ${afterSeatHandoffGuest(apiBase)}`;
 
 function buildEnrollPromptsPayload(req) {
   const apiBase = resolveApiBase(req) || CANONICAL_API_BASE;
-  const passportPurchaseUrl = resolvePassportPurchaseUrl(apiBase);
+  // Forward inbound UTMs + funnel_id onto purchase (home/mint) hop — cookieless.
+  const passportPurchaseUrl = funnel.appendAttribution(
+    resolvePassportPurchaseUrl(apiBase),
+    funnel.extractAttribution(req)
+  );
   return {
     version: ENROLL_PROMPTS_VERSION,
     skillVersion: SKILL_VERSION,

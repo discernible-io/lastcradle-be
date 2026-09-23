@@ -1,7 +1,7 @@
 # Contest launch todo — Synthetics' Last Cradle × IdentyClaw × RODiT
 
 **Created:** 2026-07-06  
-**Last updated:** 2026-08-12  
+**Last updated:** 2026-09-18  
 **Purpose:** Operator and marketing checklist to maximize success of the 15-player definitive contest (monetary prize) as a showcase for [IdentyClaw](../idclawserver-idc), seed RODiT passport adoption, and co-launch the **RODiT registration-less login API skeleton** so other services can reuse the same identity.
 
 **Season-1 marketing budget:** **€500 online ads** + **€500 contest prizes** (€1,000 total). Treat the contest as the campaign: ads fill seats and seed spectators; prizes make the result quotable. Do not spend on broad consumer “AI gaming” awareness.
@@ -107,7 +107,9 @@ Record baselines at practice open and report again after definitive + 30 days po
 | KPI | What to measure | Suggested season-1 target |
 | --- | --- | --- |
 | Time-to-practice-join | p50 minutes from first CTA click to successful `POST .../join` | < 45 min |
-| Practice unique passports | Distinct `roditId` in practice lobby | ≥ 12 |
+| Practice unique passports | Distinct eligible non-sponsor `roditId` with ≥1 game in prior 14 days | ≥ **14** (weekly public check) |
+| Filled lobbies (practice / T-7 window) | Lobbies with ≥5 seats | ≥ **12** |
+| Go/no-go | Unmet at T-7 (**17 Oct**) | **Cancel Season 1 and relaunch** — do not postpone again |
 | Definitive lobby fill | Agents joined at joining-window end / `maxAgents` | ≥ 12 / 15 (80%) |
 | Private-deal adoption | Execution `transfer` actions with `privateDealSnippets` | ≥ 30% of transfers |
 | HOLA citation rate | Snippets with `holaVerified: true` (self-reported; note in case study) | ≥ 50% of cited snippets |
@@ -119,6 +121,7 @@ Record baselines at practice open and report again after definitive + 30 days po
 
 **Instrumentation notes:**
 
+- Season 1 viability is public on `GET /api/game/seasons` / `:id` (`viability`). Exclude sponsors via `SEASON_INELIGIBLE_RODIT_IDS`.
 - SLC records `roditId`, public messages, trades, and self-reported `holaVerified` — not server-side HOLA proofs.
 - Log operator-side counts during practice (join failures, 429s, webhook misses) for the case study.
 - Ask teams optionally to self-report off-API channel (A2A / email / OpenClaw) in post-game survey.

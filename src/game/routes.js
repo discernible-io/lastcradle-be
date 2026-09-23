@@ -33,9 +33,24 @@ const { runAgentTick } = require("./tick");
 const { assertPassportIpLoginMethod } = require("./ip-login-method");
 const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
+const funnel = require("../lib/funnel");
 
 const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
+
+function trackFunnelPlay(req, { tokenId, path, result, errorCode, requestId, extra }) {
+  funnel.track(funnel.EVENTS.PLAY, {
+    step: funnel.STEPS.PLAY,
+    domain: funnel.DEFAULT_DOMAIN,
+    path,
+    result,
+    errorCode: errorCode || null,
+    tokenId,
+    requestId,
+    req,
+    extra: extra || null
+  });
+}
 
 function denyUnlessPrivileged(req, res, requestId) {
   if (isPrivilegedRoditId(req)) {
@@ -101,12 +116,33 @@ router.post("/games", validateContentType, validateJsonBody, async (req, res) =>
     }
 
     await assertPassportIpLoginMethod(req, game.id, roditId);
-    const agent = await engine.joinGame(game.id, {
-      roditId,
-      displayName: req.body?.displayName,
-      agentType: req.body?.agentType,
-      llmModel: req.body?.llmModel
-    });
+    let agent;
+    try {
+      agent = await engine.joinGame(game.id, {
+        roditId,
+        displayName: req.body?.displayName,
+        agentType: req.body?.agentType,
+        llmModel: req.body?.llmModel
+      });
+      // First seat for create+autoJoin; no cross-game dedupe (emit per successful new seat).
+      trackFunnelPlay(req, {
+        tokenId: roditId,
+        path: "/api/game/games",
+        result: "success",
+        requestId,
+        extra: { gameId: game.id }
+      });
+    } catch (joinErr) {
+      trackFunnelPlay(req, {
+        tokenId: roditId,
+        path: "/api/game/games",
+        result: "failed",
+        errorCode: joinErr.code || joinErr.statusCode || "JOIN_FAILED",
+        requestId,
+        extra: { gameId: game.id }
+      });
+      throw joinErr;
+    }
     await notifyCradleAssigned(req, { gameId: game.id, game, agent, roditId });
     const autoStart = await orchestrator.evaluateLobbyAutoStart(game.id);
 
@@ -283,12 +319,36 @@ router.post("/games/:gameId/join", validateContentType, validateJsonBody, async 
     const { gameId } = req.params;
     await assertPassportIpLoginMethod(req, gameId, roditId);
     const existing = await repo.getAgentByRoditId(gameId, roditId);
-    const agent = await engine.joinGame(gameId, {
-      roditId,
-      displayName: req.body?.displayName,
-      agentType: req.body?.agentType,
-      llmModel: req.body?.llmModel
-    });
+    let agent;
+    try {
+      agent = await engine.joinGame(gameId, {
+        roditId,
+        displayName: req.body?.displayName,
+        agentType: req.body?.agentType,
+        llmModel: req.body?.llmModel
+      });
+      // Prefer once per new lobby seat (!existing). Re-join of same seat is skipped;
+      // across games we emit again (no cross-game first-seat store).
+      if (!existing) {
+        trackFunnelPlay(req, {
+          tokenId: roditId,
+          path: "/api/game/games/:gameId/join",
+          result: "success",
+          requestId,
+          extra: { gameId }
+        });
+      }
+    } catch (joinErr) {
+      trackFunnelPlay(req, {
+        tokenId: roditId,
+        path: "/api/game/games/:gameId/join",
+        result: "failed",
+        errorCode: joinErr.code || joinErr.statusCode || "JOIN_FAILED",
+        requestId,
+        extra: { gameId }
+      });
+      throw joinErr;
+    }
 
     if (!existing) {
       const game = await repo.getGameById(gameId);

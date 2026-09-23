@@ -4,6 +4,18 @@ const { ulid } = require("ulid");
 const { logger } = require("@rodit/rodit-auth-be");
 const { version: APP_VERSION } = require("../lib/app-version");
 const { CANONICAL_API_BASE, CANONICAL_FRONTEND_ORIGIN } = require("../game/skill-content");
+const funnel = require("../lib/funnel");
+
+function trackDiscovery(req, path, requestId) {
+  funnel.track(funnel.EVENTS.DISCOVERY, {
+    step: funnel.STEPS.LAND,
+    domain: funnel.DEFAULT_DOMAIN,
+    path,
+    result: "success",
+    requestId,
+    req
+  });
+}
 
 /**
  * @route GET /
@@ -18,6 +30,7 @@ router.get("/", (req, res) => {
     endpoint: "/",
     ip: req.ip
   });
+  trackDiscovery(req, "/", requestId);
 
   return res.status(200).json({
     name: "RODiT Authentication API",
@@ -180,6 +193,7 @@ router.get("/.well-known/mcp", (req, res) => {
     endpoint: "/.well-known/mcp",
     ip: req.ip
   });
+  trackDiscovery(req, "/.well-known/mcp", requestId);
 
   const host = req.get("host");
   const protocol = req.protocol || "https";
