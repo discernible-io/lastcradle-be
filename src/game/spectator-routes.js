@@ -770,7 +770,8 @@ router.post(
             tokenId: prepared.roditId,
             requestId,
             req,
-            extra: { gameId, joinMethod: "guest" }
+            // joinMethod=guest: exclude from mint→play ratios (no Passport stitch).
+            extra: { gameId, joinMethod: funnel.joinMethodFromTokenId(prepared.roditId) }
           });
         }
       } catch (joinErr) {
@@ -783,7 +784,7 @@ router.post(
           tokenId: prepared.roditId,
           requestId,
           req,
-          extra: { gameId, joinMethod: "guest" }
+          extra: { gameId, joinMethod: funnel.joinMethodFromTokenId(prepared.roditId) }
         });
         throw joinErr;
       }
