@@ -333,8 +333,11 @@ async function recordFinishedGame(game) {
     funnel.track(funnel.EVENTS.COMPLETE, {
       step: funnel.STEPS.COMPLETE,
       domain: funnel.DEFAULT_DOMAIN,
+      path: "season.recordFinishedGame",
       result: "success",
       tokenId: agent.roditId,
+      accountId: funnel.accountIdFromRoditId(agent.roditId),
+      requestId: `complete:${game.id}:${agent.id}`,
       extra: {
         gameId: game.id,
         seasonId,

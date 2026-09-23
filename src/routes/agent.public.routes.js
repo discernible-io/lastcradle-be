@@ -3,6 +3,7 @@ const router = express.Router();
 const { ulid } = require("ulid");
 const { logger, errorResponse } = require("@rodit/rodit-auth-be");
 const { sendError } = errorResponse;
+const funnel = require("../lib/funnel");
 
 /**
  * @route GET /api/login/timestamp
@@ -30,6 +31,13 @@ router.get("/login/timestamp", (req, res) => {
       operation: "getAuthParams",
       result: "success"
     });
+    funnel.track(funnel.EVENTS.LOGIN_CHALLENGE, {
+      path: "/api/login/timestamp",
+      result: "success",
+      requestId,
+      durationMs: duration,
+      req
+    });
 
     return res.status(200).json({
       timestamp,
@@ -46,6 +54,14 @@ router.get("/login/timestamp", (req, res) => {
       "agent_auth_params_error",
       { operation: "getAuthParams", result: "error", duration }
     );
+    funnel.track(funnel.EVENTS.LOGIN_CHALLENGE, {
+      path: "/api/login/timestamp",
+      result: "failed",
+      errorCode: "AGENT_AUTH_PARAMS_FAILED",
+      requestId,
+      durationMs: duration,
+      req
+    });
 
     return sendError(res, {
       statusCode: 500,

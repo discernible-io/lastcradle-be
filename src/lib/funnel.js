@@ -1,14 +1,21 @@
 /**
- * Server-side play / complete funnel events for Loki (Last Cradle).
+ * Server-side funnel events for Loki (Last Cradle).
  *
- * Sibling emit contract: idclawserver-idc `content/developer-growth-plan.md`
- * (product ladder land → mint → verify → play → complete). This repo emits
- * `funnel.play` and `funnel.complete` into the same Loki tenant via winston-loki.
+ * SoT: `docs/funnel-standard.md` (product ladder land → mint → verify → play →
+ * complete). This API emits cookieless `funnel.discovery` (step=land), supporting
+ * `funnel.login_*` / `funnel.mcp_resource`, plus ladder rungs `funnel.play` /
+ * `funnel.complete` into the same Loki host as home API via winston-loki.
  *
  * Join across domains with tokenIdHash / accountId (and optional funnel_id
  * before a Passport exists). Attribution is query / JSON body / request
  * headers only — never Set-Cookie, never document.cookie, never localStorage
  * identifiers for stitching.
+ *
+ * Operator LogQL (main): this service labels streams `{app="api.lastcradle.io"}`,
+ * not `{app="idclawserver"}`. Prefer:
+ *   {app="api.lastcradle.io"} |= "funnel:" | json | funnel="true"
+ * Cross-surface mint→play:
+ *   {app=~"idclawserver|api\\.lastcradle\\.io"} |= "funnel:" | json | funnel="true"
  */
 
 const crypto = require("crypto");
@@ -97,6 +104,34 @@ function pickString(value) {
 }
 
 /**
+ * NEAR account id from a compound subject string (`…;sc=<account>;…`) or a bare
+ * NEAR account id. Passport token ids alone do not yield an accountId.
+ * @param {string|null|undefined} roditIdOrSubject
+ * @returns {string|null}
+ */
+function accountIdFromRoditId(roditIdOrSubject) {
+  const raw = pickString(roditIdOrSubject);
+  if (!raw) {
+    return null;
+  }
+  const scMatch = /(?:^|;)\s*sc=([^;]+)/i.exec(raw);
+  if (scMatch) {
+    const fromSc = pickString(scMatch[1]);
+    if (fromSc) {
+      return fromSc;
+    }
+  }
+  // Named / implicit NEAR accounts stored as the identity itself
+  if (/^[0-9a-f]{64}$/i.test(raw)) {
+    return raw;
+  }
+  if (/^[a-z0-9_-]+(?:\.[a-z0-9_-]+)+$/i.test(raw)) {
+    return raw;
+  }
+  return null;
+}
+
+/**
  * NEAR account id from compound JWT `sub` (`…;sc=<account>;…`) or user fields.
  * @param {object|null|undefined} user
  * @returns {string|null}
@@ -106,12 +141,9 @@ function accountIdFromUser(user) {
     return null;
   }
   if (typeof user.sub === "string") {
-    const scMatch = /(?:^|;)\s*sc=([^;]+)/i.exec(user.sub);
-    if (scMatch) {
-      const fromSc = pickString(scMatch[1]);
-      if (fromSc) {
-        return fromSc;
-      }
+    const fromSub = accountIdFromRoditId(user.sub);
+    if (fromSub) {
+      return fromSub;
     }
   }
   for (const key of ["accountid", "account_id", "accountId", "near_account_id"]) {
@@ -321,6 +353,7 @@ module.exports = {
   appendAttribution,
   resolveAccountId,
   accountIdFromUser,
+  accountIdFromRoditId,
   UTM_KEYS,
   FUNNEL_ID_KEYS,
   STEPS,

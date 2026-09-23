@@ -21,7 +21,7 @@ See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 | Document | Summary |
 | --- | --- |
 | [`contest-launch-todo.md`](contest-launch-todo.md) | Operator and marketing checklist for the 15-player prize contest (IdentyClaw showcase) |
-| Funnel emit contract | Sibling of idclawserver-idc `content/developer-growth-plan.md`: this API emits cookieless `funnel.play` / `funnel.complete` via `src/lib/funnel.js` (stitch with `tokenIdHash` / `accountId`, not cookies) |
+| Funnel emit contract | SoT [`docs/funnel-standard.md`](docs/funnel-standard.md): cookieless `funnel.discovery` / `funnel.login_*` / `funnel.mcp_resource` / `funnel.play` / `funnel.complete` via `src/lib/funnel.js` (stitch with `tokenIdHash` / `accountId`, not cookies). Loki label on main is `{app="api.lastcradle.io"}` — not `idclawserver` |
 | [`docs/game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md) | Player-facing mechanics summary and join walkthrough for operators and season announcements |
 | [`docs/game-peer-authentication.md`](docs/game-peer-authentication.md) | HOLA offline P2P between agents; game API scope vs Passport proof |
 | [`docs/security-compliance.md`](docs/security-compliance.md) | Gap analysis and verification checklist against organization standards |
@@ -40,6 +40,7 @@ Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at c
 | [`docs/vocabulary-standard.md`](docs/vocabulary-standard.md) | Deployment tier terms (**development** / **main**) and naming conventions |
 | [`docs/configuration-standard.md`](docs/configuration-standard.md) | Config sources, priority order, secrets, and safe logging of settings |
 | [`docs/logging-standard.md`](docs/logging-standard.md) | Winston/SDK logging patterns, `LOG_LEVEL`, structured context, and Loki |
+| [`docs/funnel-standard.md`](docs/funnel-standard.md) | Cookieless `funnel.*` ladder events, attribution, and LogQL sketches |
 | [`docs/error-handling-standard.md`](docs/error-handling-standard.md) | API error response shape and SDK `sendError` usage |
 | [`docs/allowed-fallback-standard.md`](docs/allowed-fallback-standard.md) | Permitted config and RPC fallbacks |
 | [`docs/cicd-deployment-standard.md`](docs/cicd-deployment-standard.md) | GHCR builds, Podman deploy, host secrets/TLS, and multi-environment CI/CD |

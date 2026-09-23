@@ -8,6 +8,7 @@ const {
   METHODS,
   stampRoditLoginMethodOnSuccess
 } = require("../game/ip-login-method");
+const { roditIdFromUser } = require("../game/rodit-id");
 const funnel = require("../lib/funnel");
 
 /**
@@ -102,6 +103,76 @@ function resolveLoginTimestampFromBody(body) {
   };
 }
 
+function decodeJwtPayload(jwtToken) {
+  if (typeof jwtToken !== "string" || !jwtToken) {
+    return null;
+  }
+  const parts = jwtToken.split(".");
+  if (parts.length < 2) {
+    return null;
+  }
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Emit funnel.login_result when the SDK (or sendError) finishes the response.
+ * Wrap after stampRoditLoginMethodOnSuccess so this is the outermost res.json.
+ */
+function trackFunnelLoginResultOnResponse(req, res, requestId) {
+  const originalJson = res.json.bind(res);
+  let emitted = false;
+  res.json = function funnelLoginJson(body) {
+    if (!emitted) {
+      emitted = true;
+      const ok =
+        res.statusCode >= 200 &&
+        res.statusCode < 300 &&
+        body &&
+        typeof body === "object" &&
+        body.jwt_token;
+      if (ok) {
+        const payload = decodeJwtPayload(body.jwt_token);
+        funnel.track(funnel.EVENTS.LOGIN_RESULT, {
+          path: "/api/login",
+          result: "success",
+          tokenId: roditIdFromUser(payload),
+          accountId: funnel.accountIdFromUser(payload),
+          requestId,
+          req
+        });
+      } else {
+        const errorCode =
+          (body && typeof body === "object" && (body.code || body.errorCode)) ||
+          (res.statusCode >= 400 ? String(res.statusCode) : "LOGIN_FAILED");
+        funnel.track(funnel.EVENTS.LOGIN_RESULT, {
+          path: "/api/login",
+          result: "failed",
+          errorCode,
+          requestId,
+          req
+        });
+      }
+    }
+    return originalJson(body);
+  };
+}
+
+function emitLoginResultFailed(req, requestId, errorCode) {
+  funnel.track(funnel.EVENTS.LOGIN_RESULT, {
+    path: "/api/login",
+    result: "failed",
+    errorCode,
+    requestId,
+    req
+  });
+}
+
 const authenticateLogout = (req, res, next) => {
   const client = req.app?.locals?.roditClient;
   if (!client) {
@@ -136,6 +207,7 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
 
   const client = req.app.locals.roditClient;
   if (!client) {
+    emitLoginResultFailed(req, requestId, "AUTH_SERVICE_UNAVAILABLE");
     return sendError(res, {
       statusCode: 503,
       requestId,
@@ -193,6 +265,7 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
 
       const config_own_rodit = await client.getConfigOwnRodit();
       if (!config_own_rodit) {
+        emitLoginResultFailed(req, requestId, "SERVER_CONFIG_NOT_INITIALIZED");
         return sendError(res, {
           statusCode: 500,
           requestId,
@@ -202,6 +275,7 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
       }
 
       stampRoditLoginMethodOnSuccess(req, res, METHODS.NEP413);
+      trackFunnelLoginResultOnResponse(req, res, requestId);
       await login_client_withnep413(req, res, config_own_rodit);
       return;
     }
@@ -214,6 +288,7 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
 
     const timestampResolution = resolveLoginTimestampFromBody(req.body || {});
     if (timestampResolution.value === null) {
+      emitLoginResultFailed(req, requestId, timestampResolution.error);
       return sendError(res, {
         statusCode: 400,
         requestId,
@@ -228,6 +303,7 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
     }
 
     stampRoditLoginMethodOnSuccess(req, res, METHODS.RODIT_ED25519);
+    trackFunnelLoginResultOnResponse(req, res, requestId);
     await client.login_client(req, res);
   } catch (error) {
     logger.errorWithContext(
@@ -241,12 +317,19 @@ router.post("/login", validateContentType, validateJsonBody, async (req, res) =>
       },
       error
     );
-    return sendError(res, {
-      statusCode: 500,
-      requestId,
-      code: "AUTHENTICATION_FAILED",
-      message: "Authentication failed"
-    });
+    // If the res.json funnel wrapper is already installed, sendError emits login_result.
+    // Otherwise emit here before responding.
+    if (typeof res.json !== "function" || res.json.name !== "funnelLoginJson") {
+      emitLoginResultFailed(req, requestId, "AUTHENTICATION_FAILED");
+    }
+    if (!res.headersSent) {
+      return sendError(res, {
+        statusCode: 500,
+        requestId,
+        code: "AUTHENTICATION_FAILED",
+        message: "Authentication failed"
+      });
+    }
   }
 });
 

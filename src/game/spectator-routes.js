@@ -431,10 +431,19 @@ router.get("/peer-auth.md", (req, res) => {
  *               $ref: "#/components/schemas/GameEnrollPromptsResponse"
  */
 router.get("/enroll-prompts", (req, res) => {
+  const requestId = req.requestId || ulid();
+  funnel.track(funnel.EVENTS.DISCOVERY, {
+    step: funnel.STEPS.LAND,
+    domain: funnel.DEFAULT_DOMAIN,
+    path: "/api/game/enroll-prompts",
+    result: "success",
+    requestId,
+    req
+  });
   res.set("Cache-Control", "public, max-age=60");
   res.json({
     ...buildEnrollPromptsPayload(req),
-    requestId: req.requestId || ulid()
+    requestId
   });
 });
 
