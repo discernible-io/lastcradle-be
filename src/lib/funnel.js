@@ -95,6 +95,15 @@ function hashTokenId(tokenId) {
   return crypto.createHash("sha256").update(tokenId.trim()).digest("hex").slice(0, 16);
 }
 
+/**
+ * Tag play emits so mint→play charts can exclude guests (`joinMethod!="guest"`).
+ * @param {string|null|undefined} tokenId
+ * @returns {"guest"|"passport"}
+ */
+function joinMethodFromTokenId(tokenId) {
+  return typeof tokenId === "string" && tokenId.startsWith("guest_") ? "guest" : "passport";
+}
+
 function pickString(value) {
   if (typeof value !== "string") {
     return null;
@@ -349,6 +358,7 @@ function track(event, props = {}) {
 module.exports = {
   track,
   hashTokenId,
+  joinMethodFromTokenId,
   extractAttribution,
   appendAttribution,
   resolveAccountId,

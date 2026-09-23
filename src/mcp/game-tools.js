@@ -461,7 +461,7 @@ async function callGameTool(name, args, req) {
             tokenId: roditId,
             requestId: req?.requestId || null,
             req,
-            extra: { gameId }
+            extra: { gameId, joinMethod: funnel.joinMethodFromTokenId(roditId) }
           });
         }
       } catch (joinErr) {
@@ -474,7 +474,7 @@ async function callGameTool(name, args, req) {
           tokenId: roditId,
           requestId: req?.requestId || null,
           req,
-          extra: { gameId }
+          extra: { gameId, joinMethod: funnel.joinMethodFromTokenId(roditId) }
         });
         throw joinErr;
       }

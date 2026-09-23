@@ -39,6 +39,10 @@ const sdkClient = new RoditClient();
 const logger = sdkClient.getLogger();
 
 function trackFunnelPlay(req, { tokenId, path, result, errorCode, requestId, extra }) {
+  const baseExtra = extra && typeof extra === "object" ? { ...extra } : {};
+  if (!baseExtra.joinMethod) {
+    baseExtra.joinMethod = funnel.joinMethodFromTokenId(tokenId);
+  }
   funnel.track(funnel.EVENTS.PLAY, {
     step: funnel.STEPS.PLAY,
     domain: funnel.DEFAULT_DOMAIN,
@@ -48,7 +52,7 @@ function trackFunnelPlay(req, { tokenId, path, result, errorCode, requestId, ext
     tokenId,
     requestId,
     req,
-    extra: extra || null
+    extra: baseExtra
   });
 }
 
