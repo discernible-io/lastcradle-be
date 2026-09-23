@@ -130,7 +130,7 @@ Home API collectors accept attribution from, in practice:
 
 SPA browser clients must only send custom headers when the API CORS allowlist includes them. Prefer **JSON body** (and query on GET beacons) when headers would break preflight.
 
-**Live CORS:** As of 2026-09-23, `www.discernible.io` and `lastcradle.io` are missing from the home-API nginx CORS origin map. Simple GETs (no custom headers) still record. Custom-header attribution (`X-Utm-*`, `X-Funnel-Id`, …) from those browser origins is fragile until the allowlist includes them—prefer query/body from those surfaces.
+**Live CORS:** Home-API nginx (main + development) allowlists `www.discernible.io`, `discernible.io`, `lastcradle.io`, and `www.lastcradle.io`, and Allow-Headers includes funnel attribution headers. Prefer query/body when a surface cannot rely on that allowlist yet.
 
 ### Account id body keys (mint / login)
 
@@ -191,7 +191,7 @@ sum by (errorCode) (count_over_time({app="idclawserver"} |= "funnel.login_result
 node scripts/funnel-smoke.js
 ```
 
-Passes locally. **Not** wired into `package.json` scripts (see [Known gaps](#known-gaps-live-vs-standard)).
+Passes locally. Wired as `npm run funnel:smoke` in the home-API `package.json`.
 
 ### Land beacon
 
@@ -209,7 +209,7 @@ Expect **204**.
 
 ### Mint attribution
 
-Ensure `POST /api/signclient` carries UTMs / `funnel_id` in the **JSON body** (preferred). Nginx CORS allow-headers today are only `Content-Type`, `Authorization`, `Origin`, `X-Requested-With`, `Accept`, `X-RODIT-Token`—**no** `X-Funnel-Id` / `X-Utm-*`. Custom-header attribution from browsers will fail preflight until those headers are allowlisted; body/query still work.
+Ensure `POST /api/signclient` carries UTMs / `funnel_id` in the **JSON body** (preferred). Nginx CORS allow-headers on the home API include `X-Funnel-Id`, `X-Visitor-Id`, `X-Funnel-Domain`, `X-Utm-*`, and `X-Campaign-*` (plus the prior auth headers). Prefer body/query when older edges or sibling proxies have not picked up the allowlist yet.
 
 ## How to monitor
 
@@ -244,9 +244,9 @@ Snapshot as of **2026-09-23**. Treat as verification backlog, not as permission 
 | **play / complete unverified** | Not present in Last Cradle FE. Last Cradle BE source inaccessible for this review. Game API has **no** land / funnel land route. | Largest ladder hole if BE does **not** emit `funnel.play` / `funnel.complete` into the **same Loki tenant** as home API. Confirm BE emit path + tenant labels before charting mint→play. |
 | **Purchase land → Loki** | Purchase client uses `logger.infoWithContext` with **no Loki URL in the browser bundle**, plus an empty HTTP beacon. Older docs claim purchase nginx proxies `/api/` to the home API; live `purchase.identyclaw.com/api/*` **301 → SPA**. | SPA `funnel.land` from purchase likely never reaches Loki. Prefer a cookieless beacon to home API discovery / `GET\|POST /api/funnel/land` (real API host), or fix nginx so `/api/` reaches the home API instead of the SPA. |
 | **Docs drift** | `discernible-io/docs` 404 in environments that expected it. Older growth-plan / purchase notes claimed purchase nginx proxies `/api/` to the home API; live `purchase.identyclaw.com/api/*` **301 → SPA**. | Keep this standard as SoT; do not reintroduce hostname or `/api/` proxy claims into the growth plan. |
-| **CORS allowlist** | `www.discernible.io` / `lastcradle.io` missing from nginx CORS origin map. | Simple GETs still record. Custom-header attribution from those browsers is fragile—use query/body until allowlisted. |
+| **CORS allowlist** | ~~`www.discernible.io` / `lastcradle.io` missing from nginx CORS origin map.~~ **Fixed** in home-API `nginx.main.conf` / `nginx.development.conf` (origins + `X-Funnel-*` / `X-Utm-*` / `X-Campaign-*` Allow-Headers). | Redeploy nginx for both tiers; confirm preflight from those origins before relying on header attribution. |
 | **Privacy tension** | Last Cradle uses `sessionStorage` for UTMs. Purchase Plausible + Last Cradle gtag are separate from `funnel.*`. | Violates the cookieless stitching rule until UTMs are URL/memory-only (or consented). Do not join Plausible/gtag into ladder ratios. |
-| **Ops / verify FE** | `funnel-smoke` is **not** in npm scripts. Verify UI has **no** funnel helper. | Verify still emits **server-side** on `POST /api/identity/verify` when the client forwards attribution in body/query. Add a smoke script and/or verify FE helper when wiring land on that SPA. |
+| **Ops / verify FE** | ~~`funnel-smoke` is **not** in npm scripts.~~ Home API: `npm run funnel:smoke`. Verify UI has **no** funnel helper. | Verify still emits **server-side** on `POST /api/identity/verify` when the client forwards attribution in body/query. Add a verify FE helper when wiring land on that SPA. |
 
 ## Checklist for a new emit site
 
