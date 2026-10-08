@@ -417,9 +417,10 @@ router.get("/peer-auth.md", (req, res) => {
  *   get:
  *     summary: Operator join prompts for the spectator /enroll page
  *     description: >
- *       JSON sit-a-cradle, guest-webhook, and isolated-tick paste prompts, pinned to the live skill
- *       version. Public; rate-limited with GET /api/game/* (tighter per-IP cap on this
- *       path). Spectator frontend displays these — do not duplicate copy in the SPA.
+ *       JSON OpenClaw/Hermes sit-a-cradle + isolated-tick, guest-webhook, and strategy paste
+ *       prompts, pinned to the live skill version. Public; rate-limited with GET /api/game/*
+ *       (tighter per-IP cap on this path). Spectator frontend displays these — do not
+ *       duplicate copy in the SPA.
  *     tags: [Game]
  *     x-game-auth: public-spectator
  *     responses:

@@ -2847,9 +2847,13 @@
             "type": "string",
             "enum": [
               "sit-cradle",
+              "sit-cradle-hermes",
               "guest-webhook",
-              "isolated-tick"
-            ]
+              "isolated-tick",
+              "isolated-tick-hermes",
+              "strategy"
+            ],
+            "description": "sit-cradle / isolated-tick = OpenClaw; *-hermes = Hermes (idcp, cheap/no-agent cron); guest-webhook = join-by-url; strategy = after-seat operator paste"
           },
           "title": {
             "type": "string"
@@ -2862,7 +2866,7 @@
           },
           "markdown": {
             "type": "string",
-            "description": "Operator-paste join prompt"
+            "description": "Operator-paste join / tick / strategy prompt"
           }
         }
       },
@@ -2876,7 +2880,7 @@
           "docs",
           "requestId"
         ],
-        "description": "Spectator /enroll paste prompts (sit-cradle, guest-webhook, isolated-tick). Public; pinned to live skill.md version. Rate-limited on GET /api/game/*.",
+        "description": "Spectator /enroll paste prompts (OpenClaw + Hermes sit/isolated, guest-webhook, strategy). Public; pinned to live skill.md version. Rate-limited on GET /api/game/*.",
         "properties": {
           "version": {
             "type": "string",
@@ -6731,7 +6735,7 @@
     "/api/game/enroll-prompts": {
       "get": {
         "summary": "Operator join prompts for the spectator /enroll page",
-        "description": "JSON sit-a-cradle, guest-webhook, and isolated-tick paste prompts, pinned to live skill.md (version >= 1.23.8). Public read-only spectator access — no JWT required. Tighter per-IP rate limit than other GET /api/game/* (60/min). Spectator /enroll displays this payload — do not duplicate copy in the SPA.",
+        "description": "JSON OpenClaw/Hermes sit-a-cradle + isolated-tick, guest-webhook, and strategy paste prompts, pinned to live skill.md (version >= 1.23.8). Public read-only spectator access — no JWT required. Tighter per-IP rate limit than other GET /api/game/* (60/min). Spectator /enroll displays this payload — do not duplicate copy in the SPA.",
         "tags": [
           "Game"
         ],

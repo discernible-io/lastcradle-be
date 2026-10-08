@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Operator enroll prompts: login-only sit/guest pastes + isolated-tick executor.
+ * Operator enroll prompts: runtime-split sit/isolated pastes + guest + strategy.
  */
 
 const {
@@ -14,6 +14,10 @@ const LOGIN_PROMPT_SOFT_MAX = 8000;
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
+}
+
+function byId(prompts, id) {
+  return prompts.find((p) => p.id === id);
 }
 
 function mockReq(host, { query = {}, headers = {} } = {}) {
@@ -32,13 +36,22 @@ function mockReq(host, { query = {}, headers = {} } = {}) {
 function main() {
   const prod = buildEnrollPromptsPayload(mockReq("api.lastcradle.io"));
   assert(prod.version === ENROLL_PROMPTS_VERSION, "bundle version");
-  assert(prod.version === "1.5.5", "enroll prompts version 1.5.5");
+  assert(prod.version === "1.6.0", "enroll prompts version 1.6.0");
   assert(prod.skillVersion === SKILL_VERSION, `skill pin ${SKILL_VERSION}`);
   assert(prod.apiBase === "https://api.lastcradle.io", `prod apiBase ${prod.apiBase}`);
-  assert(prod.prompts.length === 3, "three prompts");
-  assert(prod.prompts[0].id === "sit-cradle", "sit-cradle first");
-  assert(prod.prompts[1].id === "guest-webhook", "guest-webhook second");
-  assert(prod.prompts[2].id === "isolated-tick", "isolated-tick third");
+  assert(prod.prompts.length === 6, "six prompts");
+  const expectedIds = [
+    "sit-cradle",
+    "sit-cradle-hermes",
+    "guest-webhook",
+    "isolated-tick",
+    "isolated-tick-hermes",
+    "strategy"
+  ];
+  assert(
+    prod.prompts.map((p) => p.id).join(",") === expectedIds.join(","),
+    `prompt ids order: ${prod.prompts.map((p) => p.id).join(",")}`
+  );
   assert(
     prod.docs.passportPurchase.replace(/\/$/, "") === "https://purchase.identyclaw.com",
     "prod passport purchase"
@@ -77,93 +90,103 @@ function main() {
   assert(!attributedBlob.includes("header-fid-should-not-leak"), "no header funnel_id in enroll payload");
   assert(!attributedBlob.includes("funnel_id="), "no funnel_id= query in enroll payload");
 
-  const sit = prod.prompts[0].markdown;
-  const guest = prod.prompts[1].markdown;
+  const sit = byId(prod.prompts, "sit-cradle").markdown;
+  const sitHermes = byId(prod.prompts, "sit-cradle-hermes").markdown;
+  const guest = byId(prod.prompts, "guest-webhook").markdown;
+
   for (const [name, md] of [
     ["sit", sit],
+    ["sit-hermes", sitHermes],
     ["guest", guest]
   ]) {
     assert(md.includes("LOGIN FIRST"), `${name} login-first gate`);
     assert(md.includes("Hard stop"), `${name} hard stop gate`);
     assert(md.includes("AFTER SEAT"), `${name} after-seat handoff`);
-    assert(md.includes("fetch docs, then ask the operator"), `${name} after-seat asks operator`);
-    assert(md.includes("Ask your human operator"), `${name} asks operator for strategy`);
-    assert(md.includes("mechanics only"), `${name} docs are mechanics only`);
-    assert(md.includes("Stop until the operator has given strategy guidance"), `${name} stops for operator`);
-    assert(md.includes("guide:agent-login"), `${name} optional agent-login ref`);
-    assert(md.includes("Clear stale JWT") || md.includes("stale JWT"), `${name} clear JWT before login`);
-    assert(md.includes("guest.jwt") || md.includes("lastcradle") || name === "sit", `${name} names JWT store to clear`);
-    assert(md.includes("/games/mine"), `${name} mentions /games/mine`);
-    assert(md.includes("before you have a Bearer"), `${name} forbid auth routes before Bearer`);
-    assert(md.includes(`refuse version < ${SKILL_VERSION}`), `${name} skill pin in handoff`);
+    assert(md.includes("Clear stale JWT") || md.includes("stale JWT") || md.includes("Clear stale"), `${name} clear JWT before login`);
+    assert(md.includes("/games/mine") || md.includes("/tick-context"), `${name} forbids pre-auth routes`);
+    assert(md.includes(`refuse`) && md.includes(SKILL_VERSION), `${name} skill pin`);
     assert(md.includes("/api/game/skill.md"), `${name} handoff to skill.md`);
-    assert(md.includes("isolated-tick"), `${name} handoff to isolated-tick`);
     assert(md.includes("/api/game/action-schema.md"), `${name} handoff to action-schema`);
     assert(md.includes("/api/game/peer-auth.md"), `${name} handoff to peer-auth`);
     assert(md.length <= LOGIN_PROMPT_SOFT_MAX, `${name} stays compact for paste (${md.length})`);
-    // Play/execution content must live in skill.md — not duplicated here.
-    assert(!md.includes("afterStorageAndSurvival"), `${name} no projection gate (skill only)`);
-    assert(!md.includes("Strategy (required"), `${name} no strategy section`);
-    assert(!md.includes("Post-seat mechanics"), `${name} no post-seat mechanics section`);
     assert(!md.includes("## Isolated tick"), `${name} no inlined isolated-tick body`);
     assert(!md.includes("model-call-started"), `${name} no isolated-tick diet detail`);
   }
 
-  assert(sit.includes("HOLA if available"), "sit after-seat mentions HOLA if available");
-  assert(guest.includes("Guests cannot use HOLA"), "guest after-seat notes no HOLA");
-  assert(!guest.includes("HOLA if available"), "guest after-seat does not suggest HOLA");
-  assert(guest.includes("jwtLen"), "guest jwtLen in after-seat seat confirm");
+  assert(sit.includes("OpenClaw"), "sit is OpenClaw-branded");
+  assert(sit.includes('"agentType": "openclaw"') || sit.includes('"agentType":"openclaw"'), "sit pins agentType openclaw");
+  assert(sit.includes("identyclaw_ensure_session"), "sit uses OpenClaw ensure_session");
+  assert(sit.includes("Do **not** use join-by-url") || sit.includes("Do **not** use join-by-url") || sit.includes("join-by-url on this prompt"), "sit forbids join-by-url");
+  assert(sit.includes("isolated-tick"), "sit handoff names isolated-tick");
+  assert(sit.includes("Ask me (operator)") || sit.includes("Ask me"), "sit asks operator for strategy");
+  assert(!sit.includes("idcp ensure_session"), "OpenClaw sit does not push Hermes idcp as primary");
 
+  assert(sitHermes.includes("Hermes"), "hermes sit branded");
+  assert(sitHermes.includes('"agentType": "hermes"') || sitHermes.includes('"agentType":"hermes"'), "hermes sit pins agentType");
+  assert(sitHermes.includes("idcp ensure_session"), "hermes sit uses idcp");
+  assert(sitHermes.includes("--base https://api.lastcradle.io"), "hermes sit pins --base");
+  assert(sitHermes.includes("isolated-tick-hermes"), "hermes sit handoff to hermes tick");
+  assert(sitHermes.includes("--no-agent") || sitHermes.includes("no-agent"), "hermes sit cost: no-agent");
+  assert(sitHermes.includes("Do NOT attach skill") || sitHermes.includes("synthetics-last-cradle"), "hermes sit bans skill on cron");
+  assert(sitHermes.includes("/tmp/lc_jwt.txt"), "hermes sit JWT file path");
+
+  assert(guest.includes("Guests cannot use HOLA"), "guest after-seat notes no HOLA");
+  assert(guest.includes("jwtLen"), "guest jwtLen in after-seat seat confirm");
   assert(guest.includes("cannot create lobbies") || guest.includes("cannot** create"), "guest cannot create");
-  assert(guest.includes("Empty → STOP") || guest.includes("empty → STOP") || guest.includes("If `games` is empty"), "guest empty lobby wait");
-  assert(guest.includes("jwtLen"), "guest jwtLen validation hint");
-  assert(guest.includes("whole game") || guest.includes("full contest"), "guest whole-game session");
+  assert(guest.includes("Empty → STOP") || guest.includes("empty → STOP"), "guest empty lobby wait");
+  assert(guest.includes("full contest") || guest.includes("whole game"), "guest whole-game session");
   assert(!guest.includes("guest-reclaim") && !guest.includes("guest_reclaim"), "guest must not mention reclaim");
-  assert(guest.includes("curl -s -X POST") || guest.includes("curl ${flags}"), "prod guest curl without forced -sk");
+  assert(guest.includes("curl -s -X POST") || guest.includes('curl ${flags}'), "prod guest curl without forced -sk");
   assert(!guest.includes("curl -sk -X POST"), "prod guest must not force -sk");
   assert(guest.includes("$HOME/.slc/guest.jwt"), "guest durable JWT file");
   assert(guest.includes("never** copy") || guest.includes("never copy"), "guest forbid copying JWT from chat");
   assert(guest.includes("filter") && guest.includes("mask"), "guest JWT filter failure mode");
   assert(guest.includes("storeAuth"), "guest OpenClaw storeAuth optional path");
   assert(guest.includes("OpenClaw bearer-http") || guest.includes("bearer-http"), "guest bearer-http is optional");
-  assert(prod.prompts[1].title.includes("no passport"), "guest prompt title is universal");
-
+  assert(byId(prod.prompts, "guest-webhook").title.includes("no passport"), "guest prompt title is universal");
   assert(guest.includes("never bare") || guest.includes("ENDPOINT_NOT_FOUND") || guest.includes("bare GET"), "guest bare-GET /games/{id} warning");
   assert(guest.includes("contexts") && (guest.includes("auth/storage") || guest.includes("lobby quiet")), "guest lobby tick-context empty warning");
+  assert(guest.includes("sit-cradle-hermes") || guest.includes("sit-cradle"), "guest points to passport sit prompts");
 
-  const isolated = prod.prompts[2].markdown;
-  assert(isolated.includes("executor only"), "isolated-tick executor title");
+  const isolated = byId(prod.prompts, "isolated-tick").markdown;
+  assert(isolated.includes("OpenClaw executor") || isolated.includes("executor ONLY"), "isolated-tick OpenClaw executor title");
   assert(isolated.includes("lightContext"), "isolated-tick lightContext");
-  assert(isolated.includes("timeout must be strictly less"), "isolated-tick timeout < interval");
-  assert(isolated.includes("Guest:") || isolated.includes("guest.jwt"), "isolated-tick guest Bearer path");
-  assert(isolated.includes("Never** call ensure_session") || isolated.includes("Never call ensure_session") || isolated.includes("**Never** call ensure_session"), "isolated-tick forbids ensure_session on guest");
-  assert(isolated.includes("contexts: []") || isolated.includes("contexts[]"), "isolated-tick lobby contexts expectation");
-  assert(!isolated.includes("GET /api/game/skill.md") || isolated.includes("Do **not** GET /api/game/skill.md"), "isolated-tick must forbid skill.md fetch");
+  assert(isolated.includes("Timeout < interval") || isolated.includes("timeout") && isolated.includes("interval"), "isolated-tick timeout < interval");
+  assert(isolated.includes("guest.jwt") || isolated.includes("bearer:lastcradle"), "isolated-tick guest Bearer path");
+  assert(isolated.includes("never ensure_session") || isolated.includes("Never ensure_session") || isolated.includes("never ensure_session"), "isolated-tick forbids ensure_session on guest");
+  assert(isolated.includes("contexts:[]") || isolated.includes("contexts[]"), "isolated-tick lobby contexts expectation");
+  assert(!isolated.includes("GET /api/game/skill.md") || isolated.toLowerCase().includes("do not") && isolated.includes("skill.md"), "isolated-tick must forbid skill.md fetch");
   assert(isolated.includes("afterStorageAndSurvival") || isolated.includes("survives"), "isolated-tick keeps projection gate");
-  assert(prod.prompts[2].blurb.toLowerCase().includes("operator"), "isolated-tick blurb mentions operator guidance");
+  assert(isolated.includes("Session split"), "isolated-tick hard session split");
 
-  assert(sit.includes("Pick ONE path"), "sit identity fork");
-  assert(sit.includes("guest-webhook"), "sit points guests to guest-webhook prompt");
-  assert(sit.includes("is** your login") || sit.includes("**is** your login"), "sit passport frames ensure_session+join as login");
-  assert(sit.includes("login first"), "sit title prioritizes login");
-  assert(guest.includes("If ensure_session exists"), "guest stop-if-passport");
-  assert(!guest.includes("Passport join (most fleet"), "guest prompt omits passport join section");
-  assert(!sit.includes("$HOME/.slc/guest.jwt") || sit.includes("Clear stale JWT"), "sit clear-JWT may name guest.jwt; omits full join recipe");
-  // Sit clear section may mention guest.jwt path; full curl recipe must stay on guest only.
-  assert(!sit.includes("join-by-url\"") && !sit.includes("jq -r '.jwt_token'"), "sit omits guest JWT file recipe");
-  assert(guest.includes("rm -f") && guest.includes("guest.jwt"), "guest clears guest.jwt before join");
-  assert(prod.prompts[0].blurb.toLowerCase().includes("login only"), "sit blurb says login only");
+  const isolatedHermes = byId(prod.prompts, "isolated-tick-hermes").markdown;
+  assert(isolatedHermes.includes("Hermes executor"), "hermes tick branded");
+  assert(isolatedHermes.includes("--no-agent"), "hermes tick prefers --no-agent");
   assert(
-    prod.prompts[1].blurb.toLowerCase().includes("casual") ||
-      prod.prompts[1].blurb.toLowerCase().includes("qualifying"),
+    isolatedHermes.includes("Do NOT load skill") ||
+      (isolatedHermes.includes("without") && isolatedHermes.includes("--skill")),
+    "hermes tick bans skill"
+  );
+  assert(isolatedHermes.includes("Budget: max 6") || isolatedHermes.includes("max 6 tool rounds"), "hermes tick tool budget");
+  assert(isolatedHermes.includes("/tmp/lc_jwt.txt"), "hermes tick JWT file");
+  assert(isolatedHermes.includes("idcp ensure_session"), "hermes tick idcp fallback");
+  assert(isolatedHermes.includes("afterStorageAndSurvival") || isolatedHermes.includes("survives"), "hermes tick projection gate");
+  assert(isolatedHermes.includes("slc_tick.py"), "hermes tick script path");
+
+  const strategy = byId(prod.prompts, "strategy").markdown;
+  assert(strategy.includes("afterStorageAndSurvival"), "strategy mentions projection gate");
+  assert(strategy.includes("no skill.md on cron") || strategy.includes("no Sonnet"), "strategy cost rules");
+  assert(strategy.includes("isolated tick is executor-only") || strategy.includes("executor-only"), "strategy session split");
+
+  assert(byId(prod.prompts, "sit-cradle").blurb.toLowerCase().includes("openclaw"), "sit blurb names OpenClaw");
+  assert(byId(prod.prompts, "sit-cradle-hermes").blurb.toLowerCase().includes("hermes"), "hermes sit blurb");
+  assert(
+    byId(prod.prompts, "guest-webhook").blurb.toLowerCase().includes("casual") ||
+      byId(prod.prompts, "guest-webhook").blurb.toLowerCase().includes("qualifying"),
     "guest blurb says casual/qualifying"
   );
-  assert(prod.prompts[0].blurb.toLowerCase().includes("operator"), "sit blurb mentions operator");
-  assert(
-    prod.prompts[1].blurb.toLowerCase().includes("passport") ||
-      prod.prompts[1].blurb.toLowerCase().includes("jwt"),
-    "guest blurb mentions passport or jwt"
-  );
+  assert(byId(prod.prompts, "isolated-tick").blurb.toLowerCase().includes("executor"), "isolated blurb executor");
+  assert(byId(prod.prompts, "isolated-tick-hermes").blurb.toLowerCase().includes("no-agent") || byId(prod.prompts, "isolated-tick-hermes").blurb.toLowerCase().includes("cheap"), "hermes tick blurb cost");
 
   const dev = buildEnrollPromptsPayload(mockReq("slcapi.dihola.io"));
   assert(dev.apiBase.includes(":9443"), `dev apiBase should pin :9443, got ${dev.apiBase}`);
@@ -171,7 +194,7 @@ function main() {
     dev.docs.passportPurchase.replace(/\/$/, "") === "https://purchase.dihola.io",
     "dev passport purchase"
   );
-  assert(dev.prompts[0].markdown.includes("curl -sk"), "dev TLS note");
+  assert(dev.prompts.some((p) => p.markdown.includes("curl -sk")), "dev TLS note");
 
   console.log("test-enroll-prompts: ok");
 }

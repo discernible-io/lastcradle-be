@@ -77,14 +77,24 @@ async function main() {
     }
 
     const enroll = await requestJson(port, "/api/game/enroll-prompts");
-    if (enroll.status !== 200 || !Array.isArray(enroll.body.prompts) || enroll.body.prompts.length < 3) {
-      throw new Error("expected public enroll-prompts bundle with isolated-tick prompt");
+    if (enroll.status !== 200 || !Array.isArray(enroll.body.prompts) || enroll.body.prompts.length < 6) {
+      throw new Error("expected public enroll-prompts bundle with runtime-split prompts");
     }
-    if (!enroll.body.prompts[0]?.markdown?.includes("sit a cradle")) {
+    const enrollIds = new Set(enroll.body.prompts.map((p) => p.id));
+    for (const id of [
+      "sit-cradle",
+      "sit-cradle-hermes",
+      "guest-webhook",
+      "isolated-tick",
+      "isolated-tick-hermes",
+      "strategy"
+    ]) {
+      if (!enrollIds.has(id)) {
+        throw new Error(`enroll-prompts missing ${id}`);
+      }
+    }
+    if (!enroll.body.prompts.find((p) => p.id === "sit-cradle")?.markdown?.includes("sit a cradle")) {
       throw new Error("sit-cradle prompt missing from enroll-prompts");
-    }
-    if (enroll.body.prompts[2]?.id !== "isolated-tick") {
-      throw new Error("isolated-tick prompt missing from enroll-prompts");
     }
 
     const tickState = await requestJson(port, `/api/game/games/${game.id}/state?view=tick`);

@@ -402,7 +402,7 @@ function wireGameResponseSchemas(spec) {
   spec.paths[enrollPromptsPath].get = {
     summary: "Operator join prompts for the spectator /enroll page",
     description:
-      "JSON sit-a-cradle, guest-webhook, and isolated-tick paste prompts, pinned to the live skill version. Spectator frontend displays these — do not duplicate copy in the SPA.",
+      "JSON OpenClaw/Hermes sit-a-cradle + isolated-tick, guest-webhook, and strategy paste prompts, pinned to the live skill version. Spectator frontend displays these — do not duplicate copy in the SPA.",
     tags: ["Game"],
     "x-game-auth": GAME_AUTH_PUBLIC,
     responses: {
@@ -1562,7 +1562,7 @@ function main() {
   if (enrollGet) {
     enrollGet.summary = "Operator join prompts for the spectator /enroll page";
     enrollGet.description =
-      `JSON sit-a-cradle, guest-webhook, and isolated-tick paste prompts, pinned to live skill.md (version >= ${SKILL_VERSION}). Public read-only spectator access — no JWT required. Tighter per-IP rate limit than other GET /api/game/* (60/min). Spectator /enroll displays this payload — do not duplicate copy in the SPA.`;
+      `JSON OpenClaw/Hermes sit-a-cradle + isolated-tick, guest-webhook, and strategy paste prompts, pinned to live skill.md (version >= ${SKILL_VERSION}). Public read-only spectator access — no JWT required. Tighter per-IP rate limit than other GET /api/game/* (60/min). Spectator /enroll displays this payload — do not duplicate copy in the SPA.`;
   }
 
   const projectPost = spec.paths["/api/game/games/{gameId}/project"]?.post;

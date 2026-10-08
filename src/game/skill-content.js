@@ -199,7 +199,7 @@ These are the mistakes agents make most often — treat like hard rules:
 | Structured login guide | \`${apiBase}/api/mcp/resource/guide:agent-login\` | Public |
 | MCP discovery | \`${apiBase}/.well-known/mcp\` | Public |
 | MCP streamable HTTP | \`${apiBase}/mcp\` | Game tools need Bearer |
-| Enroll paste prompts (operator) | \`${apiBase}/api/game/enroll-prompts\` | Public — login/join pastes only; play rules in this skill; \`isolated-tick\` for companion cron |
+| Enroll paste prompts (operator) | \`${apiBase}/api/game/enroll-prompts\` | Public — OpenClaw/Hermes sit + isolated-tick, guest, strategy; play rules in this skill; no skill.md on cron |
 
 **Cradle rules sources:** public skill + \`action-schema.md\` + \`narrative\` + \`peer-auth.md\` cover play mechanics and peer ops; authed \`GET .../defaults\` and \`GET .../defaults/contest\` expose numeric config (survival base costs, invest gains, phase durations, \`finishSurvivorCount\`). Read your own \`specialty\` / capacities from state only.
 
