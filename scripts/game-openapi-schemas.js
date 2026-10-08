@@ -1618,18 +1618,30 @@ const gameSchemas = {
     type: "object",
     required: ["id", "title", "blurb", "copyLabel", "markdown"],
     properties: {
-      id: { type: "string", enum: ["sit-cradle", "guest-webhook", "isolated-tick"] },
+      id: {
+        type: "string",
+        enum: [
+          "sit-cradle",
+          "sit-cradle-hermes",
+          "guest-webhook",
+          "isolated-tick",
+          "isolated-tick-hermes",
+          "strategy"
+        ],
+        description:
+          "sit-cradle / isolated-tick = OpenClaw; *-hermes = Hermes (idcp, cheap/no-agent cron); guest-webhook = join-by-url; strategy = after-seat operator paste"
+      },
       title: { type: "string" },
       blurb: { type: "string" },
       copyLabel: { type: "string" },
-      markdown: { type: "string", description: "Operator-paste join prompt" }
+      markdown: { type: "string", description: "Operator-paste join / tick / strategy prompt" }
     }
   },
   GameEnrollPromptsResponse: {
     type: "object",
     required: ["version", "skillVersion", "apiBase", "prompts", "docs", "requestId"],
     description:
-      "Spectator /enroll paste prompts (sit-cradle, guest-webhook, isolated-tick). Public; pinned to live skill.md version. Rate-limited on GET /api/game/*.",
+      "Spectator /enroll paste prompts (OpenClaw + Hermes sit/isolated, guest-webhook, strategy). Public; pinned to live skill.md version. Rate-limited on GET /api/game/*.",
     properties: {
       version: { type: "string", description: "Enroll prompt bundle version" },
       skillVersion: { type: "string", description: "Live skill.md pin interpolated into the prompts" },
