@@ -16,24 +16,66 @@ function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
 
-function mockReq(host) {
+function mockReq(host, { query = {}, headers = {} } = {}) {
   return {
     protocol: "https",
-    get: (h) => (h === "host" ? host : h === "x-forwarded-proto" ? "https" : null)
+    query,
+    get: (h) => {
+      const key = String(h || "").toLowerCase();
+      if (key === "host") return host;
+      if (key === "x-forwarded-proto") return "https";
+      return headers[key] || null;
+    }
   };
 }
 
 function main() {
   const prod = buildEnrollPromptsPayload(mockReq("api.lastcradle.io"));
   assert(prod.version === ENROLL_PROMPTS_VERSION, "bundle version");
-  assert(prod.version === "1.5.3", "enroll prompts version 1.5.3");
+  assert(prod.version === "1.5.5", "enroll prompts version 1.5.5");
   assert(prod.skillVersion === SKILL_VERSION, `skill pin ${SKILL_VERSION}`);
   assert(prod.apiBase === "https://api.lastcradle.io", `prod apiBase ${prod.apiBase}`);
   assert(prod.prompts.length === 3, "three prompts");
   assert(prod.prompts[0].id === "sit-cradle", "sit-cradle first");
   assert(prod.prompts[1].id === "guest-webhook", "guest-webhook second");
   assert(prod.prompts[2].id === "isolated-tick", "isolated-tick third");
-  assert(prod.docs.passportPurchase === "https://purchase.identyclaw.com", "prod passport purchase");
+  assert(
+    prod.docs.passportPurchase.replace(/\/$/, "") === "https://purchase.identyclaw.com",
+    "prod passport purchase"
+  );
+
+  const attributed = buildEnrollPromptsPayload(
+    mockReq("api.lastcradle.io", {
+      query: {
+        utm_source: "newsletter",
+        utm_campaign: "season",
+        funnel_id: "fid-should-not-leak",
+        vid: "vid-should-not-leak"
+      },
+      headers: { "x-funnel-id": "header-fid-should-not-leak" }
+    })
+  );
+  assert(
+    attributed.docs.passportPurchase.includes("utm_source=newsletter"),
+    "prompts keep UTMs on purchase URL"
+  );
+  assert(
+    attributed.docs.passportPurchase.includes("utm_campaign=season"),
+    "prompts keep utm_campaign on purchase URL"
+  );
+  assert(
+    !attributed.docs.passportPurchase.includes("funnel_id"),
+    "docs.passportPurchase must not embed funnel_id"
+  );
+  assert(
+    !attributed.docs.passportPurchase.includes("vid="),
+    "docs.passportPurchase must not embed vid"
+  );
+  const attributedBlob = JSON.stringify(attributed);
+  assert(!attributedBlob.includes("fid-should-not-leak"), "no query funnel_id in enroll payload");
+  assert(!attributedBlob.includes("vid-should-not-leak"), "no query vid in enroll payload");
+  assert(!attributedBlob.includes("header-fid-should-not-leak"), "no header funnel_id in enroll payload");
+  assert(!attributedBlob.includes("funnel_id="), "no funnel_id= query in enroll payload");
 
   const sit = prod.prompts[0].markdown;
   const guest = prod.prompts[1].markdown;
@@ -111,13 +153,24 @@ function main() {
   assert(!sit.includes("join-by-url\"") && !sit.includes("jq -r '.jwt_token'"), "sit omits guest JWT file recipe");
   assert(guest.includes("rm -f") && guest.includes("guest.jwt"), "guest clears guest.jwt before join");
   assert(prod.prompts[0].blurb.toLowerCase().includes("login only"), "sit blurb says login only");
-  assert(prod.prompts[1].blurb.toLowerCase().includes("login only"), "guest blurb says login only");
+  assert(
+    prod.prompts[1].blurb.toLowerCase().includes("casual") ||
+      prod.prompts[1].blurb.toLowerCase().includes("qualifying"),
+    "guest blurb says casual/qualifying"
+  );
   assert(prod.prompts[0].blurb.toLowerCase().includes("operator"), "sit blurb mentions operator");
-  assert(prod.prompts[1].blurb.toLowerCase().includes("operator"), "guest blurb mentions operator");
+  assert(
+    prod.prompts[1].blurb.toLowerCase().includes("passport") ||
+      prod.prompts[1].blurb.toLowerCase().includes("jwt"),
+    "guest blurb mentions passport or jwt"
+  );
 
   const dev = buildEnrollPromptsPayload(mockReq("slcapi.dihola.io"));
   assert(dev.apiBase.includes(":9443"), `dev apiBase should pin :9443, got ${dev.apiBase}`);
-  assert(dev.docs.passportPurchase === "https://purchase.dihola.io", "dev passport purchase");
+  assert(
+    dev.docs.passportPurchase.replace(/\/$/, "") === "https://purchase.dihola.io",
+    "dev passport purchase"
+  );
   assert(dev.prompts[0].markdown.includes("curl -sk"), "dev TLS note");
 
   console.log("test-enroll-prompts: ok");

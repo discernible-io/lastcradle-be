@@ -13,7 +13,7 @@ const { AGENT_TYPES } = require("./agent-profile");
 const { LLM_MODEL_MAX_LEN } = require("./input-limits");
 const funnel = require("../lib/funnel");
 
-const ENROLL_PROMPTS_VERSION = "1.5.4";
+const ENROLL_PROMPTS_VERSION = "1.5.5";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const AGENT_TYPE_LIST = AGENT_TYPES.join(" | ");
@@ -318,12 +318,19 @@ ${afterSeatHandoffGuest(apiBase)}`;
 }
 
 
+function attributionForPrompts(req) {
+  // Forward inbound UTMs onto purchase (home/mint) hop — cookieless.
+  // Never embed funnel_id / vid: operators paste these prompts into agents and chat.
+  const attribution = { ...funnel.extractAttribution(req) };
+  delete attribution.funnel_id;
+  return attribution;
+}
+
 function buildEnrollPromptsPayload(req) {
   const apiBase = resolveApiBase(req) || CANONICAL_API_BASE;
-  // Forward inbound UTMs + funnel_id onto purchase (home/mint) hop — cookieless.
   const passportPurchaseUrl = funnel.appendAttribution(
     resolvePassportPurchaseUrl(apiBase),
-    funnel.extractAttribution(req)
+    attributionForPrompts(req)
   );
   return {
     version: ENROLL_PROMPTS_VERSION,
