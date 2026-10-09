@@ -547,7 +547,7 @@ const gameSchemas = {
   GameActionProjection: {
     type: "object",
     description:
-      "Outbound-only projection returned on POST .../action, POST .../project, and tick/slc_action responses. Inbound peer transfers are not modeled unless assumeInbound was supplied on .../project.",
+      "Projection returned on POST .../action, POST .../project, and tick/slc_action responses. Live submits and dry-runs fold already-submitted inbound before storage tax (projectedInventoryIncludesPendingInbound). Direct helper calls that omit that option leave the flag false. survives is paired with survivalMargin and atRisk.",
     properties: {
       ok: { type: "boolean" },
       error: {
@@ -562,6 +562,20 @@ const gameSchemas = {
         additionalProperties: true
       },
       note: { type: "string" },
+      projectedInventoryIncludesPendingInbound: {
+        type: "boolean",
+        description:
+          "True when already-submitted inbound transfers to you were added before storage tax. False means that blind spot is still open."
+      },
+      pendingInbound: {
+        type: "object",
+        description: "Already-submitted inbound folded into this projection. Absent when the flag above is false.",
+        properties: {
+          energy: { type: "number" },
+          water: { type: "number" },
+          compute: { type: "number" }
+        }
+      },
       equalInvestCost: {
         type: "object",
         description:
@@ -620,12 +634,30 @@ const gameSchemas = {
           productionCapacity: { $ref: "#/components/schemas/GameResourceTriple" },
           storageCapacity: { $ref: "#/components/schemas/GameResourceTriple" },
           survives: { type: "boolean", nullable: true },
+          atRisk: {
+            type: "boolean",
+            nullable: true,
+            description:
+              "True when survives is false, or when survives is true but a resource margin is inside the storage-tax cushion (energy margin below storageEnergyCostRate × water+compute, or any margin at zero)."
+          },
+          survivalMargin: {
+            type: "object",
+            nullable: true,
+            description:
+              "Per-resource cushion after storage tax and before survival. Energy is pre-cap tax headroom (how much energy inbound tax can still burn). Negative matches a shortfall.",
+            properties: {
+              energy: { type: "number" },
+              water: { type: "number" },
+              compute: { type: "number" }
+            }
+          },
           shortfalls: {
             type: "object",
             nullable: true,
             additionalProperties: { type: "number" },
             description: "Per-resource amount short of thisTurnSurvivalCost after storage tax"
           },
+          storageTaxSensitivity: { $ref: "#/components/schemas/GameStorageTaxSensitivity" },
           thisTurnSurvivalCost: { $ref: "#/components/schemas/GameResourceTriple" },
           storageEnergyCost: { type: "number" },
           energyAfterStorage: { type: "number" },
@@ -642,13 +674,47 @@ const gameSchemas = {
       }
     }
   },
+  GameStorageTaxSensitivity: {
+    type: "object",
+    description:
+      "Break-even extra inbound of water or compute, one resource at a time, before survives flips to false. Simultaneous water and compute inbound share one budget equal to either number. Energy inbound does not raise storage tax.",
+    properties: {
+      shortfallsIfInbound: {
+        type: "object",
+        properties: {
+          water: {
+            type: "number",
+            nullable: true,
+            description:
+              "Max additional water that still leaves survives true. 0 = no headroom. null = water inbound cannot flip survival."
+          },
+          compute: {
+            type: "number",
+            nullable: true,
+            description:
+              "Max additional compute that still leaves survives true. 0 = no headroom. null = compute inbound cannot flip survival."
+          }
+        }
+      },
+      note: { type: "string" }
+    }
+  },
   GameSurvivalBaseline: {
     type: "object",
     description:
-      "None-tick survival counterfactual for current holdings (after optional assumeInbound, before outbound action). Do not gate submit on baseline — use projection.afterStorageAndSurvival instead.",
+      "None-tick survival counterfactual for current holdings (after already-submitted inbound and optional assumeInbound, before outbound action). Do not gate submit on baseline — use projection.afterStorageAndSurvival instead.",
     properties: {
       survives: { type: "boolean" },
       atRisk: { type: "boolean" },
+      survivalMargin: {
+        type: "object",
+        nullable: true,
+        properties: {
+          energy: { type: "number" },
+          water: { type: "number" },
+          compute: { type: "number" }
+        }
+      },
       shortfalls: {
         type: "object",
         nullable: true,
@@ -657,6 +723,7 @@ const gameSchemas = {
       },
       storageEnergyCost: { type: "number" },
       energyAfterStorage: { type: "number" },
+      storageTaxSensitivity: { $ref: "#/components/schemas/GameStorageTaxSensitivity" },
       inventoryAfterStorage: { $ref: "#/components/schemas/GameResourceTriple" },
       thisTurnSurvivalCost: { $ref: "#/components/schemas/GameResourceTriple" },
       message: { type: "string", nullable: true },
@@ -666,7 +733,7 @@ const gameSchemas = {
   GameProjectRequest: {
     type: "object",
     description:
-      "Dry-run calculator body (does not submit). Same fields as execution action plus optional assumeInbound. Defaults to type none when omitted. MCP: slc_project.",
+      "Dry-run calculator body (does not submit). Same fields as execution action plus optional assumeInbound and a stale-state cursor (stateRevision, stateAsOf, or observedPhase). Defaults to type none when omitted. MCP: slc_project.",
     properties: {
       type: {
         type: "string",
@@ -684,12 +751,27 @@ const gameSchemas = {
       assumeInbound: {
         type: "object",
         description:
-          "Hypothetical peer send applied before outbound projection. Not guaranteed — negotiation planning only.",
+          "Hypothetical peer send applied on top of already-submitted inbound, before the outbound projection. Not guaranteed — negotiation planning only.",
         properties: {
           energy: { type: "number" },
           water: { type: "number" },
           compute: { type: "number" }
         }
+      },
+      stateRevision: {
+        type: "string",
+        description:
+          "Cursor from GET .../state or tick-context stateRevision. If it does not match live phase, turn, latest submitted action, and your inventory, the server returns 409 STALE_PROJECTION_STATE."
+      },
+      stateAsOf: {
+        type: "string",
+        description:
+          "Timestamp of the state or SSE event you are projecting from. If a turn action was submitted after it, the server returns 409 STALE_PROJECTION_STATE."
+      },
+      observedPhase: {
+        type: "string",
+        description:
+          "Phase you last observed. If the live phase differs, the server returns 409 STALE_PROJECTION_STATE."
       },
       toAgentId: { type: "string" },
       energy: { type: "number" },
@@ -727,6 +809,27 @@ const gameSchemas = {
         type: "string",
         nullable: true,
         enum: ["negotiation", "execution", "resolving"]
+      },
+      stateRevision: { type: "string" },
+      sourceState: {
+        type: "object",
+        description: "Live state the projection was computed from. Pass stateRevision back to detect a stale cursor.",
+        properties: {
+          asOf: { type: "string", format: "date-time" },
+          phase: { type: "string", nullable: true },
+          turnNumber: { type: "integer" },
+          latestActionSubmittedAt: { type: "string", nullable: true },
+          stateRevision: { type: "string" }
+        }
+      },
+      projectedInventoryIncludesPendingInbound: { type: "boolean" },
+      pendingInbound: {
+        type: "object",
+        properties: {
+          energy: { type: "number" },
+          water: { type: "number" },
+          compute: { type: "number" }
+        }
       },
       action: {
         type: "object",
@@ -790,6 +893,11 @@ const gameSchemas = {
     properties: {
       game: { $ref: "#/components/schemas/GameStateCore" },
       livingAgentCount: { type: "integer" },
+      stateRevision: {
+        type: "string",
+        description:
+          "Cursor for POST .../project. Changes when phase, turn, your inventory, or the latest submitted action changes."
+      },
       agents: { type: "array", items: { $ref: "#/components/schemas/GameAgentPublic" } },
       you: {
         oneOf: [{ $ref: "#/components/schemas/GameAgentPublic" }, { type: "null" }],
@@ -1542,6 +1650,11 @@ const gameSchemas = {
     required: ["diet", "game"],
     properties: {
       diet: { type: "string", enum: ["tick"] },
+      stateRevision: {
+        type: "string",
+        nullable: true,
+        description: "Same cursor as full state. Pass to POST .../project."
+      },
       game: {
         type: "object",
         properties: {

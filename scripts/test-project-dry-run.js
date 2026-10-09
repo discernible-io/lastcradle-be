@@ -127,6 +127,122 @@ async function main() {
   }
   assert(threw, "negative assumeInbound must throw");
 
+  await repo.updateAgentInventory(a.id, { energy: 56.04, water: 100, compute: 100 });
+  await repo.updateAgentCapacities(
+    a.id,
+    { energy: 150, water: 40, compute: 66 },
+    { energy: 500, water: 500, compute: 500 }
+  );
+  await engine.beginExecutionPhase(game.id);
+
+  const thin = await engine.projectAgentActionDryRun(game.id, a.id, { type: "none" });
+  assert(thin.projectedInventoryIncludesPendingInbound === true, "dry-run folds pending inbound");
+  assert(thin.pendingInbound.water === 0, "no submitted inbound yet");
+  assert(thin.projection.afterStorageAndSurvival.survives === true, "2e margin survives before inbound");
+  assert(thin.projection.afterStorageAndSurvival.atRisk === true, "2e margin is atRisk");
+  assert(
+    Math.abs(thin.projection.afterStorageAndSurvival.survivalMargin.energy - 2) < 1e-6,
+    `dry-run energy margin expected 2, got ${thin.projection.afterStorageAndSurvival.survivalMargin?.energy}`
+  );
+  assert(
+    thin.projection.afterStorageAndSurvival.storageTaxSensitivity.shortfallsIfInbound.water === 20,
+    "dry-run break-even water expected 20"
+  );
+  assert(thin.baseline.survivalMargin?.energy != null, "baseline includes survivalMargin");
+  assert(typeof thin.stateRevision === "string" && thin.stateRevision.includes("execution"), "stateRevision present");
+
+  const state = await engine.getPublicState(game.id, { viewerAgentId: a.id });
+  assert(state.stateRevision === thin.stateRevision, "state revision matches projection");
+  const tick = await engine.getTickState(game.id, { viewerAgentId: a.id });
+  assert(tick.stateRevision === thin.stateRevision, "tick revision matches projection");
+
+  const replay = await engine.projectAgentActionDryRun(
+    game.id,
+    a.id,
+    { type: "none" },
+    { stateRevision: thin.stateRevision }
+  );
+  assert(replay.dryRun === true, "matching stateRevision still projects");
+
+  let badCursor = null;
+  try {
+    await engine.projectAgentActionDryRun(game.id, a.id, { type: "none" }, { stateRevision: "stale" });
+  } catch (err) {
+    badCursor = err;
+  }
+  assert(badCursor?.code === "STALE_PROJECTION_STATE" && badCursor.statusCode === 409, "stale revision is 409");
+
+  let badPhase = null;
+  try {
+    await engine.projectAgentActionDryRun(
+      game.id,
+      a.id,
+      { type: "none" },
+      { observedPhase: "negotiation" }
+    );
+  } catch (err) {
+    badPhase = err;
+  }
+  assert(badPhase?.code === "STALE_PROJECTION_STATE", "phase mismatch is 409");
+
+  await engine.submitAction(game.id, b.id, {
+    type: "transfer",
+    toAgentId: a.id,
+    energy: 0,
+    water: 30,
+    compute: 0
+  });
+
+  const killed = await engine.projectAgentActionDryRun(game.id, a.id, { type: "none" });
+  assert(killed.pendingInbound.water === 30, "submitted inbound water folded");
+  assert(
+    killed.projection.projectedInventoryIncludesPendingInbound === true,
+    "projection flag true after fold"
+  );
+  assert(killed.projection.afterAction.inventory.water === 130, "inbound sits in post-action inventory");
+  assert(killed.projection.afterStorageAndSurvival.survives === false, "30 water inbound flips survives");
+  assert(killed.baseline.survives === false, "baseline includes the same inbound");
+
+  let behind = null;
+  try {
+    await engine.projectAgentActionDryRun(
+      game.id,
+      a.id,
+      { type: "none" },
+      { stateRevision: thin.stateRevision }
+    );
+  } catch (err) {
+    behind = err;
+  }
+  assert(
+    behind?.code === "STALE_PROJECTION_STATE" && behind.details?.reason === "stateRevision",
+    "revision from before the submit is stale"
+  );
+
+  let oldAsOf = null;
+  try {
+    await engine.projectAgentActionDryRun(
+      game.id,
+      a.id,
+      { type: "none" },
+      { stateAsOf: "2000-01-01T00:00:00.000Z" }
+    );
+  } catch (err) {
+    oldAsOf = err;
+  }
+  assert(
+    oldAsOf?.code === "STALE_PROJECTION_STATE" && oldAsOf.details?.reason === "submitted_action",
+    "stateAsOf older than the submit is stale"
+  );
+
+  const live = await engine.projectAgentActionDryRun(
+    game.id,
+    a.id,
+    { type: "none" },
+    { stateRevision: killed.stateRevision }
+  );
+  assert(live.projection.afterStorageAndSurvival.survives === false, "fresh revision after submit still projects");
+
   console.log("project dry-run tests passed.");
 }
 

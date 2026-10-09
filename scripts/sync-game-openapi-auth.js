@@ -1470,7 +1470,7 @@ function main() {
     post: {
       summary: "Dry-run survival/action calculator (does not submit)",
       description:
-        "Project storage-tax + survival + outbound action effects without writing an action. Optional assumeInbound models hypothetical peer sends. Allowed in any running phase. Prefer over mental math before negotiate/submit. Gate submit on projection.afterStorageAndSurvival.survives/shortfalls — never on baseline (none-tick counterfactual). MCP: slc_project. Skill: GET /api/game/skill.md (version >= " +
+        "Project storage-tax + survival + action effects without writing an action. Folds already-submitted inbound before tax. Optional assumeInbound models hypothetical peer sends. Returns survivalMargin, atRisk, and storageTaxSensitivity. Pass stateRevision to reject a stale cursor with 409 STALE_PROJECTION_STATE. Allowed in any running phase. Prefer over mental math before negotiate/submit. Gate submit on projection.afterStorageAndSurvival.survives/shortfalls/survivalMargin/atRisk — never on baseline (none-tick counterfactual). MCP: slc_project. Skill: GET /api/game/skill.md (version >= " +
         SKILL_VERSION +
         ").",
       tags: ["Game"],
@@ -1524,7 +1524,7 @@ function main() {
         },
         "409": {
           ...GAME_ERROR_409,
-          description: "GAME_NOT_RUNNING or AGENT_DEAD"
+          description: "GAME_NOT_RUNNING, AGENT_DEAD, or STALE_PROJECTION_STATE"
         }
       }
     }
@@ -1568,7 +1568,7 @@ function main() {
   const projectPost = spec.paths["/api/game/games/{gameId}/project"]?.post;
   if (projectPost) {
     projectPost.description =
-      `Project storage-tax + survival + outbound action effects without writing an action. Optional assumeInbound models hypothetical peer sends. Allowed in any running phase. Prefer over mental math before negotiate/submit. Gate submit on projection.afterStorageAndSurvival.survives/shortfalls — never on baseline (none-tick counterfactual). MCP: slc_project. Skill: GET /api/game/skill.md (version >= ${SKILL_VERSION}). ${JWT_SCOPE_SUFFIX}`;
+      `Project storage-tax + survival + action effects without writing an action. Folds already-submitted inbound before tax. Optional assumeInbound models hypothetical peer sends. Returns survivalMargin, atRisk, and storageTaxSensitivity. Pass stateRevision to reject a stale cursor with 409 STALE_PROJECTION_STATE. Allowed in any running phase. Prefer over mental math before negotiate/submit. Gate submit on projection.afterStorageAndSurvival.survives/shortfalls/survivalMargin/atRisk — never on baseline (none-tick counterfactual). MCP: slc_project. Skill: GET /api/game/skill.md (version >= ${SKILL_VERSION}). ${JWT_SCOPE_SUFFIX}`;
   }
 
   fs.writeFileSync(SWAGGER_PATH, `${JSON.stringify(spec, null, 2)}\n`, "utf8");
