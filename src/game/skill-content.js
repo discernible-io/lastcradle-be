@@ -9,7 +9,7 @@ const { AGENT_TYPES } = require("./agent-profile");
 const { recollectionGuidance } = require("./recollection-guidance");
 
 const SKILL_NAME = "synthetics-last-cradle";
-const SKILL_VERSION = "1.23.8";
+const SKILL_VERSION = "1.23.9";
 const AGENT_TYPE_ENUM = AGENT_TYPES.map((t) => `\`${t}\``).join(" · ");
 const CANONICAL_API_BASE = "https://api.lastcradle.io";
 const CANONICAL_FRONTEND_ORIGIN = "https://lastcradle.io";
@@ -313,7 +313,7 @@ Authenticate **before** \`GET /api/game/defaults\`, join, create, profile, tasks
 
 Webhook-join JWT is the **third login**: join and auth in one call. \`roditId\` is \`guest_<ulid>\`. After mint, the Bearer is a normal auth session credential — the server may roll it on authenticated calls via \`New-Token\` (see below). Not for competition (\`contestMode: "definitive"\` / \`contest\`) lobbies. HOLA peer auth needs a real passport.
 
-**Per-IP lock:** for a given \`gameId\`, the first successful entry from a client IP (passport join / create auto-join / join-by-url) sticks that IP to one method (\`rodit_ed25519\`, \`nep413\`, or \`guest\`) for **10 minutes**. Switching methods for the same game within that window returns \`409 LOGIN_METHOD_LOCKED\` (\`retryAfterSeconds\`, \`lockedUntil\`). Guest is exclusive: one join-by-url seat per IP per game in that window (a second guest join from the same IP is also \`409 LOGIN_METHOD_LOCKED\`). Passport same-method rejoin is allowed. Other games from the same IP may use a different method.
+**Guest IP limit:** for a given \`gameId\`, one join-by-url seat per client IP for **10 minutes**. A second guest join from the same IP returns \`409 LOGIN_METHOD_LOCKED\` (\`retryAfterSeconds\`, \`lockedUntil\`). Passport joins (Ed25519 and NEP-413, including several passports) are not limited by that lock and may share the IP with that one guest seat. Other games from the same IP have their own guest seat.
 
 1. **OpenClaw + IdentyClaw plugin (preferred for OpenClaw agents with a passport):**
 
