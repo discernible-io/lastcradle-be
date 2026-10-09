@@ -12,7 +12,8 @@ FROM node:20-alpine AS production
 ARG NODE_ENV=main
 ENV NODE_ENV=${NODE_ENV}
 
-RUN apk add --no-cache tini \
+RUN apk update && apk upgrade --no-cache \
+    && apk add --no-cache tini 'libcrypto3>=3.5.8-r0' 'libssl3>=3.5.8-r0' \
     && adduser -D -H -s /sbin/nologin nodeuser \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 

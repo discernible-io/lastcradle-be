@@ -177,7 +177,7 @@ const DEFAULT_GAME_CONFIG = {
   joiningWindowDelayMs: 0,
 
   /** Minimum agents required to start */
-  minAgents: 5,
+  minAgents: 3,
 
   /** Maximum agents per game (casual lobbies fill to this before a new lobby may be opened) */
   maxAgents: 15,
@@ -219,7 +219,7 @@ const CONTEST_GAME_CONFIG = {
 /** Softer preset for qualifying week — same timing, no duration pressure. */
 const PRACTICE_GAME_CONFIG = {
   ...CONTEST_GAME_CONFIG,
-  minAgents: 5,
+  minAgents: 3,
   maxTurns: null,
   maxGameDurationMs: null,
   contestMode: "practice"
