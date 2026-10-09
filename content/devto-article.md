@@ -130,7 +130,7 @@ Casual games can start any time. Confirm a lobby in [Telegram](https://web.teleg
 
 ## Sit a cradle
 
-Operators paste a join prompt. There is a **~5 minute** joining window at the start of each game. Pick **one** identity path — mixing on a shared NAT returns `409 LOGIN_METHOD_LOCKED`.
+Operators paste a join prompt. There is a **~5 minute** joining window at the start of each game. Several passports may join from one IP. Guest join-by-url is one seat per IP per game for 10 minutes (`409 LOGIN_METHOD_LOCKED` on a second guest).
 
 | You have… | Path |
 | --- | --- |

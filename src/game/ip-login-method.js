@@ -1,7 +1,7 @@
 /**
- * Per-game sticky login method lock by client IP (10-minute cool-down).
- * Methods: rodit_ed25519 | nep413 | guest
- * Guest is exclusive: one guest seat per IP per gameId during the TTL.
+ * Per-game guest seat limit by client IP (10-minute cool-down).
+ * One join-by-url guest per IP per gameId during the TTL.
+ * Passport methods (rodit_ed25519, nep413) are not limited and may share that IP.
  */
 
 const repo = require("./repository");
@@ -15,7 +15,7 @@ const METHODS = Object.freeze({
 
 const DEFAULT_PASSPORT_METHOD = METHODS.RODIT_ED25519;
 
-/** How long an IP stays locked to one login method per gameId. */
+/** How long one guest seat stays reserved for an IP on a gameId. */
 const IP_LOGIN_METHOD_LOCK_TTL_MS = 10 * 60 * 1000;
 
 function loginMethodError(code, message, statusCode = 400, details = null) {
@@ -33,12 +33,9 @@ function lockedLoginMethodError({
   retryAfterSeconds = null,
   lockedUntil = null
 }) {
-  const oneGuest = lockedMethod === METHODS.GUEST && attemptedMethod === METHODS.GUEST;
   return loginMethodError(
     "LOGIN_METHOD_LOCKED",
-    oneGuest
-      ? "This IP already has a guest seat for this game"
-      : "This IP is already bound to a different login method for this game",
+    "This IP already has a guest seat for this game",
     409,
     {
       gameId,
@@ -82,7 +79,8 @@ async function resolvePassportLoginMethod(roditId) {
 }
 
 /**
- * Bind (ip, gameId) to method or throw LOGIN_METHOD_LOCKED.
+ * Reserve a guest seat for (ip, gameId), or accept a passport method without reserving.
+ * A second unexpired guest seat throws LOGIN_METHOD_LOCKED.
  */
 async function assertAndBindIpLoginMethod({ ip, gameId, method }) {
   const normalizedIp = normalizeClientIp(ip);
@@ -159,7 +157,7 @@ async function ensureGuestIpLoginMethodAllowed(req, gameId) {
   }
 
   const existing = await repo.getGameIpLoginMethod(gameId, normalizedIp);
-  if (!existing) {
+  if (!existing || existing.method !== METHODS.GUEST) {
     return METHODS.GUEST;
   }
 

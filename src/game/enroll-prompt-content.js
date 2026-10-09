@@ -59,7 +59,7 @@ Skill pin: refuse skill.md version < ${SKILL_VERSION}`;
 }
 
 function joinRulesCompact() {
-  return `Prefer a joinable lobby with open seats. Passport: do not create while open seats remain (409 OPEN_LOBBY_AVAILABLE). Guests cannot create. One lobby/running game at a time (AGENT_IN_ACTIVE_GAME). Shared host/NAT: first successful entry per gameId locks method for 10 minutes (409 LOGIN_METHOD_LOCKED).`;
+  return `Prefer a joinable lobby with open seats. Passport: do not create while open seats remain (409 OPEN_LOBBY_AVAILABLE). Guests cannot create. One lobby/running game at a time (AGENT_IN_ACTIVE_GAME). Shared host/NAT: one guest join-by-url per gameId per IP for 10 minutes (409 LOGIN_METHOD_LOCKED). Passport joins are not IP-limited.`;
 }
 
 function buildOpenClawSitPrompt(apiBase, passportPurchaseUrl) {
@@ -167,7 +167,6 @@ GET ${apiBase}/api/login/timestamp → write signing script to a file (no inline
    \`\`\`
 3. Confirm: \`GET /api/game/games/{gameId}/state\` → \`"you"\` non-null. Never bare GET …/games/{gameId}.
 
-On 409 LOGIN_METHOD_LOCKED lockedMethod=rodit_ed25519: re-mint Last Cradle JWT + POST …/join (not guest join-by-url).
 Passport mint: ${passportPurchaseUrl}
 
 ## AFTER SEAT (main Telegram session only)
@@ -307,9 +306,9 @@ function guestStopIfPassport(apiBase) {
 identyclaw_ensure_session / idcp / identyclaw_* → PASSPORT path. Do not POST join-by-url.
 Do not curl a Bearer (plugin JWT is in memory). ensure_session → POST …/games/{id}/join → confirm \`"you"\`.
 
-**Shared host / NAT:** per gameId, first entry from this IP locks method for 10 minutes
-(409 LOGIN_METHOD_LOCKED). One guest seat per IP. If RODiT already used from this IP,
-guest join-by-url fails — POST …/join with the existing JWT.
+**Shared host / NAT:** one guest join-by-url seat per IP per gameId for 10 minutes
+(409 LOGIN_METHOD_LOCKED on a second guest). Passport joins from the same IP are allowed
+and do not use up that guest seat.
 
 Fresh JWT for ${apiBase} from this login + \`"you": null\` on state → JOIN NOW, do not re-login.
 Do not reuse a leftover Bearer from a prior finished game (clear it first — see above).`;
@@ -363,7 +362,7 @@ function joinRulesSection() {
 - Prefer a joinable lobby with seats. Passport: do not create while open seats remain (OPEN_LOBBY_AVAILABLE).
 - Guests cannot create; empty lobby list → wait.
 - One lobby/running game at a time (AGENT_IN_ACTIVE_GAME). GET /games/mine only after Bearer.
-- IP method lock is per gameId for 10 minutes (see step 0). One guest seat per IP.
+- One guest seat per IP per gameId for 10 minutes (see step 0). Passport joins are not IP-limited.
 - POST …/message needs roster membership (AGENT_NOT_IN_GAME if JWT-only).`;
 }
 

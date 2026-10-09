@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /**
- * Verifies per-game IP login method lock:
- * guest bind on game A blocks passport join on A; game B allows rodit_ed25519;
- * passport same-method re-bind OK; guest is exclusive (one seat per IP);
- * after TTL expiry a different method (or a new guest) is allowed.
+ * Verifies per-game IP guest seat limit:
+ * one guest per IP per game; passport joins (ed25519 and nep413) are unlimited
+ * and may share that IP with the guest seat; after TTL a new guest is allowed.
  */
 
 const fs = require("fs");
@@ -100,26 +99,19 @@ async function main() {
 
   await assertGuestIpLoginMethod(fakeReq(otherIp), gameA.id);
 
-  const locked = await expectError(
-    "passport after guest on A",
-    assertAndBindIpLoginMethod({
-      ip,
-      gameId: gameA.id,
-      method: METHODS.RODIT_ED25519
-    }),
-    "LOGIN_METHOD_LOCKED"
-  );
-  if (locked.details?.lockedMethod !== METHODS.GUEST) {
-    throw new Error(`expected lockedMethod guest, got ${locked.details?.lockedMethod}`);
-  }
-  if (locked.details?.attemptedMethod !== METHODS.RODIT_ED25519) {
-    throw new Error(`expected attemptedMethod rodit_ed25519`);
-  }
-  if (!(locked.details?.retryAfterSeconds > 0)) {
-    throw new Error(`expected retryAfterSeconds > 0, got ${locked.details?.retryAfterSeconds}`);
-  }
-  if (!locked.details?.lockedUntil) {
-    throw new Error("expected lockedUntil");
+  await assertAndBindIpLoginMethod({
+    ip,
+    gameId: gameA.id,
+    method: METHODS.RODIT_ED25519
+  });
+  await assertAndBindIpLoginMethod({
+    ip,
+    gameId: gameA.id,
+    method: METHODS.NEP413
+  });
+  const guestStillHeld = await repo.getGameIpLoginMethod(gameA.id, ip);
+  if (guestStillHeld?.method !== METHODS.GUEST) {
+    throw new Error("passport joins must not clear the guest seat");
   }
 
   await repo.upsertRoditLoginMethod({
@@ -127,22 +119,24 @@ async function main() {
     method: METHODS.RODIT_ED25519,
     ip
   });
+  await repo.upsertRoditLoginMethod({
+    roditId: "mnopqrstuvwx",
+    method: METHODS.NEP413,
+    ip
+  });
   await assertPassportIpLoginMethod(fakeReq(ip), gameB.id, "abcdefghijkl");
-  await assertPassportIpLoginMethod(fakeReq(ip), gameB.id, "abcdefghijkl");
+  await assertPassportIpLoginMethod(fakeReq(ip), gameB.id, "mnopqrstuvwx");
+  if (await repo.getGameIpLoginMethod(gameB.id, ip)) {
+    throw new Error("passport joins must not reserve the IP");
+  }
 
+  await assertGuestIpLoginMethod(fakeReq(ip), gameB.id);
   await expectError(
-    "guest after passport on B",
+    "second guest after passport on B",
     assertGuestIpLoginMethod(fakeReq(ip), gameB.id),
     "LOGIN_METHOD_LOCKED"
   );
 
-  const gameGuestB = await engine.createGame({
-    config: lobbyConfig,
-    allowParallelLobbies: true
-  });
-  await assertGuestIpLoginMethod(fakeReq(ip), gameGuestB.id);
-
-  // NEP413 vs ed25519 on same game
   const gameC = await engine.createGame({
     config: lobbyConfig,
     allowParallelLobbies: true
@@ -152,20 +146,12 @@ async function main() {
     gameId: gameC.id,
     method: METHODS.NEP413
   });
-  await expectError(
-    "ed25519 after nep413 on C",
-    assertAndBindIpLoginMethod({
-      ip,
-      gameId: gameC.id,
-      method: METHODS.RODIT_ED25519
-    }),
-    "LOGIN_METHOD_LOCKED"
-  );
   await assertAndBindIpLoginMethod({
     ip,
     gameId: gameC.id,
-    method: METHODS.NEP413
+    method: METHODS.RODIT_ED25519
   });
+  await assertGuestIpLoginMethod(fakeReq(ip), gameC.id);
 
   // Cool-down expiry: short TTL via repository bind
   const gameD = await engine.createGame({
@@ -198,8 +184,12 @@ async function main() {
     method: METHODS.RODIT_ED25519,
     ttlMs: shortTtlMs
   });
-  if (r.ok || r.lockedMethod !== METHODS.GUEST) {
-    throw new Error("short-ttl switch should be locked to guest");
+  if (!r.ok || r.lockedMethod !== METHODS.RODIT_ED25519) {
+    throw new Error("passport bind must succeed while a guest seat is held");
+  }
+  const held = await repo.getGameIpLoginMethod(gameD.id, ip);
+  if (held?.method !== METHODS.GUEST) {
+    throw new Error("passport bind must leave the guest seat in place");
   }
   await sleep(shortTtlMs + 50);
   r = await repo.bindGameIpLoginMethod({
@@ -236,7 +226,29 @@ async function main() {
     throw new Error("after TTL, a new guest bind should succeed");
   }
 
-  console.log("ok: per-game IP login method lock (10-minute cool-down, one guest per IP)");
+  const gameF = await engine.createGame({
+    config: lobbyConfig,
+    allowParallelLobbies: true
+  });
+  const sqlite3 = require("sqlite3");
+  const { open } = require("sqlite");
+  const legacy = await open({ filename: DB_PATH, driver: sqlite3.Database });
+  await legacy.run(
+    `INSERT INTO game_ip_login_methods (game_id, ip, method) VALUES (?, ?, ?)`,
+    [gameF.id, ip, METHODS.RODIT_ED25519]
+  );
+  await legacy.close();
+  r = await repo.bindGameIpLoginMethod({
+    gameId: gameF.id,
+    ip,
+    method: METHODS.GUEST,
+    ttlMs: shortTtlMs
+  });
+  if (!r.ok || r.lockedMethod !== METHODS.GUEST) {
+    throw new Error("legacy passport row must not block the one guest seat");
+  }
+
+  console.log("ok: one guest seat per IP per game; passport joins are not IP-limited");
   await repo.closeDatabase();
 }
 
