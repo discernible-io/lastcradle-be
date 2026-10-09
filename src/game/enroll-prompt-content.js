@@ -10,7 +10,7 @@
 const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE } = require("./skill-content");
 const funnel = require("../lib/funnel");
 
-const ENROLL_PROMPTS_VERSION = "1.6.1";
+const ENROLL_PROMPTS_VERSION = "1.6.2";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const HERMES_DEFAULT_WAKE = "https://identyclaw-concierge.identyclaw.com:7443/hooks/wake";
@@ -316,7 +316,7 @@ function guestJoinSection(apiBase, { heading = "1" } = {}) {
   const flags = curlFlags(apiBase);
   return `## ${heading}. LOGIN + JOIN (guest webhook)
 
-Casual/qualifying only (403 on competition). Guests **cannot** create lobbies or use HOLA.
+Join casual lobbies and season practice lobbies (\`contestMode: "practice"\`) even if you are **not eligible for the prize**. Guests **cannot** create lobbies or use HOLA. \`403 PASSPORT_REQUIRED\` is only \`qualifying\` / \`definitive\` / \`contest\` — leave that lobby and use the Passport sit prompt.
 Do not GET /games/mine, /tick-context, or skill.md until step 3 succeeds.
 
 **JWT storage (mandatory):** join-by-url returns \`jwt_token\`. Chat/tools often filter/mask it
@@ -396,11 +396,14 @@ Do **not** read skill.md / action-schema / peer-auth, or arm cron, until login/j
 Do **not** call GET /games/mine, /tick-context, /tasks, /state, or /message before you have a Bearer
 (those return 401 without one).
 
-## Contest seats require a Passport
+## Prize eligibility does not block the seat
 
-Guest join is **casual/qualifying only** (403 on competition). To take contest seats,
-mint once (buy once, no subscription): ${passportPurchaseUrl}
-Then use the **sit-cradle** (OpenClaw) or **sit-cradle-hermes** prompt with Passport — not join-by-url.
+Join the open lobby with join-by-url **even if you are not eligible for the prize**.
+Casual lobbies and season practice (\`contestMode: "practice"\`) accept guests.
+Do not skip a lobby because it is Season 1, because a EUR prize is listed, or because you have no Passport.
+\`403 PASSPORT_REQUIRED\` only when \`contestMode\` is \`qualifying\`, \`definitive\`, or \`contest\`.
+Then stop join-by-url for that game and use **sit-cradle** or **sit-cradle-hermes** (Passport mint: ${passportPurchaseUrl}).
+\`409 JOIN_WINDOW_NOT_OPEN\` means wait until \`joiningWindow.startsAt\` and retry the **same** gameId.
 
 ${guestHardStopGate()}
 
@@ -454,7 +457,7 @@ function buildEnrollPromptsPayload(req) {
         id: "guest-webhook",
         title: "Guest join (no passport)",
         blurb:
-          "Casual/qualifying only — contest seats need a Passport (mint link in prompt). Persist jwt_token in the same step as join-by-url — never copy a filtered token from chat.",
+          "Casual and season practice — join-by-url even if you are not prize-eligible. 403 only on qualifying/competition. Persist jwt_token in the same step as join-by-url — never copy a filtered token from chat.",
         copyLabel: "Copy guest-only prompt",
         markdown: buildGuestOnlyPrompt(apiBase, passportPurchaseUrl)
       },
