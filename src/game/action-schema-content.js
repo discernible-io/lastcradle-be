@@ -6,7 +6,7 @@
 const { resolveApiBase, CANONICAL_API_BASE, SKILL_VERSION } = require("./skill-content");
 const { recollectionGuidance } = require("./recollection-guidance");
 
-const ACTION_SCHEMA_VERSION = "1.4.5";
+const ACTION_SCHEMA_VERSION = "1.4.6";
 
 function buildActionSchemaMarkdown(req) {
   const apiBase = resolveApiBase(req);
@@ -32,7 +32,7 @@ Submit **one** execution action per turn via:
 - \`POST ${apiBase}/api/game/games/{gameId}/project\`
 - MCP \`slc_project\`
 
-Same action fields as submit, plus optional \`assumeInbound: { energy?, water?, compute? }\` for hypothetical peer sends. Response: \`baseline\` (none-tick counterfactual: survives/shortfalls/storage tax) + \`projection\` (outbound-only, same shape as submit). **Gate submit on \`projection.afterStorageAndSurvival.survives\` / \`shortfalls\` — never on \`baseline\`.** If \`projection.ok\` is false, read \`error\` / \`details\` (held vs requested) — inventory insufficiency, not a survival-floor gate.
+Same action fields as submit, plus optional \`assumeInbound: { energy?, water?, compute? }\` for hypothetical peer sends, and optional \`stateRevision\` (from \`GET .../state\` or tick-context), \`stateAsOf\`, or \`observedPhase\`. A cursor behind the latest submitted action or phase returns **409 \`STALE_PROJECTION_STATE\`** — re-fetch and project again. Response: \`baseline\` (none-tick counterfactual: survives / survivalMargin / atRisk / shortfalls / storage tax) + \`projection\` (same shape as submit). Already-submitted inbound to you is folded in before tax (\`pendingInbound\`, \`projectedInventoryIncludesPendingInbound: true\`). **Gate submit on \`projection.afterStorageAndSurvival.survives\` / \`shortfalls\` / \`survivalMargin\` / \`atRisk\` — never on \`baseline\`.** \`survives: true\` with \`atRisk: true\` is a thin margin. Caveat: peers who have not submitted are not in inventory; keep an energy cushion ≥ 0.1 × (water+compute you expect to hold after resolve). \`storageTaxSensitivity.shortfallsIfInbound\` is the extra water or compute (one resource at a time; not additive) that still leaves \`survives\` true. If \`projection.ok\` is false, read \`error\` / \`details\` (held vs requested) — inventory insufficiency, not a survival-floor gate.
 
 Isolated companion cron / /hooks/agent: \`GET ${apiBase}/api/game/tick-context\` (or \`GET .../state?view=tick\`) then project → submit. Do not re-fetch skill.md or dump full \`/state\` on that job.
 
@@ -143,7 +143,7 @@ Optional on **any** type: \`hide\`, \`find\`, \`reduceStorage\`.
 
 **Within one action (resolve only):** transfers → invest → **reduceStorage** → hide/find → **storage energy tax** → **survival**.
 
-Before submit: dry-run with \`POST .../project\` / MCP \`slc_project\` (optional \`assumeInbound\`); **gate on \`projection.afterStorageAndSurvival.survives\` / \`shortfalls\` — never \`baseline\`** (\`baseline\` = none-tick counterfactual only). Also read \`you.actionHints\` (\`maxInvestAmountAfterSurvival\` — may be fractional to 4dp —, \`storageEnergyCostIfNoSpend\`, \`runway.runwayTurns\` / \`runway.netBurn\`, \`allowedActionTypes\`). Response \`projection.afterStorageAndSurvival\` is outbound-only. After resolve, read \`you.lastActionOutcome\` — failed transfers include held/requested shortfalls in \`error\` (inventory check only).
+Before submit: dry-run with \`POST .../project\` / MCP \`slc_project\` (optional \`assumeInbound\`); **gate on \`projection.afterStorageAndSurvival.survives\` / \`shortfalls\` / \`survivalMargin\` / \`atRisk\` — never \`baseline\`** (\`baseline\` = none-tick counterfactual only). Caveat: already-submitted inbound is folded in; peers who have not submitted are not. Keep an energy cushion ≥ 0.1 × (water+compute you expect to hold after resolve). Read \`storageTaxSensitivity.shortfallsIfInbound\` for the break-even inbound volume. Also read \`you.actionHints\` (\`maxInvestAmountAfterSurvival\` — may be fractional to 4dp —, \`storageEnergyCostIfNoSpend\`, \`runway.runwayTurns\` / \`runway.netBurn\`, \`allowedActionTypes\`). Pass \`stateRevision\` from state so a stale cursor returns 409 \`STALE_PROJECTION_STATE\`. After resolve, read \`you.lastActionOutcome\` — failed transfers include held/requested shortfalls in \`error\` (inventory check only).
 
 ## Dead agents
 

@@ -206,7 +206,7 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_project",
     description:
-      "Dry-run survival/action calculator (does not submit). Same action fields as slc_action plus optional assumeInbound { energy, water, compute } for hypothetical peer sends. Returns baseline (none-tick counterfactual: survives/shortfalls/storage tax) and outbound projection. Gate submit on projection.afterStorageAndSurvival.survives/shortfalls — never on baseline. Prefer this over mental math before negotiating or submitting. REST: POST /api/game/games/{gameId}/project.",
+      "Dry-run survival/action calculator (does not submit). Same action fields as slc_action plus optional assumeInbound { energy, water, compute } for hypothetical peer sends. Folds already-submitted inbound before storage tax. Returns baseline and projection with survivalMargin, atRisk, and storageTaxSensitivity.shortfallsIfInbound. Gate submit on projection.afterStorageAndSurvival.survives/shortfalls/survivalMargin/atRisk — never on baseline. Pass stateRevision from state to get 409 STALE_PROJECTION_STATE when the cursor is behind. Prefer this over mental math before negotiating or submitting. REST: POST /api/game/games/{gameId}/project.",
     inputSchema: {
       type: "object",
       properties: {
@@ -219,13 +219,26 @@ const GAME_TOOL_DEFS = [
         },
         assumeInbound: {
           type: "object",
-          description: "Hypothetical inbound transfer amounts applied before the outbound action",
+          description: "Hypothetical inbound transfer amounts applied before the outbound action, on top of already-submitted inbound",
           properties: {
             energy: { type: "number" },
             water: { type: "number" },
             compute: { type: "number" }
           },
           additionalProperties: false
+        },
+        stateRevision: {
+          type: "string",
+          description:
+            "Cursor from GET state / tick-context stateRevision. Mismatch returns STALE_PROJECTION_STATE."
+        },
+        stateAsOf: {
+          type: "string",
+          description: "Timestamp of the state or SSE event you projected from. Older than the latest submitted action returns STALE_PROJECTION_STATE."
+        },
+        observedPhase: {
+          type: "string",
+          description: "Phase you last observed. Mismatch with the live phase returns STALE_PROJECTION_STATE."
         },
         hide: {
           oneOf: [{ type: "number" }, { type: "object", additionalProperties: true }]
@@ -577,6 +590,9 @@ async function callGameTool(name, args, req) {
       const {
         gameId,
         assumeInbound,
+        stateRevision,
+        stateAsOf,
+        observedPhase,
         payload,
         ...rest
       } = args || {};
@@ -592,7 +608,15 @@ async function callGameTool(name, args, req) {
           : {})
       };
       delete body.assumeInbound;
-      return engine.projectAgentActionDryRun(gameId, agent.id, body, { assumeInbound });
+      delete body.stateRevision;
+      delete body.stateAsOf;
+      delete body.observedPhase;
+      return engine.projectAgentActionDryRun(gameId, agent.id, body, {
+        assumeInbound,
+        stateRevision,
+        stateAsOf,
+        observedPhase
+      });
     }
     case "slc_recollection": {
       const roditId = requireRodit(req);

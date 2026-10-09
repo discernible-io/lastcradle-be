@@ -1220,6 +1220,16 @@ async function listTurnActions(gameId, turnNumber) {
   );
 }
 
+async function getTurnActionWatermark(gameId, turnNumber) {
+  const database = await getDb();
+  const row = await database.get(
+    `SELECT MAX(submitted_at) AS latestSubmittedAt
+     FROM game_actions WHERE game_id = ? AND turn_number = ?`,
+    [gameId, turnNumber]
+  );
+  return row?.latestSubmittedAt || null;
+}
+
 async function markActionExecuted(actionId, status, errorMessage = null) {
   const database = await getDb();
   await database.run(
@@ -2081,6 +2091,7 @@ module.exports = {
   upsertAction,
   getAction,
   listTurnActions,
+  getTurnActionWatermark,
   markActionExecuted,
   listTurnInvestments,
   listPublicTrades,

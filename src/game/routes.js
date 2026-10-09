@@ -677,9 +677,12 @@ router.post("/games/:gameId/project", validateContentType, validateJsonBody, asy
         message: "You must join the game before projecting actions"
       });
     }
-    const { assumeInbound, ...actionBody } = req.body || {};
+    const { assumeInbound, stateRevision, stateAsOf, observedPhase, ...actionBody } = req.body || {};
     const result = await engine.projectAgentActionDryRun(req.params.gameId, agent.id, actionBody, {
-      assumeInbound
+      assumeInbound,
+      stateRevision,
+      stateAsOf,
+      observedPhase
     });
     res.status(200).json({ ...result, requestId });
   } catch (err) {

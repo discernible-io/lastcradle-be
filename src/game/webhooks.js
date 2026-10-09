@@ -533,7 +533,7 @@ async function notifyActionSubmitted({
     payload,
     projection,
     message:
-      "SLC action submission confirmed. Projection is outbound-only; resolution status arrives after the turn executes."
+      "SLC action submission confirmed. Projection includes already-submitted inbound to you before storage tax. Read survivalMargin, atRisk, and storageTaxSensitivity. Peers who have not submitted can still raise tax. Resolution status arrives after the turn executes."
   });
 }
 

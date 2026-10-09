@@ -371,6 +371,15 @@ function main() {
   assert(safeRisk.atRisk === false, "fixture inventory should not be at risk");
 
   assert(
+    investProj.projectedInventoryIncludesPendingInbound === false,
+    "direct projection must flag the pending-inbound blind spot"
+  );
+  assert(
+    investProj.afterStorageAndSurvival.survivalMargin?.energy > 0,
+    "safe invest must report an energy survival margin"
+  );
+  assert(investProj.afterStorageAndSurvival.atRisk === false, "safe invest must not be at risk");
+  assert(
     investProj.afterStorageAndSurvival.survives === true,
     "safe invest must survive"
   );
@@ -399,6 +408,45 @@ function main() {
     { energy: 34.04, water: 34.04, compute: 34.04 }
   );
   assert(lethalNone.ok === true, "lethal none projection should still be ok");
+  const paper = projectActionOutcome(
+    {
+      inventory: { energy: 56.04, water: 100, compute: 100 },
+      productionCapacity,
+      storageCapacity: { energy: 500, water: 500, compute: 500 }
+    },
+    { type: "none" },
+    config,
+    { energy: 34.04, water: 34.04, compute: 34.04 }
+  );
+  assert(paper.afterStorageAndSurvival.survives === true, "2 energy margin must still survive");
+  assert(paper.afterStorageAndSurvival.atRisk === true, "2 energy margin must be at risk");
+  assert(
+    Math.abs(paper.afterStorageAndSurvival.survivalMargin.energy - 2) < 1e-6,
+    `energy margin expected 2, got ${paper.afterStorageAndSurvival.survivalMargin?.energy}`
+  );
+  assert(
+    paper.afterStorageAndSurvival.storageTaxSensitivity.shortfallsIfInbound.water === 20,
+    "break-even inbound water expected 20"
+  );
+  assert(
+    paper.afterStorageAndSurvival.storageTaxSensitivity.shortfallsIfInbound.compute === 20,
+    "break-even inbound compute expected 20"
+  );
+  const folded = projectActionOutcome(
+    {
+      inventory: { energy: 56.04, water: 100, compute: 100 },
+      productionCapacity,
+      storageCapacity: { energy: 500, water: 500, compute: 500 }
+    },
+    { type: "none" },
+    config,
+    { energy: 34.04, water: 34.04, compute: 34.04 },
+    { includePendingInbound: true, pendingInbound: { water: 30 } }
+  );
+  assert(folded.projectedInventoryIncludesPendingInbound === true, "folded flag");
+  assert(folded.pendingInbound.water === 30, "pending water echoed");
+  assert(folded.afterStorageAndSurvival.survives === false, "30 inbound water must flip survival");
+
   assert(lethalNone.afterStorageAndSurvival.survives === false, "water-short none must die");
   assert(
     lethalNone.afterStorageAndSurvival.shortfalls?.water > 0,

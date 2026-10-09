@@ -297,6 +297,9 @@ async function setupMcpHttpTransport(app, { authenticate, getResource, listResou
           compute: z.number().optional()
         })
         .optional(),
+      stateRevision: z.string().optional(),
+      stateAsOf: z.string().optional(),
+      observedPhase: z.string().optional(),
       hide: z.union([z.number(), z.record(z.any())]).optional(),
       find: z.array(z.record(z.any())).optional(),
       toAgentId: z.string().optional(),

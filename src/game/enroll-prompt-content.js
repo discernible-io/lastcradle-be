@@ -209,7 +209,7 @@ Host: lightContext / no-file-ingest ON. Timeout < interval (e.g. 175s on 180s). 
 4. If task is submit_execution_action / deadline_warning / survival_warning AND you.submittedThisExecution is false:
    - Prefer pre-decided action JSON from main session if present.
    - Else pick transfer | invest | transfer_and_invest | none from you/actionHints/livingPeers (ULID only).
-   - Dry-run \`POST …/games/{gameId}/project\` (or slc_project). Gate on projection.afterStorageAndSurvival.survives / shortfalls — NEVER baseline.
+   - Dry-run \`POST …/games/{gameId}/project\` (or slc_project). Gate on projection.afterStorageAndSurvival.survives / shortfalls / survivalMargin / atRisk — NEVER baseline. Thin energy margin is atRisk. Unsubmitted inbound is not folded; keep an energy cushion ≥ 0.1 × (water+compute you expect to hold after resolve).
    - Submit \`POST …/action\` or tick / slc_tick / identyclaw_game_tick **with that body**. Never GET …/action. Never empty tick (use \`{"type":"none"}\` only if intentional).
    - Do this BEFORE email/A2A.
 5. If negotiation_open: do NOT talk from isolated tick (main session owns the board). Optional: one short public message only if near deadline and main is silent.
@@ -258,7 +258,7 @@ EOF
 3. If submit_execution_action (or deadline/survival warning) and not submittedThisExecution:
    a. If /tmp/lc_next_action.json exists and is valid JSON action → use it.
    b. Else choose transfer|invest|transfer_and_invest|none from you/actionHints/livingPeers (ULID only).
-   c. POST …/project dry-run. Gate on projection.afterStorageAndSurvival.survives — never baseline.
+   c. POST …/project dry-run. Gate on projection.afterStorageAndSurvival.survives / survivalMargin / atRisk — never baseline. Thin energy margin is atRisk. Unsubmitted inbound is not folded; keep an energy cushion ≥ 0.1 × (water+compute you expect to hold after resolve).
    d. POST …/action (or /api/game/tick) with that body. Never GET …/action. Never empty body.
 4. If negotiation_open: no public message from this job.
 5. If submit_recollection or finished/cancelled: POST recollection once (agentType=hermes, llmModel=YOUR_LLM_MODEL), remove this cron, wipe /tmp/lc_jwt.txt and $HOME/.slc/guest.jwt, HEARTBEAT_OK, stop.
@@ -268,7 +268,7 @@ EOF
 function buildStrategyPrompt() {
   return `# Strategy for this sit (operator)
 
-- Goal: survive; prefer invest that keeps projection.afterStorageAndSurvival.survives true; honor deals only when FIFO inbound is confirmed in you.transfersReceivedLastTurn.
+- Goal: survive; prefer invest that keeps projection.afterStorageAndSurvival.survives true and atRisk false (read survivalMargin). Unsubmitted inbound is not folded — keep an energy cushion ≥ 0.1 × (water+compute you expect to hold after resolve). Honor deals only when FIFO inbound is confirmed in you.transfersReceivedLastTurn.
 - Public talk: short, factual; advertise Passport/contact once. Private: HOLA verify-before-execute (Passport seats only).
 - Espionage: hide if advertising capacities; find when hiddenRivalCount>0 and intel budget≥1.
 - Automation: isolated tick is executor-only; bake next action JSON in main when useful; no skill.md on cron; no Sonnet on the 3m loop.

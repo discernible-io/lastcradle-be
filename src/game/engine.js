@@ -1162,11 +1162,16 @@ async function applyDefaultActionsForPendingAgents(gameId) {
       payload
     });
     if (agent) {
+      const turnContext = await loadTurnProjectionContext(game, agent);
       const projection = projectActionOutcome(
         agent,
         payload,
         game.config,
-        thisTurnSurvivalCost
+        thisTurnSurvivalCost,
+        {
+          includePendingInbound: true,
+          pendingInbound: turnContext.pendingInbound
+        }
       );
       notifyActionSubmitted({
         gameId,
@@ -1467,11 +1472,16 @@ async function submitAction(gameId, agentId, action) {
     game
   });
   const thisTurnSurvivalCost = computeSurvivalCost(game.config, survivalContext);
+  const turnContext = await loadTurnProjectionContext(game, agent);
   const projection = projectActionOutcome(
     agent,
     normalized,
     game.config,
-    thisTurnSurvivalCost
+    thisTurnSurvivalCost,
+    {
+      includePendingInbound: true,
+      pendingInbound: turnContext.pendingInbound
+    }
   );
 
   const record = await repo.upsertAction({
@@ -2230,13 +2240,103 @@ function projectRunway(
   };
 }
 
+const STORAGE_TAX_SENSITIVITY_NOTE =
+  "Largest additional inbound of that one resource that still leaves survives true, floored to 4 decimal places. The next 0.0001 flips survives to false. water and compute are not additive — inbound of both shares one budget equal to either number. null means inbound of that resource cannot flip survival. 0 means no headroom.";
+
 /**
- * True when current holdings cannot pay thisTurnSurvivalCost after storage energy tax (no-spend path).
+ * Energy that can still be lost to storage tax before this turn's survival fails.
+ * Uses pre-cap taxed energy when the storage cap still covers survival, so above-cap
+ * energy counts as inbound-tax headroom. Negative when survival already fails.
+ */
+function energySurvivalSlack(inventory, storageCapacity, survivalCost, config = {}) {
+  const rate = Number(config.storageEnergyCostRate) || 0;
+  const energy = Number(inventory?.energy) || 0;
+  const water = Number(inventory?.water) || 0;
+  const compute = Number(inventory?.compute) || 0;
+  const se = Number(survivalCost?.energy) || 0;
+  const taxed = Math.max(0, energy - (water + compute) * rate);
+  const afterStorage = applyStorageCost(inventory, storageCapacity, config);
+  const available = Number(afterStorage?.energy) || 0;
+  if (available + 1e-9 < se) {
+    return roundResource(available - se);
+  }
+  return roundResource(taxed - se);
+}
+
+function survivalMargins(inventory, storageCapacity, survivalCost, config = {}) {
+  const afterStorage = applyStorageCost(inventory, storageCapacity, config);
+  return {
+    energy: energySurvivalSlack(inventory, storageCapacity, survivalCost, config),
+    water: roundResource((afterStorage.water ?? 0) - (Number(survivalCost?.water) || 0)),
+    compute: roundResource((afterStorage.compute ?? 0) - (Number(survivalCost?.compute) || 0))
+  };
+}
+
+function survivalIsMarginal(margins, inventory, config = {}) {
+  const eps = 1e-9;
+  if (
+    (margins?.energy ?? 0) <= eps ||
+    (margins?.water ?? 0) <= eps ||
+    (margins?.compute ?? 0) <= eps
+  ) {
+    return true;
+  }
+  const rate = Number(config.storageEnergyCostRate) || 0;
+  if (rate > 0) {
+    const cushion =
+      rate * ((Number(inventory?.water) || 0) + (Number(inventory?.compute) || 0));
+    if ((margins.energy ?? 0) + eps < cushion) return true;
+  }
+  return false;
+}
+
+/**
+ * Break-even extra inbound of water or compute (one resource at a time) before survives flips false.
+ * Storage tax is rate × (water+compute); energy inbound does not raise it.
+ */
+function storageTaxSensitivity(canPaySurvival, energyMargin, config = {}) {
+  const rate = Number(config.storageEnergyCostRate) || 0;
+  let shortfallsIfInbound;
+  if (!canPaySurvival) {
+    shortfallsIfInbound = { water: 0, compute: 0 };
+  } else if (!(rate > 0)) {
+    shortfallsIfInbound = { water: null, compute: null };
+  } else if ((energyMargin ?? 0) <= 1e-9) {
+    shortfallsIfInbound = { water: 0, compute: 0 };
+  } else {
+    const headroom = floorResource(energyMargin / rate);
+    shortfallsIfInbound = { water: headroom, compute: headroom };
+  }
+  return {
+    shortfallsIfInbound,
+    note: STORAGE_TAX_SENSITIVITY_NOTE
+  };
+}
+
+/**
+ * True when current holdings cannot pay thisTurnSurvivalCost after storage energy tax,
+ * or can pay with a margin inside the storage-tax cushion (marginal survives).
  */
 function assessSurvivalRisk(inventory, storageCapacity, survivalCost, config = {}) {
   const storageTax = projectStorageEnergy(inventory, config);
   const afterStorage = applyStorageCost(inventory, storageCapacity, config);
+  if (!survivalCost) {
+    return {
+      atRisk: null,
+      canPaySurvival: null,
+      survivalMargin: null,
+      storageTaxSensitivity: null,
+      thisTurnSurvivalCost: null,
+      storageEnergyCost: storageTax.storageEnergyCost,
+      energyAfterStorage: storageTax.energyAfterStorage,
+      inventoryAfterStorage: cloneInventory(afterStorage),
+      shortfalls: null,
+      message: null
+    };
+  }
   const canPaySurvival = hasSufficient(afterStorage, survivalCost);
+  const margins = survivalMargins(inventory, storageCapacity, survivalCost, config);
+  const marginal = canPaySurvival && survivalIsMarginal(margins, inventory, config);
   const shortfalls = {};
   for (const key of RESOURCE_KEYS) {
     const need = survivalCost?.[key] ?? 0;
@@ -2245,17 +2345,29 @@ function assessSurvivalRisk(inventory, storageCapacity, survivalCost, config = {
       shortfalls[key] = need - have;
     }
   }
+  const rate = Number(config.storageEnergyCostRate) || 0;
+  const cushion = rate * ((Number(inventory?.water) || 0) + (Number(inventory?.compute) || 0));
+  let message = null;
+  if (!canPaySurvival) {
+    message =
+      "Survival risk: current stock cannot pay thisTurnSurvivalCost after storage energy tax if you make no helpful transfers/invests.";
+  } else if (marginal) {
+    message =
+      `Survival margin is inside the storage-tax cushion: energy margin ${margins.energy} is below ` +
+      `storageEnergyCostRate × (water+compute) ${roundResource(cushion)}. ` +
+      "Inbound water or compute can flip survives to false. See storageTaxSensitivity.shortfallsIfInbound.";
+  }
   return {
-    atRisk: !canPaySurvival,
+    atRisk: !canPaySurvival || marginal,
     canPaySurvival,
+    survivalMargin: margins,
+    storageTaxSensitivity: storageTaxSensitivity(canPaySurvival, margins.energy, config),
     thisTurnSurvivalCost: survivalCost ? { ...survivalCost } : null,
     storageEnergyCost: storageTax.storageEnergyCost,
     energyAfterStorage: storageTax.energyAfterStorage,
     inventoryAfterStorage: cloneInventory(afterStorage),
     shortfalls: Object.keys(shortfalls).length ? shortfalls : null,
-    message: canPaySurvival
-      ? null
-      : "Survival risk: current stock cannot pay thisTurnSurvivalCost after storage energy tax if you make no helpful transfers/invests."
+    message
   };
 }
 
@@ -2273,49 +2385,66 @@ function snapshotProjectedHoldings(state) {
 }
 
 /**
- * Project inventory/capacities/waste after the chosen action (outbound effects only).
- * Inbound peer transfers are not modeled.
+ * Project inventory/capacities/waste after the chosen action.
+ * When options.includePendingInbound is set, already-submitted inbound is added
+ * before the outbound action and before storage tax. Otherwise the blind spot is
+ * explicit: projectedInventoryIncludesPendingInbound false.
  */
-function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
+function projectActionOutcome(agent, action, config = {}, survivalCost = null, options = {}) {
+  const includePendingInbound = options.includePendingInbound === true;
+  const pendingInbound = includePendingInbound
+    ? roundInventory(options.pendingInbound || { energy: 0, water: 0, compute: 0 })
+    : null;
   const state = {
     inventory: cloneInventory(agent.inventory),
     productionCapacity: cloneCapacities(agent.productionCapacity),
     storageCapacity: cloneCapacities(agent.storageCapacity)
   };
+  if (pendingInbound) {
+    state.inventory = add(state.inventory, pendingInbound);
+  }
 
   const equalInvestCost = summarizeEqualInvestCost(action);
+  const pendingFields = {
+    projectedInventoryIncludesPendingInbound: includePendingInbound,
+    ...(pendingInbound ? { pendingInbound } : {})
+  };
 
   try {
     applyOutboundActionToState(state, action, config);
   } catch (err) {
     return {
       ok: false,
+      ...pendingFields,
       error: err.message,
       ...(err.details ? { details: err.details } : {}),
       ...(equalInvestCost ? { equalInvestCost } : {}),
-      note:
-        "Could not project this action against current holdings (outbound-only). " +
-        "If ok is false for insufficient resources, fix amounts to fit inventory — " +
-        "this is not a survival-floor gate. FIFO inbound before your slot may still " +
-        "cover a borderline transfer at resolve."
+      note: includePendingInbound
+        ? "Could not project this action against holdings that include already-submitted inbound. " +
+          "If ok is false for insufficient resources, fix amounts to fit that inventory — " +
+          "this is not a survival-floor gate."
+        : "Could not project this action against current holdings (outbound-only). " +
+          "projectedInventoryIncludesPendingInbound is false. " +
+          "If ok is false for insufficient resources, fix amounts to fit inventory — " +
+          "this is not a survival-floor gate. FIFO inbound before your slot may still " +
+          "cover a borderline transfer at resolve."
     };
   }
 
   const afterAction = snapshotProjectedHoldings(state);
   const storageTax = projectStorageEnergy(state.inventory, config);
   const afterStorageInv = applyStorageCost(state.inventory, state.storageCapacity, config);
-  const survives =
-    survivalCost != null ? hasSufficient(afterStorageInv, survivalCost) : null;
-  const afterSurvivalInv =
-    survives === true ? deduct(afterStorageInv, survivalCost) : afterStorageInv;
-  const shortfalls =
+  const risk =
     survivalCost != null
       ? assessSurvivalRisk(state.inventory, state.storageCapacity, survivalCost, config)
-          .shortfalls
       : null;
+  const survives = risk ? risk.canPaySurvival : null;
+  const afterSurvivalInv =
+    survives === true ? deduct(afterStorageInv, survivalCost) : afterStorageInv;
 
   return {
     ok: true,
+    ...pendingFields,
     ...(equalInvestCost ? { equalInvestCost } : {}),
     afterAction,
     afterStorageAndSurvival: {
@@ -2323,7 +2452,10 @@ function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
       productionCapacity: cloneCapacities(state.productionCapacity),
       storageCapacity: cloneCapacities(state.storageCapacity),
       survives,
-      shortfalls,
+      atRisk: risk ? risk.atRisk : null,
+      survivalMargin: risk ? risk.survivalMargin : null,
+      shortfalls: risk ? risk.shortfalls : null,
+      storageTaxSensitivity: risk ? risk.storageTaxSensitivity : null,
       thisTurnSurvivalCost: survivalCost ? { ...survivalCost } : null,
       storageEnergyCost: storageTax.storageEnergyCost,
       energyAfterStorage: storageTax.energyAfterStorage,
@@ -2333,8 +2465,9 @@ function projectActionOutcome(agent, action, config = {}, survivalCost = null) {
         afterSurvivalInv
       )
     },
-    note:
-      "Outbound-only projection of your submit (transfer out, invest capacity growth, reduceStorage, hide/find). Equal invest amount N spends N of each E/W/C (see equalInvestCost). Inbound peer transfers are not modeled. Fields: afterAction and afterStorageAndSurvival inventory, capacities, wasteIfNotExportedByNextProduction."
+    note: includePendingInbound
+      ? "Includes already-submitted inbound transfers to you this turn before storage tax and survival (pendingInbound). Peers who have not submitted are not included. survives is paired with survivalMargin and atRisk. storageTaxSensitivity.shortfallsIfInbound is the additional inbound of that resource alone that still leaves survives true (the next 0.0001 flips it). Equal invest amount N spends N of each E/W/C (see equalInvestCost)."
+      : "Outbound-only projection of your submit (transfer out, invest capacity growth, reduceStorage, hide/find). Equal invest amount N spends N of each E/W/C (see equalInvestCost). Inbound peer transfers are not modeled (projectedInventoryIncludesPendingInbound is false). survives is paired with survivalMargin and atRisk. Fields: afterAction and afterStorageAndSurvival inventory, capacities, wasteIfNotExportedByNextProduction."
   };
 }
 
@@ -2374,7 +2507,9 @@ function survivalSnapshotFromRisk(risk, note) {
   return {
     survives: risk.canPaySurvival,
     atRisk: risk.atRisk,
+    survivalMargin: risk.survivalMargin,
     shortfalls: risk.shortfalls,
+    storageTaxSensitivity: risk.storageTaxSensitivity,
     storageEnergyCost: risk.storageEnergyCost,
     energyAfterStorage: risk.energyAfterStorage,
     inventoryAfterStorage: risk.inventoryAfterStorage,
@@ -2382,6 +2517,137 @@ function survivalSnapshotFromRisk(risk, note) {
     message: risk.message,
     ...(note ? { note } : {})
   };
+}
+
+/** sqlite datetime('now') is UTC without a zone; ISO strings pass through. */
+function parseGameTimestampMs(value) {
+  if (value == null || value === "") return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  let normalized = raw;
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(raw)) {
+    normalized = raw.replace(" ", "T");
+    if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(normalized)) normalized += "Z";
+  }
+  const ms = Date.parse(normalized);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function buildProjectionStateRevision({ phase, turnNumber, latestSubmittedAt, inventory }) {
+  const inv = inventory
+    ? roundInventory(inventory)
+    : { energy: "", water: "", compute: "" };
+  return [
+    phase || "",
+    turnNumber ?? "",
+    latestSubmittedAt || "",
+    inv.energy,
+    inv.water,
+    inv.compute
+  ].join("|");
+}
+
+function sumPendingInboundToAgent(actions, recipientAgentId) {
+  const total = { energy: 0, water: 0, compute: 0 };
+  for (const row of actions || []) {
+    if (!row || row.agent_id === recipientAgentId) continue;
+    if (row.status && row.status !== "pending") continue;
+    const payload = repo.parseJson(row.payload_json, {});
+    for (const leg of transferLegsFromPayload(payload)) {
+      if (leg.toAgentId !== recipientAgentId) continue;
+      total.energy += Number(leg.energy) || 0;
+      total.water += Number(leg.water) || 0;
+      total.compute += Number(leg.compute) || 0;
+    }
+  }
+  return roundInventory(total);
+}
+
+function latestActionSubmittedAtFrom(actions) {
+  let latest = null;
+  let latestMs = -Infinity;
+  for (const row of actions || []) {
+    const ms = parseGameTimestampMs(row?.submitted_at);
+    if (ms != null && ms >= latestMs) {
+      latestMs = ms;
+      latest = row.submitted_at;
+    }
+  }
+  return latest;
+}
+
+async function loadTurnProjectionContext(game, agent) {
+  const turnNumber = game?.current_turn || 0;
+  const actions = turnNumber > 0 ? await repo.listTurnActions(game.id, turnNumber) : [];
+  const latestActionSubmittedAt = latestActionSubmittedAtFrom(actions);
+  const pendingInbound = sumPendingInboundToAgent(actions, agent?.id);
+  const stateRevision = buildProjectionStateRevision({
+    phase: game?.phase,
+    turnNumber,
+    latestSubmittedAt: latestActionSubmittedAt,
+    inventory: agent?.inventory
+  });
+  return { pendingInbound, latestActionSubmittedAt, stateRevision };
+}
+
+function projectionCursorFrom(action, options = {}) {
+  const src = action && typeof action === "object" ? action : {};
+  return {
+    stateRevision: options.stateRevision !== undefined ? options.stateRevision : src.stateRevision,
+    stateAsOf: options.stateAsOf !== undefined ? options.stateAsOf : src.stateAsOf,
+    observedPhase: options.observedPhase !== undefined ? options.observedPhase : src.observedPhase
+  };
+}
+
+function assertFreshProjectionCursor(cursor, current) {
+  const { stateRevision, stateAsOf, observedPhase } = cursor || {};
+  const details = {
+    stateRevision: current.stateRevision,
+    phase: current.phase ?? null,
+    turnNumber: current.turnNumber,
+    latestActionSubmittedAt: current.latestActionSubmittedAt || null
+  };
+  const stale = (reason, message) =>
+    gameError("STALE_PROJECTION_STATE", message, 409, { ...details, reason });
+
+  if (
+    observedPhase != null &&
+    observedPhase !== "" &&
+    String(observedPhase) !== String(current.phase || "")
+  ) {
+    throw stale(
+      "phase",
+      "Projection source state is older than the latest phase. Re-fetch state and project again."
+    );
+  }
+  if (stateRevision != null && stateRevision !== "" && stateRevision !== current.stateRevision) {
+    throw stale(
+      "stateRevision",
+      "Projection source state is older than the latest submitted action or phase. Re-fetch state and project again."
+    );
+  }
+  if (stateAsOf != null && stateAsOf !== "") {
+    const asOfMs = parseGameTimestampMs(stateAsOf);
+    if (asOfMs == null) {
+      throw gameError(
+        "INVALID_STATE_AS_OF",
+        "stateAsOf must be an ISO-8601 or UTC timestamp",
+        400
+      );
+    }
+    const latestMs = parseGameTimestampMs(current.latestActionSubmittedAt);
+    if (latestMs != null && latestMs > asOfMs) {
+      throw stale(
+        "submitted_action",
+        "Projection source state is older than the latest submitted action. Re-fetch state and project again."
+      );
+    }
+  }
+}
+
+function inboundHasResources(inbound) {
+  if (!inbound) return false;
+  return (inbound.energy || 0) + (inbound.water || 0) + (inbound.compute || 0) > 0;
 }
 
 /**
@@ -2402,10 +2668,21 @@ async function projectAgentActionDryRun(gameId, agentId, action = {}, options = 
   const assumeInbound = normalizeAssumeInbound(
     options.assumeInbound !== undefined ? options.assumeInbound : action?.assumeInbound
   );
+  const cursor = projectionCursorFrom(action, options);
+  const turnContext = await loadTurnProjectionContext(game, agent);
+  assertFreshProjectionCursor(cursor, {
+    stateRevision: turnContext.stateRevision,
+    phase: game.phase,
+    turnNumber: game.current_turn,
+    latestActionSubmittedAt: turnContext.latestActionSubmittedAt
+  });
 
   const {
     assumeInbound: _assumeInbound,
     gameId: _gameId,
+    stateRevision: _stateRevision,
+    stateAsOf: _stateAsOf,
+    observedPhase: _observedPhase,
     ...actionFields
   } = action && typeof action === "object" ? action : {};
   const actionBody =
@@ -2428,9 +2705,10 @@ async function projectAgentActionDryRun(gameId, agentId, action = {}, options = 
   });
   const thisTurnSurvivalCost = computeSurvivalCost(game.config, survivalContext);
 
-  const inventoryWithInbound = assumeInbound
+  const stockpile = assumeInbound
     ? add(cloneInventory(agent.inventory), assumeInbound)
     : cloneInventory(agent.inventory);
+  const inventoryWithInbound = add(stockpile, turnContext.pendingInbound);
 
   const baselineRisk = assessSurvivalRisk(
     inventoryWithInbound,
@@ -2440,7 +2718,7 @@ async function projectAgentActionDryRun(gameId, agentId, action = {}, options = 
   );
 
   const projectedAgent = {
-    inventory: inventoryWithInbound,
+    inventory: stockpile,
     productionCapacity: cloneCapacities(agent.productionCapacity),
     storageCapacity: cloneCapacities(agent.storageCapacity)
   };
@@ -2448,8 +2726,26 @@ async function projectAgentActionDryRun(gameId, agentId, action = {}, options = 
     projectedAgent,
     normalized,
     game.config,
-    thisTurnSurvivalCost
+    thisTurnSurvivalCost,
+    {
+      includePendingInbound: true,
+      pendingInbound: turnContext.pendingInbound
+    }
   );
+
+  let baselineNote;
+  if (inboundHasResources(turnContext.pendingInbound) && assumeInbound) {
+    baselineNote =
+      "Holdings plus already-submitted inbound plus hypothetical assumeInbound, no outbound action.";
+  } else if (inboundHasResources(turnContext.pendingInbound)) {
+    baselineNote = "Holdings plus already-submitted inbound, no outbound action.";
+  } else if (assumeInbound) {
+    baselineNote =
+      "After hypothetical assumeInbound only (no outbound action). No already-submitted inbound this turn.";
+  } else {
+    baselineNote =
+      "Current holdings, no outbound action. No already-submitted inbound this turn.";
+  }
 
   return {
     dryRun: true,
@@ -2457,17 +2753,22 @@ async function projectAgentActionDryRun(gameId, agentId, action = {}, options = 
     agentId,
     turnNumber: game.current_turn,
     phase: game.phase,
+    stateRevision: turnContext.stateRevision,
+    sourceState: {
+      asOf: new Date().toISOString(),
+      phase: game.phase,
+      turnNumber: game.current_turn,
+      latestActionSubmittedAt: turnContext.latestActionSubmittedAt || null,
+      stateRevision: turnContext.stateRevision
+    },
+    projectedInventoryIncludesPendingInbound: true,
+    pendingInbound: turnContext.pendingInbound,
     action: normalized,
     ...(assumeInbound ? { assumeInbound } : {}),
-    baseline: survivalSnapshotFromRisk(
-      baselineRisk,
-      assumeInbound
-        ? "After hypothetical assumeInbound only (no outbound action)."
-        : "Current holdings, no outbound action (equivalent to type none with no inbound)."
-    ),
+    baseline: survivalSnapshotFromRisk(baselineRisk, baselineNote),
     projection,
     note:
-      "Does not submit. Inbound is hypothetical only; peer transfers not guaranteed. Outbound-only projection matches POST .../action response.projection."
+      "Does not submit. Already-submitted inbound transfers to you are included before storage tax (projectedInventoryIncludesPendingInbound). Peers who have not submitted are not — read storageTaxSensitivity.shortfallsIfInbound and survivalMargin. Pass stateRevision from state or tick-context (or stateAsOf / observedPhase) to reject a stale cursor with 409 STALE_PROJECTION_STATE."
   };
 }
 
@@ -2645,6 +2946,7 @@ function toTickState(state, { viewerAgentId = null } = {}) {
 
   return {
     diet: "tick",
+    stateRevision: state?.stateRevision ?? null,
     game: {
       id: game.id,
       status: game.status,
@@ -2782,7 +3084,17 @@ async function getPublicState(gameId, { viewerAgentId = null, diet = "full" } = 
     }
   }
 
+  const latestActionSubmittedAt =
+    game.current_turn > 0 ? await repo.getTurnActionWatermark(gameId, game.current_turn) : null;
+  const stateRevision = buildProjectionStateRevision({
+    phase: game.phase,
+    turnNumber: game.current_turn,
+    latestSubmittedAt: latestActionSubmittedAt,
+    inventory: you?.status === "alive" ? you.inventory : null
+  });
+
   return {
+    stateRevision,
     game: {
       id: game.id,
       status: game.status,
