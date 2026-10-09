@@ -36,7 +36,7 @@ function mockReq(host, { query = {}, headers = {} } = {}) {
 function main() {
   const prod = buildEnrollPromptsPayload(mockReq("api.lastcradle.io"));
   assert(prod.version === ENROLL_PROMPTS_VERSION, "bundle version");
-  assert(prod.version === "1.6.0", "enroll prompts version 1.6.0");
+  assert(prod.version === "1.6.1", "enroll prompts version 1.6.1");
   assert(prod.skillVersion === SKILL_VERSION, `skill pin ${SKILL_VERSION}`);
   assert(prod.apiBase === "https://api.lastcradle.io", `prod apiBase ${prod.apiBase}`);
   assert(prod.prompts.length === 6, "six prompts");
@@ -89,6 +89,11 @@ function main() {
   assert(!attributedBlob.includes("vid-should-not-leak"), "no query vid in enroll payload");
   assert(!attributedBlob.includes("header-fid-should-not-leak"), "no header funnel_id in enroll payload");
   assert(!attributedBlob.includes("funnel_id="), "no funnel_id= query in enroll payload");
+  for (const prompt of attributed.prompts) {
+    const text = `${prompt.title}\n${prompt.blurb}\n${prompt.markdown}`;
+    assert(!/funnel/i.test(text), `${prompt.id} must not mention funnel ids`);
+    assert(!/\bvid\b/i.test(text), `${prompt.id} must not mention vid`);
+  }
 
   const sit = byId(prod.prompts, "sit-cradle").markdown;
   const sitHermes = byId(prod.prompts, "sit-cradle-hermes").markdown;

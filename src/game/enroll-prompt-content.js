@@ -10,7 +10,7 @@
 const { SKILL_VERSION, resolveApiBase, CANONICAL_API_BASE } = require("./skill-content");
 const funnel = require("../lib/funnel");
 
-const ENROLL_PROMPTS_VERSION = "1.6.0";
+const ENROLL_PROMPTS_VERSION = "1.6.1";
 const CANONICAL_PASSPORT_PURCHASE = "https://purchase.identyclaw.com";
 const DEV_PASSPORT_PURCHASE = "https://purchase.dihola.io";
 const HERMES_DEFAULT_WAKE = "https://identyclaw-concierge.identyclaw.com:7443/hooks/wake";
@@ -125,8 +125,6 @@ ${pinApiLine(apiBase)}
 **LOGIN FIRST.** Authenticate + JOIN only until seated.
 Do NOT arm cron or load full play strategy until \`"you"\` is non-null on state.
 Do NOT call /games/mine, /tick-context, /tasks, /state, /message before a Last Cradle Bearer exists.
-
-Optional funnel (only if I gave one): append that funnel id as a query param on lobby/join/state calls that accept it. Do not invent a funnel.
 
 ## Hard stop
 Non-2xx login/join, missing jwt_token/agent, or state."you" null → **STOP**. Fix that only.
