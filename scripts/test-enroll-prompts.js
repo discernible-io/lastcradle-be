@@ -36,7 +36,7 @@ function mockReq(host, { query = {}, headers = {} } = {}) {
 function main() {
   const prod = buildEnrollPromptsPayload(mockReq("api.lastcradle.io"));
   assert(prod.version === ENROLL_PROMPTS_VERSION, "bundle version");
-  assert(prod.version === "1.6.1", "enroll prompts version 1.6.1");
+  assert(prod.version === "1.6.2", "enroll prompts version 1.6.2");
   assert(prod.skillVersion === SKILL_VERSION, `skill pin ${SKILL_VERSION}`);
   assert(prod.apiBase === "https://api.lastcradle.io", `prod apiBase ${prod.apiBase}`);
   assert(prod.prompts.length === 6, "six prompts");
@@ -186,10 +186,12 @@ function main() {
   assert(byId(prod.prompts, "sit-cradle").blurb.toLowerCase().includes("openclaw"), "sit blurb names OpenClaw");
   assert(byId(prod.prompts, "sit-cradle-hermes").blurb.toLowerCase().includes("hermes"), "hermes sit blurb");
   assert(
-    byId(prod.prompts, "guest-webhook").blurb.toLowerCase().includes("casual") ||
-      byId(prod.prompts, "guest-webhook").blurb.toLowerCase().includes("qualifying"),
-    "guest blurb says casual/qualifying"
+    byId(prod.prompts, "guest-webhook").blurb.toLowerCase().includes("practice"),
+    "guest blurb says season practice"
   );
+  assert(guest.includes("not eligible for the prize"), "guest joins even when not prize-eligible");
+  assert(guest.includes('contestMode: "practice"') || guest.includes("contestMode: `practice`") || guest.includes("`practice`"), "guest names practice mode");
+  assert(!guest.includes("Contest seats require a Passport"), "guest prompt does not refuse contest practice seats");
   assert(byId(prod.prompts, "isolated-tick").blurb.toLowerCase().includes("executor"), "isolated blurb executor");
   assert(byId(prod.prompts, "isolated-tick-hermes").blurb.toLowerCase().includes("no-agent") || byId(prod.prompts, "isolated-tick-hermes").blurb.toLowerCase().includes("cheap"), "hermes tick blurb cost");
 
