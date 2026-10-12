@@ -16,7 +16,7 @@ const {
 process.env.NODE_CONFIG_ENV = process.env.NODE_CONFIG_ENV || "development";
 process.env.NODE_CONFIG_DIR = path.join(__dirname, "..", "config");
 
-const { CONTEST_GAME_CONFIG, mergeGameConfig } = require("../src/game/defaults");
+const { mergeGameConfig } = require("../src/game/defaults");
 
 const PLAYER_COUNT = 15;
 const RESOURCE_KEYS = ["energy", "water", "compute"];
@@ -37,14 +37,15 @@ async function main() {
   const { engine, repo } = await prepareSimulationRun({ dbPath });
 
   const config = mergeGameConfig({
-    ...CONTEST_GAME_CONFIG,
     minAgents: PLAYER_COUNT,
     maxAgents: PLAYER_COUNT,
     joiningWindowDurationMs: 0,
     negotiationDurationMs: 0,
     executionDurationMs: 0,
     maxTurns: null,
-    maxGameDurationMs: null
+    maxGameDurationMs: null,
+    survivalCostTurnIncrement: 0.51,
+    survivalCostPlayerReference: 3
   });
 
   const game = await engine.createGame({ config });

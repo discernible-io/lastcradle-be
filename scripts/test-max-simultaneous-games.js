@@ -86,7 +86,7 @@ async function main() {
   }
 
   await expectCreateError(
-    "contest needs 2 slots",
+    "two slots needed at capacity",
     engine.assertSimultaneousGameCapacity({ slotsNeeded: 2 }),
     "TOO_MANY_ACTIVE_GAMES"
   );

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * N-player simulation with investment, trade, production, and messaging metrics.
- * Usage: node scripts/run-metrics-np.js <players> [finish] [contest]
+ * Usage: node scripts/run-metrics-np.js <players> [finish] [long]
  */
 
 const fs = require("fs");
@@ -9,7 +9,7 @@ const path = require("path");
 
 const PLAYER_COUNT = Math.max(3, Number(process.argv.find((a) => /^\d+$/.test(a))) || 10);
 const RUN_UNTIL_FINISH = process.argv.includes("finish");
-const USE_CONTEST = process.argv.includes("contest");
+const USE_LONG = process.argv.includes("long") || process.argv.includes("contest");
 const COMPACT = process.argv.includes("compact") || PLAYER_COUNT > 20;
 const MSGS_PER_PLAYER = PLAYER_COUNT > 25 ? 1 : 3;
 
@@ -28,7 +28,7 @@ const {
   buildSurvivalContext,
   investmentTotal
 } = require("../src/game/survival-cost");
-const { buildInvestAction, CONTEST_GAME_CONFIG, mergeGameConfig } = require("../src/game/defaults");
+const { buildInvestAction, mergeGameConfig } = require("../src/game/defaults");
 const { collectIntelligenceFromActions } = require("../src/game/engine");
 const { buildHeavyTradeActions, tradesTargetFor } = require("./sim-trading");
 
@@ -633,15 +633,16 @@ async function main() {
     turnsPlayed: 0
   };
 
-  const gameConfig = USE_CONTEST
+  const gameConfig = USE_LONG
     ? mergeGameConfig({
-        ...CONTEST_GAME_CONFIG,
         minAgents: PLAYER_COUNT,
         maxAgents: PLAYER_COUNT,
         negotiationDurationMs: 0,
         executionDurationMs: 0,
         maxTurns: null,
-        maxGameDurationMs: null
+        maxGameDurationMs: null,
+        survivalCostTurnIncrement: 0.51,
+        survivalCostPlayerReference: 3
       })
     : { maxAgents: PLAYER_COUNT, minAgents: 3 };
 

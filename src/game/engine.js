@@ -895,16 +895,10 @@ function isLobbyStillAcceptingJoins(game, now = Date.now()) {
   return now < endsAt;
 }
 
-function isContestLobbyConfig(config) {
-  const mode = config?.contestMode;
-  return mode === "practice" || mode === "qualifying" || mode === "definitive";
-}
-
 /**
  * Casual create must fill existing open lobbies first.
  * Full = agentCount >= min(lobby.maxAgents, casual default maxAgents) so legacy
  * 17-seat lobbies stop blocking creates once they reach the current casual cap (15).
- * Contest series lobbies are excluded so practice + definitive can coexist.
  */
 async function assertNoJoinableOpenCasualLobbies() {
   const casualCap = DEFAULT_GAME_CONFIG.maxAgents;
@@ -912,9 +906,6 @@ async function assertNoJoinableOpenCasualLobbies() {
   const openLobbies = [];
 
   for (const lobby of lobbies) {
-    if (isContestLobbyConfig(lobby.config)) {
-      continue;
-    }
     if (!isLobbyStillAcceptingJoins(lobby)) {
       continue;
     }
@@ -971,13 +962,9 @@ async function createGame({
   allowParallelLobbies = false,
   bypassSimultaneousCap = false
 } = {}) {
-  const season = require("./season");
-  const withSeason = await season.applySeasonCreatePolicy(configOverrides);
-  const gameConfig = mergeGameConfig(withSeason);
-  const skipFillFirst =
-    allowParallelLobbies || isContestLobbyConfig(gameConfig);
+  const gameConfig = mergeGameConfig(configOverrides);
 
-  if (!skipFillFirst) {
+  if (!allowParallelLobbies) {
     await assertNoJoinableOpenCasualLobbies();
   }
 
@@ -1263,9 +1250,6 @@ async function joinGame(gameId, { roditId, displayName, agentType, llmModel }) {
   if ((await repo.countAgents(gameId)) >= config.maxAgents) {
     throw gameError("GAME_FULL", "Game has reached maximum agent capacity", 409);
   }
-
-  const season = require("./season");
-  await season.assertSeasonJoinAllowed(game, roditId);
 
   let profile;
   try {
@@ -2955,7 +2939,6 @@ function toTickState(state, { viewerAgentId = null } = {}) {
       negotiationEndsAt: game.negotiationEndsAt ?? null,
       executionEndsAt: game.executionEndsAt ?? null,
       endsAt: game.endsAt ?? null,
-      contestMode: game.contestMode ?? null,
       finishSurvivorCount: game.finishSurvivorCount ?? null
     },
     secondsRemaining: phaseSecondsRemaining(game),
@@ -3103,7 +3086,6 @@ async function getPublicState(gameId, { viewerAgentId = null, diet = "full" } = 
       negotiationEndsAt: game.negotiation_ends_at,
       executionEndsAt: game.execution_ends_at,
       endsAt: game.ends_at,
-      contestMode: game.config.contestMode ?? null,
       joiningWindow: joiningWindowDetails(game),
       startedAt: game.started_at,
       finishedAt: game.finished_at,

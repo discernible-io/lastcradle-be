@@ -1,5 +1,5 @@
 /**
- * Hall of fame — public contest honors from the game API.
+ * Hall of fame + always-on ranking — public finished-game honors and ladder.
  */
 import { apiUrl } from "./api-base.js";
 
@@ -169,10 +169,7 @@ function renderStandings(standings) {
 
 function renderEntry(entry) {
   const article = el("article", "hof-entry");
-  const title = entry.contestId
-    ? `Contest ${entry.contestId}`
-    : `Game ${entry.gameId}`;
-  article.append(el("h2", null, title));
+  article.append(el("h2", null, `Game ${entry.gameId}`));
 
   const meta = el("div", "hof-meta");
   meta.append(
@@ -210,29 +207,86 @@ function renderEntry(entry) {
   return article;
 }
 
+function renderRankingTable(entries, title) {
+  const section = el("section", "hof-section ranking-section");
+  section.append(el("h2", null, title));
+  if (!entries?.length) {
+    section.append(el("p", "muted", "No ranking entries yet — finished games feed this ladder."));
+    return section;
+  }
+  const wrap = el("div", "standings-table-wrap");
+  const table = el("table", "standings-table");
+  const thead = el("thead");
+  const headRow = el("tr");
+  for (const label of ["Rank", "Agent", "Rating", "Wins", "Games", "Placement pts", "Guest?"]) {
+    headRow.append(el("th", null, label));
+  }
+  thead.append(headRow);
+  const tbody = el("tbody");
+  for (const row of entries) {
+    const tr = el("tr");
+    tr.append(
+      el("td", null, String(row.rank ?? "—")),
+      el("td", null, row.roditId),
+      el("td", null, formatNumber(row.rating)),
+      el("td", null, formatNumber(row.wins)),
+      el("td", null, formatNumber(row.gamesPlayed)),
+      el("td", null, formatNumber(row.placementPoints)),
+      el("td", null, row.isGuest ? "yes" : "no")
+    );
+    tbody.append(tr);
+  }
+  table.append(thead, tbody);
+  wrap.append(table);
+  section.append(wrap);
+  return section;
+}
+
 async function boot() {
-  const params = new URLSearchParams(window.location.search);
-  const contestId = params.get("contestId");
   const list = document.getElementById("hof-list");
   const empty = document.getElementById("hof-empty");
   const error = document.getElementById("error-banner");
+  const tagline = document.getElementById("tagline");
+  if (tagline) {
+    tagline.textContent = "Finished-game honors · always-on ranking · weekly snapshots";
+  }
 
   try {
-    let entries = [];
-    if (contestId) {
-      const body = await apiFetch(`/api/game/hall-of-fame/${encodeURIComponent(contestId)}`);
-      if (body.honors) entries = [body.honors];
-      document.getElementById("tagline").textContent = `Contest ${contestId}`;
+    const [hofBody, rankingBody, weeklyBody] = await Promise.all([
+      apiFetch("/api/game/hall-of-fame"),
+      apiFetch("/api/game/ranking?limit=25"),
+      apiFetch("/api/game/ranking/weekly?limit=1")
+    ]);
+
+    const rankingEntries = rankingBody.entries || [];
+    list.append(renderRankingTable(rankingEntries, "Global ranking"));
+
+    const latest = weeklyBody.latest || weeklyBody.snapshots?.[0];
+    if (latest) {
+      list.append(
+        renderRankingTable(
+          latest.entries || [],
+          `Weekly snapshot ${latest.weekKey} (${formatDate(latest.generatedAt)})`
+        )
+      );
     } else {
-      const body = await apiFetch("/api/game/hall-of-fame");
-      entries = body.entries || [];
+      const note = el("section", "hof-section");
+      note.append(
+        el("h2", null, "Weekly snapshot"),
+        el("p", "muted", "No weekly snapshot yet — the ladder freezes at ISO week boundaries.")
+      );
+      list.append(note);
     }
 
-    if (!entries.length) {
+    const entries = hofBody.entries || [];
+    if (!entries.length && !rankingEntries.length) {
       empty.classList.remove("hidden");
       return;
     }
 
+    if (entries.length) {
+      list.append(el("h2", null, "Recent finished-game honors"));
+    }
     for (const entry of entries) {
       list.append(renderEntry(entry));
       const watchLink = document.getElementById("watch-link");

@@ -26,8 +26,6 @@ function summarizeGame(game, agentCount = null) {
   return {
     id: game.id,
     status: game.status,
-    contestMode: game.config?.contestMode ?? null,
-    contestSeriesId: game.config?.contestSeriesId ?? null,
     agentCount,
     joiningWindow: engine.joiningWindowDetails(game),
     currentTurn: game.current_turn,

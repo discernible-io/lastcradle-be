@@ -133,6 +133,40 @@ async function migrateSchema(database) {
       FOREIGN KEY (season_id) REFERENCES contest_seasons(id),
       FOREIGN KEY (game_id) REFERENCES games(id)
     );
+
+    CREATE TABLE IF NOT EXISTS agent_ranking (
+      rodit_id TEXT PRIMARY KEY,
+      rating REAL NOT NULL DEFAULT 1000,
+      games_played INTEGER NOT NULL DEFAULT 0,
+      wins INTEGER NOT NULL DEFAULT 0,
+      placement_points INTEGER NOT NULL DEFAULT 0,
+      last_played_at TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_ranking_rating ON agent_ranking(rating DESC, wins DESC);
+
+    CREATE TABLE IF NOT EXISTS ranking_events (
+      id TEXT PRIMARY KEY,
+      game_id TEXT NOT NULL,
+      rodit_id TEXT NOT NULL,
+      result TEXT NOT NULL,
+      delta REAL NOT NULL,
+      placement_points INTEGER NOT NULL DEFAULT 0,
+      is_win INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (game_id) REFERENCES games(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ranking_events_game ON ranking_events(game_id);
+    CREATE INDEX IF NOT EXISTS idx_ranking_events_rodit ON ranking_events(rodit_id);
+
+    CREATE TABLE IF NOT EXISTS ranking_snapshots (
+      week_key TEXT PRIMARY KEY,
+      period_start TEXT NOT NULL,
+      period_end TEXT NOT NULL,
+      generated_at TEXT NOT NULL,
+      entries_json TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_ranking_snapshots_generated ON ranking_snapshots(generated_at DESC);
   `);
 
   const agentCols = await database.all(`PRAGMA table_info(game_agents)`);
@@ -236,7 +270,7 @@ async function migrateSchema(database) {
   );
   if (!ipTtlReset) {
     await database.run(`DELETE FROM game_ip_login_methods`);
-    await database.run(`INSERT INTO schema_migrations (id) VALUES (?)`, [
+    await database.run(`INSERT OR IGNORE INTO schema_migrations (id) VALUES (?)`, [
       "ip_login_method_ttl_v1_reset"
     ]);
   }
@@ -272,6 +306,9 @@ async function resetGameData() {
     DELETE FROM game_ip_login_methods;
     DELETE FROM rodit_login_methods;
     DELETE FROM url_join_identities;
+    DELETE FROM ranking_events;
+    DELETE FROM ranking_snapshots;
+    DELETE FROM agent_ranking;
     DELETE FROM contests;
     DELETE FROM games;
   `);
@@ -1315,52 +1352,173 @@ async function countPublicMessagesByAgent(gameId) {
   );
 }
 
-async function listFinishedDefinitiveContests({ limit = 20, offset = 0 } = {}) {
-  const database = await getDb();
-  const rows = await database.all(
-    `SELECT g.*, c.id AS contest_id
-     FROM contests c
-     INNER JOIN games g ON g.id = c.definitive_game_id
-     WHERE g.status = 'finished'
-     ORDER BY g.finished_at DESC
-     LIMIT ? OFFSET ?`,
-    [Math.min(Math.max(limit, 1), 100), Math.max(offset, 0)]
-  );
-  return rows.map((row) => ({
-    ...rowToGame(row),
-    contestId: row.contest_id
-  }));
-}
-
-/** Finished games for spectator empty-state / recent finishes (contest + casual). */
-async function listFinishedGames({ limit = 20, offset = 0, excludeContestDefinitive = false } = {}) {
+/** Finished games for hall of fame / recent finishes. */
+async function listFinishedGames({ limit = 20, offset = 0 } = {}) {
   const database = await getDb();
   const cappedLimit = Math.min(Math.max(limit, 1), 100);
   const cappedOffset = Math.max(offset, 0);
-  let rows;
-  if (excludeContestDefinitive) {
-    rows = await database.all(
-      `SELECT g.*
-       FROM games g
-       WHERE g.status = 'finished'
-         AND g.id NOT IN (
-           SELECT definitive_game_id FROM contests WHERE definitive_game_id IS NOT NULL
-         )
-       ORDER BY COALESCE(g.finished_at, g.created_at) DESC
-       LIMIT ? OFFSET ?`,
-      [cappedLimit, cappedOffset]
-    );
-  } else {
-    rows = await database.all(
-      `SELECT g.*
-       FROM games g
-       WHERE g.status = 'finished'
-       ORDER BY COALESCE(g.finished_at, g.created_at) DESC
-       LIMIT ? OFFSET ?`,
-      [cappedLimit, cappedOffset]
+  const rows = await database.all(
+    `SELECT g.*
+     FROM games g
+     WHERE g.status = 'finished'
+     ORDER BY COALESCE(g.finished_at, g.created_at) DESC
+     LIMIT ? OFFSET ?`,
+    [cappedLimit, cappedOffset]
+  );
+  return rows.map((row) => rowToGame(row));
+}
+
+function rowToAgentRanking(row) {
+  if (!row) return null;
+  return {
+    roditId: row.rodit_id,
+    rating: row.rating,
+    gamesPlayed: row.games_played,
+    wins: row.wins,
+    placementPoints: row.placement_points,
+    lastPlayedAt: row.last_played_at,
+    updatedAt: row.updated_at
+  };
+}
+
+async function countRankingEventsForGame(gameId) {
+  const database = await getDb();
+  const row = await database.get(
+    `SELECT COUNT(*) AS count FROM ranking_events WHERE game_id = ?`,
+    [gameId]
+  );
+  return row?.count || 0;
+}
+
+async function insertRankingEvents(events = []) {
+  if (!events.length) return;
+  const database = await getDb();
+  for (const event of events) {
+    await database.run(
+      `INSERT INTO ranking_events (
+         id, game_id, rodit_id, result, delta, placement_points, is_win
+       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        ulid(),
+        event.gameId,
+        canonicalRoditId(event.roditId) || event.roditId,
+        event.result,
+        event.delta,
+        event.placementPoints || 0,
+        event.isWin ? 1 : 0
+      ]
     );
   }
-  return rows.map((row) => rowToGame(row));
+}
+
+async function upsertAgentRankingDelta({
+  roditId,
+  delta,
+  winIncrement = 0,
+  placementPoints = 0,
+  lastPlayedAt = null
+} = {}) {
+  const database = await getDb();
+  const stored = canonicalRoditId(roditId) || roditId;
+  await database.run(
+    `INSERT INTO agent_ranking (
+       rodit_id, rating, games_played, wins, placement_points, last_played_at, updated_at
+     ) VALUES (?, 1000 + ?, 1, ?, ?, ?, datetime('now'))
+     ON CONFLICT(rodit_id) DO UPDATE SET
+       rating = agent_ranking.rating + excluded.rating - 1000,
+       games_played = agent_ranking.games_played + 1,
+       wins = agent_ranking.wins + excluded.wins,
+       placement_points = agent_ranking.placement_points + excluded.placement_points,
+       last_played_at = COALESCE(excluded.last_played_at, agent_ranking.last_played_at),
+       updated_at = datetime('now')`,
+    [stored, delta, winIncrement, placementPoints, lastPlayedAt]
+  );
+  return getAgentRanking(stored);
+}
+
+async function getAgentRanking(roditId) {
+  const database = await getDb();
+  const stored = canonicalRoditId(roditId) || roditId;
+  const row = await database.get(`SELECT * FROM agent_ranking WHERE rodit_id = ?`, [stored]);
+  return rowToAgentRanking(row);
+}
+
+async function listAgentRanking({ limit = 50, offset = 0 } = {}) {
+  const database = await getDb();
+  const rows = await database.all(
+    `SELECT * FROM agent_ranking
+     ORDER BY rating DESC, wins DESC, games_played ASC, rodit_id ASC
+     LIMIT ? OFFSET ?`,
+    [Math.min(Math.max(limit, 1), 500), Math.max(offset, 0)]
+  );
+  return rows.map(rowToAgentRanking);
+}
+
+async function getAgentRankingRank(roditId) {
+  const database = await getDb();
+  const stored = canonicalRoditId(roditId) || roditId;
+  const self = await database.get(`SELECT * FROM agent_ranking WHERE rodit_id = ?`, [stored]);
+  if (!self) return null;
+  const row = await database.get(
+    `SELECT COUNT(*) + 1 AS rank FROM agent_ranking
+     WHERE rating > ?
+        OR (rating = ? AND wins > ?)
+        OR (rating = ? AND wins = ? AND games_played < ?)
+        OR (rating = ? AND wins = ? AND games_played = ? AND rodit_id < ?)`,
+    [
+      self.rating,
+      self.rating,
+      self.wins,
+      self.rating,
+      self.wins,
+      self.games_played,
+      self.rating,
+      self.wins,
+      self.games_played,
+      self.rodit_id
+    ]
+  );
+  return row?.rank ?? null;
+}
+
+function rowToRankingSnapshot(row) {
+  if (!row) return null;
+  return {
+    weekKey: row.week_key,
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    generatedAt: row.generated_at,
+    entries: parseJson(row.entries_json, [])
+  };
+}
+
+async function getRankingSnapshot(weekKey) {
+  const database = await getDb();
+  const row = await database.get(`SELECT * FROM ranking_snapshots WHERE week_key = ?`, [weekKey]);
+  return rowToRankingSnapshot(row);
+}
+
+async function listRankingSnapshots({ limit = 12, offset = 0 } = {}) {
+  const database = await getDb();
+  const rows = await database.all(
+    `SELECT * FROM ranking_snapshots
+     ORDER BY generated_at DESC
+     LIMIT ? OFFSET ?`,
+    [Math.min(Math.max(limit, 1), 100), Math.max(offset, 0)]
+  );
+  return rows.map(rowToRankingSnapshot);
+}
+
+async function createRankingSnapshot({ weekKey, periodStart, periodEnd, entries = [] } = {}) {
+  const database = await getDb();
+  const generatedAt = new Date().toISOString();
+  await database.run(
+    `INSERT INTO ranking_snapshots (week_key, period_start, period_end, generated_at, entries_json)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(week_key) DO NOTHING`,
+    [weekKey, periodStart, periodEnd, generatedAt, JSON.stringify(entries)]
+  );
+  return getRankingSnapshot(weekKey);
 }
 
 function rowToSeason(row) {
@@ -2099,8 +2257,16 @@ module.exports = {
   listGameActions,
   listGameMessageReportsForGame,
   countPublicMessagesByAgent,
-  listFinishedDefinitiveContests,
   listFinishedGames,
+  countRankingEventsForGame,
+  insertRankingEvents,
+  upsertAgentRankingDelta,
+  getAgentRanking,
+  listAgentRanking,
+  getAgentRankingRank,
+  getRankingSnapshot,
+  listRankingSnapshots,
+  createRankingSnapshot,
   createSeason,
   getSeasonById,
   getSeasonViabilityCounts,

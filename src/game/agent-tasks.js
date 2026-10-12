@@ -25,7 +25,6 @@ function taskBase(game, agent) {
     gameStatus: game.status,
     phase: game.phase,
     currentTurn: game.current_turn ?? null,
-    contestMode: game.config?.contestMode ?? null
   };
 }
 

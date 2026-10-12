@@ -6,7 +6,7 @@ const { RoditClient } = require("@rodit/rodit-auth-be");
 const repo = require("./repository");
 const engine = require("./engine");
 const events = require("./events");
-const orchestrator = require("./contest-orchestrator");
+const orchestrator = require("./lobby-orchestrator");
 const { onGamePhaseUpdated, notifyDeadlineWarningForGame } = require("./webhooks");
 const { DEFAULT_GAME_CONFIG } = require("./defaults");
 

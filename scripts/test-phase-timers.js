@@ -69,10 +69,6 @@ async function main() {
   if (aliveWithInventory.length > 0) {
     throw new Error("spectators must not see agent inventories");
   }
-  if (state.game.contestMode != null) {
-    throw new Error("expected null contestMode on casual timed test game");
-  }
-
   scheduler.unregisterGame(game.id);
 
   const deadlineGame = await engine.createGame({

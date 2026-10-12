@@ -142,7 +142,7 @@ const DEFAULT_GAME_CONFIG = {
 
   /**
    * Target wall-clock duration for one full turn (negotiation + execution).
-   * Informational default for contest presets; enforced via individual phase timers.
+   * Informational; enforced via individual phase timers.
    */
   turnIntervalMs: null,
 
@@ -153,12 +153,6 @@ const DEFAULT_GAME_CONFIG = {
   maxGameDurationMs: null,
 
   /**
-   * Contest metadata: null (casual), "practice" (qualifying; wire), or "definitive" (competition; wire).
-   * Orchestration (prizes, scheduling) is layered on top when set.
-   */
-  contestMode: null,
-
-  /**
    * Lobby joining window in milliseconds. A cradle is assigned only while this window is open.
    * Set to 0 to allow joins anytime before the game starts (legacy behavior).
    */
@@ -166,9 +160,8 @@ const DEFAULT_GAME_CONFIG = {
 
   /**
    * Max age for a lobby with no joining window before it is removed if it never
-   * started. Windowed lobbies use `joining_window_ends_at` instead. Casual rows
-   * are deleted (agents, IP-login bindings, and the game). Contest-series games
-   * are kept as `cancelled` so the series row still resolves. Set 0 on a
+   * started. Windowed lobbies use `joining_window_ends_at` instead. Never-started
+   * lobbies are deleted (agents, IP-login bindings, and the game). Set 0 on a
    * no-window lobby to disable age-based removal.
    */
   staleLobbyTtlMs: 5 * 60 * 1000,
@@ -195,58 +188,12 @@ const DEFAULT_GAME_CONFIG = {
   intelligenceMemoryTurns: 2
 };
 
-/** Preset for a 15-player prize contest: 9-minute turns (5+4), 55-turn / ~8.3-hour cap; same last-two finish rule as casual. */
-const CONTEST_GAME_CONFIG = {
-  maxAgents: 15,
-  minAgents: 15,
-  finishSurvivorCount: 2,
-  negotiationDurationMs: 5 * 60 * 1000,
-  executionDurationMs: 4 * 60 * 1000,
-  turnIntervalMs: 9 * 60 * 1000,
-  maxTurns: 55,
-  maxGameDurationMs: 55 * 9 * 60 * 1000,
-  joiningWindowDurationMs: 60 * 60 * 1000,
-  contestMode: "definitive",
-  /**
-   * Locked 2026-08-13 from `scripts/calibrate-contest-50p.js` (15 hold-still, target 55 turns).
-   * 0.51 (search step 0.5094) finished all 3 trials at avg turn 52; 0.36 hit the target
-   * on 1/3 trials only. Casual `DEFAULT_GAME_CONFIG` keeps 0.96.
-   */
-  survivalCostTurnIncrement: 0.51,
-  survivalCostPlayerReference: 3
-};
-
-/** Softer preset for qualifying week — same timing, no duration pressure. */
-const PRACTICE_GAME_CONFIG = {
-  ...CONTEST_GAME_CONFIG,
-  minAgents: 3,
-  maxTurns: null,
-  maxGameDurationMs: null,
-  contestMode: "practice"
-};
-
-/** Qualifying week — same timing as practice; wins grant final eligibility. */
-const QUALIFYING_GAME_CONFIG = {
-  ...PRACTICE_GAME_CONFIG,
-  contestMode: "qualifying"
-};
-
 function mergeGameConfig(overrides = {}) {
   return { ...DEFAULT_GAME_CONFIG, ...overrides };
 }
 
-/** Resolve POST /api/game/games body `{ preset, config }` into config overrides. */
+/** Resolve POST /api/game/games body `{ config }` into config overrides (presets removed). */
 function resolvePresetConfig(body = {}) {
-  const preset = body.preset;
-  if (preset === "contest" || preset === "definitive") {
-    return { ...CONTEST_GAME_CONFIG, ...(body.config || {}) };
-  }
-  if (preset === "practice") {
-    return { ...PRACTICE_GAME_CONFIG, ...(body.config || {}) };
-  }
-  if (preset === "qualifying") {
-    return { ...QUALIFYING_GAME_CONFIG, ...(body.config || {}) };
-  }
   return body.config || {};
 }
 
@@ -402,9 +349,6 @@ module.exports = {
   MAX_SIMULTANEOUS_GAMES_DEFAULT,
   MAX_SIMULTANEOUS_GAMES,
   DEFAULT_GAME_CONFIG,
-  CONTEST_GAME_CONFIG,
-  PRACTICE_GAME_CONFIG,
-  QUALIFYING_GAME_CONFIG,
   PRIVATE_CRADLE_ASSIGNMENT_KEYS,
   mergeGameConfig,
   resolvePresetConfig,

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * URL-join (non-passport) helpers: guest rodit ids, webhook persistence, contest gate.
+ * URL-join (non-passport) helpers: guest rodit ids, webhook persistence.
  */
 
 const fs = require("fs");
@@ -30,7 +30,6 @@ const {
 const { sendGameWebhook, setRoditClient } = require("../src/game/webhooks");
 const repo = require("../src/game/repository");
 const engine = require("../src/game/engine");
-const orchestrator = require("../src/game/contest-orchestrator");
 const spectatorRoutes = require("../src/game/spectator-routes");
 
 function assert(condition, message) {
@@ -158,30 +157,8 @@ async function main() {
     const s = app.listen(0, "127.0.0.1", () => resolve(s));
   });
   const port = server.address().port;
-  let definitiveId = null;
 
   try {
-    const definitive = await engine.createGame({
-      config: {
-        minAgents: 1,
-        maxAgents: 4,
-        joiningWindowDurationMs: 60_000,
-        contestMode: "definitive"
-      },
-      allowParallelLobbies: true
-    });
-    definitiveId = definitive.id;
-    orchestrator.registerLobbyGame(definitive);
-
-    const blocked = await requestJson(port, "POST", `/api/game/games/${definitive.id}/join-by-url`, {
-      body: { webhookUrl: "https://agent.example/hooks/wake", displayName: "Nope" }
-    });
-    assert(blocked.status === 403, `definitive url-join should 403, got ${blocked.status}`);
-    assert(
-      blocked.body.error?.code === "URL_JOIN_NOT_ALLOWED",
-      `URL_JOIN_NOT_ALLOWED code, got ${JSON.stringify(blocked.body)}`
-    );
-
     const badUrl = await requestJson(port, "POST", `/api/game/games/${game.id}/join-by-url`, {
       body: { webhookUrl: "ftp://nope" }
     });
@@ -193,9 +170,6 @@ async function main() {
 
     console.log("URL-join unit checks passed (JWT mint requires live server RODiT; skipped here).");
   } finally {
-    if (definitiveId) {
-      orchestrator.unregisterLobbyGame(definitiveId);
-    }
     await new Promise((resolve) => {
       server.close(() => resolve());
       setTimeout(resolve, 500);

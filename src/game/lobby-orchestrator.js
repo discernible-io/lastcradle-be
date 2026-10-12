@@ -1,20 +1,15 @@
 /**
- * Contest series orchestration: practice week scheduling, lobby auto-start, prize hooks.
+ * Lobby lifecycle: auto-start, stale lobby sweep, finish hooks (ranking + webhooks).
  */
 
 const { RoditClient } = require("@rodit/rodit-auth-be");
-const { ulid, decodeTime } = require("ulid");
+const { decodeTime } = require("ulid");
 const engine = require("./engine");
 const repo = require("./repository");
 const events = require("./events");
-const prizeSettlement = require("./prize-settlement");
+const ranking = require("./ranking");
 const { notifyOpeningInventoryReport, notifyGameFinished, onGamePhaseUpdated } = require("./webhooks");
-const {
-  DEFAULT_GAME_CONFIG,
-  CONTEST_GAME_CONFIG,
-  PRACTICE_GAME_CONFIG,
-  mergeGameConfig
-} = require("./defaults");
+const { DEFAULT_GAME_CONFIG } = require("./defaults");
 
 function scheduler() {
   return require("./scheduler");
@@ -25,7 +20,6 @@ const logger = sdkClient.getLogger();
 
 const lobbyTimers = new Map();
 
-const PRACTICE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 /** Node timers cannot exceed 2^31-1 ms; longer windows rely on the periodic sweep. */
 const MAX_TIMEOUT_MS = 2_147_483_647;
 const LOBBY_SWEEP_INTERVAL_MS = 30 * 1000;
@@ -98,7 +92,7 @@ function scheduleLobbyAutoStart(game) {
     setTimeout(() => {
       evaluateLobbyAutoStart(game.id).catch((err) => {
         logger.errorWithContext("Lobby auto-start failed", {
-          component: "ContestOrchestrator",
+          component: "LobbyOrchestrator",
           gameId: game.id,
           error: err.message
         });
@@ -145,16 +139,15 @@ async function evaluateLobbyAutoStart(gameId) {
       phase: started.phase,
       currentTurn: started.current_turn
     });
-    await syncContestStatusForGame(started);
     logger.infoWithContext("Lobby auto-started", {
-      component: "ContestOrchestrator",
+      component: "LobbyOrchestrator",
       gameId,
       agentCount,
       trigger: startTrigger
     });
     onGamePhaseUpdated(gameId).catch((err) => {
       logger.warnWithContext("Phase webhook delivery failed", {
-        component: "ContestOrchestrator",
+        component: "LobbyOrchestrator",
         gameId,
         error: err.message
       });
@@ -169,77 +162,30 @@ async function evaluateLobbyAutoStart(gameId) {
   return { started: false, reason: "waiting" };
 }
 
-async function syncContestStatusForGame(game) {
-  if (!game) return null;
-
-  const contest = await repo.getContestByGameId(game.id);
-  if (!contest) return null;
-
-  let status = contest.status;
-  const isPractice = game.id === contest.practiceGameId;
-  const isDefinitive = game.id === contest.definitiveGameId;
-
-  if (isPractice) {
-    if (game.status === "lobby") status = "practice_lobby";
-    else if (game.status === "running") status = "practice_running";
-    else if (game.status === "finished" || game.status === "cancelled") {
-      status = "practice_complete";
-    }
-  }
-
-  if (isDefinitive) {
-    if (game.status === "lobby") status = "definitive_lobby";
-    else if (game.status === "running") status = "definitive_running";
-    else if (game.status === "finished") status = "finished";
-    else if (game.status === "cancelled") status = "cancelled";
-  }
-
-  if (status !== contest.status) {
-    await repo.updateContest(contest.id, { status, updatedAt: new Date().toISOString() });
-  }
-  return status;
-}
-
 async function onGameFinished(game) {
   if (!game) return;
 
   events.publishGameEvent(game.id, {
     type: "game_finished",
     status: game.status,
-    winnerIds: game.winnerIds || [],
-    contestMode: game.config?.contestMode ?? null
+    winnerIds: game.winnerIds || []
   });
 
   notifyGameFinished(game).catch((err) => {
     logger.warnWithContext("Game finished webhook delivery failed", {
-      component: "ContestOrchestrator",
+      component: "LobbyOrchestrator",
       gameId: game.id,
       error: err.message
     });
   });
 
   try {
-    const season = require("./season");
-    await season.recordFinishedGame(game);
+    await ranking.recordFinishedGame(game);
   } catch (err) {
-    logger.errorWithContext("Season finish bookkeeping failed", {
-      component: "ContestOrchestrator",
+    logger.errorWithContext("Ranking finish bookkeeping failed", {
+      component: "LobbyOrchestrator",
       gameId: game.id,
       error: err.message
-    });
-  }
-
-  const contest = await repo.getContestByGameId(game.id);
-  if (!contest) return;
-
-  await syncContestStatusForGame(game);
-
-  if (game.id === contest.definitiveGameId && game.config?.contestMode === "definitive") {
-    const result = await prizeSettlement.settleContestPrize(contest.id, game);
-    events.publishGameEvent(game.id, {
-      type: "prize_settlement",
-      contestId: contest.id,
-      ...result
     });
   }
 }
@@ -251,7 +197,6 @@ function registerLobbyGame(game) {
 async function removeNeverStartedLobby(game, { agentCount, minAgents }) {
   const gameId = game.id;
   const trigger = game.joining_window_ends_at ? "join_window_end" : "stale_lobby";
-  const contest = await repo.getContestByGameId(gameId);
 
   events.publishGameEvent(gameId, {
     type: "game_cancelled",
@@ -261,22 +206,9 @@ async function removeNeverStartedLobby(game, { agentCount, minAgents }) {
   });
   clearLobbyTimer(gameId);
 
-  if (contest) {
-    await repo.updateGame(gameId, { status: "cancelled" });
-    await syncContestStatusForGame(await repo.getGameById(gameId));
-    logger.warnWithContext("Lobby cancelled — never started (contest row kept)", {
-      component: "ContestOrchestrator",
-      gameId,
-      agentCount,
-      minAgents,
-      trigger
-    });
-    return { started: false, reason: "cancelled_insufficient_agents", deleted: false };
-  }
-
   await repo.deleteGameCascade(gameId);
   logger.warnWithContext("Never-started lobby removed from database", {
-    component: "ContestOrchestrator",
+    component: "LobbyOrchestrator",
     gameId,
     agentCount,
     minAgents,
@@ -289,16 +221,12 @@ async function purgeNeverStartedGames() {
   const leftovers = await repo.listNeverStartedCancelledGames();
   let deleted = 0;
   for (const game of leftovers) {
-    const contest = await repo.getContestByGameId(game.id);
-    if (contest) {
-      continue;
-    }
     await repo.deleteGameCascade(game.id);
     deleted += 1;
   }
   if (deleted > 0) {
     logger.infoWithContext("Purged cancelled never-started games", {
-      component: "ContestOrchestrator",
+      component: "LobbyOrchestrator",
       deleted
     });
   }
@@ -314,7 +242,7 @@ async function sweepStaleLobbies() {
       results.push({ gameId: game.id, ...result });
     } catch (err) {
       logger.errorWithContext("Stale lobby sweep failed for game", {
-        component: "ContestOrchestrator",
+        component: "LobbyOrchestrator",
         gameId: game.id,
         error: err.message
       });
@@ -332,7 +260,7 @@ function startLobbySweep() {
   lobbySweepTimer = setInterval(() => {
     sweepStaleLobbies().catch((err) => {
       logger.errorWithContext("Stale lobby sweep failed", {
-        component: "ContestOrchestrator",
+        component: "LobbyOrchestrator",
         error: err.message
       });
     });
@@ -357,100 +285,13 @@ async function resumeLobbyGames() {
   }
   const swept = await sweepStaleLobbies();
   startLobbySweep();
-  logger.infoWithContext("Contest orchestrator resumed lobby watches", {
-    component: "ContestOrchestrator",
+  logger.infoWithContext("Lobby orchestrator resumed lobby watches", {
+    component: "LobbyOrchestrator",
     count: lobbies.length,
     cancelled: swept.filter((r) => r.reason === "cancelled_insufficient_agents").length,
     deleted: swept.filter((r) => r.deleted).length,
     started: swept.filter((r) => r.started).length
   });
-}
-
-async function createContestSeries({
-  practiceStartsAt,
-  practiceWindowMs = PRACTICE_WEEK_MS,
-  definitiveJoiningStartsAt = null,
-  prizeAmountYoctoNear = null,
-  configOverrides = {}
-} = {}) {
-  if (!practiceStartsAt) {
-    throw engine.gameError(
-      "PRACTICE_START_REQUIRED",
-      "practiceStartsAt is required (ISO timestamp)",
-      400
-    );
-  }
-
-  const practiceStart = new Date(practiceStartsAt);
-  if (Number.isNaN(practiceStart.getTime())) {
-    throw engine.gameError("INVALID_PRACTICE_START", "practiceStartsAt must be a valid ISO timestamp", 400);
-  }
-
-  const practiceEnd = new Date(practiceStart.getTime() + practiceWindowMs);
-  const definitiveStart = definitiveJoiningStartsAt
-    ? new Date(definitiveJoiningStartsAt)
-    : practiceEnd;
-  if (Number.isNaN(definitiveStart.getTime())) {
-    throw engine.gameError(
-      "INVALID_DEFINITIVE_START",
-      "definitiveJoiningStartsAt must be a valid ISO timestamp",
-      400
-    );
-  }
-
-  const contestId = ulid();
-  const sharedOverrides = { ...configOverrides, contestSeriesId: contestId };
-
-  // Reserve both practice + definitive slots up front so the series cannot
-  // partially create when the host is one game under the simultaneous cap.
-  await engine.assertSimultaneousGameCapacity({ slotsNeeded: 2 });
-
-  const practiceGame = await engine.createGame({
-    config: mergeGameConfig({
-      ...PRACTICE_GAME_CONFIG,
-      ...sharedOverrides,
-      joiningWindowDurationMs: practiceWindowMs
-    }),
-    joiningWindowStartsAt: practiceStart.toISOString(),
-    bypassSimultaneousCap: true
-  });
-
-  const definitiveConfig = mergeGameConfig({
-    ...CONTEST_GAME_CONFIG,
-    ...sharedOverrides,
-    joiningWindowDurationMs:
-      configOverrides.joiningWindowDurationMs ?? CONTEST_GAME_CONFIG.joiningWindowDurationMs
-  });
-  const definitiveGame = await engine.createGame({
-    config: definitiveConfig,
-    joiningWindowStartsAt: definitiveStart.toISOString(),
-    bypassSimultaneousCap: true
-  });
-
-  const contest = await repo.createContest({
-    status: "scheduled",
-    practiceGameId: practiceGame.id,
-    definitiveGameId: definitiveGame.id,
-    practiceWindowStartsAt: practiceStart.toISOString(),
-    practiceWindowEndsAt: practiceEnd.toISOString(),
-    definitiveJoiningStartsAt: definitiveStart.toISOString(),
-    prizeAmountYocto: prizeAmountYoctoNear,
-    prizeStatus: prizeAmountYoctoNear ? "pending" : null
-  });
-
-  registerLobbyGame(practiceGame);
-  registerLobbyGame(definitiveGame);
-
-  logger.infoWithContext("Contest series created", {
-    component: "ContestOrchestrator",
-    contestId: contest.id,
-    practiceGameId: practiceGame.id,
-    definitiveGameId: definitiveGame.id,
-    practiceStartsAt: practiceStart.toISOString(),
-    definitiveJoiningStartsAt: definitiveStart.toISOString()
-  });
-
-  return { contest, practiceGame, definitiveGame };
 }
 
 function clearAllLobbyTimers() {
@@ -469,14 +310,11 @@ function unregisterLobbyGame(gameId) {
 }
 
 module.exports = {
-  createContestSeries,
   evaluateLobbyAutoStart,
   registerLobbyGame,
   resumeLobbyGames,
   sweepStaleLobbies,
   onGameFinished,
-  syncContestStatusForGame,
   unregisterLobbyGame,
-  PRACTICE_WEEK_MS,
   LOBBY_SWEEP_INTERVAL_MS
 };

@@ -81,7 +81,7 @@ Before login:
 3. Discard any jwt_token / Bearer from a previous finished/cancelled game
 
 ## 0. Path
-Use **PASSPORT** (contest seats require Passport — ${passportPurchaseUrl}/).
+Use **PASSPORT** for a stable ranking identity and HOLA (${passportPurchaseUrl}/).
 Do **not** use join-by-url on this prompt.
 ${joinRulesCompact()}
 
@@ -316,7 +316,7 @@ function guestJoinSection(apiBase, { heading = "1" } = {}) {
   const flags = curlFlags(apiBase);
   return `## ${heading}. LOGIN + JOIN (guest webhook)
 
-Join casual lobbies and season practice lobbies (\`contestMode: "practice"\`) even if you are **not eligible for the prize**. Guests **cannot** create lobbies or use HOLA. \`403 PASSPORT_REQUIRED\` is only \`qualifying\` / \`definitive\` / \`contest\` — leave that lobby and use the Passport sit prompt.
+Join any open lobby via join-by-url (open enrollment). Guests **cannot** create lobbies or use HOLA.
 Do not GET /games/mine, /tick-context, or skill.md until step 3 succeeds.
 
 **JWT storage (mandatory):** join-by-url returns \`jwt_token\`. Chat/tools often filter/mask it
@@ -348,7 +348,7 @@ Clear any prior guest.jwt / lastcradle store **before** this join (stale previou
 
 3. Later: \`Authorization: Bearer $(cat "$HOME/.slc/guest.jwt")\`. Paths under /api/game/ only.
    Never print jwt_token. Confirm GET …/games/{gameId}/state (not bare GET …/games/{gameId}).
-4. Non-null "you" → AFTER SEAT. jwt_duration covers a full contest (~55 turns)+buffer.
+4. Non-null "you" → AFTER SEAT. jwt_duration covers a full game session + buffer.
    Overwrite secrets on \`New-Token\`. Lost Bearer = seat gone.
    After seat, GET /tick-context should list your lobby in \`contexts[]\` (often \`wait_for_start\`).
    Empty \`contexts\` = auth/storage miss — not "lobby quiet."`;
@@ -396,14 +396,12 @@ Do **not** read skill.md / action-schema / peer-auth, or arm cron, until login/j
 Do **not** call GET /games/mine, /tick-context, /tasks, /state, or /message before you have a Bearer
 (those return 401 without one).
 
-## Prize eligibility does not block the seat
+## Open enrollment
 
-Join the open lobby with join-by-url **even if you are not eligible for the prize**.
-Casual lobbies and season practice (\`contestMode: "practice"\`) accept guests.
-Do not skip a lobby because it is Season 1, because a EUR prize is listed, or because you have no Passport.
-\`403 PASSPORT_REQUIRED\` only when \`contestMode\` is \`qualifying\`, \`definitive\`, or \`contest\`.
-Then stop join-by-url for that game and use **sit-cradle** or **sit-cradle-hermes** (Passport mint: ${passportPurchaseUrl}).
+Join any open lobby with join-by-url — guests and Passport holders both play.
+Finished games feed the always-on global ranking (\`GET /api/game/ranking\`). Guest \`guest_*\` ids are per-session.
 \`409 JOIN_WINDOW_NOT_OPEN\` means wait until \`joiningWindow.startsAt\` and retry the **same** gameId.
+Prefer a Passport for stable ladder identity and HOLA (Passport mint: ${passportPurchaseUrl}).
 
 ${guestHardStopGate()}
 
@@ -457,7 +455,7 @@ function buildEnrollPromptsPayload(req) {
         id: "guest-webhook",
         title: "Guest join (no passport)",
         blurb:
-          "Casual and season practice — join-by-url even if you are not prize-eligible. 403 only on qualifying/competition. Persist jwt_token in the same step as join-by-url — never copy a filtered token from chat.",
+          "Open enrollment via join-by-url. Persist jwt_token in the same step as join-by-url — never copy a filtered token from chat. Finished games feed GET /api/game/ranking.",
         copyLabel: "Copy guest-only prompt",
         markdown: buildGuestOnlyPrompt(apiBase, passportPurchaseUrl)
       },

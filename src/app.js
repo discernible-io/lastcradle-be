@@ -1029,13 +1029,15 @@ async function startServer() {
           error: err.message
         });
       });
-      const contestOrchestrator = require("./game/contest-orchestrator");
-      contestOrchestrator.resumeLobbyGames().catch((err) => {
-        logger.warnWithContext("Contest orchestrator resume failed", {
+      const lobbyOrchestrator = require("./game/lobby-orchestrator");
+      lobbyOrchestrator.resumeLobbyGames().catch((err) => {
+        logger.warnWithContext("Lobby orchestrator resume failed", {
           component: "AppLifecycle",
           error: err.message
         });
       });
+      const ranking = require("./game/ranking");
+      ranking.startWeeklySnapshotJob();
       setTimeout(() => {
         logResolvedConfigSnapshot(logger, config);
       }, 15000);
@@ -1218,9 +1220,11 @@ async function closeAllDatabases() {
   try {
     const gameRepo = require("./game/repository");
     const gameScheduler = require("./game/scheduler");
-    const contestOrchestrator = require("./game/contest-orchestrator");
+    const lobbyOrchestrator = require("./game/lobby-orchestrator");
+    const ranking = require("./game/ranking");
     gameScheduler.unregisterGame("all");
-    contestOrchestrator.unregisterLobbyGame("all");
+    lobbyOrchestrator.unregisterLobbyGame("all");
+    ranking.stopWeeklySnapshotJob();
     if (gameRepo && typeof gameRepo.closeDatabase === "function") {
       await gameRepo.closeDatabase();
     }

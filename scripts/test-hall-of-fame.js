@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Hall of fame honors and objective metrics.
+ * Hall of fame honors and objective metrics for finished casual games.
  */
 
 const fs = require("fs");
@@ -17,7 +17,7 @@ process.env.API_DEFAULT_OPTIONS_DB_PATH = DB_PATH;
 const express = require("express");
 const engine = require("../src/game/engine");
 const repo = require("../src/game/repository");
-const orchestrator = require("../src/game/contest-orchestrator");
+const ranking = require("../src/game/ranking");
 const spectatorRoutes = require("../src/game/spectator-routes");
 const { buildGameHonors } = require("../src/game/hall-of-fame");
 
@@ -30,18 +30,15 @@ async function requestJson(port, path) {
 async function main() {
   await repo.initializeDatabase();
 
-  const { contest, definitiveGame } = await orchestrator.createContestSeries({
-    practiceStartsAt: new Date(Date.now() - 120_000).toISOString(),
-    practiceWindowMs: 60_000,
-    definitiveJoiningStartsAt: new Date(Date.now() - 60_000).toISOString(),
-    prizeAmountYoctoNear: null,
-    configOverrides: {
+  const game = await engine.createGame({
+    config: {
       minAgents: 2,
       maxAgents: 10,
       joiningWindowDurationMs: 3_600_000
-    }
+    },
+    allowParallelLobbies: true
   });
-  const gameId = definitiveGame.id;
+  const gameId = game.id;
 
   await engine.joinGame(gameId, { roditId: "hof-alpha", displayName: "Alpha" });
   const beta = await engine.joinGame(gameId, { roditId: "hof-beta", displayName: "Beta" });
@@ -63,8 +60,8 @@ async function main() {
   await engine.submitAction(gameId, beta.id, { type: "none" });
   await engine.submitAction(gameId, agents.find((a) => a.roditId === "hof-gamma").id, { type: "none" });
 
-  let game = await repo.getGameById(gameId);
-  if (!game.winnerIds?.length) {
+  let finished = await repo.getGameById(gameId);
+  if (!finished.winnerIds?.length) {
     const survivors = (await repo.listAgents(gameId)).filter((a) => a.status === "alive").map((a) => a.id);
     await repo.updateGame(gameId, {
       status: "finished",
@@ -72,32 +69,28 @@ async function main() {
       phase: null,
       winner_ids_json: JSON.stringify(survivors)
     });
-    game = await repo.getGameById(gameId);
-  } else if (game.status !== "finished") {
+    finished = await repo.getGameById(gameId);
+  } else if (finished.status !== "finished") {
     await repo.updateGame(gameId, { status: "finished", finished_at: new Date().toISOString(), phase: null });
-    game = await repo.getGameById(gameId);
+    finished = await repo.getGameById(gameId);
   }
 
-  await repo.updateContest(contest.id, { status: "finished" });
+  const honors = await buildGameHonors(finished);
+  if (!honors || !honors.standings?.length) {
+    throw new Error("expected honors standings");
+  }
 
-  const honors = await buildGameHonors(game, { contest });
-  if (!honors || !honors.honorees.length) {
-    throw new Error("expected honorees");
+  const ranked = await ranking.recordFinishedGame(finished);
+  if (!ranked.recorded) {
+    throw new Error(`expected ranking to record, got ${ranked.reason}`);
   }
-  if (!honors.superlatives.mostPublicMessages && !honors.superlatives.highestTransferVolumeSent) {
-    throw new Error("expected superlatives");
-  }
-  if (honors.gameMetrics.transfersExecuted < 1) {
-    throw new Error("expected transfer metrics");
+  const ladder = await ranking.listRanking({ limit: 10 });
+  if (!ladder.length) {
+    throw new Error("expected ranking entries after finish");
   }
 
   const app = express();
-  app.use((req, _res, next) => {
-    req.requestId = "test-request";
-    next();
-  });
   app.use("/api/game", spectatorRoutes);
-
   const server = await new Promise((resolve) => {
     const s = app.listen(0, "127.0.0.1", () => resolve(s));
   });
@@ -108,23 +101,24 @@ async function main() {
     if (list.status !== 200 || !list.body.entries?.length) {
       throw new Error("hall-of-fame list failed");
     }
-
-    const byContest = await requestJson(port, `/api/game/hall-of-fame/${contest.id}`);
-    if (byContest.status !== 200 || !byContest.body.honors) {
-      throw new Error("contest honors failed");
-    }
-
-    const byGame = await requestJson(port, `/api/game/games/${gameId}/honors`);
-    if (byGame.status !== 200 || !byGame.body.honors?.standings?.length) {
+    const gameHonors = await requestJson(port, `/api/game/games/${gameId}/honors`);
+    if (gameHonors.status !== 200 || !gameHonors.body.honors) {
       throw new Error("game honors failed");
     }
-
-    console.log("✓ Hall of fame honors and public routes work");
+    const rankingRes = await requestJson(port, "/api/game/ranking");
+    if (rankingRes.status !== 200 || !rankingRes.body.entries?.length) {
+      throw new Error("ranking list failed");
+    }
+    const weekly = await requestJson(port, "/api/game/ranking/weekly");
+    if (weekly.status !== 200) {
+      throw new Error("weekly ranking failed");
+    }
   } finally {
-    await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+    await new Promise((resolve) => server.close(resolve));
+    await repo.closeDatabase();
   }
 
-  await repo.closeDatabase();
+  console.log("hall-of-fame + ranking tests passed");
 }
 
 main().catch((err) => {
