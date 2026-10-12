@@ -10,7 +10,6 @@ const SSE_EVENT_TYPES = [
   "game_started",
   "game_finished",
   "game_cancelled",
-  "prize_settlement",
   "recollection_submitted"
 ];
 
@@ -212,7 +211,7 @@ async function showGamePicker() {
         el("strong", null, game.id),
         el("span", null, `${game.status} · ${game.agentCount ?? 0} cradles · turn ${game.currentTurn ?? 0}`)
       );
-      const right = el("span", null, game.contestMode ? `Contest: ${game.contestMode}` : "Casual");
+      const right = el("span", null, "Casual");
       btn.append(left, right);
       btn.addEventListener("click", () => {
         const url = new URL(window.location.href);
@@ -416,7 +415,7 @@ function startSse() {
         return;
       }
       if (
-        ["phase_change", "turn_advanced", "game_started", "game_finished", "game_cancelled", "prize_settlement"].includes(
+        ["phase_change", "turn_advanced", "game_started", "game_finished", "game_cancelled"].includes(
           payload.type
         )
       ) {
@@ -515,7 +514,7 @@ function renderMeta(game, state) {
   const entries = [
     ["Game ID", game.id],
     ["Status", game.status],
-    ["Contest", game.contestMode || "casual"],
+    ["Mode", "casual"],
     ["Cycle", String(game.currentTurn ?? 0)],
     ["Living cradles", String(state.livingAgentCount)],
     ["Started", formatDate(game.startedAt)],
@@ -841,7 +840,7 @@ function renderFinale(state, agentById) {
     return;
   }
   finale.classList.remove("hidden");
-  finale.replaceChildren(el("h2", null, game.status === "cancelled" ? "Contest cancelled" : "Final accounting"));
+  finale.replaceChildren(el("h2", null, game.status === "cancelled" ? "Game cancelled" : "Final accounting"));
 
   if (game.winnerIds?.length) {
     const names = game.winnerIds.map((id) => agentName(agentById, id)).join(", ");

@@ -1,17 +1,16 @@
 /**
  * Game API authentication policy (see api-docs/swagger.json — Game API authentication):
  *
- * - **Spectators:** Read-only routes (list games, state, turns, messages, trades, recollections, identity, honors, hall of fame, SSE, contests, narrative, skill.md, action-schema.md, peer-auth.md, enroll-prompts) are public.
- *   Optional JWT upgrades state visibility for joined players only.
+ * - **Spectators:** Read-only routes (list games, state, turns, messages, trades, recollections,
+ *   identity, honors, hall of fame, ranking, SSE, narrative, skill.md, action-schema.md,
+ *   peer-auth.md, enroll-prompts) are public. Optional JWT upgrades state visibility for joined players only.
  * - **Players:** Any authenticated IdentyClaw / RODiT passport holder (JWT from POST /api/login via Ed25519 or NEP-413),
- *   or guest / single-game agents (POST .../join-by-url → guest_* identity + JWT; casual/qualifying only).
+ *   or guest / single-game agents (POST .../join-by-url → guest_* identity + JWT).
  *   Mutating `/api/game/*` routes require authenticate — no METHOD_PERMISSION_MAP / validatepermissions.
- * - **Operator:** POST /api/game/contests, POST /api/game/contest-series, and competition lobbies
- *   require JWT roditId === GAME_PRIVILEGED_RODIT_ID (hardcoded administrator in server config).
+ * - **Operator:** Optional `GAME_PRIVILEGED_RODIT_ID` remains available for future privileged ops.
  */
 
 const { config } = require("@rodit/rodit-auth-be");
-const { CONTEST_GAME_CONFIG } = require("./defaults");
 const { roditIdFromUser, canonicalRoditId } = require("./rodit-id");
 
 const PRIVILEGED_RODIT_ID_CONFIG_KEY = "GAME_PRIVILEGED_RODIT_ID";
@@ -40,26 +39,9 @@ function isPrivilegedRoditId(req) {
   return Boolean(caller && caller === configured);
 }
 
-/** @deprecated use isPrivilegedRoditId */
-function canCreateOfficialContest(req) {
-  return isPrivilegedRoditId(req);
-}
-
-function isOfficialContestConfig(configOverrides = {}) {
-  if (configOverrides.contestMode === "definitive") {
-    return true;
-  }
-  return (
-    Number(configOverrides.maxAgents) >= CONTEST_GAME_CONFIG.maxAgents &&
-    Number(configOverrides.minAgents) >= CONTEST_GAME_CONFIG.minAgents
-  );
-}
-
 module.exports = {
   PRIVILEGED_RODIT_ID_CONFIG_KEY,
   resolveRequestRoditId,
   getPrivilegedRoditId,
-  isPrivilegedRoditId,
-  canCreateOfficialContest,
-  isOfficialContestConfig
+  isPrivilegedRoditId
 };

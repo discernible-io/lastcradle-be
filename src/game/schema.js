@@ -211,6 +211,40 @@ CREATE TABLE IF NOT EXISTS season_qualifying_wins (
   FOREIGN KEY (game_id) REFERENCES games(id)
 );
 
+CREATE TABLE IF NOT EXISTS agent_ranking (
+  rodit_id TEXT PRIMARY KEY,
+  rating REAL NOT NULL DEFAULT 1000,
+  games_played INTEGER NOT NULL DEFAULT 0,
+  wins INTEGER NOT NULL DEFAULT 0,
+  placement_points INTEGER NOT NULL DEFAULT 0,
+  last_played_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_agent_ranking_rating ON agent_ranking(rating DESC, wins DESC);
+
+CREATE TABLE IF NOT EXISTS ranking_events (
+  id TEXT PRIMARY KEY,
+  game_id TEXT NOT NULL,
+  rodit_id TEXT NOT NULL,
+  result TEXT NOT NULL,
+  delta REAL NOT NULL,
+  placement_points INTEGER NOT NULL DEFAULT 0,
+  is_win INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (game_id) REFERENCES games(id)
+);
+CREATE INDEX IF NOT EXISTS idx_ranking_events_game ON ranking_events(game_id);
+CREATE INDEX IF NOT EXISTS idx_ranking_events_rodit ON ranking_events(rodit_id);
+
+CREATE TABLE IF NOT EXISTS ranking_snapshots (
+  week_key TEXT PRIMARY KEY,
+  period_start TEXT NOT NULL,
+  period_end TEXT NOT NULL,
+  generated_at TEXT NOT NULL,
+  entries_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ranking_snapshots_generated ON ranking_snapshots(generated_at DESC);
+
 CREATE TABLE IF NOT EXISTS rodit_login_methods (
   rodit_id TEXT PRIMARY KEY,
   method TEXT NOT NULL,

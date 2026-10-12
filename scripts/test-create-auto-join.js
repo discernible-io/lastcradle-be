@@ -17,7 +17,7 @@ process.env.API_DEFAULT_OPTIONS_DB_PATH = DB_PATH;
 const express = require("express");
 const repo = require("../src/game/repository");
 const scheduler = require("../src/game/scheduler");
-const orchestrator = require("../src/game/contest-orchestrator");
+const orchestrator = require("../src/game/lobby-orchestrator");
 const gameRoutes = require("../src/game/routes");
 const { callGameTool } = require("../src/mcp/game-tools");
 
@@ -121,7 +121,7 @@ async function main() {
         displayName: "McpHost",
         config: { minAgents: 2, maxAgents: 4, joiningWindowDurationMs: 60_000 }
       },
-      { user: { roditId: "McpCreatorCCC" } }
+      { user: { roditId: "McpCreatorCCC" }, ip: "127.0.0.1" }
     );
     if (!mcpCreate.agent?.id || mcpCreate.agent.roditId !== "McpCreatorCCC") {
       throw new Error("MCP slc_create should auto-join creator");

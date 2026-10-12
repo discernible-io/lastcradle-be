@@ -614,7 +614,6 @@ async function notifyGameFinished(game) {
       return {
         status: game.status,
         winnerIds: game.winnerIds || [],
-        contestMode: game.config?.contestMode ?? null,
         finishedAt: game.finished_at,
         won: true,
         winReport,
@@ -626,7 +625,6 @@ async function notifyGameFinished(game) {
     return {
       status: game.status,
       winnerIds: game.winnerIds || [],
-      contestMode: game.config?.contestMode ?? null,
       finishedAt: game.finished_at,
       won: false,
       gameOverReport,

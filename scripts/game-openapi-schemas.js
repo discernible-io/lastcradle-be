@@ -203,7 +203,7 @@ const gameSchemas = {
   },
   GameAutoStart: {
     type: "object",
-    description: "Lobby auto-start evaluation after join (contest orchestrator).",
+    description: "Lobby auto-start evaluation after join (lobby orchestrator).",
     required: ["started"],
     properties: {
       started: { type: "boolean" },
@@ -230,7 +230,7 @@ const gameSchemas = {
   GameUrlJoinResponse: {
     type: "object",
     description:
-      "Response from POST /api/game/games/{gameId}/join-by-url — cradle plus initial JWT for non-passport agents. Includes jwtLen and sessionExpiresAt so plugin-less agents can verify secrets-file storage without printing jwt_token (detect redacted join tool output). Guest jwt_duration is a full contest plus buffer; access JWT renews via New-Token.",
+      "Response from POST /api/game/games/{gameId}/join-by-url — cradle plus initial JWT for non-passport agents. Includes jwtLen and sessionExpiresAt so plugin-less agents can verify secrets-file storage without printing jwt_token (detect redacted join tool output). Guest jwt_duration is a full game session plus buffer; access JWT renews via New-Token.",
     required: ["agent", "jwt_token", "autoStart", "requestId"],
     properties: {
       agent: { $ref: "#/components/schemas/GameAgent" },
@@ -877,7 +877,6 @@ const gameSchemas = {
       negotiationEndsAt: { type: "string", format: "date-time", nullable: true },
       executionEndsAt: { type: "string", format: "date-time", nullable: true },
       endsAt: { type: "string", format: "date-time", nullable: true },
-      contestMode: { type: "string", nullable: true, enum: ["practice", "qualifying", "definitive"] },
       joiningWindow: { $ref: "#/components/schemas/GameJoiningWindow" },
       startedAt: { type: "string", format: "date-time", nullable: true },
       finishedAt: { type: "string", format: "date-time", nullable: true },
@@ -1178,24 +1177,6 @@ const gameSchemas = {
           type: { type: "string", enum: ["game_finished"] },
           status: { type: "string" },
           winnerIds: { type: "array", items: { type: "string" } },
-          contestMode: { type: "string", nullable: true }
-        }
-      }
-    ]
-  },
-  GameSsePrizeSettlement: {
-    allOf: [
-      { $ref: "#/components/schemas/GameSseEventBase" },
-      {
-        type: "object",
-        required: ["contestId"],
-        properties: {
-          type: { type: "string", enum: ["prize_settlement"] },
-          contestId: { type: "string" },
-          settled: { type: "boolean" },
-          reason: { type: "string" },
-          winners: { type: "array", items: { type: "object", additionalProperties: true } },
-          shareYocto: { type: "string", nullable: true }
         }
       }
     ]
@@ -1413,7 +1394,6 @@ const gameSchemas = {
     properties: {
       gameId: { type: "string" },
       contestId: { type: "string", nullable: true },
-      contestMode: { type: "string", nullable: true },
       contestStatus: { type: "string", nullable: true },
       finishedAt: { type: "string", format: "date-time", nullable: true },
       startedAt: { type: "string", format: "date-time", nullable: true },
@@ -1435,12 +1415,6 @@ const gameSchemas = {
     required: ["entries", "limit", "offset", "requestId"],
     properties: {
       entries: { type: "array", items: { $ref: "#/components/schemas/GameHonorsEntry" } },
-      recentFinishes: {
-        type: "array",
-        description:
-          "Recent finished casual/practice honors when definitive contest entries are empty or sparse (omit with includeRecent=false)",
-        items: { $ref: "#/components/schemas/GameHonorsEntry" }
-      },
       empty: { type: "boolean", description: "True when entries is empty" },
       emptyState: {
         type: "object",
@@ -1456,131 +1430,50 @@ const gameSchemas = {
       requestId: { type: "string" }
     }
   },
-  ContestSeason: {
-    type: "object",
-    description: "Multi-phase contest season (practice → qualifying → rostered final)",
-    properties: {
-      id: { type: "string" },
-      name: { type: "string", nullable: true },
-      status: { type: "string" },
-      phase: {
-        type: "string",
-        enum: ["scheduled", "practice", "between", "qualifying", "roster", "final"],
-        description: "Resolved from window timestamps and final game presence"
-      },
-      practiceStartsAt: { type: "string", format: "date-time" },
-      practiceEndsAt: { type: "string", format: "date-time" },
-      qualifyingStartsAt: { type: "string", format: "date-time" },
-      qualifyingEndsAt: { type: "string", format: "date-time" },
-      finalJoiningStartsAt: { type: "string", format: "date-time", nullable: true },
-      finalGameId: { type: "string", nullable: true },
-      finalRoster: { type: "array", items: { type: "string" } },
-      prizeAmountYocto: { type: "string", nullable: true },
-      prizeStatus: { type: "string", nullable: true },
-      practicePlayers: { type: "integer", description: "Present on detail views" },
-      qualifyingEligible: { type: "integer", description: "Present on detail views" },
-      qualifyingEligibleRoditIds: {
-        type: "array",
-        items: { type: "string" },
-        description: "Present on detail views"
-      },
-      createdAt: { type: "string" },
-      updatedAt: { type: "string" }
-    }
-  },
-  ContestSeasonListResponse: {
-    type: "object",
-    required: ["seasons", "requestId"],
-    properties: {
-      seasons: { type: "array", items: { $ref: "#/components/schemas/ContestSeason" } },
-      currentSeasonId: { type: "string", nullable: true },
-      empty: { type: "boolean" },
-      emptyState: {
-        type: "object",
-        nullable: true,
-        properties: {
-          title: { type: "string" },
-          message: { type: "string" },
-          frontendOrigin: { type: "string" }
-        }
-      },
-      requestId: { type: "string" }
-    }
-  },
-  ContestSeasonDetailResponse: {
-    type: "object",
-    required: ["season", "requestId"],
-    properties: {
-      season: { $ref: "#/components/schemas/ContestSeason" },
-      requestId: { type: "string" }
-    }
-  },
-  ContestSeasonCreateRequest: {
-    type: "object",
-    required: [
-      "practiceStartsAt",
-      "practiceEndsAt",
-      "qualifyingStartsAt",
-      "qualifyingEndsAt"
-    ],
-    properties: {
-      name: { type: "string" },
-      practiceStartsAt: { type: "string", format: "date-time" },
-      practiceEndsAt: { type: "string", format: "date-time" },
-      qualifyingStartsAt: { type: "string", format: "date-time" },
-      qualifyingEndsAt: { type: "string", format: "date-time" },
-      finalJoiningStartsAt: { type: "string", format: "date-time" },
-      prizeAmountYoctoNear: { type: "string", nullable: true }
-    }
-  },
-  ContestSeasonRosterRequest: {
-    type: "object",
-    required: ["roditIds"],
-    properties: {
-      roditIds: {
-        type: "array",
-        items: { type: "string" },
-        description: "Authorized final Passports; must be qualifying winners"
-      }
-    }
-  },
-  ContestSeasonEligibility: {
+  GameRankingEntry: {
     type: "object",
     properties: {
-      seasonId: { type: "string" },
+      rank: { type: "integer", nullable: true },
       roditId: { type: "string" },
-      phase: { type: "string" },
-      practiceCompleted: { type: "boolean" },
-      qualifyingWins: { type: "integer" },
-      qualifyingWinGameIds: { type: "array", items: { type: "string" } },
-      finalEligible: { type: "boolean" },
-      onFinalRoster: { type: "boolean" }
+      rating: { type: "number" },
+      gamesPlayed: { type: "integer" },
+      wins: { type: "integer" },
+      placementPoints: { type: "integer" },
+      lastPlayedAt: { type: "string", format: "date-time", nullable: true },
+      updatedAt: { type: "string", format: "date-time", nullable: true },
+      isGuest: { type: "boolean" }
     }
   },
-  ContestSeasonEligibilityResponse: {
+  GameRankingResponse: {
     type: "object",
-    required: ["eligibility", "requestId"],
+    required: ["entries", "requestId"],
     properties: {
-      eligibility: { $ref: "#/components/schemas/ContestSeasonEligibility" },
+      entries: { type: "array", items: { $ref: "#/components/schemas/GameRankingEntry" } },
+      empty: { type: "boolean" },
+      emptyState: { type: "object", additionalProperties: true },
+      limit: { type: "integer" },
+      offset: { type: "integer" },
       requestId: { type: "string" }
     }
   },
-  ContestSeasonFinalResponse: {
+  GameRankingWeeklySnapshot: {
     type: "object",
-    required: ["season", "finalGame", "requestId"],
     properties: {
-      season: { $ref: "#/components/schemas/ContestSeason" },
-      finalGame: { type: "object", additionalProperties: true },
-      requestId: { type: "string" }
+      weekKey: { type: "string" },
+      periodStart: { type: "string", format: "date-time" },
+      periodEnd: { type: "string", format: "date-time" },
+      generatedAt: { type: "string", format: "date-time" },
+      entries: { type: "array", items: { $ref: "#/components/schemas/GameRankingEntry" } }
     }
   },
-  GameContestHonorsResponse: {
+  GameRankingWeeklyResponse: {
     type: "object",
-    required: ["contest", "requestId"],
+    required: ["snapshots", "requestId"],
     properties: {
-      contest: { type: "object", additionalProperties: true },
-      honors: { oneOf: [{ $ref: "#/components/schemas/GameHonorsEntry" }, { type: "null" }] },
-      reason: { type: "string", nullable: true },
+      snapshots: { type: "array", items: { $ref: "#/components/schemas/GameRankingWeeklySnapshot" } },
+      latest: { oneOf: [{ $ref: "#/components/schemas/GameRankingWeeklySnapshot" }, { type: "null" }] },
+      limit: { type: "integer" },
+      offset: { type: "integer" },
       requestId: { type: "string" }
     }
   },
@@ -1589,7 +1482,6 @@ const gameSchemas = {
     required: ["honors", "requestId"],
     properties: {
       honors: { $ref: "#/components/schemas/GameHonorsEntry" },
-      contestId: { type: "string", nullable: true },
       requestId: { type: "string" }
     }
   },
@@ -1612,7 +1504,6 @@ const gameSchemas = {
       gameStatus: { type: "string" },
       phase: { type: "string", nullable: true },
       currentTurn: { type: "integer", nullable: true },
-      contestMode: { type: "string", nullable: true },
       required: { type: "boolean" },
       action: { type: "string" },
       description: { type: "string" },
@@ -1665,8 +1556,7 @@ const gameSchemas = {
           negotiationEndsAt: { type: "string", format: "date-time", nullable: true },
           executionEndsAt: { type: "string", format: "date-time", nullable: true },
           endsAt: { type: "string", format: "date-time", nullable: true },
-          contestMode: { type: "string", nullable: true },
-          finishSurvivorCount: { type: "integer", nullable: true }
+              finishSurvivorCount: { type: "integer", nullable: true }
         }
       },
       secondsRemaining: { type: "integer", nullable: true },
@@ -1784,7 +1674,6 @@ const gameSchemas = {
       { $ref: "#/components/schemas/GameSseGameStarted" },
       { $ref: "#/components/schemas/GameSseGameCancelled" },
       { $ref: "#/components/schemas/GameSseGameFinished" },
-      { $ref: "#/components/schemas/GameSsePrizeSettlement" },
       { $ref: "#/components/schemas/GameSseRecollectionSubmitted" }
     ],
     discriminator: {
@@ -1796,7 +1685,6 @@ const gameSchemas = {
         game_started: "#/components/schemas/GameSseGameStarted",
         game_cancelled: "#/components/schemas/GameSseGameCancelled",
         game_finished: "#/components/schemas/GameSseGameFinished",
-        prize_settlement: "#/components/schemas/GameSsePrizeSettlement",
         recollection_submitted: "#/components/schemas/GameSseRecollectionSubmitted"
       }
     }

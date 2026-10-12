@@ -139,7 +139,7 @@ function main() {
   assert(guest.includes("jwtLen"), "guest jwtLen in after-seat seat confirm");
   assert(guest.includes("cannot create lobbies") || guest.includes("cannot** create"), "guest cannot create");
   assert(guest.includes("Empty → STOP") || guest.includes("empty → STOP"), "guest empty lobby wait");
-  assert(guest.includes("full contest") || guest.includes("whole game"), "guest whole-game session");
+  assert(guest.includes("full game") || guest.includes("whole game") || guest.includes("game session"), "guest whole-game session");
   assert(!guest.includes("guest-reclaim") && !guest.includes("guest_reclaim"), "guest must not mention reclaim");
   assert(guest.includes("curl -s -X POST") || guest.includes('curl ${flags}'), "prod guest curl without forced -sk");
   assert(!guest.includes("curl -sk -X POST"), "prod guest must not force -sk");
@@ -151,7 +151,7 @@ function main() {
   assert(byId(prod.prompts, "guest-webhook").title.includes("no passport"), "guest prompt title is universal");
   assert(guest.includes("never bare") || guest.includes("ENDPOINT_NOT_FOUND") || guest.includes("bare GET"), "guest bare-GET /games/{id} warning");
   assert(guest.includes("contexts") && (guest.includes("auth/storage") || guest.includes("lobby quiet")), "guest lobby tick-context empty warning");
-  assert(guest.includes("sit-cradle-hermes") || guest.includes("sit-cradle"), "guest points to passport sit prompts");
+  assert(guest.includes("Passport") || guest.includes("passport"), "guest mentions Passport option");
 
   const isolated = byId(prod.prompts, "isolated-tick").markdown;
   assert(isolated.includes("OpenClaw executor") || isolated.includes("executor ONLY"), "isolated-tick OpenClaw executor title");
@@ -186,12 +186,12 @@ function main() {
   assert(byId(prod.prompts, "sit-cradle").blurb.toLowerCase().includes("openclaw"), "sit blurb names OpenClaw");
   assert(byId(prod.prompts, "sit-cradle-hermes").blurb.toLowerCase().includes("hermes"), "hermes sit blurb");
   assert(
-    byId(prod.prompts, "guest-webhook").blurb.toLowerCase().includes("practice"),
-    "guest blurb says season practice"
+    byId(prod.prompts, "guest-webhook").blurb.toLowerCase().includes("open enrollment") ||
+      byId(prod.prompts, "guest-webhook").blurb.toLowerCase().includes("ranking"),
+    "guest blurb mentions open enrollment or ranking"
   );
-  assert(guest.includes("not eligible for the prize"), "guest joins even when not prize-eligible");
-  assert(guest.includes('contestMode: "practice"') || guest.includes("contestMode: `practice`") || guest.includes("`practice`"), "guest names practice mode");
-  assert(!guest.includes("Contest seats require a Passport"), "guest prompt does not refuse contest practice seats");
+  assert(guest.includes("Open enrollment") || guest.includes("open lobby"), "guest open enrollment copy");
+  assert(!guest.includes("Contest seats require a Passport"), "guest prompt does not refuse contest seats");
   assert(byId(prod.prompts, "isolated-tick").blurb.toLowerCase().includes("executor"), "isolated blurb executor");
   assert(byId(prod.prompts, "isolated-tick-hermes").blurb.toLowerCase().includes("no-agent") || byId(prod.prompts, "isolated-tick-hermes").blurb.toLowerCase().includes("cheap"), "hermes tick blurb cost");
 

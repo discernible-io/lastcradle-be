@@ -228,7 +228,7 @@ async function collectActivityMetrics(gameId, agents) {
   return byAgent;
 }
 
-async function buildGameHonors(game, { contest = null } = {}) {
+async function buildGameHonors(game) {
   if (!game || game.status !== "finished") {
     return null;
   }
@@ -297,15 +297,10 @@ async function buildGameHonors(game, { contest = null } = {}) {
 
   return {
     gameId: game.id,
-    contestId: contest?.id ?? null,
-    contestMode: game.config?.contestMode ?? null,
-    contestStatus: contest?.status ?? null,
     finishedAt: game.finished_at,
     startedAt: game.started_at,
     durationMs: durationMs(game),
     finishReason: inferFinishReason(game),
-    prizeStatus: contest?.prizeStatus ?? null,
-    prizeTxReference: contest?.prizeTxReference ?? null,
     gameMetrics: {
       totalTurns,
       playerCount: agents.length,
@@ -319,46 +314,12 @@ async function buildGameHonors(game, { contest = null } = {}) {
   };
 }
 
-async function buildContestHonors(contestId) {
-  const contest = await repo.getContestById(contestId);
-  if (!contest) {
-    return null;
-  }
-  const game = await repo.getGameById(contest.definitiveGameId);
-  if (!game) {
-    return null;
-  }
-  const honors = await buildGameHonors(game, { contest });
-  if (!honors) {
-    return { contest, honors: null, reason: "game_not_finished" };
-  }
-  return { contest, honors };
-}
-
+/** Public hall of fame: recent finished-game honors (all casual finishes). */
 async function listHallOfFame({ limit = 20, offset = 0 } = {}) {
-  const rows = await repo.listFinishedDefinitiveContests({ limit, offset });
-  const entries = [];
-  for (const game of rows) {
-    const contest = await repo.getContestById(game.contestId);
-    const honors = await buildGameHonors(game, { contest });
-    if (honors) {
-      entries.push(honors);
-    }
-  }
-  return entries;
-}
-
-/** Recent finished games that are not definitive contest finales (casual / practice). */
-async function listRecentFinishes({ limit = 20, offset = 0 } = {}) {
-  const games = await repo.listFinishedGames({
-    limit,
-    offset,
-    excludeContestDefinitive: true
-  });
+  const games = await repo.listFinishedGames({ limit, offset });
   const entries = [];
   for (const game of games) {
-    const contest = await repo.getContestByGameId(game.id);
-    const honors = await buildGameHonors(game, { contest });
+    const honors = await buildGameHonors(game);
     if (honors) {
       entries.push(honors);
     }
@@ -368,8 +329,6 @@ async function listRecentFinishes({ limit = 20, offset = 0 } = {}) {
 
 module.exports = {
   buildGameHonors,
-  buildContestHonors,
   listHallOfFame,
-  listRecentFinishes,
   SUPERLATIVE_DEFS
 };

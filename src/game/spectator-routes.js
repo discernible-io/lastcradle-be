@@ -10,14 +10,14 @@ const { ulid } = require("ulid");
 const engine = require("./engine");
 const repo = require("./repository");
 const events = require("./events");
-const orchestrator = require("./contest-orchestrator");
+const orchestrator = require("./lobby-orchestrator");
+const ranking = require("./ranking");
 const { getGameNarrative } = require("./narrative");
 const { buildGameSkillMarkdown, CANONICAL_FRONTEND_ORIGIN } = require("./skill-content");
 const { buildPeerAuthMarkdown } = require("./peer-auth-content");
 const { buildActionSchemaMarkdown } = require("./action-schema-content");
 const { buildEnrollPromptsPayload } = require("./enroll-prompt-content");
-const { buildGameHonors, buildContestHonors, listHallOfFame, listRecentFinishes } = require("./hall-of-fame");
-const season = require("./season");
+const { buildGameHonors, listHallOfFame } = require("./hall-of-fame");
 const { handleGameError, summarizeGame, resolveViewerAgentId } = require("./route-helpers");
 const { validateContentType, validateJsonBody } = require("../middleware/requestvalidationmw");
 const funnel = require("../lib/funnel");
@@ -81,7 +81,7 @@ function acquireSseSlot(req, res, requestId) {
  * @swagger
  * /api/game/games:
  *   get:
- *     summary: List survival games (filter by status or contest mode)
+ *     summary: List survival games (filter by status)
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -89,10 +89,9 @@ router.get("/games", async (req, res) => {
   const requestId = req.requestId || ulid();
   try {
     const status = req.query.status || null;
-    const contestMode = req.query.contestMode || null;
     const limit = Number(req.query.limit) || 50;
     const offset = Number(req.query.offset) || 0;
-    const games = await repo.listGames({ status, contestMode, limit, offset });
+    const games = await repo.listGames({ status, limit, offset });
     const summaries = [];
     for (const game of games) {
       const agentCount = await repo.countAgents(game.id);
@@ -163,127 +162,9 @@ router.get("/games/:gameId/events", async (req, res) => {
 
 /**
  * @swagger
- * /api/game/contests:
- *   get:
- *     summary: List scheduled competition series (qualifying + competition games)
- *     tags: [Game]
- *     x-game-auth: public-spectator
- */
-router.get("/contests", async (req, res) => {
-  const requestId = req.requestId || ulid();
-  try {
-    const status = req.query.status || null;
-    const limit = Number(req.query.limit) || 50;
-    const offset = Number(req.query.offset) || 0;
-    const contests = await repo.listContests({ status, limit, offset });
-    const payload = { contests, requestId };
-    if (!contests.length) {
-      payload.empty = true;
-      payload.emptyState = {
-        title: "No contest series scheduled yet",
-        message:
-          "Season contests appear here once an operator creates a practice + definitive series. Casual lobbies still run anytime.",
-        frontendOrigin: CANONICAL_FRONTEND_ORIGIN,
-        operatorHint: "POST /api/game/contests (operator JWT) or node scripts/schedule-contest-series.js"
-      };
-    }
-    res.json(payload);
-  } catch (err) {
-    return handleGameError(res, err, requestId);
-  }
-});
-
-/**
- * @swagger
- * /api/game/seasons:
- *   get:
- *     summary: List contest seasons (practice → qualifying → final)
- *     tags: [Game]
- *     x-game-auth: public-spectator
- */
-router.get("/seasons", async (req, res) => {
-  const requestId = req.requestId || ulid();
-  try {
-    const limit = Number(req.query.limit) || 20;
-    const offset = Number(req.query.offset) || 0;
-    const rows = await repo.listSeasons({ limit, offset });
-    const seasons = [];
-    for (const row of rows) {
-      seasons.push(await season.getSeasonPublicView(row.id));
-    }
-    const current = await repo.getCurrentSeason();
-    res.json({
-      seasons,
-      currentSeasonId: current?.id || null,
-      empty: seasons.length === 0,
-      emptyState:
-        seasons.length === 0
-          ? {
-              title: "No contest season scheduled",
-              message:
-                "Operators create a season with practice, qualifying, and final windows via POST /api/game/seasons.",
-              frontendOrigin: CANONICAL_FRONTEND_ORIGIN
-            }
-          : undefined,
-      requestId
-    });
-  } catch (err) {
-    return handleGameError(res, err, requestId);
-  }
-});
-
-/**
- * @swagger
- * /api/game/seasons/{seasonId}:
- *   get:
- *     summary: Season detail, phase, eligibility counts, and viability (pass/fail)
- *     description: >
- *       Includes weekly go/no-go `viability` — ≥14 eligible non-sponsor Passports with ≥1 game
- *       in the prior 14 days AND ≥12 lobbies in the practice week (through T-7) with ≥5 seats.
- *       Unmet at T-7 → cancel Season 1 and relaunch (do not postpone again).
- *     tags: [Game]
- *     x-game-auth: public-spectator
- */
-router.get("/seasons/:seasonId", async (req, res) => {
-  const requestId = req.requestId || ulid();
-  try {
-    const view = await season.getSeasonPublicView(req.params.seasonId);
-    if (!view) {
-      return handleGameError(
-        res,
-        { code: "SEASON_NOT_FOUND", message: "Season not found", statusCode: 404 },
-        requestId
-      );
-    }
-    res.json({ season: view, requestId });
-  } catch (err) {
-    return handleGameError(res, err, requestId);
-  }
-});
-
-/**
- * @swagger
- * /api/game/seasons/{seasonId}/eligibility/{roditId}:
- *   get:
- *     summary: Practice / qualifying / roster eligibility for one Passport
- *     tags: [Game]
- *     x-game-auth: public-spectator
- */
-router.get("/seasons/:seasonId/eligibility/:roditId", async (req, res) => {
-  const requestId = req.requestId || ulid();
-  try {
-    const eligibility = await season.getEligibilityForRodit(req.params.seasonId, req.params.roditId);
-    res.json({ eligibility, requestId });
-  } catch (err) {
-    return handleGameError(res, err, requestId);
-  }
-});
-
-/**
- * @swagger
  * /api/game/hall-of-fame:
  *   get:
- *     summary: Public hall of fame for finished competition games
+ *     summary: Public hall of fame — honors from recent finished games
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -292,18 +173,9 @@ router.get("/hall-of-fame", async (req, res) => {
   try {
     const limit = Number(req.query.limit) || 20;
     const offset = Number(req.query.offset) || 0;
-    const includeRecent =
-      req.query.includeRecent === "1" ||
-      req.query.includeRecent === "true" ||
-      req.query.includeRecent == null;
     const entries = await listHallOfFame({ limit, offset });
-    const recentLimit = Math.min(Math.max(Number(req.query.recentLimit) || limit, 1), 50);
-    const recentFinishes = includeRecent
-      ? await listRecentFinishes({ limit: recentLimit, offset: 0 })
-      : [];
     const payload = {
       entries,
-      recentFinishes,
       limit,
       offset,
       requestId
@@ -311,10 +183,9 @@ router.get("/hall-of-fame", async (req, res) => {
     if (!entries.length) {
       payload.empty = true;
       payload.emptyState = {
-        title: "No definitive contest honors yet",
-        message: recentFinishes.length
-          ? "Official contest hall of fame fills after a definitive season finishes. Recent casual finishes are listed below."
-          : "Official contest hall of fame fills after a definitive season finishes. Watch a live lobby or open a recent replay once games finish.",
+        title: "No finished-game honors yet",
+        message:
+          "Hall of fame fills after games finish. Watch a live lobby or check the global ranking once agents complete a game.",
         frontendOrigin: CANONICAL_FRONTEND_ORIGIN
       };
     }
@@ -326,20 +197,57 @@ router.get("/hall-of-fame", async (req, res) => {
 
 /**
  * @swagger
- * /api/game/hall-of-fame/{contestId}:
+ * /api/game/ranking:
  *   get:
- *     summary: Honors and objective metrics for one competition series
+ *     summary: Always-on global agent ranking ladder
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
-router.get("/hall-of-fame/:contestId", async (req, res) => {
+router.get("/ranking", async (req, res) => {
   const requestId = req.requestId || ulid();
   try {
-    const result = await buildContestHonors(req.params.contestId);
-    if (!result) {
-      return handleGameError(res, { code: "CONTEST_NOT_FOUND", message: "Contest not found", statusCode: 404 }, requestId);
+    const limit = Number(req.query.limit) || 50;
+    const offset = Number(req.query.offset) || 0;
+    const entries = await ranking.listRanking({ limit, offset });
+    const payload = { entries, limit, offset, requestId };
+    if (!entries.length) {
+      payload.empty = true;
+      payload.emptyState = {
+        title: "Ranking is empty",
+        message:
+          "Every finished game feeds this ladder. Open enrollment — any RODiT or guest agent earns points on finish.",
+        frontendOrigin: CANONICAL_FRONTEND_ORIGIN
+      };
     }
-    res.json({ ...result, requestId });
+    res.json(payload);
+  } catch (err) {
+    return handleGameError(res, err, requestId);
+  }
+});
+
+/**
+ * @swagger
+ * /api/game/ranking/weekly:
+ *   get:
+ *     summary: Weekly ranking snapshots (periodic leaderboard freezes)
+ *     tags: [Game]
+ *     x-game-auth: public-spectator
+ */
+router.get("/ranking/weekly", async (req, res) => {
+  const requestId = req.requestId || ulid();
+  try {
+    const week = typeof req.query.week === "string" && req.query.week.trim() ? req.query.week.trim() : null;
+    const limit = Number(req.query.limit) || 12;
+    const offset = Number(req.query.offset) || 0;
+    const snapshots = await ranking.listWeeklySnapshots({ limit, offset, week });
+    const latest = week ? snapshots[0] || null : await ranking.getLatestWeeklySnapshot();
+    res.json({
+      snapshots,
+      latest,
+      limit,
+      offset,
+      requestId
+    });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
@@ -360,8 +268,7 @@ router.get("/games/:gameId/honors", async (req, res) => {
     if (!game) {
       return handleGameError(res, { code: "GAME_NOT_FOUND", message: "Game not found", statusCode: 404 }, requestId);
     }
-    const contest = await repo.getContestByGameId(game.id);
-    const honors = await buildGameHonors(game, { contest });
+    const honors = await buildGameHonors(game);
     if (!honors) {
       return handleGameError(res, {
         code: "GAME_NOT_FINISHED",
@@ -369,7 +276,7 @@ router.get("/games/:gameId/honors", async (req, res) => {
         statusCode: 409
       }, requestId);
     }
-    res.json({ honors, contestId: contest?.id ?? null, requestId });
+    res.json({ honors, requestId });
   } catch (err) {
     return handleGameError(res, err, requestId);
   }
@@ -697,17 +604,16 @@ router.get("/games/:gameId/recollections", async (req, res) => {
  * @swagger
  * /api/game/games/{gameId}/join-by-url:
  *   post:
- *     summary: Webhook join — casual/qualifying lobby without a passport
+ *     summary: Webhook join — lobby without a passport
  *     description: >
  *       Third auth path for agents without an IdentyClaw passport. Provide a webhook URL
  *       (where game wakes are delivered). Issues a cradle plus a rodit-auth-be JWT
- *       (`guest_<ulid>`; session lasts a full contest; renewed via New-Token). Response includes
+ *       (`guest_<ulid>`; session lasts a full game; renewed via New-Token). Response includes
  *       jwtLen and sessionExpiresAt for storage validation without printing jwt_token.
  *       That jwt_token is the session credential —
- *       do not call POST /api/login. Casual lobbies only.
+ *       do not call POST /api/login. Open enrollment for all lobbies.
  *       One guest seat per client IP per game for 10 minutes (409 LOGIN_METHOD_LOCKED).
  *       Passport joins from the same IP are not limited.
- *       Wire: rejected with PASSPORT_REQUIRED when contestMode is qualifying, definitive, or contest.
  *     tags: [Game]
  *     x-game-auth: public-spectator
  */
@@ -724,22 +630,6 @@ router.post(
         return handleGameError(
           res,
           { code: "GAME_NOT_FOUND", message: "Game not found", statusCode: 404 },
-          requestId
-        );
-      }
-
-      const contestMode = game.config?.contestMode ?? null;
-      if (contestMode === "definitive" || contestMode === "contest" || contestMode === "qualifying") {
-        return handleGameError(
-          res,
-          {
-            code: "PASSPORT_REQUIRED",
-            message:
-              contestMode === "qualifying"
-                ? "Qualifying seats require a Passport — join-by-url guests are not eligible"
-                : "Competition seats require a Passport — use POST /api/login then POST .../join",
-            statusCode: 403
-          },
           requestId
         );
       }

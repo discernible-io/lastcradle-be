@@ -10,6 +10,7 @@
 2. **`legacy`** was created from the old **`main`** tip to preserve that history (`git branch legacy main`).
 3. **`development`** was merged into **`main`** so **`main`** is again the primary line with SDK 9.x, CRUDA showcase, and compliance work.
 4. **`legacy`** is an **archive only** — no routine commits; use it to diff or rebuild the old stack if needed.
+5. **`archive/contest-season1`** (tag `contest-season1`) freezes the Season 1 contest / season / prize system before always-on ranking replaced it.
 
 ## Branches today
 
@@ -18,6 +19,7 @@
 | **`main`** | Production SLC (`api.lastcradle.io`; frontend `lastcradle.io` / `www.lastcradle.io`) | Yes |
 | **`development`** | Development tier (`slcapi.dihola.io:9443`; frontend `slc.dihola.io:10443`) | Yes |
 | **`legacy`** | Frozen snapshot of pre-migration `main` | No |
+| **`archive/contest-season1`** | Frozen snapshot of Season 1 contest/season/prize code (tag `contest-season1`) | No |
 
 ## Day-to-day workflow
 
@@ -32,8 +34,8 @@ git push origin main
 
 ## Do not
 
-- Commit new features on **`legacy`** (archive).
-- Force-push **`legacy`** unless deliberately rewriting the archive (avoid).
+- Commit new features on **`legacy`** or **`archive/contest-season1`** (archives).
+- Force-push archive branches unless deliberately rewriting the archive (avoid).
 
 ## One-time setup (already done locally)
 

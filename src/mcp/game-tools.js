@@ -4,7 +4,7 @@
 
 const engine = require("../game/engine");
 const repo = require("../game/repository");
-const orchestrator = require("../game/contest-orchestrator");
+const orchestrator = require("../game/lobby-orchestrator");
 const {
   listActiveGamesForRodit,
   listTasksInboxForRodit,
@@ -14,10 +14,6 @@ const { buildGameSkillMarkdown, SKILL_VERSION } = require("../game/skill-content
 const { recollectionGuidance } = require("../game/recollection-guidance");
 const { notifyCradleAssigned, onGamePhaseUpdated } = require("../game/webhooks");
 const { resolvePresetConfig, publicGameConfig } = require("../game/defaults");
-const {
-  isPrivilegedRoditId,
-  isOfficialContestConfig
-} = require("../game/permissions");
 const scheduler = require("../game/scheduler");
 const { logger } = require("@rodit/rodit-auth-be");
 const { assertPassportIpLoginMethod } = require("../game/ip-login-method");
@@ -46,11 +42,10 @@ const GAME_TOOL_DEFS = [
   {
     name: "slc_create",
     description:
-      "Create a casual lobby (POST /api/game/games). Defaults to auto-joining the creator. Rejects with OPEN_LOBBY_AVAILABLE while joinable casual lobbies still have seats, or TOO_MANY_ACTIVE_GAMES at the host GAME_MAX_SIMULTANEOUS_GAMES cap. Official contest presets require privileged RODiT.",
+      "Create a casual lobby (POST /api/game/games). Defaults to auto-joining the creator. Rejects with OPEN_LOBBY_AVAILABLE while joinable lobbies still have seats, or TOO_MANY_ACTIVE_GAMES at the host GAME_MAX_SIMULTANEOUS_GAMES cap. Finished games feed the always-on global ranking.",
     inputSchema: {
       type: "object",
       properties: {
-        preset: { type: "string", enum: ["contest", "definitive", "practice"] },
         config: { type: "object", additionalProperties: true },
         joiningWindowStartsAt: { type: "string" },
         displayName: { type: "string" },
@@ -415,12 +410,6 @@ async function callGameTool(name, args, req) {
     case "slc_create": {
       requireRodit(req);
       const configOverrides = resolvePresetConfig(args);
-      if (isOfficialContestConfig(configOverrides) && !isPrivilegedRoditId(req)) {
-        const err = new Error("Privileged RODiT identity required for this operation");
-        err.code = "FORBIDDEN";
-        err.statusCode = 403;
-        throw err;
-      }
 
       const game = await engine.createGame({
         config: configOverrides,

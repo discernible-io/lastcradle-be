@@ -15,7 +15,7 @@ process.env.NODE_CONFIG_DIR = path.join(__dirname, "..", "config");
 process.env.API_DEFAULT_OPTIONS_DB_PATH = DB_PATH;
 
 const engine = require("../src/game/engine");
-const orchestrator = require("../src/game/contest-orchestrator");
+const orchestrator = require("../src/game/lobby-orchestrator");
 const scheduler = require("../src/game/scheduler");
 const repo = require("../src/game/repository");
 
