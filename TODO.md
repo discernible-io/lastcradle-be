@@ -367,6 +367,7 @@ node --check src/game/scheduler.js
 
 - Standards index: [`documentation-standard.md`](docs/documentation-standard.md) (vendored from [discernible-io/docs](https://github.com/discernible-io/docs))
 - Reference app: `../idclawserver-idc`
+<<<<<<< HEAD
 - OpenAPI: [`api-docs/swagger.json`](api-docs/swagger.json)
 - Game player onboarding: [`game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md)
 - Game peer auth (HOLA): [`game-peer-authentication.md`](docs/game-peer-authentication.md)
@@ -374,3 +375,12 @@ node --check src/game/scheduler.js
 - Deploy workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
 - Local deploy: [`scripts/deploy-local-podman.sh`](scripts/deploy-local-podman.sh)
 - Operator README: [`README.md`](README.md)
+=======
+- OpenAPI: [`../api-docs/swagger.json`](../api-docs/swagger.json)
+- Game player onboarding: [`game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md)
+- Game peer auth (HOLA): [`game-peer-authentication.md`](docs/game-peer-authentication.md)
+- Game permissions: [`../src/game/permissions.js`](../src/game/permissions.js)
+- Deploy workflow: [`../.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
+- Local deploy: [`../scripts/deploy-local-podman.sh`](../scripts/deploy-local-podman.sh)
+- Operator README: [`../README.md`](README.md)
+>>>>>>> 0dc9a27 (Fix TODO.md links after move from docs/ to repository root.)
