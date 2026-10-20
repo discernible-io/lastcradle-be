@@ -1,13 +1,13 @@
 # Security & standards compliance
 
-> **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
+> **Before editing:** Review [`documentation-standard.md`](docs/documentation-standard.md).
 
 **Created:** 2026-05-29  
 **Last updated:** 2026-06-23 (game auth policy + OpenAPI alignment)
 
 | | |
 |---|---|
-| **Scope** | `syntheticslastcradle` vs organization standards in [`docs/`](.) and `idclawserver-idc` |
+| **Scope** | `syntheticslastcradle` vs organization standards in [`docs/`](docs/) and `idclawserver-idc` |
 | **API role** | Auth reference + **CRUDA** comment showcase (no `/api/echo`) |
 
 ## Executive summary
@@ -30,9 +30,9 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 
 | Priority | Standard | Gap | Evidence | Suggested fix |
 |----------|----------|-----|----------|---------------|
-| P2 | [`configuration-standard.md`](configuration-standard.md) | Config via SDK, not ad-hoc `process.env` mutation | `src/app.js`: `process.env.NEAR_RPC_URL = selectedRpcUrl` after `resolveHealthyNearRpcUrl()` | Pass selected URL into SDK config layer when available; **reference app `idclawserver-idc` uses the same pattern today** |
-| P3 | [`documentation-standard.md`](documentation-standard.md) | Game OpenAPI response schemas still minimal for some routes | Join/state/SSE payloads | Extend swagger components as game API stabilizes |
-| P4 | [`configuration-standard.md`](configuration-standard.md) | Branch JSON self-contained for all tier-tunable keys | `NEAR_CONTRACT_ID`, `LOKI_URL`, `MINTING_FEE`, etc. only in `custom-environment-variables.json` / host `secrets.env` | Commit tier-specific non-secret values to `config/development.json` and `config/main.json` where branch merges require them |
+| P2 | [`configuration-standard.md`](docs/configuration-standard.md) | Config via SDK, not ad-hoc `process.env` mutation | `src/app.js`: `process.env.NEAR_RPC_URL = selectedRpcUrl` after `resolveHealthyNearRpcUrl()` | Pass selected URL into SDK config layer when available; **reference app `idclawserver-idc` uses the same pattern today** |
+| P3 | [`documentation-standard.md`](docs/documentation-standard.md) | Game OpenAPI response schemas still minimal for some routes | Join/state/SSE payloads | Extend swagger components as game API stabilizes |
+| P4 | [`configuration-standard.md`](docs/configuration-standard.md) | Branch JSON self-contained for all tier-tunable keys | `NEAR_CONTRACT_ID`, `LOKI_URL`, `MINTING_FEE`, etc. only in `custom-environment-variables.json` / host `secrets.env` | Commit tier-specific non-secret values to `config/development.json` and `config/main.json` where branch merges require them |
 
 ### Operator-only (not repo gaps)
 
@@ -110,7 +110,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 
 ## Compliance by standard
 
-### Vocabulary ([`vocabulary-standard.md`](vocabulary-standard.md))
+### Vocabulary ([`vocabulary-standard.md`](docs/vocabulary-standard.md))
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
@@ -119,7 +119,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Local deploy `TARGET=development\|main` | **Met** | `scripts/deploy-local-podman.sh` |
 | No *production* for deployment tier in app code | **Met** | `isMainTier()` in `src/app.js`; README uses **main** / **development** |
 
-### CI/CD deployment ([`cicd-deployment-standard.md`](cicd-deployment-standard.md))
+### CI/CD deployment ([`cicd-deployment-standard.md`](docs/cicd-deployment-standard.md))
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
@@ -135,7 +135,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Slim API image, npm removed | **Met** | Multi-stage `api.Dockerfile` |
 | `apk` tini only in production stage | **Met** | `ENTRYPOINT ["/sbin/tini", "--"]` in `api.Dockerfile` |
 
-### Configuration ([`configuration-standard.md`](configuration-standard.md))
+### Configuration ([`configuration-standard.md`](docs/configuration-standard.md))
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
@@ -147,7 +147,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | `validateConfig` aborts startup | **Met** | Re-throw after error log in `startServer()` |
 | No ad-hoc `process.env` mutation | **Nuanced** | `NEAR_RPC_URL` set after RPC fallback — see [remaining](#remaining-gaps); matches `idclawserver-idc` |
 
-### Error handling ([`error-handling-standard.md`](error-handling-standard.md))
+### Error handling ([`error-handling-standard.md`](docs/error-handling-standard.md))
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
@@ -157,7 +157,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Login silent mode | **Met** | `SECURITY_OPTIONS.SILENT_LOGIN_FAILURES` |
 | Malformed JSON → `sendError` | **Met** | `INVALID_JSON` middleware after `express.json` |
 
-### Logging ([`logging-standard.md`](logging-standard.md))
+### Logging ([`logging-standard.md`](docs/logging-standard.md))
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
@@ -168,7 +168,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Single request completion log at `info` | **Met** | One `Request completed` per request in `src/app.js` |
 | Stack traces gated on main tier | **Met** | `isMainTier()` in global error handler |
 
-### Allowed fallbacks ([`allowed-fallback-standard.md`](allowed-fallback-standard.md))
+### Allowed fallbacks ([`allowed-fallback-standard.md`](docs/allowed-fallback-standard.md))
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
@@ -177,7 +177,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | No other fallback patterns | **Met** | Main-tier session fail-fast; Swagger uses `SERVICE_NAME` tier URL |
 | Webhook failure policy explicit | **Met** | Documented in `src/protected/cruda.js` (best-effort delivery) |
 
-### Documentation ([`documentation-standard.md`](documentation-standard.md))
+### Documentation ([`documentation-standard.md`](docs/documentation-standard.md))
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
@@ -260,7 +260,7 @@ Configure **once per environment** (not stored in this repo):
 | TLS PEMs | `~/syntheticlc-app/certs/fullchain.pem`, `privkey.pem` |
 | Linger | `loginctl enable-linger <deploy-user>` or rely on deploy script |
 
-Branches ([`BRANCHING.md`](BRANCHING.md)):
+Branches ([`BRANCHING.md`](docs/BRANCHING.md)):
 
 | Branch | Role | `NODE_ENV` | Deploy on push | `server_name` |
 |--------|------|------------|----------------|---------------|
@@ -340,7 +340,7 @@ Contest / season / prize surfaces were removed from the active line (archived on
 - **Phase timeouts must not leak hidden state** — auto-default execution actions are `{ type: "none" }`; spectators must not gain intelligence visibility (see `canViewerSeeCapacities`).
 - **Open enrollment** — passport JWT or guest join-by-url; guest `guest_*` ranking rows are per-session.
 - **Rate limits** on game endpoints remain via existing nginx / `userratelimitmw`.
-- Game routes accept any authenticated IdentyClaw / RODiT passport JWT (no `METHOD_PERMISSION_MAP`). See swagger `x-game-auth` and [`docs/game-player-onboarding-howto.md`](game-player-onboarding-howto.md).
+- Game routes accept any authenticated IdentyClaw / RODiT passport JWT (no `METHOD_PERMISSION_MAP`). See swagger `x-game-auth` and [`docs/game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md).
 
 ### Verification
 
@@ -365,12 +365,12 @@ node --check src/game/scheduler.js
 
 ## References
 
-- Standards index: [`documentation-standard.md`](documentation-standard.md) (vendored from [discernible-io/docs](https://github.com/discernible-io/docs))
+- Standards index: [`documentation-standard.md`](docs/documentation-standard.md) (vendored from [discernible-io/docs](https://github.com/discernible-io/docs))
 - Reference app: `../idclawserver-idc`
-- OpenAPI: [`../api-docs/swagger.json`](../api-docs/swagger.json)
-- Game player onboarding: [`game-player-onboarding-howto.md`](game-player-onboarding-howto.md)
-- Game peer auth (HOLA): [`game-peer-authentication.md`](game-peer-authentication.md)
-- Game permissions: [`../src/game/permissions.js`](../src/game/permissions.js)
-- Deploy workflow: [`../.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
-- Local deploy: [`../scripts/deploy-local-podman.sh`](../scripts/deploy-local-podman.sh)
-- Operator README: [`../README.md`](../README.md)
+- OpenAPI: [`api-docs/swagger.json`](api-docs/swagger.json)
+- Game player onboarding: [`game-player-onboarding-howto.md`](docs/game-player-onboarding-howto.md)
+- Game peer auth (HOLA): [`game-peer-authentication.md`](docs/game-peer-authentication.md)
+- Game permissions: [`src/game/permissions.js`](src/game/permissions.js)
+- Deploy workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
+- Local deploy: [`scripts/deploy-local-podman.sh`](scripts/deploy-local-podman.sh)
+- Operator README: [`README.md`](README.md)
