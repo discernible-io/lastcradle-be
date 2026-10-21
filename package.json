@@ -1,10 +1,18 @@
 {
   "dependencies": {
+<<<<<<< HEAD
     "@modelcontextprotocol/sdk": "1.32.1",
     "@rodit/rodit-auth-be": "9.17.0",
     "config": "^4.4.2",
     "connect-sqlite3": "0.9.18",
     "express": "4.22.3",
+=======
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@rodit/rodit-auth-be": "9.17.4",
+    "config": "^4.4.1",
+    "connect-sqlite3": "0.9.16",
+    "express": "4.21.2",
+>>>>>>> af9a521 (Bump @rodit/rodit-auth-be to 9.17.4.)
     "express-session": "^1.19.0",
     "nodemon": "^3.1.14",
     "sqlite": "^5.1.1",
