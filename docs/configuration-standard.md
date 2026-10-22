@@ -122,13 +122,14 @@ Certain config keys **must differ** between development and main branches. These
 | --- | --- | --- |
 | `SERVICE_NAME` | `slcapi.dihola.io` | `api.lastcradle.io` |
 | `FRONTEND_ORIGIN` | `https://slc.dihola.io:10443` | `https://lastcradle.io` |
-| `SIGNPORTAL_API_URL` | signportal.dihola.io | signportal.roditcorp.com |
+| `PUBLIC_PORT` | `9443` | `13443` |
 | `NEAR_CONTRACT_ID` | `genaaaa-identyclaw-com.near` | `genaaaa-identyclaw-com.near` |
-| `MINTING_FEE` | `0.4` | `0.28` |
 | `LOG_LEVEL` | `debug` | `info` |
-| `WEBHOOK_TEST_ENABLED` | `true` | `false` |
 | `LOKI_URL` | `https://grafana47.dihola.io:3100` | `https://grafana46.discernible.io:3100` |
+| `LOKI_TLS_SKIP_VERIFY` | `"true"` | `"false"` |
 | `SECURITY_OPTIONS.WEBHOOK_TLS_SKIP_VERIFY` | `"true"` | `"true"` |
+
+Unused in this service (do not re-add without a `src/` consumer): `MINTING_FEE`, `MINTING_FEEACCOUNT`, `SIGNPORTAL_API_URL`, `WEBHOOK_TEST_ENABLED`.
 
 `NEAR_CONTRACT_ID` is embedded in generated token IDs and signatures; using the wrong contract ID causes token validation failures in the target environment.
 

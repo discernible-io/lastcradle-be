@@ -40,6 +40,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout repository
@@ -88,6 +90,8 @@ jobs:
           context: .
           file: ./api.Dockerfile
           push: true
+          provenance: mode=max
+          sbom: true
           build-args: |
             NODE_ENV=${{ env.NODE_ENV }}
           tags: |
@@ -102,6 +106,8 @@ jobs:
           context: .
           file: ./nginx.Dockerfile
           push: true
+          provenance: mode=max
+          sbom: true
           build-args: |
             NODE_ENV=${{ env.NODE_ENV }}
             APP_PORT=${{ env.APP_PORT }}

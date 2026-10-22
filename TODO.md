@@ -3,7 +3,7 @@
 > **Before editing:** Review [`documentation-standard.md`](docs/documentation-standard.md).
 
 **Created:** 2026-05-29  
-**Last updated:** 2026-06-23 (game auth policy + OpenAPI alignment)
+**Last updated:** 2026-10-22 (P4 cleared; API Node digest + SBOM; OpenAPI P3 and NEAR_RPC env mutation still open)
 
 | | |
 |---|---|
@@ -12,7 +12,7 @@
 
 ## Executive summary
 
-CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Gitleaks, permission-map validation, slim API image (npm stripped, `apk` tini), config boolean encoding, `validateConfig` fail-fast, main-tier stack policy, consolidated request logging, session fail-fast on main, and nginx/domain alignment are **in place**. Remaining work is **narrow** — see [Remaining gaps](#remaining-gaps): optional branch-config completeness, plus **operator** host/GitHub setup and **deferred** product items (geolocation). `NEAR_RPC_URL` startup no longer mutates `process.env` (aligned with `api-scaffold-federated-idc` as of 2026-10-22).
+CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Gitleaks, permission-map validation, slim API image (npm stripped, `apk` tini), config boolean encoding, `validateConfig` fail-fast, main-tier stack policy, consolidated request logging, session fail-fast on main, and nginx/domain alignment are **in place**. Remaining work is **narrow** — see [Remaining gaps](#remaining-gaps): optional OpenAPI tightening, plus **operator** host/GitHub setup and **deferred** product items (geolocation). `NEAR_RPC_URL` startup no longer mutates `process.env` (aligned with `api-scaffold-federated-idc` as of 2026-10-22). P4 branch-config cleanup and API Node digest + SBOM landed the same day.
 
 | Legend | Meaning |
 |--------|---------|
@@ -31,8 +31,9 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Priority | Standard | Gap | Evidence | Suggested fix |
 |----------|----------|-----|----------|---------------|
 | P2 | [`configuration-standard.md`](docs/configuration-standard.md) | ~~Config via SDK, not ad-hoc `process.env` mutation~~ **Met 2026-10-22** | Startup uses `config.get("NEAR_RPC_URL")` only; no `process.env` write | Reference: `api-scaffold-federated-idc`. `idclawserver-idc` still mutates env at startup |
-| P3 | [`documentation-standard.md`](docs/documentation-standard.md) | Game OpenAPI response schemas still minimal for some routes | Join/state/SSE payloads | Extend swagger components as game API stabilizes |
-| P4 | [`configuration-standard.md`](docs/configuration-standard.md) | Branch JSON self-contained for all tier-tunable keys | `NEAR_CONTRACT_ID`, `LOKI_URL`, `MINTING_FEE`, etc. only in `custom-environment-variables.json` / host `secrets.env` | Commit tier-specific non-secret values to `config/development.json` and `config/main.json` where branch merges require them |
+| P3 | [`documentation-standard.md`](docs/documentation-standard.md) | Some game OpenAPI objects are still loose | `GamePublicState` and `GameSse*` components cover state and SSE. `narrative` and `turnInvestments` remain `additionalProperties: true` | Tighten those objects as the game API stabilizes |
+
+**Cleared (2026-10-22):** former **P4** — tier keys `NEAR_CONTRACT_ID` / `LOKI_URL` / `PUBLIC_PORT` / `LOKI_TLS_SKIP_VERIFY` are in branch JSON; unused `MINTING_FEE*` removed from `custom-environment-variables.json` and README; unused names dropped from the vendored configuration-standard table.
 
 ### Operator-only (not repo gaps)
 
@@ -70,7 +71,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Logging structure (`*WithContext`, completion) | **Met** | Single `Request completed` at `info` with `component: "API"` |
 | Stack trace redaction on main | **Met** | `isMainTier()` gates stacks in `setupFallbackHandlers()` |
 | Startup config snapshot | **Met** | `src/services/startup-config.service.js` (redacted, post-listen) |
-| Slim API image (npm removed) | **Met** | Multi-stage `api.Dockerfile`, npm stripped from runtime |
+| Slim API image (npm removed) | **Met** | Multi-stage `api.Dockerfile`, npm stripped from runtime; Node base pinned `node:20.20.2-alpine3.23@sha256:…` (2026-10-22); SBOM/provenance on image publish |
 | Allowed fallbacks only | **Met** | Session fail-fast on main; Swagger tier URL from `SERVICE_NAME`; webhook policy documented in `cruda.js` |
 | Host secrets wiring | **Met** | `podman run --env-file …/secrets/secrets.env`; only `NODE_ENV` via `-e` |
 | systemd linger | **Met** | `scripts/ensure-podman-linger.sh` on each deploy |

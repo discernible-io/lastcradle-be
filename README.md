@@ -194,8 +194,6 @@ SERVICE_NAME=syntheticlc-api
 
 # RODiT Configuration
 RODIT_NEAR_CREDENTIALS_SOURCE=vault
-MINTING_FEEACCOUNT=fees.rodit.near
-MINTING_FEE=0.1
 
 # Security Options
 SECURITY_OPTIONS_LOGIN_MODE=standard
