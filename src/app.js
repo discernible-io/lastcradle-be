@@ -20,15 +20,13 @@ const {
   logger,
   validateConfig,
   errorResponse,
-  config,
-  resolveHealthyNearRpcUrl
+  config
 } = require("@rodit/rodit-auth-be");
 const { sendError } = errorResponse;
 const { setExpressSessionStore } = require(path.join(
   path.dirname(require.resolve("@rodit/rodit-auth-be")),
   "lib/auth/sessionmanager.js"
 ));
-const { probeNearRpcStatus } = require("./services/near-rpc-probe.service");
 const { createHealthHandler } = require("./services/health.service");
 const {
   logResolvedConfigSnapshot,
@@ -777,45 +775,23 @@ async function startServer() {
       status: "creating_client",
     });
 
-    const primaryRpcUrl = config.has("NEAR_RPC_URL") ? config.get("NEAR_RPC_URL") : null;
-    let selectedRpcUrl = primaryRpcUrl;
-    if (typeof resolveHealthyNearRpcUrl === "function") {
-      selectedRpcUrl = await resolveHealthyNearRpcUrl();
-    } else if (primaryRpcUrl) {
-      logger.warnWithContext("RPC URL resolver unavailable; using configured NEAR_RPC_URL", {
+    // NEAR_RPC_URL comes from SDK config resolution (env / secrets.env / defaults).
+    // Do not mutate process.env here — reference: api-scaffold-federated-idc.
+    const configuredRpcUrl = config.has("NEAR_RPC_URL") ? config.get("NEAR_RPC_URL") : null;
+    if (configuredRpcUrl) {
+      logger.infoWithContext("NEAR RPC startup: using configured endpoint", {
         component: "AppLifecycle",
         operation: "startup.resolveNearRpcUrl",
-        fallback: "NEAR_RPC_URL"
+        selectedSource: "config",
+        selectedRpcHost: redactRpcHostLabel(configuredRpcUrl)
+      });
+    } else {
+      logger.warnWithContext("NEAR_RPC_URL not configured before RoditClient.create", {
+        component: "AppLifecycle",
+        operation: "startup.resolveNearRpcUrl"
       });
     }
 
-    if (selectedRpcUrl && selectedRpcUrl !== primaryRpcUrl) {
-      process.env.NEAR_RPC_URL = selectedRpcUrl;
-      const probeTimeoutMs = Number(config.get("NEAR_RPC_TIMEOUT"));
-      let primaryProbeOk = null;
-      if (primaryRpcUrl) {
-        const primaryProbe = await probeNearRpcStatus(primaryRpcUrl, probeTimeoutMs);
-        primaryProbeOk = primaryProbe.ok;
-      }
-      const logContext = {
-        component: "AppLifecycle",
-        operation: "startup.resolveNearRpcUrl",
-        primaryConfigured: Boolean(primaryRpcUrl),
-        selectedSource: "resolveHealthyNearRpcUrl",
-        primaryRpcHost: redactRpcHostLabel(primaryRpcUrl),
-        selectedRpcHost: redactRpcHostLabel(selectedRpcUrl),
-        ...(primaryProbeOk === false && { primaryProbeFailed: true })
-      };
-      if (primaryProbeOk === false) {
-        logger.warnWithContext(
-          "NEAR RPC startup fallback: primary endpoint unavailable; using alternate",
-          logContext
-        );
-      } else {
-        logger.infoWithContext("NEAR RPC startup: selected endpoint differs from config", logContext);
-      }
-    }
-    
     // Create and initialize the client in one step
     roditClient = await RoditClient.create('server');
     
