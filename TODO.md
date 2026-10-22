@@ -12,7 +12,7 @@
 
 ## Executive summary
 
-CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Gitleaks, permission-map validation, slim API image (npm stripped, `apk` tini), config boolean encoding, `validateConfig` fail-fast, main-tier stack policy, consolidated request logging, session fail-fast on main, and nginx/domain alignment are **in place**. Remaining work is **narrow** — see [Remaining gaps](#remaining-gaps): one **nuanced** repo item (`NEAR_RPC_URL` env mutation, same as `idclawserver-idc`), optional branch-config completeness, plus **operator** host/GitHub setup and **deferred** product items (geolocation).
+CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Gitleaks, permission-map validation, slim API image (npm stripped, `apk` tini), config boolean encoding, `validateConfig` fail-fast, main-tier stack policy, consolidated request logging, session fail-fast on main, and nginx/domain alignment are **in place**. Remaining work is **narrow** — see [Remaining gaps](#remaining-gaps): optional branch-config completeness, plus **operator** host/GitHub setup and **deferred** product items (geolocation). `NEAR_RPC_URL` startup no longer mutates `process.env` (aligned with `api-scaffold-federated-idc` as of 2026-10-22).
 
 | Legend | Meaning |
 |--------|---------|
@@ -30,7 +30,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 
 | Priority | Standard | Gap | Evidence | Suggested fix |
 |----------|----------|-----|----------|---------------|
-| P2 | [`configuration-standard.md`](docs/configuration-standard.md) | Config via SDK, not ad-hoc `process.env` mutation | `src/app.js`: `process.env.NEAR_RPC_URL = selectedRpcUrl` after `resolveHealthyNearRpcUrl()` | Pass selected URL into SDK config layer when available; **reference app `idclawserver-idc` uses the same pattern today** |
+| P2 | [`configuration-standard.md`](docs/configuration-standard.md) | ~~Config via SDK, not ad-hoc `process.env` mutation~~ **Met 2026-10-22** | Startup uses `config.get("NEAR_RPC_URL")` only; no `process.env` write | Reference: `api-scaffold-federated-idc`. `idclawserver-idc` still mutates env at startup |
 | P3 | [`documentation-standard.md`](docs/documentation-standard.md) | Game OpenAPI response schemas still minimal for some routes | Join/state/SSE payloads | Extend swagger components as game API stabilizes |
 | P4 | [`configuration-standard.md`](docs/configuration-standard.md) | Branch JSON self-contained for all tier-tunable keys | `NEAR_CONTRACT_ID`, `LOKI_URL`, `MINTING_FEE`, etc. only in `custom-environment-variables.json` / host `secrets.env` | Commit tier-specific non-secret values to `config/development.json` and `config/main.json` where branch merges require them |
 
@@ -60,7 +60,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Error envelope on routes (`sendError` / `ErrorResponse`) | **Met** | Route modules + global 404/error handlers |
 | Malformed JSON / parse errors | **Met** | `INVALID_JSON` via `sendError` after `express.json` in `src/app.js` |
 | Configuration files + permission map | **Met** | Per-env JSON string booleans + swagger sync; `validateConfig` fail-fast |
-| SDK `config` import | **Nuanced** | `config.get` throughout; `process.env.NEAR_RPC_URL` mutation after RPC fallback ([remaining](#remaining-gaps)) |
+| SDK `config` import | **Met** | `config.get` throughout; startup no longer mutates `process.env.NEAR_RPC_URL` (2026-10-22) |
 | CI/CD workflow shape | **Met** | `.github/workflows/deploy.yml` — Gitleaks, age gate, GHCR, linger, advisory health |
 | CI/CD tini sourcing | **Met** | `api.Dockerfile` — `/sbin/tini` from `apk` only |
 | Gitleaks | **Met** | CI scan + placeholder regex allowlist in `.gitleaks.toml` |
@@ -145,7 +145,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Health / RPC tuning | **Met** | `HEALTH_CHECKS_CACHE_MS`, `NEAR_RPC_TIMEOUT` |
 | Boolean values as `"true"` / `"false"` strings | **Met** | `config/development.json`, `config/main.json` |
 | `validateConfig` aborts startup | **Met** | Re-throw after error log in `startServer()` |
-| No ad-hoc `process.env` mutation | **Nuanced** | `NEAR_RPC_URL` set after RPC fallback — see [remaining](#remaining-gaps); matches `idclawserver-idc` |
+| No ad-hoc `process.env` mutation | **Met** | Startup leaves RPC selection to SDK config layers (2026-10-22) |
 
 ### Error handling ([`error-handling-standard.md`](docs/error-handling-standard.md))
 

@@ -14,6 +14,8 @@ This API provides secure authentication services using the Discernible Authentic
 | **`development`** | Development / integration | https://slcapi.dihola.io:9443 | frontend https://slc.dihola.io:10443 |
 | **`legacy`** | Archive of pre-migration `main` (read-only) | — | — |
 
+Passport product pages (marketing): [www.discernible.io](https://www.discernible.io/) · [Get started](https://www.discernible.io/get-started/) · [Developers](https://www.discernible.io/developers/).
+
 See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 
 ## Documentation
