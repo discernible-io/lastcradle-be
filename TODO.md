@@ -3,7 +3,7 @@
 > **Before editing:** Review [`documentation-standard.md`](docs/documentation-standard.md).
 
 **Created:** 2026-05-29  
-**Last updated:** 2026-10-22 (P4 cleared; API Node digest + SBOM; OpenAPI P3 and NEAR_RPC env mutation still open)
+**Last updated:** 2026-10-22 (P2 NEAR_RPC env mutation Met; P4 cleared; API Node digest + SBOM; OpenAPI P3 still open)
 
 | | |
 |---|---|
