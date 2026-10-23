@@ -2,19 +2,20 @@
 
 > **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
 
-**Created:** 2026-05-24
+**Created:** 2026-05-16  
+**Last reviewed:** 2026-10-22
 
-**Status:** Target contract (aspirational for SignPortal `src/` today)  
-**Reference:** `@rodit/rodit-auth-be` `errorResponse.sendError` (when adopted); current routes in [`src/app.js`](../src/app.js), [`src/protected/signportal.js`](../src/protected/signportal.js), [`src/protected/signroot.js`](../src/protected/signroot.js)  
+**Status:** Implemented contract for Node/Express RODiT APIs  
+**Reference:** `@rodit/rodit-auth-be` `errorResponse.sendError`; example routes in [`src/app.js`](../src/app.js), [`src/protected/signportal.js`](../src/protected/signportal.js), [`src/protected/signroot.js`](../src/protected/signroot.js)  
 **Related:** [`logging-standard.md`](logging-standard.md) (canonical log `error` object)
 
 ## Implementation status (consuming service)
 
-Typical state before migration (paths are service-relative when `docs/` is at the repo root):
+**Reference services (2026-10-22):** `signsanctum-idc`, `signportal-idc`, and `lastcradle-be` use SDK `sendError()` on routes and global middleware with the nested `error.code` / `error.message` envelope. Migration items **10–11** in [`planned-improvements.md`](planned-improvements.md) are **Done** for those APIs.
 
-- Route handlers often use **`res.status(...).json({ error, message?, requestId })`** directly instead of `sendError()` from the SDK.
-- Global error middleware in [`src/app.js`](../src/app.js) may return a generic `500` body and log via `errorWithContext`.
-- Migration work is tracked in [`planned-improvements.md`](planned-improvements.md) (items 10–11).
+New API services must adopt this contract from the first route. Do **not** reintroduce flat `{ "error": "..." }` string bodies. Browser SPAs and static sites are out of scope.
+
+If a legacy service still returns ad hoc `res.status(...).json({ error, message?, requestId })`, treat that as a **gap** against this standard and migrate to `sendError()` before claiming compliance.
 
 ---
 
@@ -156,30 +157,6 @@ OUTPUTS:
 | `SERVICE_UNAVAILABLE` | 503 | Upstream service unavailable |
 | `AGENT_DISCOVERY_FAILED` | 500 | Failed to fetch agent list |
 | `LOGIN_FAILED` | 500 | Authentication service error |
-
-### Game API (`/api/game/*`)
-| Code | Status | Meaning |
-|------|--------|---------|
-| `AUTH_REQUIRED` | 401 | Missing JWT or roditId on a player action |
-| `FORBIDDEN` | 403 | Operator route; JWT roditId ≠ `GAME_PRIVILEGED_RODIT_ID` |
-| `GAME_NOT_FOUND` | 404 | Unknown game id |
-| `AGENT_NOT_IN_GAME` | 404 | Caller has not joined this game |
-| `JOIN_WINDOW_NOT_OPEN` | 409 | Joining window not yet open |
-| `JOIN_WINDOW_CLOSED` | 409 | Joining window closed |
-| `GAME_FULL` | 409 | Lobby at `maxAgents` |
-| `OPEN_LOBBY_AVAILABLE` | 409 | Create blocked; join an existing open casual lobby first (`details.openLobbies`) |
-| `TOO_MANY_ACTIVE_GAMES` | 409 | Create blocked; host already at `GAME_MAX_SIMULTANEOUS_GAMES` lobby/running games (`details.activeGames`, `details.maxSimultaneousGames`) |
-| `AGENT_IN_ACTIVE_GAME` | 409 | Join blocked; rodit already in another `lobby` or `running` game (`details.activeGameId`) |
-| `LOGIN_METHOD_LOCKED` | 409 | A second guest join-by-url from the same IP for this game within the 10-minute cool-down (`details.lockedMethod`, `details.attemptedMethod`, `details.retryAfterSeconds`, `details.lockedUntil`). Passport joins are not IP-limited. |
-| `GAME_NOT_FINISHED` | 409 | `GET .../honors` while game status is not `finished` |
-| `GAME_NOT_JOINABLE` | 409 | Game not in lobby status |
-| `GAME_ALREADY_STARTED` | 409 | Manual start after game began |
-| `INSUFFICIENT_AGENTS` | 400 | Start with fewer than `minAgents` |
-| `NOT_NEGOTIATION_PHASE` | 409 | Message outside negotiation |
-| `NOT_EXECUTION_PHASE` | 409 | Action outside execution |
-| `AGENT_DEAD` | 409 | Agent eliminated |
-
-Authoritative list: swagger tag **Game** in [`api-docs/swagger.json`](../api-docs/swagger.json).
 
 ---
 

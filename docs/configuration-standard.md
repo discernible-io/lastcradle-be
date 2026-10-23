@@ -2,7 +2,8 @@
 
 > **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
 
-**Created:** 2026-05-24
+**Created:** 2026-05-16  
+**Last reviewed:** 2026-10-22
 
 Internal conventions for how a service loads, prioritizes, validates, and **surfaces configuration in logs** safely. Audience: contributors and operators, not API consumers.
 
@@ -16,7 +17,20 @@ Internal conventions for how a service loads, prioritizes, validates, and **surf
 - Permission map generator: [`scripts/update-permissionsmap.js`](../scripts/update-permissionsmap.js)
 - Winston/Loki bootstrap: [`src/app.js`](../src/app.js) (top-level IIFE; `LOG_LEVEL`, `LOKI_URL`, and related keys via `config.get`)
 
-**Related docs:** [`logging-standard.md`](logging-standard.md) — effective `LOG_LEVEL` filtering, transports, and how environment ties to verbosity. [`cicd-deployment-standard.md`](cicd-deployment-standard.md) — how to create host `secrets/secrets.env` and TLS material before CI deploys.
+**Related docs:** [`logging-standard.md`](logging-standard.md) — effective `LOG_LEVEL` filtering, transports, and how environment ties to verbosity. [`cicd-deployment-standard.md`](cicd-deployment-standard.md) — how to create host `secrets/secrets.env` and TLS material before CI deploys. [`frontend-branch-env-migration.md`](frontend-branch-env-migration.md) — public build-time env for React/Parcel SPAs (not this `config/` model).
+
+---
+
+## Frontend SPAs (out of backend `config/` scope)
+
+Browser minting and marketing frontends do **not** use `config/{NODE_ENV}.json` or host `secrets/secrets.env` for SPA settings. Public values are build-time `REACT_APP_*` in `.env.development` / `.env.main`.
+
+| Pattern | Where documented |
+| --- | --- |
+| Branch env files, Docker allowlist, CI copy | [`frontend-branch-env-migration.md`](frontend-branch-env-migration.md) |
+| Service-local addendum (keys, validation, policy URLs) | Example: `mintclient-idc` [`docs/frontend-configuration.md`](../../mintclient-idc/docs/frontend-configuration.md) |
+
+Do not flag intentional SPA env patterns as violations of the backend sources table above. Secrets for SPA sidecars (if any) still stay on the host—never in committed `.env.*`.
 
 ---
 
@@ -48,6 +62,16 @@ For boolean configuration values across all configuration sources (environment v
 - `"false"`
 
 Do not use JSON boolean literals (`true`/`false`) and do not use numeric/binary encodings such as `1`/`0`. Malformed boolean values are treated as invalid and the resolver falls back to SDK defaults when available.
+
+**Migration checklist (repos still on JSON literals):**
+
+1. Inventory every boolean key in `config/development.json` and `config/main.json` (including nested `SECURITY_OPTIONS.*`).
+2. Rewrite literals to `"true"` / `"false"` **without changing the intended truth value** (encoding-only change).
+3. Keep both branch files on the same encoding; mixed JSON/`string` across tiers is a conformance gap.
+4. Prefer host parsers that accept string `"true"` / `"false"` only after cutover; temporary dual parsers (`boolean` **or** string) are acceptable during migration but should be removed once all committed values are strings.
+5. Do **not** flip security-sensitive defaults (for example main-tier TLS skip → verified) in the same change as the encoding migration—coordinate ops separately.
+
+Numeric keys (`MINTING_FEE`, ports, TTLs) stay numbers; this rule applies only to boolean flags.
 
 2. **Host `node-config`**  
    Values from `config/{NODE_ENV}.json` (and optional `config/default.json` if present) after the `config` package merge rules, including overrides driven by `config/custom-environment-variables.json`.
@@ -87,8 +111,8 @@ In `sdk/utils.js`, the compatibility fallback uses `process.env[key] || null`. T
 
 | File | When loaded | Contents |
 | --- | --- | --- |
-| [`config/development.json`](../config/development.json) | `NODE_ENV=development` | Full config for `slcapi.dihola.io` / `development` branch |
-| [`config/main.json`](../config/main.json) | `NODE_ENV=main` | Full config for `api.lastcradle.io` / `main` branch |
+| [`config/development.json`](../config/development.json) | `NODE_ENV=development` | Full config for `api.dihola.io` / `development` branch |
+| [`config/main.json`](../config/main.json) | `NODE_ENV=main` | Full config for `api.identyclaw.com` / `main` branch |
 | [`config/custom-environment-variables.json`](../config/custom-environment-variables.json) | Runtime | Env var → config mapping |
 | `secrets/secrets.env` (host, not in git) | Runtime | `NEAR_RPC_URL`, `LOKI_BASIC_AUTH`, production `SESSION_SECRET`, etc. |
 
@@ -120,16 +144,14 @@ Certain config keys **must differ** between development and main branches. These
 
 | Key | `development` | `main` |
 | --- | --- | --- |
-| `SERVICE_NAME` | `slcapi.dihola.io` | `api.lastcradle.io` |
-| `FRONTEND_ORIGIN` | `https://slc.dihola.io:10443` | `https://lastcradle.io` |
-| `PUBLIC_PORT` | `9443` | `13443` |
-| `NEAR_CONTRACT_ID` | `genaaaa-identyclaw-com.near` | `genaaaa-identyclaw-com.near` |
+| `SERVICE_NAME` | `api.dihola.io` | `api.identyclaw.com` |
+| `SIGNPORTAL_API_URL` | signportal.dihola.io | signportal.roditcorp.com |
+| `NEAR_CONTRACT_ID` | `2026v2-identyclaw-com.near` | `2026v1-identyclaw-com.near` |
+| `MINTING_FEE` | `0.4` | `0.28` |
 | `LOG_LEVEL` | `debug` | `info` |
-| `LOKI_URL` | `https://grafana47.dihola.io:3100` | `https://grafana46.discernible.io:3100` |
-| `LOKI_TLS_SKIP_VERIFY` | `"true"` | `"false"` |
-| `SECURITY_OPTIONS.WEBHOOK_TLS_SKIP_VERIFY` | `"true"` | `"true"` |
-
-Unused in this service (do not re-add without a `src/` consumer): `MINTING_FEE`, `MINTING_FEEACCOUNT`, `SIGNPORTAL_API_URL`, `WEBHOOK_TEST_ENABLED`.
+| `WEBHOOK_TEST_ENABLED` | `true` | `false` |
+| `LOKI_URL` | in JSON | use `secrets/secrets.env` |
+| `SECURITY_OPTIONS.WEBHOOK_TLS_SKIP_VERIFY` | `"true"` | `"false"` |
 
 `NEAR_CONTRACT_ID` is embedded in generated token IDs and signatures; using the wrong contract ID causes token validation failures in the target environment.
 
@@ -187,8 +209,6 @@ npm run update:permissions
 
 The generator uses the **last path segment** of each authenticated swagger path (for example `/api/me/identity` → `identity`). Unauthenticated routes are omitted.
 
-**Game API (`/api/game/*`):** Excluded from `METHOD_PERMISSION_MAP`. Game routes use JWT-only player access (IdentyClaw / RODiT passport login) or runtime checks against `GAME_PRIVILEGED_RODIT_ID` for operator endpoints — see `x-game-auth` on swagger Game operations and [`src/game/permissions.js`](../src/game/permissions.js). Host capacity for concurrent `lobby`/`running` games is `GAME_MAX_SIMULTANEOUS_GAMES` in [`config/development.json`](../config/development.json) / [`config/main.json`](../config/main.json) (resolved in [`src/game/defaults.js`](../src/game/defaults.js) via `resolvePositiveIntConfig`; create fails with `409 TOO_MANY_ACTIVE_GAMES`). Per-game mechanics defaults remain code constants in that same module and are served on `GET /api/game/defaults`.
-
 ---
 
 ## Validation
@@ -220,9 +240,16 @@ When the listener starts, [`src/app.js`](../src/app.js) logs **`Server started`*
 
 **`GET /health`** returns JSON `{ status, timestamp }` for load balancers and deploy scripts (see [`cicd-deployment-standard.md`](cicd-deployment-standard.md)). It does not expose full configuration.
 
-### Aspirational: resolved startup snapshot
+### Resolved startup snapshot (recommended)
 
-Other services in the RODiT family may log a delayed, redacted **configuration snapshot** after startup. SignPortal does **not** implement `buildStartupConfigSnapshot` today; if added, follow redaction rules in [`logging-standard.md`](logging-standard.md) and document the lag here.
+API services should log a delayed, redacted **configuration snapshot** after listen so operators can confirm effective non-secret settings without reading host files.
+
+| Reference | Pattern |
+| --- | --- |
+| SignSanctum | `src/utils/configLogging.js` — redacted snapshot / credential-source checks via SDK `config.get` / `getResolved` |
+| lastcradle-be | `src/services/startup-config.service.js` — delayed redacted snapshot |
+
+If a service lacks a snapshot today, add one following redaction rules in [`logging-standard.md`](logging-standard.md) and document any intentional lag (for example collector warmup).
 
 ---
 

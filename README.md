@@ -33,7 +33,7 @@ See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 
 ### Organization standards ([`docs/`](docs/))
 
-Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at commit `606b439`. Service-relative links in these files resolve in this repository.
+Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at commit `fcd5cf9`. Service-relative links in these files resolve in this repository.
 
 | Document | Summary |
 | --- | --- |

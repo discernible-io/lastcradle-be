@@ -2,7 +2,7 @@
 
 > **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
 
-**Created:** 2026-05-24
+**Created:** 2026-05-16
 
 ## Problem
 The script may encounter RPC errors due to:

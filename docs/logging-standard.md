@@ -2,12 +2,13 @@
 
 > **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
 
-**Created:** 2026-05-24
+**Created:** 2026-05-16  
+**Last reviewed:** 2026-10-22
 
 Internal logging conventions for SignPortal and the `@rodit/rodit-auth-be` SDK.
 This document is for contributors and operators, not public API consumers.
 
-**Related:** [`configuration-standard.md`](configuration-standard.md) — how `LOG_LEVEL`, `NODE_ENV`, and optional log shipping (`LOKI_URL`, etc.) are resolved.
+**Related:** [`configuration-standard.md`](configuration-standard.md) — how `LOG_LEVEL`, `NODE_ENV`, and optional log shipping (`LOKI_URL`, etc.) are resolved. [`funnel-standard.md`](funnel-standard.md) — cookieless funnel events (`funnel.*`) that ride the same structured logger / Loki path.
 
 ## Implementation status (consuming service)
 

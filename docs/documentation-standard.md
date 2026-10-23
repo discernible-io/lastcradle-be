@@ -2,7 +2,8 @@
 
 > **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
 
-**Created:** 2026-05-24
+**Created:** 2026-05-24  
+**Last reviewed:** 2026-10-22
 
 These principles govern how all documentation in this repository is written and maintained.
 
@@ -40,7 +41,7 @@ These principles govern how all documentation in this repository is written and 
     > **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
 
     Do not remove or reword this notice when updating other sections. New documents added under `docs/` must include it before the first body section.
-16. **Visible document date**: Include the document creation date in the body (for example on the line immediately after the editor notice), formatted as `YYYY-MM-DD`. Readers should not need file metadata or version control to know when the document was created.
+16. **Visible document dates**: Immediately after the editor notice, include **`Created: YYYY-MM-DD`**. Optionally add **`Last reviewed: YYYY-MM-DD`** when the document is substantively revised. Readers should not need file metadata or version control to know age. For older files missing `Created:`, backfill from git history (first commit that added the file) rather than inventing a date.
 17. **Structure labels stay internal**: The principles and labels in this standard (for example *Single Source of Truth*, *No Duplication*, *documented only in this section*) guide authors and maintainers. In end-user documentation—guides, MCP resources, API descriptions, policies, and similar reader-facing material—do **not** expose that internal structure by default. Tell readers what to use and how to act. Surface structure or meta-labels only when doing so clearly serves another principle above (for example a purposeful cross-reference to the authoritative section, or wording that helps the reader complete a task without hunting duplicate copies).
 18. **Avoid documentation sprawl**: Do not proliferate indices, quick-reference cards, “start here” pages, or orientation guides that cover the same navigation job. Prefer **one** entry point per audience or topic (for example a single README section, one quick-reference doc, or one setup guide)—then link outward to authoritative detail. Add a new index or quick-reference file only when it has a **distinct, non-overlapping** role that cannot be a section in an existing doc without making that doc unwieldy. If two documents both answer “where do I start?” or “what are the paths/URIs?”, merge or demote one to a cross-reference rather than maintaining parallel “30-second,” “quick,” and “complete” indexes for the same surface. **Only `README.md` is meta**—navigation, discovery, and pointers to other docs belong there. Every other document should be **content-rich** (procedures, schemas, examples, troubleshooting) rather than **metadata-rich** (tables of links, “start here” chains, or restatements of what other files contain).
 19. **Convenience procedures (controlled duplication)**: Duplicate technical detail only when you need a **step-by-step how-to** so readers can complete a procedure in one place instead of piecing it together from several authoritative documents.
@@ -62,9 +63,68 @@ These principles govern how all documentation in this repository is written and 
     | **standard** | Programming, documentation, and architecture rules for authors and maintainers | `*-standard.md` (for example [`logging-standard.md`](logging-standard.md)) |
     | **policy** | User-facing rules—access, usage, compliance, and product behavior readers must follow | `*-policy.md` |
     | **howto** | Step-by-step procedures and “how to” walkthroughs (including convenience procedures, principle **19**) | `*-howto.md` |
-    | **plan** | Backlogs, roadmaps, and explicit lists of work to do | `*-plan.md` |
+    | **plan** | Time-bound remediation plans and roadmaps with a validity window | `*-plan.md` (for example [`node-alpine-cve-patch-plan.md`](node-alpine-cve-patch-plan.md)) |
+    | **todo** | Living per-repository backlog of open work (compliance gaps, prioritized improvements) | `TODO.md` at the **repository root** (exactly that name) |
 
-    When a document spans types (for example a plan that embeds how-to steps), pick the type that matches its **primary** purpose and link to the other form instead of blending suffixes.
+    When a document spans types (for example a plan that embeds how-to steps), pick the type that matches its **primary** purpose and link to the other form instead of blending suffixes. Prefer **`TODO.md`** over alternate backlog names (`security-compliance.md`, `*-improvements.md`, `SEO-TODO.md`, and similar). Keep cross-service migration items that standards cite by stable number in [`planned-improvements.md`](planned-improvements.md)—that file is the standards backlog, not a substitute for each service’s `TODO.md`.
+
+21. **Per-repository TODO and host summaries**: Every consuming service repository keeps **one** living backlog at the repository root named exactly `TODO.md`. Index it from that repo’s `README.md` (principle **10**).
+
+    - **Same content on deployment tiers** — The `TODO.md` blob on **main** and **development** must not diverge. Edit the backlog once and land the same file content on both branches (identical `git rev-parse <branch>:TODO.md` hashes). Do not maintain tier-specific todo lists.
+    - **One-way host summary** — On each operator machine, **discernible-io/docs** may hold a periodic consolidation named `<hostname>-TODO.md` under `docs/` (for example [`dedalo43-TODO.md`](dedalo43-TODO.md) on host `dedalo43`, [`dedalo47-TODO.md`](dedalo47-TODO.md) on host `dedalo47`). That summary **reads from** each sibling repo’s `TODO.md` and never feeds changes back. Authoritative updates happen only in the per-repo files; refresh the host summary afterward and set its **Collected** date.
+    - **Discovery** — When inventoring backlogs on a host, look for root `TODO.md` in each git checkout beside `~/docs`. Do not invent parallel index files for the same job (principle **18**).
+
+## Applicability matrix
+
+Standards in this repository are written primarily for **Node/Express RODiT APIs** that use `config/`, nginx TLS sidecars, and GHCR/Podman. Other consumer types use a subset—or an alternate guide. Score audits with this matrix before marking a repo non-conformant.
+
+| Consumer type | Examples | Applies | N/A or alternate |
+| --- | --- | --- | --- |
+| **Containerized API** | `signsanctum-idc`, `signportal-idc`, `lastcradle-be` | vocabulary, configuration, logging, error-handling, allowed-fallback, cicd-deployment, test-constitution, documentation, planned-improvements | — |
+| **Browser SPA (mint / purchase / verify)** | `mintclient-idc` | vocabulary, documentation, funnel (land/mint surfaces), cicd **image** hygiene where GHCR/Podman is used | Backend `config/` model → [`frontend-branch-env-migration.md`](frontend-branch-env-migration.md) + service `docs/frontend-configuration.md`; error-handling / test-constitution API suites N/A |
+| **Static marketing site** | `homepage-discernible-io` | documentation, vocabulary (tier wording), funnel (land) | cicd GHCR/Podman N/A (Pages/Apache); configuration / logging / error-handling API standards N/A |
+| **NEAR contracts** | `mintcontract-idc` (typically on other hosts) | documentation, vocabulary where deploy tiers exist | Node `config/`, Express error envelope, nginx/Podman cicd as written—use contract-repo backlog instead |
+| **Agents / plugins** | `hermes-*`, `openclaw-*`, `ironclaw-*` | documentation if they ship `docs/`; vocabulary if dual-tier deploy | Full API cicd/config stack only when the plugin embeds that topology |
+| **Infra / monitoring** | `infra`, `grafanaloki-app` | companion to cicd/configuration (host secrets, scans) | Not a consuming API; no root `TODO.md` required unless brought into host rollups |
+
+When a standard’s body assumes `src/app.js` + `config/{NODE_ENV}.json`, treat that as the **API row** unless the standard itself points at an alternate (for example frontend env migration).
+
+## Consuming standards distribution
+
+**Authoritative tree:** this repository (`discernible-io/docs`). Service-relative links assume `docs/` at the consuming repo root.
+
+| Method | Authority | When to use |
+| --- | --- | --- |
+| **Git submodule** (preferred) | Pin a docs **commit SHA** in the consumer; README states the pin | Continuous sync with an explicit upgrade PR |
+| **Git subtree** | Same—pin/merge from docs; README states last merge SHA | Prefer when submodule tooling is awkward |
+| **Reference-only** | Consumer has **no** vendored `docs/`; README links to this repo (commit or tag) | Light consumers (static sites, plugins) that only need a few guides |
+| **Plain file copy** | **Non-authoritative** | Allowed only as a temporary convenience. Divergent copies must not be cited as “the standard.” Re-sync or replace with submodule/subtree |
+
+**Conformance rule:** Audits judge against the **pinned docs commit** named in the consumer README (or against `main` of this repo when the consumer is reference-only). A stale vendored copy that disagrees with its pin is a **consumer gap**, not a license to invent a third variant.
+
+## Per-repository TODO and host summaries
+
+This section expands principle **21** above.
+
+### Per-repo `TODO.md`
+
+| Rule | Action |
+| --- | --- |
+| Name and location | Repository root, exactly `TODO.md` |
+| Purpose | Open work for that service (gaps, ordered improvements, checklists) |
+| Branches | Keep **main** and **development** content identical |
+| Indexing | Link from the service `README.md` |
+| Not for | Time-bound CVE/remediation plans (`*-plan.md`) or numbered standards migrations ([`planned-improvements.md`](planned-improvements.md)) |
+
+### Host summary (`<hostname>-TODO.md`)
+
+| Rule | Action |
+| --- | --- |
+| Location | This standards repo: `docs/<hostname>-TODO.md` |
+| Direction | One-way: service `TODO.md` → host summary |
+| Contents | Table of sources plus a short consolidation of **open** items (not a full copy of each backlog) |
+| Refresh | Re-read sibling `TODO.md` files; update **Collected**; leave service files unchanged |
+| Reference | [`dedalo43-TODO.md`](dedalo43-TODO.md) on host `dedalo43`; [`dedalo47-TODO.md`](dedalo47-TODO.md) on host `dedalo47` |
 
 ## Service-relative links
 

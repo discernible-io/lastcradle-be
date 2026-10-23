@@ -3,7 +3,7 @@
 > **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
 
 **Created:** 2026-09-21  
-**Updated:** 2026-09-23
+**Last reviewed:** 2026-10-22
 
 Cookieless enrollment / activation funnel instrumentation for IdentyClaw and sibling surfaces. Chart **product steps**, not hosts. Join across hops with `tokenIdHash` / `accountId` (and optional `funnel_id` only before a Passport exists)—**not cookies**.
 
@@ -20,8 +20,8 @@ Cookieless enrollment / activation funnel instrumentation for IdentyClaw and sib
 Applies to:
 
 - Home API funnel emitters (`src/lib/funnel.js` in the home-API service)
-- Purchase and verify SPAs that forward attribution and emit `funnel.land` (purchase land → Loki and verify FE helper are incomplete—see [Known gaps](#known-gaps-live-vs-standard))
-- Sibling products that emit `funnel.play` / `funnel.complete` (for example Last Cradle)—**target**; FE has no emits; BE unverified
+- Purchase and verify SPAs that forward attribution and emit `funnel.land` via cookieless `GET /api/funnel/land` (mintclient-idc `funnelAttribution.js`; see [Known gaps](#known-gaps-live-vs-standard) for CORS / deploy backlog)
+- Sibling products that emit `funnel.play` / `funnel.complete` (for example Last Cradle)—BE emits `funnel.play` on join/sit paths; `funnel.complete` still sparse / confirm Loki tenant alignment
 - Optional marketing lands (for example `www.discernible.io`) that preserve UTMs on CTAs
 
 Does **not** require browser analytics SDKs for stitching. Plausible / gtag (or similar) are optional on marketing or game sites only when cookieless or behind an explicit consent gate—and are **not** substitutes for `funnel.*` ladder events.
@@ -39,7 +39,7 @@ Do **not** plant cookies, cookie-sync pixels, or cookie-like identifiers (`docum
 
 No cookie consent banner is required when the surface plants **zero** stitching cookies.
 
-**Live tension:** Last Cradle FE currently parks UTMs in `sessionStorage`. That conflicts with this rule until those keys are moved to URL/memory only (or consent is obtained on that surface). Purchase Plausible and Last Cradle gtag are **separate** from `funnel.*` and must not be treated as ladder evidence.
+**Live tension:** Some marketing surfaces still park `funnel_id` / UTMs in `sessionStorage` (homepage `public/script.js`; Last Cradle FE where present). That conflicts with this rule until those keys are moved to URL/memory only (or consent is obtained on that surface). Purchase Plausible and Last Cradle gtag are **separate** from `funnel.*` and must not be treated as ladder evidence.
 
 ## Product step ladder
 
@@ -49,11 +49,11 @@ Primary conversion ladder to chart:
 
 | Step | Event | Typical emit site |
 | --- | --- | --- |
-| **land** | `funnel.land` (SPA / marketing) · `funnel.discovery` (API, `step=land`) | Purchase UI (land→Loki unverified), verify UI (no FE helper yet), lastcradle FE, homepage · home API `GET /`, `/.well-known/*`, optional `GET\|POST /api/funnel/land` (not on game API) |
+| **land** | `funnel.land` (SPA / marketing) · `funnel.discovery` (API, `step=land`) | Purchase + verify SPAs (`emitFunnelLandOnce` → `GET /api/funnel/land`), lastcradle FE, homepage · home API `GET /`, `/.well-known/*`, optional `GET\|POST /api/funnel/land` (not on game API) |
 | **mint** | `funnel.mint_attempt` / `funnel.mint_success` / `funnel.mint_failed` | Home API `POST /api/signclient` · purchase UI forwards UTMs |
-| **verify** | `funnel.verify_result` | Home API `POST /api/identity/verify` (server-side) · verify UI should forward UTMs in body/query (no dedicated funnel helper yet) |
-| **play** | `funnel.play` | Last Cradle first cradle sit / successful join / skill arm (**unverified**—see [Known gaps](#known-gaps-live-vs-standard)) |
-| **complete** | `funnel.complete` | Last Cradle eligible Season finish (define “eligible completer” in code comments at the emit site) (**unverified**—see [Known gaps](#known-gaps-live-vs-standard)) |
+| **verify** | `funnel.verify_result` | Home API `POST /api/identity/verify` (server-side) · verify UI forwards UTMs in body/query via `funnelAttribution.js` |
+| **play** | `funnel.play` | Last Cradle first cradle sit / successful join / skill arm (`lastcradle-be` emits; confirm same Loki tenant as home API—see [Known gaps](#known-gaps-live-vs-standard)) |
+| **complete** | `funnel.complete` | Last Cradle eligible finish (define “eligible completer” at the emit site). Event constant exists; emit coverage still open—see [Known gaps](#known-gaps-live-vs-standard) |
 
 Supporting (not ladder rungs—keep for diagnostics; chart ladder on `step`): `funnel.mcp_resource`, `funnel.login_challenge`, `funnel.login_result`, `funnel.identity_confirmed`.
 
@@ -130,7 +130,7 @@ Home API collectors accept attribution from, in practice:
 
 SPA browser clients must only send custom headers when the API CORS allowlist includes them. Prefer **JSON body** (and query on GET beacons) when headers would break preflight.
 
-**Live CORS:** Home-API nginx (main + development) allowlists `www.discernible.io`, `discernible.io`, `lastcradle.io`, and `www.lastcradle.io`, and Allow-Headers includes funnel attribution headers. Prefer query/body when a surface cannot rely on that allowlist yet.
+**Live CORS:** Home-API nginx (main + development) allowlists `www.discernible.io`, `discernible.io`, `lastcradle.io`, and `www.lastcradle.io`, and Allow-Headers includes funnel attribution headers. Marketing lands can beacon successfully. **Purchase / verify SPA origins** (`purchase.identyclaw.com`, `verify.identyclaw.com`) still need ACAO on the home-API edge for browser `GET /api/funnel/land`—that nginx change lives in the home-API repo, not mintclient. Prefer query/body when a surface cannot rely on the allowlist yet.
 
 ### Account id body keys (mint / login)
 
@@ -229,7 +229,7 @@ When the growth plan and this standard disagree on LogQL or emit contract, **thi
 | Reference | Role |
 | --- | --- |
 | Reference (home API / idclawserver-idc) | `src/lib/funnel.js` — `track`, `extractAttribution`, `appendAttribution`, `resolveAccountId`, `STEPS` / `EVENTS`; optional land beacon `GET\|POST /api/funnel/land`. Pin to the funnel-steps PR / merge commit when citing. |
-| Reference (mintclient-idc) | `src/utils/funnelAttribution.js` — intended cookieless land on `purchase.identyclaw.com` and `verify.identyclaw.com`; forward on `POST /api/signclient` and `POST /api/identity/verify`; URL/memory only. **Purchase land → Loki is unverified**—see [Known gaps](#known-gaps-live-vs-standard). |
+| Reference (mintclient-idc) | `src/utils/funnelAttribution.js` — cookieless land on `purchase.identyclaw.com` and `verify.identyclaw.com` via `GET {SIGNAPIENDPOINT}/api/funnel/land` (Parcel must inline `process.env.REACT_APP_SIGNAPIENDPOINT` directly—no `typeof process` guard); forward on `POST /api/signclient` and `POST /api/identity/verify`; URL/memory only. Loki path is the home-API beacon (not the SPA `logger.infoWithContext`). Remaining: SPA-origin CORS on home-API nginx—see [Known gaps](#known-gaps-live-vs-standard). |
 
 When adding a new surface, copy the sibling emit contract above; do not invent parallel event names or cookie-based visitor ids.
 
@@ -237,16 +237,16 @@ When adding a new surface, copy the sibling emit contract above; do not invent p
 
 ## Known gaps (live vs standard)
 
-Snapshot as of **2026-09-23**. Treat as verification backlog, not as permission to invent parallel events.
+Snapshot as of **2026-10-22**. Treat as verification backlog, not as permission to invent parallel events.
 
 | Gap | Live finding | Impact / next check |
 | --- | --- | --- |
-| **play / complete unverified** | Not present in Last Cradle FE. Last Cradle BE source inaccessible for this review. Game API has **no** land / funnel land route. | Largest ladder hole if BE does **not** emit `funnel.play` / `funnel.complete` into the **same Loki tenant** as home API. Confirm BE emit path + tenant labels before charting mint→play. |
-| **Purchase land → Loki** | Purchase client uses `logger.infoWithContext` with **no Loki URL in the browser bundle**, plus an empty HTTP beacon. Older docs claim purchase nginx proxies `/api/` to the home API; live `purchase.identyclaw.com/api/*` **301 → SPA**. | SPA `funnel.land` from purchase likely never reaches Loki. Prefer a cookieless beacon to home API discovery / `GET\|POST /api/funnel/land` (real API host), or fix nginx so `/api/` reaches the home API instead of the SPA. |
-| **Docs drift** | `discernible-io/docs` 404 in environments that expected it. Older growth-plan / purchase notes claimed purchase nginx proxies `/api/` to the home API; live `purchase.identyclaw.com/api/*` **301 → SPA**. | Keep this standard as SoT; do not reintroduce hostname or `/api/` proxy claims into the growth plan. |
-| **CORS allowlist** | ~~`www.discernible.io` / `lastcradle.io` missing from nginx CORS origin map.~~ **Fixed** in home-API `nginx.main.conf` / `nginx.development.conf` (origins + `X-Funnel-*` / `X-Utm-*` / `X-Campaign-*` Allow-Headers). | Redeploy nginx for both tiers; confirm preflight from those origins before relying on header attribution. |
-| **Privacy tension** | Last Cradle uses `sessionStorage` for UTMs. Purchase Plausible + Last Cradle gtag are separate from `funnel.*`. | Violates the cookieless stitching rule until UTMs are URL/memory-only (or consented). Do not join Plausible/gtag into ladder ratios. |
-| **Ops / verify FE** | ~~`funnel-smoke` is **not** in npm scripts.~~ Home API: `npm run funnel:smoke`. Verify UI has **no** funnel helper. | Verify still emits **server-side** on `POST /api/identity/verify` when the client forwards attribution in body/query. Add a verify FE helper when wiring land on that SPA. |
+| **play present; complete sparse** | `lastcradle-be` emits `funnel.play` on join/sit paths (`src/game/routes.js`, spectator/MCP tools). `funnel.complete` is defined in `src/lib/funnel.js`; confirm emit sites and **same Loki tenant** as home API before charting play→complete. Game API has **no** land / funnel land route (land stays on home API / marketing). | Confirm Loki labels for `funnel.play`; add or verify `funnel.complete` at eligible finish. |
+| **Purchase / verify land → Loki** | ~~Empty HTTP beacon from Parcel DCE of guarded `typeof process` / `process.env` access.~~ **Fixed in mintclient-idc source** (`buildFunnelLandBeaconUrl` + direct `process.env.REACT_APP_SIGNAPIENDPOINT` inlining, same pattern as `near-interface.js`). SPA `logger.infoWithContext` still has **no Loki URL** in the browser bundle—Loki ingress is the home-API land beacon. Live `purchase.identyclaw.com/api/*` **301 → SPA** (do not rely on same-origin `/api/` proxy). | Redeploy mintclient purchase + verify bundles; confirm Network tab shows `GET https://api.identyclaw.com/api/funnel/land?...` with a non-empty beacon body in JS. Then confirm home-API nginx ACAO for those SPA origins (next row). |
+| **Docs drift** | Older growth-plan / purchase notes claimed purchase nginx proxies `/api/` to the home API; live `purchase.identyclaw.com/api/*` **301 → SPA**. | Keep this standard as SoT; do not reintroduce hostname or `/api/` proxy claims into the growth plan. |
+| **CORS allowlist** | Marketing origins (`www.discernible.io` / `lastcradle.io`) **fixed** in home-API `nginx.main.conf` / `nginx.development.conf` (origins + `X-Funnel-*` / `X-Utm-*` / `X-Campaign-*` Allow-Headers). **Purchase / verify SPA origins** still lack ACAO for cross-origin `GET /api/funnel/land` (beacon may fire and fail CORS in the browser). | Home-API nginx (out of mintclient scope): add `https://purchase.identyclaw.com` and `https://verify.identyclaw.com` (and matching development hosts) to the CORS origin map; redeploy; confirm 204 from those origins. |
+| **Privacy tension** | Homepage parks `funnel_id` in `sessionStorage` (`homepage-discernible-io/public/script.js`). Last Cradle FE may still park UTMs similarly. Purchase Plausible + Last Cradle gtag are separate from `funnel.*`. | Violates the cookieless stitching rule until ids are URL/memory-only (or consented). Do not join Plausible/gtag into ladder ratios. Changing sessionStorage behavior is product-sensitive—document before rewriting. |
+| **Ops / verify FE** | Home API: `npm run funnel:smoke`. Verify FE calls `emitFunnelLandOnce(VERIFY_DOMAIN)` and forwards attribution on verify POST. Mintclient: `npm run test:funnel-attribution`. | After mintclient + home-API CORS redeploy, confirm Loki `funnel.land` with `domain=purchase.identyclaw.com` / `verify.identyclaw.com`. |
 
 ## Checklist for a new emit site
 
