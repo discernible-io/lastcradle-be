@@ -33,7 +33,7 @@ See [`docs/BRANCHING.md`](docs/BRANCHING.md).
 
 ### Organization standards ([`docs/`](docs/))
 
-Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at commit `606b439`. Service-relative links in these files resolve in this repository.
+Vendored from [discernible-io/docs](https://github.com/discernible-io/docs) at commit `fcd5cf9`. Service-relative links in these files resolve in this repository.
 
 | Document | Summary |
 | --- | --- |
@@ -194,8 +194,6 @@ SERVICE_NAME=syntheticlc-api
 
 # RODiT Configuration
 RODIT_NEAR_CREDENTIALS_SOURCE=vault
-MINTING_FEEACCOUNT=fees.rodit.near
-MINTING_FEE=0.1
 
 # Security Options
 SECURITY_OPTIONS_LOGIN_MODE=standard

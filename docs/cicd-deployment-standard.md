@@ -7,7 +7,8 @@ status: Implemented & Validated
 
 > **Before editing:** Review [`documentation-standard.md`](documentation-standard.md).
 
-**Created:** 2026-05-14
+**Created:** 2026-05-14  
+**Last reviewed:** 2026-10-22
 
 > **Scope:** **discernible-io/docs** publishes standards only. *This repo* means the **consuming service repository** where `docs/` sits at the repo root (next to `src/`, `config/`, `.github/`, etc.), not this standards repository. Concrete values below use **Generic** and **Example (…)** labels only.
 
@@ -45,6 +46,9 @@ This guide documents the migration from local Podman image builds to GitHub Cont
 - Block deployment when [Gitleaks](https://github.com/gitleaks/gitleaks) finds secrets or credentials in the repository content scanned for that workflow run (see [Secret scanning with Gitleaks](#secret-scanning-with-gitleaks)).
 - Keep rootless Podman pods running after deploy SSH and interactive sessions end by enabling logind **linger** for the deploy user (see [H. systemd linger](#h-systemd-linger-containers-survive-session-logout)).
 - Ship **slim production Node images** (no bundled npm/yarn in the runtime layer; static SPAs served from nginx where applicable) — see [Production container images: slim Node runtimes](#production-container-images-slim-node-runtimes).
+- Emit **SBOM and build provenance** attestations on image publish — see [SBOM and build provenance](#sbom-and-build-provenance).
+
+> **Scope note:** This standard covers **containerized** services that build to GHCR and deploy with Podman. Static marketing sites on GitHub Pages (or similar) follow a different topology; apply documentation and funnel standards there, not GHCR/Podman gates.
 
 ## Secret scanning with Gitleaks
 
@@ -103,8 +107,26 @@ Any non-zero exit must fail `build-images` and stop `test-and-deploy` (same seve
 
 1. Checkout (`fetch-depth: 0` for deploy workflows).
 2. **Gitleaks** secret scan.
-3. `node scripts/enforce-minimum-package-age.js`.
-4. `npm ci`, permission-map validation, Docker build/push.
+3. `node scripts/enforce-minimum-package-age.js` (or `.sh` equivalent).
+4. `npm ci`, permission-map validation, Docker build/push (with [SBOM and build provenance](#sbom-and-build-provenance) when pushing images).
+
+### Adoption checklist (score Aligned vs Partial)
+
+Use this short list when auditing a deploy workflow. **Aligned** means every must is present and fails the job on violation. **Partial** means some musts are missing or non-blocking—name which rows fail.
+
+| # | Must | Evidence |
+| --- | --- | --- |
+| 1 | `.gitleaks.toml` at repo root (narrow allowlists only) | File present; reviewed allowlist entries |
+| 2 | Gitleaks step **after** checkout (`fetch-depth: 0`) and **before** `npm ci` / image build | `deploy.yml` step order |
+| 3 | Gitleaks failure is **blocking** (non-zero exit fails `build-images`) | No `continue-on-error: true` on the scan |
+| 4 | Minimum package age gate before install/publish | `enforce-minimum-package-age.js` or `.sh` in `build-images` |
+| 5 | Deploy pulls GHCR images by **immutable SHA** tag | `test-and-deploy` uses `${{ github.sha }}` (not `:latest` alone) |
+| 6 | Host secrets via `--env-file` / mapped env—not workflow `-e` for runtime secrets | Deploy SSH script |
+| 7 | Linger enabled for rootless Podman deploy user | `ensure-podman-linger.sh` (or equivalent) |
+| 8 | Slim / pinned production images (see [Production container images](#production-container-images-slim-node-runtimes)) | Digest-pinned `FROM`; npm stripped from API runtime |
+| 9 | SBOM + provenance on image push (see [SBOM and build provenance](#sbom-and-build-provenance)) | `sbom: true`, `provenance: mode=max`, attestation permissions |
+
+Rows 1–4 are the fastest “half-implemented” failures. Score **Gap** if Gitleaks or min-age is absent entirely on a containerized API deployer.
 
 ### Configuration (`.gitleaks.toml`)
 
@@ -279,7 +301,7 @@ Split the workflow into two jobs:
   4. Run `node scripts/enforce-minimum-package-age.js` as a mandatory supply-chain gate before `npm ci`, build, or image publishing. Any non-zero exit must fail `build-images` and stop deployment.
   5. Run tests/validation (e.g., permission map generation).
   6. Authenticate to GHCR using `${{ secrets.GITHUB_TOKEN }}`.
-  7. Build and push API image: `docker/build-push-action@v6` with tags `${{ github.sha }}` and `latest` (on main).
+  7. Build and push API image: `docker/build-push-action@v6` with immutable `${{ github.sha }}` tags (optional non-authoritative `latest` convenience tag is allowed alongside SHA; **deploy must pull by SHA**). Enable SBOM/provenance per [SBOM and build provenance](#sbom-and-build-provenance).
   8. Build and push nginx image: same as above.
   9. Output image tags for downstream job.
 
@@ -525,7 +547,7 @@ Trigger the workflow and verify:
 - [ ] Repo has `.gitleaks.toml` with reviewed allowlists only for documented non-secrets.
 - [ ] `api.Dockerfile` uses a slim production stage (no npm in runtime) per [Production container images: slim Node runtimes](#production-container-images-slim-node-runtimes).
 - [ ] `build-images` explicitly runs `node scripts/enforce-minimum-package-age.js` before `npm ci`, Docker builds, or image pushes.
-- [ ] `build-images` job uses `docker/build-push-action@v6` to push to GHCR.
+- [ ] `build-images` job uses `docker/build-push-action@v6` to push to GHCR with `provenance: mode=max` and `sbom: true` (see [SBOM and build provenance](#sbom-and-build-provenance)).
 - [ ] `test-and-deploy` job pulls images from GHCR by SHA tag.
 - [ ] `APP_DIR` uses the same `SSH_USER_*` branch expression as `SSH_USER` (not `env.SSH_USER` inside `env:`; not hardcoded `/home/<username>/...`).
 - [ ] `GHCR_PULL_TOKEN` secret created and stored in GitHub Actions.
@@ -1007,6 +1029,39 @@ See also [`configuration-standard.md`](configuration-standard.md) for which keys
 - **Host directories** → Runtime data only (logs, certs, persistent data)
 - **Single source:** The repo. Everything else is derived from it.
 
+## SBOM and build provenance
+
+GHCR image publishes should attach **software bill of materials (SBOM)** and **SLSA-style provenance** so operators can audit what was built and from which commit. This does not change runtime behavior.
+
+### Required workflow settings
+
+In `build-images`:
+
+1. Grant permissions: `packages: write`, `id-token: write`, and `attestations: write` (plus existing `contents: read`).
+2. On each `docker/build-push-action` that pushes an image, set:
+
+```yaml
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+# inside each build-push step:
+with:
+  push: true
+  provenance: mode=max
+  sbom: true
+  tags: |
+    ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:${{ github.sha }}
+```
+
+3. After the first successful publish, confirm attestation artifacts appear on the GHCR package UI for that digest.
+
+**Reference (SignSanctum):** `.github/workflows/deploy.yml` enables `provenance: mode=max` and `sbom: true` on API and nginx image pushes.
+
+Deploy jobs continue to pull **only** the immutable SHA tag. A floating `:latest` tag, if present, is convenience only and must not be the deploy pin.
+
 ## Production container images: slim Node runtimes
 
 Node-based API and SPA images should ship **only what runs in production**. The official `node:*-alpine` image includes **npm**, **npx**, and often **yarn** under `/usr/local/lib/node_modules/npm/`. Trivy frequently reports **HIGH** findings on those tooling dependencies (`glob`, `tar`, `cross-spawn`, `minimatch`) even when `app/node_modules` is clean—they are **not** your application code paths unless you invoke them at runtime.
@@ -1031,20 +1086,52 @@ Use a **multi-stage** build: install dependencies in a **builder** stage; copy a
 
 | Stage | Base | Actions |
 | --- | --- | --- |
-| **builder** | `node:20-alpine` | `COPY package*.json` → `npm ci` (or `npm ci --omit=dev` if no compile step) → `COPY` source |
-| **production** | `node:20-alpine` | `apk add --no-cache tini` → non-root user → `COPY --from=builder` → **delete npm/npx** → `CMD ["node", "src/app.js"]` |
+| **builder** | Pinned `node:<patch>-alpine<ver>@sha256:…` | `COPY package*.json` → `npm ci` (or `npm ci --omit=dev` if no compile step) → `COPY` source |
+| **production** | Same pinned Node base as builder | `apk update && apk upgrade` → Alpine OpenSSL floor (`libcrypto3` / `libssl3` ≥ 3.5.8-r0) → `tini` → non-root user → `COPY --from=builder` → **delete npm/npx** → `CMD ["node", "src/app.js"]` |
+
+**Required: Alpine OpenSSL apk floor (API and nginx Alpine images)**
+
+After pin bumps or weekly Trivy noise on Alpine OpenSSL, keep an explicit floor in the **runtime** stage (and nginx Alpine images):
+
+```dockerfile
+RUN apk update && apk upgrade --no-cache \
+ && apk add --no-cache tini 'libcrypto3>=3.5.8-r0' 'libssl3>=3.5.8-r0'
+```
+
+Raise the floor only with a deliberate rebuild. Historical one-shot remediation: closed [`node-alpine-cve-patch-plan.md`](node-alpine-cve-patch-plan.md).
+
+**Required: pin base images (Node and nginx)**
+
+Floating tags (`node:20-alpine`, `nginx:mainline-alpine`, `latest`) change without a Dockerfile edit. Every API and nginx image **must** pin a **patch-level tag plus multi-arch index digest** (`name:tag@sha256:…`) so builds are reproducible and auditable.
+
+| Image | Avoid | Prefer |
+| --- | --- | --- |
+| Node (API / SPA builder) | `node:20-alpine`, `node:20` | `node:20.20.2-alpine3.23@sha256:…` |
+| Nginx (TLS sidecar) | `nginx:mainline-alpine`, `nginx:alpine` | `nginx:1.31.7-alpine@sha256:…` |
+
+Do this when adopting or changing Dockerfiles:
+
+1. Resolve the current Hub **index** digest for the chosen patch tag (multi-arch), not only the local platform manifest.
+2. Set the same `FROM …@sha256:…` on every stage that uses that base (builder and production for API images).
+3. Bump pins **deliberately** on a rebuild schedule for runtime/OS CVEs; smoke-test **development** and **main** after each bump.
+4. Prefer `npm ci` over `npm install` in CI/build for lockfile reproducibility.
+5. Install `tini` from `apk` when available; do not download a static `/tini` binary.
+
+**Reference (SignSanctum):** [`api.Dockerfile`](../api.Dockerfile) and [`nginx.Dockerfile`](../nginx.Dockerfile) use tag+digest pins for Node and nginx (Alpine `tini` from `apk`, npm removed in production). Refresh the digests in those files (and in the excerpts below) when bumping; do not treat the sha256 values as permanent.
 
 **Generic `api.Dockerfile` (production stage excerpt):**
 
 ```dockerfile
-FROM node:20-alpine AS builder
+# Bump tag+digest deliberately; keep builder and production on the same pin.
+FROM node:20.20.2-alpine3.23@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY . .
 
-FROM node:20-alpine AS production
-RUN apk add --no-cache tini \
+FROM node:20.20.2-alpine3.23@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS production
+RUN apk update && apk upgrade --no-cache \
+    && apk add --no-cache tini 'libcrypto3>=3.5.8-r0' 'libssl3>=3.5.8-r0' \
     && adduser -D -H -s /sbin/nologin nodeuser \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
@@ -1055,15 +1142,16 @@ ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "src/app.js"]
 ```
 
-**Example (SignSanctum):** [`api.Dockerfile`](../api.Dockerfile) implements this pattern (Alpine `tini` from `apk`, npm removed in production).
+**Generic `nginx.Dockerfile` (base pin excerpt):**
 
-**Migrate from single-stage API Dockerfiles:** **Example (SignPortal)** and **Example (clienttestapi)** historically used one `FROM node:20-alpine` layer with `npm install` / `npm ci` and left npm in the image. Port them to the two-stage pattern above; use `npm ci --omit=dev` in builder unless a compile step needs devDependencies.
+```dockerfile
+# Bump tag+digest deliberately on the same schedule as the API base image.
+FROM docker.io/nginx:1.31.7-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d
+ARG NODE_ENV=main
+# … openssl, COPY nginx/nginx.${NODE_ENV}.conf, non-root USER nginx …
+```
 
-**Optional hardening (same pattern):**
-
-- Pin base tag or digest, e.g. `node:20-alpine3.21`, and rebuild on a schedule for **Node runtime** CVEs.
-- Prefer `npm ci` over `npm install` in CI/build for reproducible lockfiles.
-- Do not download a static `/tini` binary when `apk add tini` is available (fewer supply-chain fetches).
+**Migrate from single-stage API Dockerfiles:** **Example (SignPortal)** and **Example (clienttestapi)** historically used one floating `FROM node:20-alpine` layer with `npm install` / `npm ci` and left npm in the image. Port them to the two-stage pattern above with pinned bases; use `npm ci --omit=dev` in builder unless a compile step needs devDependencies.
 
 #### B. Static SPA (React / Parcel / Vite build output) — **prefer nginx, not Node + `serve`**
 
@@ -1071,14 +1159,14 @@ SPAs need a static file server in production, not a full Node toolchain.
 
 | Approach | Production image | npm in prod? | Notes |
 | --- | --- | --- | --- |
-| **Recommended** | Existing **`nginx` sidecar** in the Podman pod | No | Build in CI/builder; copy `dist/` into `nginx.Dockerfile` or mount from builder artifact |
-| **Acceptable** | `nginx:alpine` only in app slot | No | Same pod pattern as this standard (nginx terminates TLS, serves `dist/`) |
-| **Avoid** | `node:20-alpine` + `npm install -g serve` | Yes (npm + serve deps) | Common source of false-positive HIGHs; keep Node only in **builder** |
+| **Recommended** | Existing **`nginx` sidecar** in the Podman pod | No | Build in CI/builder; copy `dist/` into `nginx.Dockerfile` or mount from builder artifact; pin the nginx base as above |
+| **Acceptable** | Pinned `nginx:<patch>-alpine@sha256:…` only in app slot | No | Same pod pattern as this standard (nginx terminates TLS, serves `dist/`) |
+| **Avoid** | Floating `node:20-alpine` + `npm install -g serve` | Yes (npm + serve deps) | Common source of false-positive HIGHs; keep Node only in **builder** |
 
 **Generic two-stage SPA build:**
 
 ```dockerfile
-FROM node:20-alpine AS builder
+FROM node:20.20.2-alpine3.23@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS builder
 WORKDIR /app
 ARG APP_BUILD_ENV=main
 ENV NODE_ENV=${APP_BUILD_ENV}
@@ -1087,15 +1175,15 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Prefer serving dist from nginx.Dockerfile / <service>-nginx container, not:
-# FROM node:20-alpine + npm install -g serve
+# Prefer serving dist from a pinned nginx.Dockerfile / <service>-nginx container, not:
+# FROM node:… + npm install -g serve
 ```
 
 **Example (mintclient):** [`react.Dockerfile`](../../mintclient-idc/react.Dockerfile) today runs `npm ci --production` and `npm install -g serve` in the runtime stage—migrate to **builder-only Node** and static hosting via **mintclient-nginx** (or bake `dist/` into the nginx image).
 
-#### C. Newer `node:*-alpine` base only (partial fix)
+#### C. Floating or unpinned Node base only (insufficient)
 
-Bumping `node:20-alpine` to the latest patch reduces **Node runtime** CVEs but **does not** remove npm’s vulnerable dependency tree if npm remains installed. Use this **together with** pattern A or B, not instead of removing npm from production.
+Relying on floating `node:20-alpine` (or bumping that floating tag without a digest) may reduce some **Node runtime** CVEs on the next rebuild but **does not** satisfy the pin requirement above and **does not** remove npm’s vulnerable dependency tree if npm remains installed. Use pinned bases **together with** pattern A or B, not instead of removing npm from production.
 
 #### D. Distroless (advanced)
 
@@ -1122,7 +1210,9 @@ Bumping `node:20-alpine` to the latest patch reduces **Node runtime** CVEs but *
 - [ ] Production stage has **no** `/usr/local/lib/node_modules/npm` (or uses distroless).
 - [ ] API images use **`node …`** as `CMD`, not `npm start`.
 - [ ] SPA images do **not** use `serve` or global npm in the runtime layer.
-- [ ] Base image tag/digest updated deliberately (not only `latest`).
+- [ ] Every `FROM` for Node and nginx uses a **patch-level tag plus `@sha256:…` index digest** (no floating `*-alpine` / `mainline` / `latest`).
+- [ ] Builder and production Node stages share the **same** pin.
+- [ ] Base image pins updated deliberately on a rebuild schedule; development and main smoke-tested after the bump.
 - [ ] Image rebuilt, pushed to GHCR, and deployed so the running tag matches the slim Dockerfile.
 
 ### Related troubleshooting
@@ -1245,7 +1335,7 @@ Defined directly in the workflow `env` section (workflow or job) — not stored 
 | Development | `development` | in `nginx/nginx.development.conf` | same as `server_name` | `webhook.dihola.io` |
 | Main | `main` | in `nginx/nginx.main.conf` | same as `server_name` | `webhook.discernible.io` |
 
-**Example (SignPortal):** `signportal.dihola.io` / `signportal.discernible.io`, port `8443`.
+**Example (SignPortal):** `signportal.dihola.io` / `signportal.discernible.io`, port `14443`.
 
 Do not add `DOMAIN_MAIN` / `DOMAIN_DEV` GitHub Variables—they duplicate values already in `deploy.yml` and nginx configs. Change nginx configs, `DOMAIN` in `deploy.yml`, and DNS/certs together when renaming a host.
 
@@ -1326,7 +1416,7 @@ External client
 
 - `APP_PORT` is the **external** pod port. It must match nginx `listen` and `nginx.Dockerfile` `EXPOSE`.
 - **Example (clienttestapi):** `7443`, `proxy_pass http://clienttestapi-container:8080`.
-- **Example (SignPortal):** `8443`, `proxy_pass http://signportal-container:8080`.
+- **Example (SignPortal):** `14443`, `proxy_pass http://signportal-container:8080`.
 - `APP_CONTAINER_NAME` must match the hostname in nginx `proxy_pass` (Podman pod DNS uses container names).
 
 Changing any of these values requires coordinated updates across `nginx/nginx.*.conf`, `nginx.Dockerfile`, `api.Dockerfile`, config files, and `deploy.yml`.
@@ -1684,11 +1774,11 @@ map $http_origin $cors_origin {
     default "";
     "https://root.discernible.io:6443" "$http_origin";
     "https://purchase.identyclaw.com:4443" "$http_origin";
-    "https://signportal.discernible.io:8443" "$http_origin";
+    "https://signportal.discernible.io:14443" "$http_origin";
 }
 
 server {
-    listen 8443 ssl;
+    listen 14443 ssl;
     http2 on;
     server_name signportal.discernible.io;
     ...
@@ -1702,11 +1792,11 @@ map $http_origin $cors_origin {
     default "";
     "https://root-dev.discernible.io:6443" "$http_origin";
     "https://purchase-dev.identyclaw.com:4443" "$http_origin";
-    "https://signportal.dihola.io:8443" "$http_origin";
+    "https://signportal.dihola.io:14443" "$http_origin";
 }
 
 server {
-    listen 8443 ssl;
+    listen 14443 ssl;
     http2 on;
     server_name signportal.dihola.io;
     ...
