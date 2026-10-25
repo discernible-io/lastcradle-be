@@ -71,7 +71,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Logging structure (`*WithContext`, completion) | **Met** | Single `Request completed` at `info` with `component: "API"` |
 | Stack trace redaction on main | **Met** | `isMainTier()` gates stacks in `setupFallbackHandlers()` |
 | Startup config snapshot | **Met** | `src/services/startup-config.service.js` (redacted, post-listen) |
-| Slim API image (npm removed) | **Met** | Multi-stage `api.Dockerfile`, npm stripped from runtime; Node base pinned `node:20.20.2-alpine3.23@sha256:…` (2026-10-22); SBOM/provenance on image publish |
+| Slim API image (npm removed) | **Met** | Multi-stage `api.Dockerfile`, npm stripped from runtime; Node base pinned `node:22.23.4-alpine@sha256:…` (CVE-2026-111497); SBOM/provenance on image publish |
 | Allowed fallbacks only | **Met** | Session fail-fast on main; Swagger tier URL from `SERVICE_NAME`; webhook policy documented in `cruda.js` |
 | Host secrets wiring | **Met** | `podman run --env-file …/secrets/secrets.env`; only `NODE_ENV` via `-e` |
 | systemd linger | **Met** | `scripts/ensure-podman-linger.sh` on each deploy |

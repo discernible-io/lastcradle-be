@@ -30,7 +30,7 @@ env:
   REGISTRY_USERNAME: ${{ github.actor }}
   API_IMAGE_NAME: ${{ github.repository }}/syntheticlc-api
   NGINX_IMAGE_NAME: ${{ github.repository }}/syntheticlc-nginx
-  NODE_VERSION: 20
+  NODE_VERSION: 22.23.4
   HEALTH_CHECK_TIMEOUT: 120
   HEALTH_CHECK_INTERVAL: 5
 
