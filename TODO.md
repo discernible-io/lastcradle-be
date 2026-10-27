@@ -375,3 +375,18 @@ node --check src/game/scheduler.js
 - Deploy workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
 - Local deploy: [`scripts/deploy-local-podman.sh`](scripts/deploy-local-podman.sh)
 - Operator README: [`README.md`](README.md)
+
+
+## Standards gaps (host audit 2026-10-27)
+
+Audited against discernible-io/docs `bad60c82`. Vendored pin in README is still `fcd5cf9` (behind host docs). Already-tracked: **P3** OpenAPI looseness; operator checklist; geolocation deferred.
+
+| Priority | Gap | Standard | Suggested fix |
+| --- | --- | --- | --- |
+| P5 | Vendored `docs/` behind authoritative tree | documentation | Re-vendor / re-pin to current docs SHA; update README pin |
+| P6 | ~~No `npm audit` in CI~~ | cicd-deployment | **Done** 2026-10-27 — `npm audit --omit=dev --audit-level=high` after `npm ci` (overrides + zod ^4.6.6) |
+| P7 | ~~No Trivy image scan~~ | cicd-deployment | **Done** 2026-10-27 — Trivy CRITICAL/HIGH on API + nginx after push |
+| P8 | ~~No blocking `npm test` before image publish~~ | test-constitution / cicd | **Done** 2026-10-27 — `npm test` (`test/validateConfig.test.js`) before Buildx; deploy smokes remain supplementary |
+| P9 | Post-deploy health explicitly non-blocking | cicd-deployment | Decide: document exception or fail on `main` |
+| P10 | No `pull_request` job / deploy concurrency | cicd-deployment | Add PR verify + deploy concurrency group keyed on the git ref |
+| P11 | GHCR `:latest` from all branch pushes | cicd-deployment | `:latest` only from `main` |
