@@ -3,7 +3,7 @@
 > **Before editing:** Review [`documentation-standard.md`](docs/documentation-standard.md).
 
 **Created:** 2026-05-29  
-**Last updated:** 2026-10-22 (P2 NEAR_RPC env mutation Met; P4 cleared; API Node digest + SBOM; OpenAPI P3 still open)
+**Last updated:** 2026-06-23 (game auth policy + OpenAPI alignment)
 
 | | |
 |---|---|
@@ -12,7 +12,7 @@
 
 ## Executive summary
 
-CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Gitleaks, permission-map validation, slim API image (npm stripped, `apk` tini), config boolean encoding, `validateConfig` fail-fast, main-tier stack policy, consolidated request logging, session fail-fast on main, and nginx/domain alignment are **in place**. Remaining work is **narrow** — see [Remaining gaps](#remaining-gaps): optional OpenAPI tightening, plus **operator** host/GitHub setup and **deferred** product items (geolocation). `NEAR_RPC_URL` startup no longer mutates `process.env` (aligned with `api-scaffold-federated-idc` as of 2026-10-22). P4 branch-config cleanup and API Node digest + SBOM landed the same day.
+CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Gitleaks, permission-map validation, slim API image (npm stripped, `apk` tini), config boolean encoding, `validateConfig` fail-fast, main-tier stack policy, consolidated request logging, session fail-fast on main, and nginx/domain alignment are **in place**. Remaining work is **narrow** — see [Remaining gaps](#remaining-gaps): optional branch-config completeness, plus **operator** host/GitHub setup and **deferred** product items (geolocation). `NEAR_RPC_URL` startup no longer mutates `process.env` (aligned with `api-scaffold-federated-idc` as of 2026-10-22).
 
 | Legend | Meaning |
 |--------|---------|
@@ -31,9 +31,8 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Priority | Standard | Gap | Evidence | Suggested fix |
 |----------|----------|-----|----------|---------------|
 | P2 | [`configuration-standard.md`](docs/configuration-standard.md) | ~~Config via SDK, not ad-hoc `process.env` mutation~~ **Met 2026-10-22** | Startup uses `config.get("NEAR_RPC_URL")` only; no `process.env` write | Reference: `api-scaffold-federated-idc`. `idclawserver-idc` still mutates env at startup |
-| P3 | [`documentation-standard.md`](docs/documentation-standard.md) | Some game OpenAPI objects are still loose | `GamePublicState` and `GameSse*` components cover state and SSE. `narrative` and `turnInvestments` remain `additionalProperties: true` | Tighten those objects as the game API stabilizes |
-
-**Cleared (2026-10-22):** former **P4** — tier keys `NEAR_CONTRACT_ID` / `LOKI_URL` / `PUBLIC_PORT` / `LOKI_TLS_SKIP_VERIFY` are in branch JSON; unused `MINTING_FEE*` removed from `custom-environment-variables.json` and README; unused names dropped from the vendored configuration-standard table.
+| P3 | [`documentation-standard.md`](docs/documentation-standard.md) | Game OpenAPI response schemas still minimal for some routes | Join/state/SSE payloads | Extend swagger components as game API stabilizes |
+| P4 | [`configuration-standard.md`](docs/configuration-standard.md) | Branch JSON self-contained for all tier-tunable keys | `NEAR_CONTRACT_ID`, `LOKI_URL`, `MINTING_FEE`, etc. only in `custom-environment-variables.json` / host `secrets.env` | Commit tier-specific non-secret values to `config/development.json` and `config/main.json` where branch merges require them |
 
 ### Operator-only (not repo gaps)
 
@@ -71,7 +70,7 @@ CI/CD, OpenAPI contract, `sendError()` on routes (including malformed JSON), Git
 | Logging structure (`*WithContext`, completion) | **Met** | Single `Request completed` at `info` with `component: "API"` |
 | Stack trace redaction on main | **Met** | `isMainTier()` gates stacks in `setupFallbackHandlers()` |
 | Startup config snapshot | **Met** | `src/services/startup-config.service.js` (redacted, post-listen) |
-| Slim API image (npm removed) | **Met** | Multi-stage `api.Dockerfile`, npm stripped from runtime; Node base pinned `node:22.23.4-alpine@sha256:…` (CVE-2026-111497); SBOM/provenance on image publish |
+| Slim API image (npm removed) | **Met** | Multi-stage `api.Dockerfile`, npm stripped from runtime |
 | Allowed fallbacks only | **Met** | Session fail-fast on main; Swagger tier URL from `SERVICE_NAME`; webhook policy documented in `cruda.js` |
 | Host secrets wiring | **Met** | `podman run --env-file …/secrets/secrets.env`; only `NODE_ENV` via `-e` |
 | systemd linger | **Met** | `scripts/ensure-podman-linger.sh` on each deploy |
@@ -379,13 +378,9 @@ node --check src/game/scheduler.js
 
 ## Standards conformance gaps (host audit 2026-10-27)
 
-Incremental findings vs vendored [`docs/`](docs/) and central discernible-io/docs (~107 KB cicd vs local ~99 KB).
-
 | Priority | Standard | Gap | Action |
 | --- | --- | --- | --- |
-| P5 | Consuming standards distribution | Vendored `docs/cicd-deployment-standard.md` drifted from central | Re-pin submodule/subtree/copy to current docs SHA; state pin in README |
-| P6 | cicd **PI 16** | No Trivy image scan / `npm audit` step in `deploy.yml` (Gitleaks + age gate + SBOM present) | Add audit + image scan per adoption checklist rows 10–16 |
-| P7 | funnel | `funnel.complete` still sparse; confirm same Loki tenant labels as home API for `funnel.play` | Emit/verify at eligible finish; chart mint→play with `joinMethod!="guest"` |
-| P8 | logging **PI 14** | Residual non-`*WithContext` / incomplete cause fields (e.g. metricsroutes) | Spot-fix on touch |
-| P9 | coding **PI 12** | Outcome tests / unused code on touch | — |
-| P10 | documentation principle 21 | Local checkout is `main` only; remote has `development` | Fetch both; keep `TODO.md` blobs identical |
+| P5 | Consuming standards distribution | Vendored cicd ~93 KB vs central ~107 KB | Re-sync pin; stop editing stale copies as authoritative |
+| P6 | cicd **PI 16** | No Trivy / `npm audit` in deploy workflow | Add per adoption checklist |
+| P7 | logging **PI 14** / coding **PI 12** | Spot-fix cause fields and outcome tests on touch | — |
+| (open) | configuration **P4** | Tier-tunable non-secrets still only via env mapping | Already tracked above — commit into branch JSON where merges require |
