@@ -377,16 +377,15 @@ node --check src/game/scheduler.js
 - Operator README: [`README.md`](README.md)
 
 
-## Standards gaps (host audit 2026-10-27)
+## Standards conformance gaps (host audit 2026-10-27)
 
-Audited against discernible-io/docs `bad60c82`. Vendored pin in README is still `fcd5cf9` (behind host docs). Already-tracked: **P3** OpenAPI looseness; operator checklist; geolocation deferred.
+Incremental findings vs vendored [`docs/`](docs/) and central discernible-io/docs (~107 KB cicd vs local ~99 KB).
 
-| Priority | Gap | Standard | Suggested fix |
+| Priority | Standard | Gap | Action |
 | --- | --- | --- | --- |
-| P5 | Vendored `docs/` behind authoritative tree | documentation | Re-vendor / re-pin to current docs SHA; update README pin |
-| P6 | ~~No `npm audit` in CI~~ | cicd-deployment | **Done** 2026-10-27 — `npm audit --omit=dev --audit-level=high` after `npm ci` (overrides + zod ^4.6.6) |
-| P7 | ~~No Trivy image scan~~ | cicd-deployment | **Done** 2026-10-27 — Trivy CRITICAL/HIGH on API + nginx after push |
-| P8 | ~~No blocking `npm test` before image publish~~ | test-constitution / cicd | **Done** 2026-10-27 — `npm test` (`test/validateConfig.test.js`) before Buildx; deploy smokes remain supplementary |
-| P9 | Post-deploy health explicitly non-blocking | cicd-deployment | Decide: document exception or fail on `main` |
-| P10 | No `pull_request` job / deploy concurrency | cicd-deployment | Add PR verify + deploy concurrency group keyed on the git ref |
-| P11 | GHCR `:latest` from all branch pushes | cicd-deployment | `:latest` only from `main` |
+| P5 | Consuming standards distribution | Vendored `docs/cicd-deployment-standard.md` drifted from central | Re-pin submodule/subtree/copy to current docs SHA; state pin in README |
+| P6 | cicd **PI 16** | No Trivy image scan / `npm audit` step in `deploy.yml` (Gitleaks + age gate + SBOM present) | Add audit + image scan per adoption checklist rows 10–16 |
+| P7 | funnel | `funnel.complete` still sparse; confirm same Loki tenant labels as home API for `funnel.play` | Emit/verify at eligible finish; chart mint→play with `joinMethod!="guest"` |
+| P8 | logging **PI 14** | Residual non-`*WithContext` / incomplete cause fields (e.g. metricsroutes) | Spot-fix on touch |
+| P9 | coding **PI 12** | Outcome tests / unused code on touch | — |
+| P10 | documentation principle 21 | Local checkout is `main` only; remote has `development` | Fetch both; keep `TODO.md` blobs identical |
