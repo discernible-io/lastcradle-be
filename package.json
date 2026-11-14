@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
-    "@rodit/rodit-auth-be": "9.17.4",
+    "@rodit/rodit-auth-be": "10.0.3",
     "config": "^4.4.2",
     "connect-sqlite3": "0.9.18",
     "express": "4.22.3",
