@@ -1,6 +1,6 @@
 # Security & standards compliance
 
-> **Before editing:** Review [`documentation-standard.md`](docs/documentation-standard.md).
+> **Before editing:** Review [`documentation-standard.md`](docs/documentation-standard.md)
 
 **Created:** 2026-05-29  
 **Last updated:** 2026-06-23 (game auth policy + OpenAPI alignment)
