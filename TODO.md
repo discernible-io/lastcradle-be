@@ -1,6 +1,6 @@
 # Security & standards compliance
 
-> **Before editing:** Review [`documentation-standard.md`](docs/documentation-standard.md)
+> **Before editing:** Review [`documentation-standard.md`](docs/documentation-standard.md).
 
 **Created:** 2026-05-29  
 **Last updated:** 2026-06-23 (game auth policy + OpenAPI alignment)
@@ -380,7 +380,7 @@ node --check src/game/scheduler.js
 
 | Priority | Standard | Gap | Action |
 | --- | --- | --- | --- |
-| P5 | Consuming standards distribution | Vendored cicd ~93 KB vs central ~107 KB | Re-sync pin; stop editing stale copies as authoritative |
-| P6 | cicd **PI 16** | No Trivy / `npm audit` in deploy workflow | Add per adoption checklist |
+| P5 | Consuming standards distribution | Vendored cicd **99,330** bytes vs central **35,962** | Re-sync pin or switch to reference-only; stop editing stale copies as authoritative |
+| P6 | cicd **PI 16** | **Done 2026-11-15** — `deploy.yml` has `npm audit --omit=dev --audit-level=high`, `npm test`, and Trivy on API/nginx images | — |
 | P7 | logging **PI 14** / coding **PI 12** | Spot-fix cause fields and outcome tests on touch | — |
 | (open) | configuration **P4** | Tier-tunable non-secrets still only via env mapping | Already tracked above — commit into branch JSON where merges require |
